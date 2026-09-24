@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Employee List</title>
+</head>
+<body>
+	<table border="1" cellpadding="4" cellspacing="0">
+
+		<tr>
+			<th>ID</th>
+			<th>Emp Name</th>
+			<th>Emp Job</th>
+			<th>Emp hireDate</th>
+		</tr>
+
+		<tr th:each="Employee : ${employeeList}">
+
+			<td th:text="${Employee.empno}"></td>
+
+			<td th:text="${Employee.ename}"></td>
+
+			<td th:text="${Employee.job}"></td>
+
+			<td th:text="${Employee.hiredate}"></td>
+
+		</tr>
+
+	</table>
+</body>
+</html>

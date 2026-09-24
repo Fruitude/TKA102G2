@@ -1,0 +1,18 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+<title>Add a employee</title>
+
+</head>
+<body>
+	<form style="height: 150px;" th:action="@{/example/emp/add_emp}" method="post" >
+		<table th:replace="~{fragment/emp_form :: empForm(null, ${deptList})}"></table>
+		<br>
+		<button type="submit">新增</button>
+	</form>
+	<br>
+
+	<div th:replace="~{fragment/emp_form :: messageAlert(${message})}"></div>
+</body>
+</html>

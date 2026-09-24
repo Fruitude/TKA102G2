@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Employee Main</title>
+</head>
+<body>
+	<table border="1" cellpadding="4" cellspacing="0">
+		<tr>
+			<th>Get All</th>
+			<td><a th:href="@{/example/emp/getall}">Get all</a></td>
+		</tr>
+		<tr>
+			<th>Get All with JOIN</th>
+			<td><a th:href="@{/example/emp/getalljoin}">Get all with join</a></td>
+		</tr>
+		<tr>
+			<th>Add new Emp</th>
+			<td><a th:href="@{/example/emp/add}">Add new emp</a></td>
+		</tr>
+		<tr>
+			<th>Edit Emp by empNo</th>
+			<td><a th:href="@{/example/emp/edit}">Edit Emp by empNo</a></td>
+		</tr>
+		<tr>
+			<th>Delete Emp by empNo</th>
+			<td><a th:href="@{/example/emp/delete}">Delete Emp by empNo</a></td>
+		</tr>
+	</table>
+</body>
+</html>

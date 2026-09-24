@@ -1,0 +1,21 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+<title>Delete a employee</title>
+
+</head>
+<body>
+	<form th:action="@{/example/emp/delete}" method="post">
+		<label>EmpNo：</label>
+		<input type="text" name="empno" th:value="${searchedEmpno}">
+		<button type="submit">刪除</button>
+	</form>
+
+	<p th:if="${searched} and ${employee == null}">查無此員工編號</p>
+
+	<br>
+
+	<div th:replace="~{fragment/emp_form :: messageAlert(${message})}"></div>
+</body>
+</html>

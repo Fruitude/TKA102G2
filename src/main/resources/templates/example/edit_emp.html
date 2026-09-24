@@ -1,0 +1,30 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+<title>Edit a employee</title>
+
+</head>
+<body>
+	<form th:action="@{/example/emp/edit}" method="get">
+		<label>EmpNo：</label>
+		<input type="text" name="empno" th:value="${searchedEmpno}">
+		<button type="submit">查詢</button>
+	</form>
+
+	<p th:if="${searched} and ${employee == null}">查無此員工編號</p>
+
+	<br>
+
+	<form th:if="${employee != null}" style="height: 150px;" th:action="@{/example/emp/update}" method="post">
+		<input type="hidden" name="empno" th:value="${employee.empno}">
+		<p>EmpNo：<span th:text="${employee.empno}"></span></p>
+		<table th:replace="~{fragment/emp_form :: empForm(${employee}, ${deptList})}"></table>
+		<br>
+		<button type="submit">更新</button>
+	</form>
+	<br>
+
+	<div th:replace="~{fragment/emp_form :: messageAlert(${message})}"></div>
+</body>
+</html>

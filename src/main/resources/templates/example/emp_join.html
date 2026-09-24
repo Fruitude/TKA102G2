@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Employee List (Join Dept)</title>
+</head>
+<body>
+	<table border="1" cellpadding="4" cellspacing="0">
+
+		<tr>
+			<th>ID</th>
+			<th>Emp Name</th>
+			<th>Emp Job</th>
+			<th>Emp hireDate</th>
+			<th>Dept No</th>
+			<th>Dept Name</th>
+		</tr>
+
+		<tr th:each="row : ${employeeListJoin}">
+
+			<td th:text="${row.get('emp').empno}"></td>
+
+			<td th:text="${row.get('emp').ename}"></td>
+
+			<td th:text="${row.get('emp').job}"></td>
+
+			<td th:text="${row.get('emp').hiredate}"></td>
+
+			<td th:text="${row.get('dept').deptno}"></td>
+
+			<td th:text="${row.get('dept').dname}"></td>
+
+		</tr>
+
+	</table>
+</body>
+</html>

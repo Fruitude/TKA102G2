@@ -1,0 +1,78 @@
+/* Order review / payment page (checkout/confirm/) */
+
+.confirm-page {
+  min-height: 100vh;
+  padding-bottom: 7rem; /* leave room for the sticky total bar */
+}
+
+.confirm-container {
+  width: 100%;
+  max-width: 42rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.confirm-block-header {
+  margin-top: 2rem;
+}
+
+.confirm-item-row {
+  justify-content: space-between;
+  align-items: center;
+  display: flex;
+}
+
+.confirm-item-row + .confirm-item-row {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--brand--neutrals--grey-dark, #a1a09c);
+}
+
+.confirm-item-name {
+  margin-bottom: .25rem;
+}
+
+.confirm-item-qty {
+  color: var(--text--default--black-light, #7a7a7a);
+}
+
+.confirm-credit-input-row {
+  align-items: center;
+  gap: 1rem;
+  display: flex;
+}
+
+.confirm-credit-input-row .form-input {
+  max-width: 12rem;
+  margin-bottom: 0;
+}
+
+.confirm-empty-state,
+.confirm-success-state {
+  text-align: center;
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.confirm-bottom-bar {
+  z-index: 10;
+  background-color: var(--brand--neutrals--tan-light, #f4f7f0);
+  border-top: 1px solid var(--text--default--black, #302f2d);
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  position: fixed;
+  inset: auto 0 0 0;
+}
+
+.confirm-bottom-bar-total-label {
+  color: var(--text--default--black-light, #7a7a7a);
+}
+
+.confirm-bottom-bar-total-value {
+  font-size: 1.25rem;
+}
