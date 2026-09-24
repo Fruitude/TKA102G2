@@ -1,0 +1,18 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+<title>Add an order</title>
+
+</head>
+<body>
+	<form th:action="@{/example/order/add_order}" method="post" >
+		<table th:replace="~{fragment/order_form :: orderForm(null, ${memberList})}"></table>
+		<br>
+		<button type="submit">新增</button>
+	</form>
+	<br>
+
+	<div th:replace="~{fragment/order_form :: messageAlert(${message})}"></div>
+</body>
+</html>

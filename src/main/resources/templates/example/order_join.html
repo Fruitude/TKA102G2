@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Order List with Join</title>
+</head>
+<body>
+	<p><a th:href="@{/example/order}">回主選單</a></p>
+	<table border="1" cellpadding="4" cellspacing="0">
+
+		<tr>
+			<th>ID</th>
+			<th>Member ID</th>
+			<th>Member Name</th>
+			<th>Receiver Name</th>
+			<th>Shipping Address</th>
+			<th>Payment Method</th>
+			<th>Actual Payment Amount</th>
+			<th>Orders Date</th>
+			<th>Orders Status</th>
+		</tr>
+
+		<tr th:each="row : ${ordersListJoin}"
+			th:with="orders=${row.get('orders')}, member=${row.get('member')}">
+
+			<td th:text="${orders.ordersId}"></td>
+
+			<td th:text="${member.memberId}"></td>
+
+			<td th:text="${member.memberName}"></td>
+
+			<td th:text="${orders.receiverName}"></td>
+
+			<td th:text="${orders.shippingAddress}"></td>
+
+			<td th:text="${orders.paymentMethod}"></td>
+
+			<td th:text="${orders.actualPaymentAmount}"></td>
+
+			<td th:text="${#temporals.format(orders.ordersDate, 'yyyy-MM-dd HH:mm')}"></td>
+
+			<td th:text="${orders.ordersStatus}"></td>
+
+		</tr>
+
+	</table>
+</body>
+</html>

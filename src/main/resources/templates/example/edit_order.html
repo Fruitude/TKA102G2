@@ -1,0 +1,31 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+<title>Edit an order</title>
+
+</head>
+<body>
+	<form th:action="@{/example/order/edit}" method="get">
+		<label>OrdersId：</label>
+		<input type="text" name="ordersId" th:value="${searchedOrdersId}">
+		<button type="submit">查詢</button>
+	</form>
+
+	<p th:if="${searched} and ${orders == null}">查無此訂單編號</p>
+
+	<br>
+
+	<form th:if="${orders != null}" th:action="@{/example/order/update}" method="post">
+		<input type="hidden" name="ordersId" th:value="${orders.ordersId}">
+		<p>OrdersId：<span th:text="${orders.ordersId}"></span></p>
+		<p>OrdersDate：<span th:text="${#temporals.format(orders.ordersDate, 'yyyy-MM-dd HH:mm')}"></span></p>
+		<table th:replace="~{fragment/order_form :: orderForm(${orders}, ${memberList})}"></table>
+		<br>
+		<button type="submit">更新</button>
+	</form>
+	<br>
+
+	<div th:replace="~{fragment/order_form :: messageAlert(${message})}"></div>
+</body>
+</html>

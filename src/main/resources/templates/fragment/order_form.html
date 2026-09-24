@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+	<!-- input 的 name 要跟 Orders 的屬性名稱一樣，Controller 的 @ModelAttribute 才能自動填入 -->
+	<table th:fragment="orderForm(orders, memberList)" border="1" cellpadding="4" cellspacing="0">
+		<tbody>
+			<tr>
+				<td>Member</td>
+				<td>
+					<select name="memberId">
+					    <option th:each="member : ${memberList}"
+					            th:value="${member.memberId}"
+					            th:selected="${orders != null and member.memberId == orders.memberId}"
+					            th:text="${member.memberName}"></option>
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<td>ReceiverName</td>
+				<td><input name="receiverName" th:value="${orders?.receiverName}"></td>
+			</tr>
+			<tr>
+				<td>Email</td>
+				<td><input name="email" th:value="${orders?.email}"></td>
+			</tr>
+			<tr>
+				<td>PhoneNumber</td>
+				<td><input name="phoneNumber" th:value="${orders?.phoneNumber}"></td>
+			</tr>
+			<tr>
+				<td>ShippingAddress</td>
+				<td><input name="shippingAddress" th:value="${orders?.shippingAddress}"></td>
+			</tr>
+			<tr>
+				<td>PaymentMethod</td>
+				<td><input name="paymentMethod" th:value="${orders?.paymentMethod}"></td>
+			</tr>
+			<tr>
+				<td>ProductTotal</td>
+				<td><input type="number" name="productTotal" th:value="${orders?.productTotal}"></td>
+			</tr>
+			<tr>
+				<td>Discount</td>
+				<td><input type="number" name="discount" th:value="${orders?.discount}"></td>
+			</tr>
+			<tr>
+				<td>ShippingFee</td>
+				<td><input type="number" name="shippingFee" th:value="${orders?.shippingFee}"></td>
+			</tr>
+			<tr>
+				<td>ShoppingCredit</td>
+				<td><input type="number" name="shoppingCredit" th:value="${orders?.shoppingCredit}"></td>
+			</tr>
+			<tr>
+				<td>ActualPaymentAmount</td>
+				<td><input type="number" name="actualPaymentAmount" th:value="${orders?.actualPaymentAmount}"></td>
+			</tr>
+			<tr>
+				<td>LogisticsNote</td>
+				<td><input name="logisticsNote" th:value="${orders?.logisticsNote}"></td>
+			</tr>
+			<tr>
+				<td>OrdersNote</td>
+				<td><input name="ordersNote" th:value="${orders?.ordersNote}"></td>
+			</tr>
+			<tr>
+				<td>OrdersStatus</td>
+				<td><input type="number" name="ordersStatus" th:value="${orders?.ordersStatus}"></td>
+			</tr>
+			<tr>
+				<td>EmployeeId</td>
+				<td><input type="number" name="employeeId" th:value="${orders?.employeeId}"></td>
+			</tr>
+		</tbody>
+	</table>
+
+	<script th:fragment="messageAlert(message)" th:if="${message != null}" th:inline="javascript">
+		alert(/*[[${message}]]*/ '');
+	</script>
+
+</body>
+</html>
