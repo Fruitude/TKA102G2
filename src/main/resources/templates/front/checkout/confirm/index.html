@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<title>結帳 | 鮮果鋪</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="../../6706de395f0ceac28687d464/css/shuttershopx-template.webflow.d1e3efa9a.css" rel="stylesheet" type="text/css"/>
+<link href="../../css/cart.css" rel="stylesheet" type="text/css"/>
+<link href="../../css/checkout-confirm.css" rel="stylesheet" type="text/css"/>
+<script src="../../ajax/libs/webfont/1.6.26/webfont.js" type="text/javascript"></script>
+<script type="text/javascript">WebFont.load({  google: {    families: ["Playfair Display:regular,500,600,italic,500italic,600italic","Jost:regular,500,600,700,italic,500italic,600italic"]  }});</script>
+<link href="../../66ecb06b29465580bc39d040/66f9e2f29a06e073fa0b4e8c_Shutter_Shop_&ndash;_32_Fav.svg" rel="shortcut icon" type="image/x-icon"/>
+<link href="../../66ecb06b29465580bc39d040/66f9e2f649279bcda23519f4_Shutter_Shop_&ndash;_256.svg" rel="apple-touch-icon"/>
+</head>
+<body>
+<div class="checkout-form confirm-page">
+  <div class="confirm-container">
+
+    <div class="checkout-header">
+      <h1 class="heading-h3">結帳</h1>
+      <a class="secondary-button w-button" href="../">返回購物車</a>
+    </div>
+
+    <div id="confirm-empty-state" class="confirm-empty-state" style="display:none">
+      <div class="paragraph-18" id="confirm-empty-message">您的購物車是空的。</div>
+      <a class="primary-button w-button" id="confirm-empty-link" href="../../all-products/" style="margin-top:1.5rem; display:inline-flex;">回去逛逛</a>
+    </div>
+
+    <div id="confirm-success-state" class="confirm-success-state" style="display:none">
+      <h2 class="heading-h4">訂單已送出，感謝您的購買！</h2>
+      <a class="primary-button w-button" href="../../" style="margin-top:1.5rem; display:inline-flex;">回首頁</a>
+    </div>
+
+    <div id="confirm-order-ui">
+      <div class="checkout-header confirm-block-header">
+        <h2 class="heading-h4">訂單商品</h2>
+      </div>
+      <div class="checkout-contents">
+        <div id="confirm-item-list"></div>
+      </div>
+
+      <div class="checkout-header confirm-block-header">
+        <h2 class="heading-h4">購物金折抵</h2>
+      </div>
+      <div class="checkout-contents">
+        <div class="confirm-credit-input-row">
+          <label class="form_field-label" for="store-credit-input">輸入要折抵的購物金</label>
+          <input class="form-input" id="store-credit-input" inputmode="numeric" min="0" placeholder="0" type="number"/>
+        </div>
+      </div>
+
+      <div class="checkout-header confirm-block-header">
+        <h2 class="heading-h4">付款詳情</h2>
+      </div>
+      <div class="checkout-contents">
+        <div class="w-commerce-commercecheckoutsummarylineitem">
+          <div class="paragraph-18">商品總金額</div>
+          <div class="paragraph-18" id="confirm-items-total"></div>
+        </div>
+        <div class="w-commerce-commercecheckoutsummarylineitem">
+          <div class="paragraph-18">運費金額</div>
+          <div class="paragraph-18" id="confirm-shipping-fee"></div>
+        </div>
+        <div class="w-commerce-commercecheckoutsummarylineitem">
+          <div class="paragraph-18">運費折抵</div>
+          <div class="paragraph-18" id="confirm-shipping-discount"></div>
+        </div>
+        <div class="w-commerce-commercecheckoutsummarylineitem" id="confirm-credit-discount-row" style="display:none">
+          <div class="paragraph-18">購物金折抵</div>
+          <div class="paragraph-18" id="confirm-credit-discount"></div>
+        </div>
+        <div class="w-commerce-commercecheckoutsummarylineitem">
+          <div class="paragraph-18">總付款金額</div>
+          <div class="w-commerce-commercecheckoutsummarytotal paragraph-18" id="confirm-total"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="confirm-bottom-bar" class="confirm-bottom-bar" style="display:none">
+    <div>
+      <div class="confirm-bottom-bar-total-label paragraph-18">總付款金額</div>
+      <div class="confirm-bottom-bar-total-value heading-h4" id="confirm-bottom-total"></div>
+    </div>
+    <button class="primary-button buy-button" id="confirm-pay-button" type="button">確認付款</button>
+  </div>
+</div>
+
+<script src="../../js/cart.js" type="text/javascript"></script>
+<script type="text/javascript">
+(function () {
+  "use strict";
+
+  var SHIPPING_FEE = 45;
+  var SHIPPING_DISCOUNT = 0; // no shipping promotions are modelled yet
+
+  var itemListEl = document.getElementById("confirm-item-list");
+  var creditInput = document.getElementById("store-credit-input");
+  var itemsTotalEl = document.getElementById("confirm-items-total");
+  var shippingFeeEl = document.getElementById("confirm-shipping-fee");
+  var shippingDiscountEl = document.getElementById("confirm-shipping-discount");
+  var creditDiscountRow = document.getElementById("confirm-credit-discount-row");
+  var creditDiscountEl = document.getElementById("confirm-credit-discount");
+  var totalEl = document.getElementById("confirm-total");
+  var bottomBar = document.getElementById("confirm-bottom-bar");
+  var bottomTotalEl = document.getElementById("confirm-bottom-total");
+  var payButton = document.getElementById("confirm-pay-button");
+  var orderUi = document.getElementById("confirm-order-ui");
+  var emptyState = document.getElementById("confirm-empty-state");
+  var emptyMessageEl = document.getElementById("confirm-empty-message");
+  var emptyLinkEl = document.getElementById("confirm-empty-link");
+  var successState = document.getElementById("confirm-success-state");
+
+  var formatMoney = window.SSXCart.formatMoney;
+  var rawCart = window.SSXCart.readCart();
+  // Only the items the user left checked in the cart drawer are carried
+  // into checkout; unchecked ones stay behind in the cart untouched.
+  var items = window.SSXCart.getCheckedItems(rawCart);
+
+  function renderItems() {
+    itemListEl.innerHTML = "";
+    items.forEach(function (item) {
+      var row = document.createElement("div");
+      row.className = "confirm-item-row";
+
+      var left = document.createElement("div");
+      var name = document.createElement("div");
+      name.className = "confirm-item-name heading-h5";
+      name.textContent = item.name;
+      var qty = document.createElement("div");
+      qty.className = "confirm-item-qty paragraph-18";
+      qty.textContent = "數量：" + item.qty;
+      left.appendChild(name);
+      left.appendChild(qty);
+
+      var right = document.createElement("div");
+      right.className = "paragraph-18";
+      right.textContent = formatMoney(item.qty * item.price);
+
+      row.appendChild(left);
+      row.appendChild(right);
+      itemListEl.appendChild(row);
+    });
+  }
+
+  function getCreditRequested() {
+    var raw = parseFloat(creditInput.value);
+    if (!isFinite(raw) || raw <= 0) return 0;
+    return raw;
+  }
+
+  function recalc() {
+    var itemsTotal = window.SSXCart.getSubtotal(items);
+    var beforeCredit = Math.max(0, itemsTotal + SHIPPING_FEE - SHIPPING_DISCOUNT);
+    var creditRequested = getCreditRequested();
+    // never let store-credit redemption push the payable total below zero
+    var creditApplied = Math.min(creditRequested, beforeCredit);
+    var total = beforeCredit - creditApplied;
+
+    itemsTotalEl.textContent = formatMoney(itemsTotal);
+    shippingFeeEl.textContent = formatMoney(SHIPPING_FEE);
+    shippingDiscountEl.textContent = formatMoney(-SHIPPING_DISCOUNT);
+
+    if (creditApplied > 0) {
+      creditDiscountRow.style.display = "";
+      creditDiscountEl.textContent = formatMoney(-creditApplied);
+    } else {
+      creditDiscountRow.style.display = "none";
+    }
+
+    totalEl.textContent = formatMoney(total);
+    bottomTotalEl.textContent = formatMoney(total);
+  }
+
+  function showSuccess() {
+    orderUi.style.display = "none";
+    bottomBar.style.display = "none";
+    successState.style.display = "";
+  }
+
+  if (items.length === 0) {
+    orderUi.style.display = "none";
+    if (rawCart.length === 0) {
+      emptyMessageEl.textContent = "您的購物車是空的。";
+      emptyLinkEl.textContent = "回去逛逛";
+      emptyLinkEl.href = "../../all-products/";
+    } else {
+      emptyMessageEl.textContent = "您尚未勾選要結帳的商品，請回到購物車勾選後再試一次。";
+      emptyLinkEl.textContent = "返回購物車";
+      emptyLinkEl.href = "../";
+    }
+    emptyState.style.display = "";
+  } else {
+    renderItems();
+    recalc();
+    bottomBar.style.display = "flex";
+    creditInput.addEventListener("input", recalc);
+    payButton.addEventListener("click", function () {
+      window.SSXCart.removeItems(items.map(function (item) { return item.skuId; }));
+      showSuccess();
+    });
+  }
+})();
+</script>
+</body>
+</html>

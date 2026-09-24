@@ -1,0 +1,65 @@
+/* Product listing grid: up to 6 items per row, max 5 rows. Used by the home
+   page's "Best Sellers" section as well as all-products/ and the category/
+   pages (opted in via .products-grid-6up so any other .products-grid usage
+   is unaffected). Uses flex wrapping rather than 6 fixed grid columns so a
+   partial row (e.g. a 3-item category) stays centred instead of leaving the
+   right-hand side of the row empty. */
+
+.products-grid.products-grid-6up {
+  --ssx-grid-gap: 1.25rem;
+  --ssx-grid-columns: 6;
+  flex-flow: row wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: var(--ssx-grid-gap);
+  display: flex;
+}
+
+.products-grid.products-grid-6up > .w-dyn-item {
+  flex: 0 0 auto;
+  width: calc((100% - (var(--ssx-grid-columns) - 1) * var(--ssx-grid-gap))
+              / var(--ssx-grid-columns));
+}
+
+/* Max 5 rows per page: 6 columns x 5 rows = 30 items. */
+.products-grid.products-grid-6up > .w-dyn-item:nth-child(n+31) {
+  display: none;
+}
+
+.products-grid.products-grid-6up .products-card-link {
+  width: 100%;
+  padding: 1rem;
+}
+
+.products-grid.products-grid-6up .heading-h4 {
+  font-size: 1.125rem;
+}
+
+.products-grid.products-grid-6up .product-list-desciption {
+  font-size: .875rem;
+}
+
+@media screen and (max-width: 1279px) {
+  .products-grid.products-grid-6up {
+    --ssx-grid-columns: 4;
+  }
+}
+
+@media screen and (max-width: 991px) {
+  .products-grid.products-grid-6up {
+    --ssx-grid-gap: 1rem;
+    --ssx-grid-columns: 3;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  .products-grid.products-grid-6up {
+    --ssx-grid-columns: 2;
+  }
+}
+
+@media screen and (max-width: 479px) {
+  .products-grid.products-grid-6up {
+    --ssx-grid-columns: 1;
+  }
+}

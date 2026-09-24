@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Order List</title>
+</head>
+<body>
+	<table border="1" cellpadding="4" cellspacing="0">
+
+		<tr>
+			<th>ID</th>
+			<th>Orders Name</th>
+			<th>Orders Job</th>
+			<th>Orders hireDate</th>
+		</tr>
+
+		<tr th:each="Orders : ${ordersList}">
+
+			<td th:text="${Orders.ordersId}"></td>
+
+			<td th:text="${Orders.shippingAddress}"></td>
+
+			<td th:text="${Orders.paymentMethod}"></td>
+
+			<td th:text="${Orders.productTotal}"></td>
+
+		</tr>
+
+	</table>
+</body>
+</html>

@@ -1,0 +1,231 @@
+/* Custom cart behaviour styles (site-wide) */
+
+/* Magnifying-glass icon in front of the nav's "搜尋" button, spaced the
+   same way as the cart icon in front of "購物車". */
+.search-icon {
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+/* 1. Remove the "Made in Webflow" badge everywhere */
+.w-webflow-badge {
+  display: none !important;
+}
+
+/* Keep the nav cart button on one line and matching the "Shop Now" button's
+   size exactly. The original template's cart label was the English word
+   "Cart", which never wraps; our Chinese label "購物車" has no spaces, so
+   once the button's flex item got squeezed for space the browser wrapped it
+   one character per line, ballooning the button's height. The !important
+   flags are needed because the button also sits inside .card-wrapper, a
+   plain (shrinkable) flex item, so a plain flex-shrink:0 on the button
+   itself isn't always enough to stop the browser from collapsing it below
+   its content width first. */
+.primary-button.primary-button-cart {
+  flex: none !important;
+  flex-direction: row !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  min-width: max-content !important;
+  border: 1.5px solid #0000;
+  padding: 1rem 2rem;
+}
+
+.primary-button.primary-button-cart .cart-text {
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+}
+
+.primary-button.primary-button-cart .w-commerce-commercecartopenlinkicon,
+.primary-button.primary-button-cart .cart-quantity {
+  flex-shrink: 0 !important;
+}
+
+.card-wrapper {
+  flex-shrink: 0 !important;
+}
+
+/* "前往結帳" when nothing in the cart is checked - nothing to check out, so
+   disable it instead of letting it lead to an empty/confusing checkout. */
+.w-commerce-commercecartcheckoutbutton.is-cart-checkout-disabled {
+  background-color: #e6e6e6 !important;
+  color: #999 !important;
+  border-color: #e6e6e6 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* "移除全部" sits left of "前往結帳" in the cart drawer footer. */
+.cart-footer-actions {
+  align-items: stretch;
+  gap: 0.75rem;
+  display: flex;
+}
+
+.cart-footer-actions .w-commerce-commercecartcheckoutbutton {
+  flex: 1;
+}
+
+.cart-clear-all-btn {
+  cursor: pointer;
+  background-color: #0000;
+  color: #c0392b;
+  border: 1.5px solid #c0392b;
+  padding: 1rem 1.25rem;
+  font-size: 1rem;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.cart-clear-all-btn:hover {
+  background-color: #c0392b;
+  color: #fff;
+}
+
+/* Quick-add cart icon overlaid on the bottom-right corner of each product
+   listing card, next to the price. The card itself is a plain <a> link (no
+   position set), so it needs position:relative to anchor this. */
+.products-card-link {
+  position: relative;
+}
+
+.card-add-to-cart-btn {
+  cursor: pointer;
+  color: var(--brand--neutrals--tan-light, #f4f7f0);
+  background-color: var(--brand--primary--action, #302f2d);
+  border: none;
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.card-add-to-cart-btn:hover {
+  background-color: var(--brand--primary--action-hover, #4a4842);
+  transform: scale(1.08);
+}
+
+/* Cart icon quantity bump animation */
+@keyframes cartBadgePulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.w-commerce-commercecartopenlink.cart-bump .cart-quantity {
+  animation: cartBadgePulse 0.4s ease;
+}
+
+/* Cart sidebar open/close transition */
+.w-commerce-commercecartcontainerwrapper {
+  background-color: transparent;
+  transition: background-color 0.3s ease;
+}
+
+.w-commerce-commercecartcontainerwrapper.cart-is-open {
+  background-color: #000c;
+}
+
+.w-commerce-commercecartcontainer {
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(105%);
+}
+
+.w-commerce-commercecartcontainerwrapper.cart-is-open .w-commerce-commercecartcontainer {
+  transform: translateX(0);
+}
+
+/* Select-to-checkout checkbox at the start of each cart item row */
+.cart-item-checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 6px;
+  margin-right: 12px;
+  cursor: pointer;
+}
+
+/* Quantity stepper controls inside cart items */
+.cart-qty-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cart-qty-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  background-color: #fafafa;
+  color: var(--text--default--black, #302f2d);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.cart-qty-btn:hover {
+  background-color: var(--brand--neutrals--tan-light, #f4f7f0);
+}
+
+.cart-qty-input {
+  width: 44px;
+  height: 28px;
+  margin-bottom: 0;
+  text-align: center;
+}
+
+.cart-remove-link {
+  font-size: 13px;
+  color: var(--text--default--black-light, #7a7a7a);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Cart item enter/exit animation */
+.w-commerce-commercecartitem {
+  overflow: hidden;
+  max-height: 220px;
+  transition: opacity 0.25s ease, transform 0.25s ease, max-height 0.25s ease,
+    margin 0.25s ease, padding 0.25s ease;
+}
+
+.w-commerce-commercecartitem.cart-item-removing {
+  opacity: 0;
+  transform: translateX(24px);
+  max-height: 0;
+  margin: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+@keyframes cartItemPulse {
+  0% {
+    background-color: var(--brand--neutrals--tan-light, #f4f7f0);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.w-commerce-commercecartitem.cart-item-pulse {
+  animation: cartItemPulse 0.5s ease;
+}
