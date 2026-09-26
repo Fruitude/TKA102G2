@@ -26,7 +26,7 @@ public class OrdersController {
 	@Autowired
 	private OrdersService ordersService;
 
-	@GetMapping({"", "/"})
+//	@GetMapping({"", "/"})
 	public String orderMain() {
 		return "example/order_main";
 	}
