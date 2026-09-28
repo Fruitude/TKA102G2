@@ -71,6 +71,21 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-thymeleaf</artifactId>
 		</dependency>
+				<!-- ●以下為 JSR 303/349/380 Bean Validation Framework 預備使用● -->
+
+		<!-- javax.validation -->                    <!-- spring-boot(4.0.6) 已內建依賴，但預設未下載 -->
+		<dependency>
+			<groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <!-- <version>3.1.1</version> -->
+		</dependency>
+
+		<!-- org.hibernate.validator -->             <!-- spring-boot(4.0.6) 已內建依賴，但預設未下載 -->
+		<dependency>
+			<groupId>org.hibernate.validator</groupId>
+			<artifactId>hibernate-validator</artifactId>
+			<version>9.0.1.Final</version>
+		</dependency>
 	</dependencies>
 
 	<build>
