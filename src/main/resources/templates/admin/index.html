@@ -1,6 +1,6 @@
-<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org"></html>
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+
 
 <head>
 
@@ -29,8 +29,9 @@
     <!-- Page Wrapper -->
     <div id="wrapper">
 
-        <!-- Sidebar -->
-        <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+        <!-- Sidebar 側邊欄 -->
+        <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" 
+        	th:fragment="adminIndex-sidebar" id="accordionSidebar">
 
             <!-- Sidebar - Brand -->
             <div class="sidebar-brand d-flex align-items-center justify-content-center">
@@ -45,9 +46,10 @@
 
             <!-- Nav Item - Dashboard -->
             <li class="nav-item active">
-                <span class="nav-link">
-                    <i class="fas fa-fw fa-tachometer-alt"></i>
-                    <span>Dashboard</span></span>
+               <a th:href="@{/admin}" class="nav-link">
+	              <i class="fas fa-fw fa-tachometer-alt"></i>
+	              <span>首頁</span>
+               </a>
             </li>
 
             <!-- Divider -->
@@ -109,16 +111,18 @@
 
             <!-- Nav Item - 進銷存系統 -->
             <li class="nav-item">
-                <span class="nav-link">
-                    <i class="fas fa-fw fa-warehouse"></i>
-                    <span>進銷存系統</span></span>
+                <a th:href="@{/admin/vendor}" class="nav-link">
+                  	<i class="fas fa-fw fa-warehouse"></i>
+                  	<span>進銷存系統</span>
+           		</a>  
             </li>
 
             <!-- Nav Item - 會計作業系統 -->
             <li class="nav-item">
-                <span class="nav-link">
+                <a th:href="@{/admin/account}" class="nav-link">
                     <i class="fas fa-fw fa-calculator"></i>
-                    <span>會計作業系統</span></span>
+                    <span>會計作業系統</span>
+                </a>
             </li>
 
             <!-- Divider -->
@@ -139,7 +143,8 @@
             <div id="content">
 
                 <!-- Topbar -->
-                <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+                <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow"
+                th:fragment="adminIndex-topbar">
 
                     <!-- Sidebar Toggle (Topbar) -->
                     <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
@@ -201,7 +206,7 @@
 
                     <!-- Page Heading -->
                     <div class="d-sm-flex align-items-center justify-content-between mb-4">
-                        <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
+                        <h1 class="h3 mb-0 text-gray-800">首頁</h1>
                     </div>
 
                 </div>
@@ -211,7 +216,7 @@
             <!-- End of Main Content -->
 
             <!-- Footer -->
-            <footer class="sticky-footer bg-white">
+            <footer class="sticky-footer bg-white" th:fragment="adminIndex-footer">
                 <div class="container my-auto">
                     <div class="copyright text-center my-auto">
                         <span>Copyright &copy; Your Website 2021</span>
