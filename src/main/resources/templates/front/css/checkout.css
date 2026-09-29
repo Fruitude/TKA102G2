@@ -1,0 +1,25 @@
+/* Checkout form page (checkout/) */
+
+.required-mark {
+  color: #d62828;
+}
+
+/* 配送方式 / 付款方式 選項文字，與欄位標籤（.field-label）同字體 */
+.checkout-option-text {
+  font-size: .9rem;
+  font-weight: 400;
+  line-height: 1.3em;
+}
+
+/* 地址欄位寬度為其他欄位預設寬度（182px）的兩倍；.text-field 的 max-width: 100% 讓手機版不會超出 */
+#checkout-shipping-address {
+  width: 22.75rem;
+}
+
+/* 欄位格式錯誤訊息，顯示在該欄位正下方 */
+.checkout-field-error {
+  color: #d62828;
+  font-size: .9rem;
+  line-height: 1.3em;
+  margin: -.5rem 0 1rem;
+}

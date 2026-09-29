@@ -1,4 +1,4 @@
-package com.fruitude.entity;
+package com.fruitude.orders.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

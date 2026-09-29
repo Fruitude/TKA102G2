@@ -1,4 +1,4 @@
-package com.fruitude.service;
+package com.fruitude.example.model;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -8,22 +8,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fruitude.entity.Member;
-import com.fruitude.entity.Orders;
-import com.fruitude.repository.MemberRepository;
-import com.fruitude.repository.OrdersRepository;
-
 import jakarta.persistence.Tuple;
 
 @Service
-public class OrdersService {
+public class ExampleOrdersService {
 	@Autowired
-	private OrdersRepository ordersRepository;
+	private ExampleOrdersRepository ordersRepository;
 
 	@Autowired
-	private MemberRepository memberRepository;
+	private ExampleMemberRepository memberRepository;
 
-	public List<Orders> findAll() {
+	public List<ExampleOrders> findAll() {
 		return ordersRepository.findAll();
 	}
 
@@ -31,15 +26,15 @@ public class OrdersService {
 		return ordersRepository.findAllWithJoin();
 	}
 
-	public Optional<Orders> findById(Integer id) {
+	public Optional<ExampleOrders> findById(Integer id) {
 		return ordersRepository.findById(id);
 	}
 
-	public List<Member> getMemberList() {
+	public List<ExampleMember> getMemberList() {
 		return memberRepository.findAll();
 	}
 
-	public boolean insert(Orders entity) {
+	public boolean insert(ExampleOrders entity) {
 		try {
 			entity.setOrdersId(null); // 交給資料庫自動編號
 			if (entity.getOrdersDate() == null) {
@@ -62,12 +57,12 @@ public class OrdersService {
 	}
 
 	// 先查出既有的訂單，只覆蓋表單可以修改的欄位（ordersId、ordersDate 不動）
-	public boolean updateOrders(Integer ordersId, Orders form) {
-		Optional<Orders> optional = ordersRepository.findById(ordersId);
+	public boolean updateOrders(Integer ordersId, ExampleOrders form) {
+		Optional<ExampleOrders> optional = ordersRepository.findById(ordersId);
 		if (optional.isEmpty()) {
 			return false;
 		}
-		Orders orders = optional.get();
+		ExampleOrders orders = optional.get();
 		orders.setMemberId(form.getMemberId());
 		orders.setShippingAddress(form.getShippingAddress());
 		orders.setPaymentMethod(form.getPaymentMethod());
@@ -89,11 +84,11 @@ public class OrdersService {
 
 	// 做法一：先查出既有的 entity，只改 ordersStatus，再存回去
 	public boolean updateStatusByLoad(Integer ordersId, Integer ordersStatus) {
-		Optional<Orders> optional = ordersRepository.findById(ordersId);
+		Optional<ExampleOrders> optional = ordersRepository.findById(ordersId);
 		if (optional.isEmpty()) {
 			return false;
 		}
-		Orders orders = optional.get();
+		ExampleOrders orders = optional.get();
 		orders.setOrdersStatus(ordersStatus);
 		ordersRepository.save(orders);
 		return true;
