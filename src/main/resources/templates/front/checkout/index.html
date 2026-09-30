@@ -250,6 +250,12 @@
 		data-wf-page-link-href-prefix="">
 		<div class="w-commerce-commercelayoutcontainer w-container">
 			<div class="w-commerce-commercelayoutmain">
+				<!-- 各區塊欄位用 form="checkout-form" 掛到這個表單，name 對應 CheckoutForm 的屬性 -->
+				<form id="checkout-form" method="post"
+					th:action="@{/front/checkout/confirm}">
+					<!-- 購物車勾選的商品（JSON），送出前由下面的 JS 填入，對應 CheckoutForm.cartItemsJson -->
+					<input id="checkout-cart-items" name="cartItemsJson" type="hidden" />
+				</form>
 				<div data-node-type="commerce-cart-quick-checkout-actions"
 					style="display: none">
 					<a aria-haspopup="dialog" aria-label="Apple Pay"
@@ -285,10 +291,9 @@
 							<use xlink:href="#google-mark-c"></use></mask>
 							<path
 								d="M0.894,4.3291 L3.478,6.4431 C4.113,4.5611 5.843,3.1671 7.889,3.1671 C9.018,3.1451 10.102,3.5781 10.912,4.3671 L13.169,2.0781 C11.733,0.7231 9.85,-0.0219 7.889,0.0001 C4.941,0.0001 2.245,1.6791 0.894,4.3291"
-								fill="#EA4335" mask="url(#google-mark-d)"></path></g></svg>
-						<svg class="w-commerce-commercequickcheckoutmicrosofticon"
-							height="16" viewbox="0 0 16 16" width="16"
-							xmlns="http://www.w3.org/2000/svg">
+								fill="#EA4335" mask="url(#google-mark-d)"></path></g></svg> <svg
+							class="w-commerce-commercequickcheckoutmicrosofticon" height="16"
+							viewbox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg">
 							<g fill="none" fill-rule="evenodd">
 							<polygon fill="#F05022" points="7 7 1 7 1 1 7 1"></polygon>
 							<polygon fill="#7DB902" points="15 7 9 7 9 1 15 1"></polygon>
@@ -347,23 +352,28 @@
 					data-node-type="commerce-checkout-customer-info-wrapper">
 					<div class="w-commerce-commercecheckoutblockheader checkout-header">
 						<h2 class="heading-h3">收件者資訊</h2>
-						<div class="paragraph-18"><span class="required-mark">*</span> 必填</div>
+						<div class="paragraph-18">
+							<span class="required-mark">*</span> 必填
+						</div>
 					</div>
 					<fieldset
 						class="w-commerce-commercecheckoutblockcontent checkout-contents">
 						<label class="w-commerce-commercecheckoutlabel field-label"
-							for="checkout-customer-name">收件者 <span class="required-mark">*</span></label><input
+							for="checkout-customer-name">收件者 <span
+							class="required-mark">*</span></label><input
 							class="text-field order-input" id="checkout-customer-name"
-							name="customer_name" required="" maxlength="50" type="text" /><label
+							name="receiverName" form="checkout-form" required=""
+							maxlength="50" type="text" /><label
 							class="w-commerce-commercecheckoutlabel field-label"
 							for="wf-ecom-email">電子信箱</label><input
 							class="w-commerce-commercecheckoutemailinput text-field order-input"
-							id="wf-ecom-email" name="email" maxlength="100"
-							type="email" /><label
+							id="wf-ecom-email" name="email" form="checkout-form"
+							maxlength="100" type="email" /><label
 							class="w-commerce-commercecheckoutlabel field-label"
 							for="checkout-phone">電話號碼 <span class="required-mark">*</span></label><input
-							class="text-field order-input" id="checkout-phone" name="phone"
-							required="" maxlength="20" type="tel"
+							class="text-field order-input" id="checkout-phone"
+							name="phoneNumber" form="checkout-form" required=""
+							maxlength="20" type="tel"
 							placeholder="例：0912345678 或 02-12345678" />
 					</fieldset>
 				</form>
@@ -373,24 +383,29 @@
 					data-wf-conditions="%7B%22condition%22%3A%7B%22fields%22%3A%7B%22requiresShipping%22%3A%7B%22eq%22%3A%22true%22%2C%22type%22%3A%22Bool%22%7D%7D%7D%2C%22dataPath%22%3A%22database.commerceOrder%22%7D">
 					<div class="w-commerce-commercecheckoutblockheader checkout-header">
 						<h2 class="heading-h3">收件地址</h2>
-						<div class="paragraph-18"><span class="required-mark">*</span> 必填</div>
+						<div class="paragraph-18">
+							<span class="required-mark">*</span> 必填
+						</div>
 					</div>
 					<fieldset
 						class="w-commerce-commercecheckoutblockcontent checkout-contents">
 						<label class="w-commerce-commercecheckoutlabel field-label"
-							for="checkout-shipping-zip">郵遞區號 <span class="required-mark">*</span></label><input
+							for="checkout-shipping-zip">郵遞區號 <span
+							class="required-mark">*</span></label><input
 							class="text-field order-input" id="checkout-shipping-zip"
-							name="shipping_zip" required="" inputmode="numeric"
-							pattern="\d{3}(\d{2,3})?" maxlength="6"
+							name="shippingZip" form="checkout-form" required=""
+							inputmode="numeric" pattern="\d{3}(\d{2,3})?" maxlength="6"
 							title="請輸入 3、5 或 6 碼郵遞區號" type="text" /><label
 							class="w-commerce-commercecheckoutlabel field-label"
-							for="checkout-shipping-address">地址 <span class="required-mark">*</span></label><input
+							for="checkout-shipping-address">地址 <span
+							class="required-mark">*</span></label><input
 							class="text-field order-input" id="checkout-shipping-address"
-							name="shipping_address" required="" maxlength="200" type="text" /><label
+							name="shippingAddress" form="checkout-form" required=""
+							maxlength="200" type="text" /><label
 							class="w-commerce-commercecheckoutlabel field-label"
 							for="checkout-shipping-note">物流備註</label>
 						<textarea class="text-field text-field-area order-input"
-							id="checkout-shipping-note" name="shipping_note" maxlength="500"></textarea>
+							id="checkout-shipping-note" name="logisticsNote" form="checkout-form" maxlength="500"></textarea>
 						<div class="paragraph-18" id="checkout-shipping-note-count"></div>
 					</fieldset>
 				</form>
@@ -419,28 +434,32 @@
 				<div class="w-commerce-commercecheckoutpaymentinfowrapper">
 					<div class="w-commerce-commercecheckoutblockheader checkout-header">
 						<h2 class="heading-h3">付款方式</h2>
-						<div class="paragraph-18"><span class="required-mark">*</span> 必填</div>
+						<div class="paragraph-18">
+							<span class="required-mark">*</span> 必填
+						</div>
 					</div>
 					<fieldset>
 						<div
 							class="w-commerce-commercecheckoutshippingmethodslist checkout-contents">
 							<label
 								class="w-commerce-commercecheckoutshippingmethoditem shipping-method"><input
-								name="payment_method" required="" type="radio" value="COD" />
+								name="paymentMethod" form="checkout-form" required=""
+								type="radio" value="COD" />
 								<div
 									class="w-commerce-commercecheckoutshippingmethoddescriptionblock">
 									<div class="checkout-option-text">貨到付款</div>
 								</div></label> <label
 								class="w-commerce-commercecheckoutshippingmethoditem shipping-method"><input
-								name="payment_method" required="" type="radio"
-								value="CREDIT_CARD" />
+								name="paymentMethod" form="checkout-form" required=""
+								type="radio" value="CREDIT_CARD" />
 								<div
 									class="w-commerce-commercecheckoutshippingmethoddescriptionblock">
 									<div class="checkout-option-text">信用卡</div>
 								</div></label>
 						</div>
 						<!-- 預留：之後在這裡查詢並顯示客戶已儲存的信用卡資訊 -->
-						<div class="w-commerce-commercecheckoutblockcontent checkout-contents"
+						<div
+							class="w-commerce-commercecheckoutblockcontent checkout-contents"
 							id="checkout-credit-card-info" style="display: none">
 							<div class="paragraph-18">信用卡資訊查詢功能尚未開放。</div>
 						</div>
@@ -455,7 +474,7 @@
 						<label class="w-commerce-commercecheckoutlabel field-label"
 							for="checkout-invoice-carrier">載具</label><input
 							class="text-field order-input" id="checkout-invoice-carrier"
-							name="invoice_carrier" maxlength="64" type="text" />
+							name="invoiceCarrier" form="checkout-form" maxlength="64" type="text" />
 					</fieldset>
 				</div>
 				<div class="w-commerce-commercecheckoutcustomerinfowrapper">
@@ -466,7 +485,7 @@
 						class="w-commerce-commercecheckoutblockcontent checkout-contents">
 						<textarea aria-label="訂單備註"
 							class="text-field text-field-area order-input"
-							id="checkout-order-note" name="order_note" maxlength="500"></textarea>
+							id="checkout-order-note" name="orderNote" form="checkout-form" maxlength="500"></textarea>
 						<div class="paragraph-18" id="checkout-order-note-count"></div>
 					</fieldset>
 				</div>
@@ -483,6 +502,10 @@
 							<div class="paragraph-18">小計</div>
 							<div class="paragraph-18"
 								data-wf-bindings="%5B%7B%22innerHTML%22%3A%7B%22type%22%3A%22CommercePrice%22%2C%22filter%22%3A%7B%22type%22%3A%22price%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.subtotal%22%7D%7D%5D"></div>
+						</div>
+						<div class="w-commerce-commercecheckoutsummarylineitem">
+							<div class="paragraph-18">運費</div>
+							<div class="paragraph-18" id="checkout-summary-shipping-fee"></div>
 						</div>
 						<script id="wf-template-66f31431ca4c4ade0f6547b60000000000a0"
 							type="text/x-wf-template">%3Cdiv%20class%3D%22w-commerce-commercecheckoutordersummaryextraitemslistitem%22%3E%3Cdiv%20data-wf-bindings%3D%22%255B%257B%2522innerHTML%2522%253A%257B%2522type%2522%253A%2522PlainText%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.extraItems%255B%255D.name%2522%257D%257D%255D%22%20class%3D%22paragraph-18%20w-dyn-bind-empty%22%3E%3C%2Fdiv%3E%3Cdiv%20data-wf-bindings%3D%22%255B%257B%2522innerHTML%2522%253A%257B%2522type%2522%253A%2522CommercePrice%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522price%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.extraItems%255B%255D.price%2522%257D%257D%255D%22%20class%3D%22paragraph-18%22%3E%24%C2%A00.00%C2%A0NT%3C%2Fdiv%3E%3C%2Fdiv%3E</script>
@@ -839,8 +862,8 @@
 														<use xlink:href="#google-mark-c"></use></mask>
 														<path
 															d="M0.894,4.3291 L3.478,6.4431 C4.113,4.5611 5.843,3.1671 7.889,3.1671 C9.018,3.1451 10.102,3.5781 10.912,4.3671 L13.169,2.0781 C11.733,0.7231 9.85,-0.0219 7.889,0.0001 C4.941,0.0001 2.245,1.6791 0.894,4.3291"
-															fill="#EA4335" mask="url(#google-mark-d)"></path></g></svg>
-													<svg class="w-commerce-commercequickcheckoutmicrosofticon"
+															fill="#EA4335" mask="url(#google-mark-d)"></path></g></svg> <svg
+														class="w-commerce-commercequickcheckoutmicrosofticon"
 														height="16" viewbox="0 0 16 16" width="16"
 														xmlns="http://www.w3.org/2000/svg">
 														<g fill="none" fill-rule="evenodd">
@@ -920,8 +943,10 @@
 			var CARRIER_COOKIE = "invoiceCarrier";
 			var CARRIER_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-			var carrierInput = document.getElementById("checkout-invoice-carrier");
-			var creditCardInfo = document.getElementById("checkout-credit-card-info");
+			var carrierInput = document
+					.getElementById("checkout-invoice-carrier");
+			var creditCardInfo = document
+					.getElementById("checkout-credit-card-info");
 			var placeOrderButton = document
 					.querySelector(".w-commerce-commercecheckoutplaceorderbutton");
 
@@ -955,9 +980,11 @@
 							function(value) {
 								return EMAIL_PATTERN.test(value);
 							}, "電子信箱格式不正確，例：name@example.com"),
-					attachFormatCheck(document.getElementById("checkout-phone"),
+					attachFormatCheck(
+							document.getElementById("checkout-phone"),
 							function(value) {
-								return PHONE_PATTERN.test(value.replace(/[\s\-()]/g, ""));
+								return PHONE_PATTERN.test(value.replace(
+										/[\s\-()]/g, ""));
 							}, "請輸入台灣手機（09 開頭 10 碼）或含區碼的市話號碼") ];
 
 			function readCookie(name) {
@@ -975,7 +1002,7 @@
 
 			function updatePaymentInfo() {
 				var selected = document
-						.querySelector('input[name="payment_method"]:checked');
+						.querySelector('input[name="paymentMethod"]:checked');
 				creditCardInfo.style.display = selected
 						&& selected.value === "CREDIT_CARD" ? "" : "none";
 			}
@@ -986,7 +1013,7 @@
 				writeCookie(CARRIER_COOKIE, carrierInput.value);
 			});
 
-			document.querySelectorAll('input[name="payment_method"]').forEach(
+			document.querySelectorAll('input[name="paymentMethod"]').forEach(
 					function(radio) {
 						radio.addEventListener("change", updatePaymentInfo);
 					});
@@ -994,7 +1021,8 @@
 
 			document.querySelectorAll("textarea[maxlength]").forEach(
 					function(area) {
-						var counter = document.getElementById(area.id + "-count");
+						var counter = document.getElementById(area.id
+								+ "-count");
 						function updateCount() {
 							counter.textContent = area.value.length + " / "
 									+ area.maxLength;
@@ -1003,7 +1031,7 @@
 						updateCount();
 					});
 
-			// 各區塊的 <form> 沒有 action，在欄位按 Enter 會重新整理本頁、清空已填資料
+			// 在欄位按 Enter 不送出，一律經過下面「送出訂單」的檢查
 			document.querySelectorAll(".w-commerce-commercelayoutmain form")
 					.forEach(function(form) {
 						form.addEventListener("submit", function(e) {
@@ -1011,21 +1039,49 @@
 						});
 					});
 
-			// 「送出訂單」是連到 confirm/ 的連結，欄位不合法時擋下跳頁
-			placeOrderButton.addEventListener("click", function(e) {
-				formatChecks.forEach(function(check) {
-					check(true);
-				});
-				var fields = document.querySelectorAll(
-						".w-commerce-commercelayoutmain input, .w-commerce-commercelayoutmain textarea");
-				for (var i = 0; i < fields.length; i++) {
-					if (!fields[i].checkValidity()) {
-						e.preventDefault();
-						fields[i].reportValidity();
-						return;
-					}
-				}
-			});
+			// 「送出訂單」：欄位都合法才 POST 到 CheckoutController，由它存進 session 再導到 confirm/
+			placeOrderButton
+					.addEventListener(
+							"click",
+							function(e) {
+								e.preventDefault();
+								formatChecks.forEach(function(check) {
+									check(true);
+								});
+								var fields = document
+										.querySelectorAll(".w-commerce-commercelayoutmain input, .w-commerce-commercelayoutmain textarea");
+								for (var i = 0; i < fields.length; i++) {
+									if (!fields[i].checkValidity()) {
+										fields[i].reportValidity();
+										return;
+									}
+								}
+
+								// 抓購物車裡勾選的商品，塞進隱藏欄位一起送出
+								var checkedItems = window.SSXCart
+										.getCheckedItems(window.SSXCart.readCart());
+								if (checkedItems.length === 0) {
+									alert("購物車是空的，請先選購商品");
+									return;
+								}
+								document.getElementById("checkout-cart-items").value = JSON
+										.stringify(checkedItems.map(function(item,
+												index) {
+											// 只留下單需要的欄位，不要把整個購物車物件都送出去。
+											// skuId 目前商品還沒接資料庫，先用 1~3 的暫定值
+											// （這裡商品的順序），之後接上真正的商品時改成該商品的
+											// sku_id 即可，其他欄位不用動
+											return {
+												skuId : index + 1,
+												productName : item.name,
+												price : item.price,
+												qty : item.qty
+											};
+										}));
+
+								document.getElementById("checkout-form")
+										.submit();
+							});
 		})();
 	</script>
 </body>

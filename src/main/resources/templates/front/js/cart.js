@@ -316,7 +316,7 @@
     descWrapper.className = "w-commerce-commercecheckoutorderitemdescriptionwrapper";
 
     var name = document.createElement("div");
-    name.className = "w-commerce-commerceboldtextblock heading-h5";
+    name.className = "w-commerce-commerceboldtextblock checkout-item-name";
     name.textContent = item.name;
 
     var qtyWrapper = document.createElement("div");
@@ -333,13 +333,31 @@
     qtyWrapper.appendChild(qtyLabel);
     qtyWrapper.appendChild(qtyValue);
 
+    var subtotalWrapper = document.createElement("div");
+    subtotalWrapper.className = "w-commerce-commercecheckoutorderitemquantitywrapper";
+
+    var subtotalLabel = document.createElement("div");
+    subtotalLabel.className = "paragraph-18";
+    subtotalLabel.textContent = "小計：";
+
+    var subtotalValue = document.createElement("div");
+    subtotalValue.className = "paragraph-18";
+    subtotalValue.textContent = formatMoney(item.price * item.qty);
+
+    subtotalWrapper.appendChild(subtotalLabel);
+    subtotalWrapper.appendChild(subtotalValue);
+
     descWrapper.appendChild(name);
     descWrapper.appendChild(qtyWrapper);
+    descWrapper.appendChild(subtotalWrapper);
 
     row.appendChild(img);
     row.appendChild(descWrapper);
     return row;
   }
+
+  // 固定運費，跟「配送方式」的宅配選項、confirm 頁的運費一致
+  var CHECKOUT_SHIPPING_FEE = 45;
 
   function renderCheckoutSummary(items) {
     var list = document.querySelector(".w-commerce-commercecheckoutorderitemslist");
@@ -353,11 +371,14 @@
     });
 
     var subtotal = getSubtotal(checkedItems);
+    var shippingFee = checkedItems.length > 0 ? CHECKOUT_SHIPPING_FEE : 0;
     var subtotalEl = document.querySelector('[data-wf-bindings*="commerceOrder.subtotal"]');
+    var shippingFeeEl = document.getElementById("checkout-summary-shipping-fee");
     var totalEl = document.querySelector(".w-commerce-commercecheckoutsummarytotal");
-    // No shipping/tax modelled in this static cart, so total == subtotal.
+    // No tax modelled in this static cart, so total == subtotal + shipping fee.
     if (subtotalEl) subtotalEl.textContent = formatMoney(subtotal);
-    if (totalEl) totalEl.textContent = formatMoney(subtotal);
+    if (shippingFeeEl) shippingFeeEl.textContent = formatMoney(shippingFee);
+    if (totalEl) totalEl.textContent = formatMoney(subtotal + shippingFee);
   }
 
   function renderAll(opts) {

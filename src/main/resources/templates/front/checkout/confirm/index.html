@@ -83,7 +83,8 @@
       <div class="confirm-bottom-bar-total-label paragraph-18">總付款金額</div>
       <div class="confirm-bottom-bar-total-value heading-h4" id="confirm-bottom-total"></div>
     </div>
-    <button class="primary-button buy-button" id="confirm-pay-button" type="button">確認付款</button>
+    <button class="primary-button buy-button" id="confirm-pay-button" type="button"
+            th:data-place-order-url="@{/front/checkout/place-order}">確認付款</button>
   </div>
 </div>
 
@@ -197,8 +198,27 @@
     bottomBar.style.display = "flex";
     creditInput.addEventListener("input", recalc);
     payButton.addEventListener("click", function () {
-      window.SSXCart.removeItems(items.map(function (item) { return item.skuId; }));
-      showSuccess();
+      payButton.disabled = true; // prevent double-clicks from placing the order twice
+      var body = new URLSearchParams();
+      // backend takes an Integer; a decimal like 12.5 would be rejected with 400
+      body.append("storeCredit", String(Math.floor(getCreditRequested())));
+
+      fetch(payButton.dataset.placeOrderUrl, { method: "POST", body: body })
+        .then(function (res) {
+          if (res.status === 410) { // session expired: checkout data is gone
+            alert("結帳資料已逾時，請重新填寫");
+            window.location.href = "../";
+            return;
+          }
+          if (!res.ok) throw new Error(res.status);
+          // only clear the cart once the backend has accepted the order
+          window.SSXCart.removeItems(items.map(function (item) { return item.skuId; }));
+          showSuccess();
+        })
+        .catch(function () {
+          alert("訂單送出失敗，請稍後再試");
+          payButton.disabled = false;
+        });
     });
   }
 })();
