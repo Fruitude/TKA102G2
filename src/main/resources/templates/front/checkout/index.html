@@ -252,7 +252,10 @@
 			<div class="w-commerce-commercelayoutmain">
 				<!-- 各區塊欄位用 form="checkout-form" 掛到這個表單，name 對應 CheckoutForm 的屬性 -->
 				<form id="checkout-form" method="post"
-					th:action="@{/front/checkout/confirm}"></form>
+					th:action="@{/front/checkout/confirm}">
+					<!-- 購物車勾選的商品（JSON），送出前由下面的 JS 填入，對應 CheckoutForm.cartItemsJson -->
+					<input id="checkout-cart-items" name="cartItemsJson" type="hidden" />
+				</form>
 				<div data-node-type="commerce-cart-quick-checkout-actions"
 					style="display: none">
 					<a aria-haspopup="dialog" aria-label="Apple Pay"
@@ -1053,6 +1056,29 @@
 										return;
 									}
 								}
+
+								// 抓購物車裡勾選的商品，塞進隱藏欄位一起送出
+								var checkedItems = window.SSXCart
+										.getCheckedItems(window.SSXCart.readCart());
+								if (checkedItems.length === 0) {
+									alert("購物車是空的，請先選購商品");
+									return;
+								}
+								document.getElementById("checkout-cart-items").value = JSON
+										.stringify(checkedItems.map(function(item,
+												index) {
+											// 只留下單需要的欄位，不要把整個購物車物件都送出去。
+											// skuId 目前商品還沒接資料庫，先用 1~3 的暫定值
+											// （這裡商品的順序），之後接上真正的商品時改成該商品的
+											// sku_id 即可，其他欄位不用動
+											return {
+												skuId : index + 1,
+												productName : item.name,
+												price : item.price,
+												qty : item.qty
+											};
+										}));
+
 								document.getElementById("checkout-form")
 										.submit();
 							});

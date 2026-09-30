@@ -2,6 +2,6 @@ package com.fruitude.orders.model;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface MemberRepository extends JpaRepository<Member, Integer>{
+public interface OrdersDetailRepository extends JpaRepository<OrdersDetail, Integer> {
 
 }
