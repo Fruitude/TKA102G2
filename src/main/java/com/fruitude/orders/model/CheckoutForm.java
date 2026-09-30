@@ -1,11 +1,12 @@
 package com.fruitude.orders.model;
 
 import java.io.Serializable;
+import java.util.List;
 
 public class CheckoutForm implements Serializable{
 
 	private static final long serialVersionUID = 1L;
-	
+
     // 屬性名稱要跟表單 input 的 name 一樣，@ModelAttribute 才會自動填入
     private String receiverName;
     private String email;
@@ -16,7 +17,15 @@ public class CheckoutForm implements Serializable{
     private String paymentMethod;
     private String invoiceCarrier;
     private String orderNote;
-    
+
+    // 結帳頁送出時，由 JS 把購物車勾選的商品塞進這個隱藏欄位（JSON 字串），
+    // name="cartItemsJson"，跟其他欄位一樣由 @ModelAttribute 自動繫結
+    private String cartItemsJson;
+
+    // 不是表單欄位，@ModelAttribute 不會自動填。CheckoutController 收到表單後，
+    // 自己把上面的 cartItemsJson 解析成這個清單，再一起存進 session
+    private List<CheckoutItem> items;
+
 	public String getReceiverName() {
 		return receiverName;
 	}
@@ -74,5 +83,17 @@ public class CheckoutForm implements Serializable{
 	public void setLogisticsNote(String logisticsNote) {
 		this.logisticsNote = logisticsNote;
 	}
-	
+	public String getCartItemsJson() {
+		return cartItemsJson;
+	}
+	public void setCartItemsJson(String cartItemsJson) {
+		this.cartItemsJson = cartItemsJson;
+	}
+	public List<CheckoutItem> getItems() {
+		return items;
+	}
+	public void setItems(List<CheckoutItem> items) {
+		this.items = items;
+	}
+
 }
