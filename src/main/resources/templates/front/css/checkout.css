@@ -4,6 +4,26 @@
   color: #d62828;
 }
 
+/* 訂單商品：圖片垂直置中對齊品名／數量／小計這三行 */
+.w-commerce-commercecheckoutorderitem {
+  align-items: center;
+}
+
+/* 圖片固定裁切成正方形，不再依照原圖比例縮放；
+   直式構圖的照片原本會被拉得跟整列一樣高，導致看起來沒有置中 */
+.w-commerce-commercecheckoutorderitem .w-commerce-commercecartitemimage {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* 訂單商品的品名，字體比原本的 .heading-h5（1.5rem）縮小 */
+.checkout-item-name {
+  font-size: 1.125rem;
+  line-height: 1.4em;
+}
+
 /* 配送方式 / 付款方式 選項文字，與欄位標籤（.field-label）同字體 */
 .checkout-option-text {
   font-size: .9rem;
