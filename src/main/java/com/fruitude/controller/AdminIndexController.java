@@ -11,20 +11,23 @@ public class AdminIndexController {
 	
 	@GetMapping("")
 	public String index(Model model) {
+		System.out.println("執行index導向");
 		
 		return "admin/index"; //view
 	}
     
-	@GetMapping("/vendor")
-	public String vendor(Model model) {
+	@GetMapping("/psi")
+	public String psi(Model model) {
+		System.out.println("執行psi導向");
 		
-		return "admin/vendor/vendor"; //view
+		return "admin/psi/index"; //view
 	}
     
 	@GetMapping("/account")
 	public String account(Model model) {
+		System.out.println("執行account導向");
 		
-		return "admin/account/account"; //view
+		return "admin/account/index"; //view
 	}
 	
 	
