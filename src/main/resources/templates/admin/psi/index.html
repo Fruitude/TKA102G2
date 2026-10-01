@@ -6,6 +6,17 @@
 
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+ <style>
+    .card.border-left-info[href],
+    a.card {
+        transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+    }
+
+    a.card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.25) !important;
+        transform: translateY(-2px);
+    }
+</style>
 </head>
 <body>
 <body id="page-top">
@@ -33,7 +44,7 @@
 
                         <!-- 出貨系統 Card Example -->
                         <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card border-left-primary shadow h-100 py-2">
+                            <a class="card border-left-primary shadow h-100 py-2" th:href="@{/admin/psi/shipping}" style="text-decoration: none;">
                                 <div class="card-body">
                                     <div class="row no-gutters align-items-center">
                                         <div class="col mr-2">
@@ -46,12 +57,12 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </a>
                         </div>
 
                         <!-- 進貨系統 Card Example -->
                         <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card border-left-success shadow h-100 py-2">
+                            <a class="card border-left-success shadow h-100 py-2" th:href="@{/admin/psi/receiving}" style="text-decoration: none;">
                                 <div class="card-body">
                                     <div class="row no-gutters align-items-center">
                                         <div class="col mr-2">
@@ -65,12 +76,12 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </a>
                         </div>
                         
                         <!-- 採購系統 Card Example -->
                         <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card border-left-warning shadow h-100 py-2">
+                            <a class="card border-left-warning shadow h-100 py-2" th:href="@{/admin/psi/purchase}" style="text-decoration: none;">
                                 <div class="card-body">
                                     <div class="row no-gutters align-items-center">
                                         <div class="col mr-2">
@@ -83,13 +94,13 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </a>
                         </div>
                         
 
                          <!-- 庫存查詢 Card Example -->
                         <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card border-left-danger shadow h-100 py-2">
+                            <a class="card border-left-danger shadow h-100 py-2" th:href="@{/admin/psi/stock}" style="text-decoration: none;">
                                 <div class="card-body">
                                     <div class="row no-gutters align-items-center">
                                         <div class="col mr-2">
@@ -113,11 +124,11 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </a>
                         </div>
                         <!-- 供應商管理 Card Example -->
                         <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card border-left-info shadow h-100 py-2">
+                            <a class="card border-left-info shadow h-100 py-2" th:href="@{/admin/psi/vendor}" style="text-decoration: none;">
                                 <div class="card-body">
                                     <div class="row no-gutters align-items-center">
                                         <div class="col mr-2">
@@ -141,7 +152,7 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </a>
                         </div>                        
 
 
