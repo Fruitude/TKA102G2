@@ -13,17 +13,17 @@ import org.springframework.stereotype.Repository;
 @Repository("memberModuleRepository")
 public interface MemberRepository extends JpaRepository<MemberVO, Integer> {
 
-	// 登入時允許使用帳號或 Email 尋找會員。
-	Optional<MemberVO> findByMemberAccountOrMemberEmail(String memberAccount, String memberEmail);
+	// 登入時允許使用帳號或 Email，並明確以不分大小寫的方式尋找會員。
+	Optional<MemberVO> findByMemberAccountIgnoreCaseOrMemberEmailIgnoreCase(String memberAccount, String memberEmail);
 
-	// 註冊及修改資料前，用來檢查帳號或 Email 是否已被使用。
-	boolean existsByMemberAccount(String memberAccount);
+	// 註冊及修改資料前，用不分大小寫的方式檢查帳號或 Email 是否已被使用。
+	boolean existsByMemberAccountIgnoreCase(String memberAccount);
 
-	boolean existsByMemberEmail(String memberEmail);
+	boolean existsByMemberEmailIgnoreCase(String memberEmail);
 
-	boolean existsByMemberAccountAndMemberIdNot(String memberAccount, Integer memberId);
+	boolean existsByMemberAccountIgnoreCaseAndMemberIdNot(String memberAccount, Integer memberId);
 
-	boolean existsByMemberEmailAndMemberIdNot(String memberEmail, Integer memberId);
+	boolean existsByMemberEmailIgnoreCaseAndMemberIdNot(String memberEmail, Integer memberId);
 
 	// 管理員可依會員狀態篩選清單。
 	List<MemberVO> findByMemberStatus(Integer memberStatus);

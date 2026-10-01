@@ -1,0 +1,128 @@
+.sign-up-feedback {
+  width: 100%;
+  min-height: 24px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+#member-sign-up-form {
+  width: 100%;
+  max-width: 30rem;
+}
+
+/* 保留分隔線原本的 1px 高度及網格間距，只隱藏線條，避免按鈕往上移。 */
+.login-line {
+  background-color: transparent;
+}
+
+.sign-up-feedback.is-error {
+  color: #a12f2f;
+}
+
+.sign-up-feedback.is-success {
+  color: #356b3f;
+}
+
+.field-validation-hint {
+  position: relative;
+  min-height: 22px;
+  margin: 7px 0 0;
+  padding-left: 15px;
+  color: #66685f;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.field-validation-hint::before {
+  position: absolute;
+  top: 8px;
+  left: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #8b8d84;
+  content: "";
+}
+
+.field-validation-hint.is-checking {
+  color: #66685f;
+}
+
+.field-validation-hint.is-success {
+  color: #356b3f;
+}
+
+.field-validation-hint.is-success::before {
+  background: #4f865a;
+}
+
+.field-validation-hint.is-error {
+  color: #a12f2f;
+}
+
+.field-validation-hint.is-error::before {
+  background: #b54444;
+}
+
+.text-field.validation-success {
+  border-bottom-color: #4f865a;
+}
+
+.text-field.validation-error {
+  border-bottom-color: #b54444;
+}
+
+#member-birthday {
+  min-height: 52px;
+}
+
+#sign-up-submit:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+@media screen and (max-width: 767px) {
+  .login-section,
+  .login-container,
+  .login-form,
+  .sign-up-card,
+  .sign-up-elements-grid,
+  .sign-up-elements-grid ._100-width,
+  .sign-up-elements-grid .text-field {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .login-container,
+  .login-form,
+  .sign-up-card {
+    width: calc(100vw - 48px);
+  }
+
+  #member-sign-up-form {
+    width: calc(100vw - 48px);
+    max-width: 100%;
+  }
+
+  .login-container {
+    padding-right: 0;
+    padding-left: 0;
+    margin-right: 24px;
+    margin-left: 24px;
+  }
+
+  .sign-up-card {
+    padding: 24px;
+  }
+
+  .sign-up-elements-grid .text-field {
+    width: 100%;
+  }
+
+  .login-legal-text-wrapper {
+    overflow-wrap: anywhere;
+  }
+}

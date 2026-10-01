@@ -538,8 +538,204 @@
     });
   }
 
+  // ---- member navigation -------------------------------------------------
+
+  // 所有前台頁面的深度不同，因此從網址中的 /front/ 反推專案路徑，
+  // 確保首頁、商品頁與登入頁都會呼叫到同一組會員 API。
+  function getContextPath() {
+    var frontIndex = window.location.pathname.indexOf("/front/");
+    return frontIndex >= 0 ? window.location.pathname.substring(0, frontIndex) : "";
+  }
+
+  function findLoginLinks() {
+    return Array.prototype.filter.call(document.querySelectorAll(".nav-link"), function (link) {
+      return link.textContent.trim() === "會員註冊/登入";
+    });
+  }
+
+  // 會員選單是獨立元件，動態載入自己的樣式即可套用到所有前台頁面，
+  // 不必逐一修改每位組員維護的 HTML 檔案。
+  function loadMemberMenuStyles() {
+    if (document.querySelector('link[data-member-menu-styles]')) return;
+    var stylesheet = document.createElement("link");
+    stylesheet.rel = "stylesheet";
+    stylesheet.href = getContextPath() + "/front/css/member-menu.css?v=2";
+    stylesheet.setAttribute("data-member-menu-styles", "");
+    document.head.appendChild(stylesheet);
+  }
+
+  function closeMemberMenus(restoreFocus) {
+    document.querySelectorAll(".member-menu.is-open").forEach(function (menu) {
+      menu.classList.remove("is-open");
+      var trigger = menu.querySelector(".member-menu-trigger");
+      var dropdown = menu.querySelector(".member-menu-dropdown");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+      if (dropdown) dropdown.hidden = true;
+      if (restoreFocus && trigger) trigger.focus();
+    });
+  }
+
+  // 登入成功後以會員圖示取代原本的登入連結，並顯示 session 中的
+  // 姓名與會員編號；不將完整個資放進每一頁的導覽列。
+  function renderMemberMenu(loginLink, member) {
+    var menu = document.createElement("div");
+    menu.className = "member-menu";
+
+    var trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "member-menu-trigger";
+    trigger.setAttribute("aria-label", "開啟會員選單");
+    trigger.setAttribute("aria-haspopup", "menu");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.innerHTML =
+      '<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      "</svg>";
+
+    var dropdown = document.createElement("div");
+    dropdown.className = "member-menu-dropdown";
+    dropdown.setAttribute("role", "menu");
+    dropdown.hidden = true;
+
+    var profile = document.createElement("div");
+    profile.className = "member-menu-profile";
+
+    var name = document.createElement("div");
+    name.className = "member-menu-name";
+    name.textContent = member.memberName || "鮮果鋪會員";
+
+    var number = document.createElement("div");
+    number.className = "member-menu-number";
+    number.textContent = "會員 #" + member.memberId;
+
+    var profileLink = document.createElement("a");
+    profileLink.className = "member-menu-profile-link member-menu-link";
+    profileLink.href = getContextPath() + "/front/about/member/";
+    profileLink.setAttribute("role", "menuitem");
+    profileLink.innerHTML =
+      '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M4 20v-2a4 4 0 0 1 4-4h4M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM16 13l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      "</svg><span>會員資料</span>";
+
+    // 三個常用資料入口共用同一個管理頁，query string 會直接開啟對應分頁。
+    var addressLink = document.createElement("a");
+    addressLink.className = "member-menu-link";
+    addressLink.href = getContextPath() + "/front/about/member/manage/?view=address";
+    addressLink.setAttribute("role", "menuitem");
+    addressLink.innerHTML =
+      '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M12 21s7-5.1 7-12A7 7 0 1 0 5 9c0 6.9 7 12 7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      "</svg><span>我的地址</span>";
+
+    var cardLink = document.createElement("a");
+    cardLink.className = "member-menu-link";
+    cardLink.href = getContextPath() + "/front/about/member/manage/?view=card";
+    cardLink.setAttribute("role", "menuitem");
+    cardLink.innerHTML =
+      '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M3 6.5h18M3 10h18M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm2 12h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      "</svg><span>我的信用卡</span>";
+
+    var phoneLink = document.createElement("a");
+    phoneLink.className = "member-menu-link";
+    phoneLink.href = getContextPath() + "/front/about/member/manage/?view=phone";
+    phoneLink.setAttribute("role", "menuitem");
+    phoneLink.innerHTML =
+      '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M7.5 3h-3A1.5 1.5 0 0 0 3 4.5C3 13.6 10.4 21 19.5 21a1.5 1.5 0 0 0 1.5-1.5v-3l-4-1-1.5 2a14.2 14.2 0 0 1-9-9L8.5 7l-1-4Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      "</svg><span>我的電話</span>";
+
+    var logout = document.createElement("button");
+    logout.type = "button";
+    logout.className = "member-menu-logout";
+    logout.setAttribute("role", "menuitem");
+    logout.setAttribute("data-member-action", "logout");
+    logout.innerHTML =
+      '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M10 17l5-5-5-5M15 12H3M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      "</svg><span>登出</span>";
+
+    profile.appendChild(name);
+    profile.appendChild(number);
+    dropdown.appendChild(profile);
+    dropdown.appendChild(profileLink);
+    dropdown.appendChild(addressLink);
+    dropdown.appendChild(cardLink);
+    dropdown.appendChild(phoneLink);
+    dropdown.appendChild(logout);
+    menu.appendChild(trigger);
+    menu.appendChild(dropdown);
+    loginLink.parentNode.replaceChild(menu, loginLink);
+  }
+
+  function initMemberMenu() {
+    var loginLinks = findLoginLinks();
+    if (!loginLinks.length) return;
+    loadMemberMenuStyles();
+
+    fetch(getContextPath() + "/api/members/session", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { "Accept": "application/json" }
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error("Unable to read member session");
+        return response.json();
+      })
+      .then(function (member) {
+        if (!member.loggedIn) return;
+        loginLinks.forEach(function (link) {
+          renderMemberMenu(link, member);
+        });
+      })
+      .catch(function () {
+        // Session 狀態查詢失敗時保留原登入連結，避免導覽列失去入口。
+      });
+  }
+
+  function logoutMember(button) {
+    button.disabled = true;
+    button.querySelector("span").textContent = "登出中...";
+
+    fetch(getContextPath() + "/api/members/logout", {
+      method: "POST",
+      credentials: "same-origin"
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error("Logout failed");
+        window.location.href = getContextPath() + "/front/";
+      })
+      .catch(function () {
+        button.disabled = false;
+        button.classList.add("is-error");
+        button.querySelector("span").textContent = "登出失敗，請再試一次";
+      });
+  }
+
   function bindEvents() {
     document.addEventListener("click", function (e) {
+      var memberTrigger = e.target.closest(".member-menu-trigger");
+      if (memberTrigger) {
+        e.preventDefault();
+        var memberMenu = memberTrigger.closest(".member-menu");
+        var memberDropdown = memberMenu.querySelector(".member-menu-dropdown");
+        var willOpen = !memberMenu.classList.contains("is-open");
+        closeMemberMenus(false);
+        memberMenu.classList.toggle("is-open", willOpen);
+        memberTrigger.setAttribute("aria-expanded", String(willOpen));
+        memberDropdown.hidden = !willOpen;
+        return;
+      }
+
+      var memberLogout = e.target.closest('[data-member-action="logout"]');
+      if (memberLogout) {
+        e.preventDefault();
+        logoutMember(memberLogout);
+        return;
+      }
+
+      if (!e.target.closest(".member-menu")) closeMemberMenus(false);
+
       var buyNowBtn = e.target.closest(".w-commerce-commercebuynowbutton");
       if (buyNowBtn) {
         // No preventDefault: its href already points at checkout/ from the
@@ -655,7 +851,10 @@
     });
 
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") closeCart();
+      if (e.key === "Escape") {
+        closeCart();
+        closeMemberMenus(true);
+      }
     });
 
     document.addEventListener("submit", function (e) {
@@ -685,6 +884,7 @@
   renderAll();
   injectCardAddToCartButtons();
   injectClearCartButton();
+  initMemberMenu();
 
   // Small public surface so standalone pages (e.g. checkout/confirm/) that
   // don't need the full cart sidebar can still read/clear the same

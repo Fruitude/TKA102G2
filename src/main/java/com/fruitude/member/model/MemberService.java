@@ -6,7 +6,9 @@ import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -26,6 +28,8 @@ public class MemberService {
 	private static final int PASSWORD_ITERATIONS = 120000;
 	private static final int PASSWORD_KEY_LENGTH = 256;
 	private static final int PASSWORD_SALT_LENGTH = 16;
+	private static final Pattern REGISTRATION_ACCOUNT_PATTERN = Pattern.compile("^[A-Za-z0-9_]{6,20}$");
+	private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
 	private final MemberRepository memberRepository;
 
@@ -37,6 +41,11 @@ public class MemberService {
 	/** 註冊會員，並由系統設定編號、建立時間、啟用狀態及初始購物金。 */
 	@Transactional
 	public MemberVO register(MemberVO member) {
+		// 去除不小心輸入的前後空白，Email 統一小寫後再進行格式與重複檢查。
+		member.setMemberName(member.getMemberName().trim());
+		member.setMemberAccount(member.getMemberAccount().trim());
+		member.setMemberEmail(normalizeEmail(member.getMemberEmail()));
+		validateRegistrationAccount(member.getMemberAccount());
 		validateUniqueAccountAndEmail(member.getMemberAccount(), member.getMemberEmail(), null);
 
 		member.setMemberId(null);
@@ -47,9 +56,33 @@ public class MemberService {
 		return memberRepository.save(member);
 	}
 
+	/** 檢查新會員帳號是否符合 6 到 20 碼英數或底線的規則。 */
+	public boolean isRegistrationAccountValid(String account) {
+		return account != null && REGISTRATION_ACCOUNT_PATTERN.matcher(account.trim()).matches();
+	}
+
+	/** 檢查 Email 基本格式，完整格式仍會在正式註冊時由 Bean Validation 再驗證。 */
+	public boolean isRegistrationEmailValid(String email) {
+		return email != null && EMAIL_PATTERN.matcher(email.trim()).matches();
+	}
+
+	/** 即時檢查帳號是否尚未被其他會員使用。 */
+	public boolean isAccountAvailable(String account) {
+		return isRegistrationAccountValid(account)
+				&& !memberRepository.existsByMemberAccountIgnoreCase(account.trim());
+	}
+
+	/** 即時檢查 Email 是否尚未被其他會員使用。 */
+	public boolean isEmailAvailable(String email) {
+		String normalizedEmail = normalizeEmail(email);
+		return isRegistrationEmailValid(normalizedEmail)
+				&& !memberRepository.existsByMemberEmailIgnoreCase(normalizedEmail);
+	}
+
 	/** 使用帳號或 Email 登入；停權會員即使密碼正確也不能登入。 */
 	public Optional<MemberVO> login(String accountOrEmail, String password) {
-		Optional<MemberVO> optional = memberRepository.findByMemberAccountOrMemberEmail(accountOrEmail, accountOrEmail);
+		Optional<MemberVO> optional = memberRepository
+				.findByMemberAccountIgnoreCaseOrMemberEmailIgnoreCase(accountOrEmail, accountOrEmail);
 		if (!optional.isPresent()) {
 			return Optional.empty();
 		}
@@ -168,17 +201,29 @@ public class MemberService {
 		return value == null || value.trim().isEmpty();
 	}
 
+	// 新會員帳號規則只套用在註冊，避免影響資料庫中既有會員修改其他個人資料。
+	private void validateRegistrationAccount(String account) {
+		if (!isRegistrationAccountValid(account)) {
+			throw new IllegalArgumentException("會員帳號需為 6～20 個英文字母、數字或底線");
+		}
+	}
+
+	// Email 統一小寫保存，確保大小寫不同時仍會被視為同一個 Email。
+	private String normalizeEmail(String email) {
+		return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+	}
+
 	private void validateUniqueAccountAndEmail(String account, String email, Integer currentMemberId) {
 		boolean accountExists = currentMemberId == null
-				? memberRepository.existsByMemberAccount(account)
-				: memberRepository.existsByMemberAccountAndMemberIdNot(account, currentMemberId);
+				? memberRepository.existsByMemberAccountIgnoreCase(account)
+				: memberRepository.existsByMemberAccountIgnoreCaseAndMemberIdNot(account, currentMemberId);
 		if (accountExists) {
 			throw new IllegalArgumentException("此會員帳號已被使用");
 		}
 
 		boolean emailExists = currentMemberId == null
-				? memberRepository.existsByMemberEmail(email)
-				: memberRepository.existsByMemberEmailAndMemberIdNot(email, currentMemberId);
+				? memberRepository.existsByMemberEmailIgnoreCase(email)
+				: memberRepository.existsByMemberEmailIgnoreCaseAndMemberIdNot(email, currentMemberId);
 		if (emailExists) {
 			throw new IllegalArgumentException("此電子郵件已被使用");
 		}
