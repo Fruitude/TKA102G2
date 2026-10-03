@@ -1,19 +1,24 @@
 package com.fruitude.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import com.fruitude.vendor.model.VendorService;
+
 @Controller
 @RequestMapping("/admin/psi")
 public class AdminPsiController {
 	
+	@Autowired
+	VendorService vendorSvc;
+
 	@GetMapping("/vendor")
 	public String vendor(Model model) {
-		System.out.println("執行vendor導向");
-		
-		return "admin/psi/vendor/index"; //view
+	    model.addAttribute("vendorListData", vendorSvc.getAll());
+	    return "admin/psi/vendor/index";
 	}
 	
 	@GetMapping("/purchase")

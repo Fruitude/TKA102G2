@@ -6,27 +6,27 @@
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
-<!-- DataTables 樣式（供查詢結果表格使用） -->
-<link th:href="@{/vendor/datatables/dataTables.bootstrap4.min.css}" rel="stylesheet">
 <style>
-#vendor_list_all th,
-#vendor_list_all td {
-  white-space: nowrap;     /* 不換行 */
-  vertical-align: middle;  /* 內容上下置中 */
+#vendor_list_all th, #vendor_list_all td {
+	white-space: nowrap; /* 不換行 */
+	vertical-align: middle; /* 內容上下置中 */
 }
+
 .intro-text {
-  white-space: normal;        /* 這欄允許換行 */
-  width: 120px;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;  /* 限制顯示三行 */
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+	white-space: normal; /* 這欄允許換行 */
+	width: 120px;
+	display: -webkit-box;
+	-webkit-line-clamp: 3; /* 限制顯示三行 */
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
-#vendor_list_all { font-size: 0.9rem; }
+
+#vendor_list_all {
+	font-size: 0.9rem;
+}
 </style>
 
 </head>
-<body>
 <body id="page-top">
 
 	<!-- Page Wrapper -->
@@ -48,68 +48,79 @@
 				<div class="container-fluid">
 					<h1 class="h3 mb-4 text-gray-800">供應商管理</h1>
 
-					<a th:href="@{/admin/psi/vendor/listAllVendor}"class="btn btn-info btn-icon-split">
-<!-- 	icon				<span class="icon text-white-50">  -->
-<!-- 	暫時拿掉					<i class="fas fa-info-circle"></i> -->
-<!-- 					</span>  -->
-						<span class="text">查詢全部</span>
+					<a th:href="@{/admin/psi/vendor/listAllVendor}"
+						class="btn btn-info btn-icon-split">
+						 <span class="text">查詢全部</span>
 					</a>
-					
+
+
+
 					<form href="#" class="btn btn-info btn-icon-split">
-<!-- 	icon				<span class="icon text-white-50">  -->
-<!-- 	暫時拿掉					<i class="fas fa-info-circle"></i> -->
-<!-- 					</span>  -->
-						<span class="text">單筆查詢</span>
-					</form>
-					
-					<form href="#" class="btn btn-info btn-icon-split">
-<!-- 	icon				<span class="icon text-white-50">  -->
-<!-- 	暫時拿掉					<i class="fas fa-info-circle"></i> -->
-<!-- 					</span>  -->
 						<span class="text">新增供應商</span>
 					</form>
-					
-					<div th:if="${vendorListData != null}" class="mt-4">
- 					<div th:replace="~{admin/psi/vendor/listAllVendor :: vendorListTable}"></div>
-					</div>
 
+					<!-- 錯誤表列 -->
+					<div class="errorblock alert alert-danger mt-4" th:if="${errorMessage != null}" th:utext="${errorMessage}"></div>
+					<br>
+					<div class="a">
+						<!-- 單筆查詢：三種方式，樣式使用 sb-admin-2.css 的 card / form-control / custom-select / btn -->
+						
+							<div class="card-header py-3">
+								<h6 class="m-0 font-weight-bold text-primary">單筆查詢</h6>
+							</div>
+							<div class="card-body">
 
+								<form method="post" th:action="@{/admin/psi/vendor/getOne_For_Display}" class="form-inline mb-3">
+									<label for="vendorIdInput" class="mr-3" style="width: 120px;">輸入供應商編號</label>
+									<input type="text" id="vendorIdInput" name="vendorId" class="form-control mr-2"
+										placeholder="請輸入供應商編號" th:value="${param.vendorId}">
+									<button type="submit" class="btn btn-primary">送出</button>
+								</form>
 
+								<form method="post" th:action="@{/admin/psi/vendor/getOne_For_Display}" class="form-inline mb-3">
+									<label for="vendorIdSelect" class="mr-3" style="width: 120px;">選擇供應商編號</label>
+									<select id="vendorIdSelect" name="vendorId" class="custom-select mr-2">
+										<option th:each="vendorVO : ${vendorListData}"
+											th:value="${vendorVO.vendorId}"
+											th:text="${vendorVO.vendorId}" />
+									</select>
+									<button type="submit" class="btn btn-primary">送出</button>
+								</form>
 
+								<form method="post" th:action="@{/admin/psi/vendor/getOne_For_Display}" class="form-inline">
+									<label for="vendorNameSelect" class="mr-3" style="width: 120px;">選擇供應商名稱</label>
+									<select id="vendorNameSelect" name="vendorId" class="custom-select mr-2">
+										<option th:each="vendorVO : ${vendorListData}"
+											th:value="${vendorVO.vendorId}"
+											th:text="${vendorVO.vendorName}" />
+									</select>
+									<button type="submit" class="btn btn-primary">送出</button>
+								</form>
 
+							</div>
+						
 
+						<!-- 單筆查詢結果（include listOneVendor.html 的 fragment） -->
+						<div th:if="${vendorVO != null}" class="mt-4">
+							<div th:replace="~{admin/psi/vendor/listOneVendor :: vendorOneTable}"></div>
+						</div>
 
+					</div> <!-- /.a -->
 
-				</div>
+				</div> <!-- /.container-fluid -->
 
-			</div>
+			</div> <!-- /#content：footer 必須在 #content 外面，sticky-footer 才會貼在頁面底部 -->
 
 			<!-- 引入Footer -->
 			<footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
 
-		</div>
-	</div>
+		</div> <!-- /#content-wrapper -->
+	</div> <!-- /#wrapper -->
 
 	<!-- Scroll to Top Button-->
 	<span class="scroll-to-top rounded"> <i class="fas fa-angle-up"></i>
 	</span>
 	<!-- 	引入js資源     -->
 	<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-
-	<!-- DataTables 套件與初始化（只有顯示查詢結果時才載入） -->
-	<th:block th:if="${vendorListData != null}">
-		<script th:src="@{/vendor/datatables/jquery.dataTables.min.js}"></script>
-		<script th:src="@{/vendor/datatables/dataTables.bootstrap4.min.js}"></script>
-		<script>
-			$(document).ready(function() {
-				$('#vendor_list_all').DataTable({
-					columnDefs : [ { orderable : false, targets : [ 5, 11, 12 ] } ]
-				});
-			});
-		</script>
-	</th:block>
-
-</body>
-
 </body>
 </html>

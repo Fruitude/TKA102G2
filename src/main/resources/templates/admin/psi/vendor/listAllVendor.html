@@ -1,88 +1,162 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>listAllVendor</title>
+<title>供應商列表</title>
 
+<!-- 引入css資源 -->
+<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<!-- DataTables 樣式 -->
+<link th:href="@{/vendor/datatables/dataTables.bootstrap4.min.css}" rel="stylesheet">
+<style>
+#vendor_list_all th, #vendor_list_all td {
+	white-space: nowrap; /* 不換行 */
+	vertical-align: middle; /* 內容上下置中 */
+}
 
+.intro-text {
+	white-space: normal; /* 這欄允許換行 */
+	width: 120px;
+	display: -webkit-box;
+	-webkit-line-clamp: 3; /* 限制顯示三行 */
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+#vendor_list_all {
+	font-size: 0.9rem;
+}
+</style>
 </head>
-<body>
+<body id="page-top">
 
-<!-- 供應商查詢全部：由 index.html 以 fragment 方式 include，樣式參考 tables.html -->
-<div th:fragment="vendorListTable" class="card shadow mb-4">
-	<div class="card-header py-3">
-		<h6 class="m-0 font-weight-bold text-primary">供應商列表</h6>
-	</div>
-	<div class="card-body">
-		<div class="table-responsive">
-			<table class="table table-bordered" id="vendor_list_all" width="100%" cellspacing="0">
-				<thead>
-					<tr>
-						<th style="text-align: center">供應商<br>編號</th>
-						<th>品牌名稱</th>
-						<th>供應商介紹</th>
-						<th>產地</th>
-						<th>品牌標誌</th>
-						<th style="text-align: center">聯絡人<br>姓名</th>
-						<th>統一編號</th>
-						<th>連絡電話</th>
-						<th>電子郵件</th>
-						<th>啟用狀態</th>
-						<th>修改/刪除</th>
-					</tr>
-				</thead>
-				<tfoot>
-					<tr>
-						<th style="text-align: center">供應商<br>編號</th>
-						<th>品牌名稱</th>
-						<th>供應商介紹</th>
-						<th>產地</th>
-						<th>品牌標誌</th>
-						<th style="text-align: center">聯絡人<br>姓名</th>
-						<th>統一編號</th>
-						<th>連絡電話</th>
-						<th>電子郵件</th>
-						<th>啟用狀態</th>
-						<th>修改/刪除</th>
-					</tr>
-				</tfoot>
-				<tbody>
-					<tr th:each="vendorVO : ${vendorListData}">
-						<td th:text="${vendorVO.vendorId}" style="text-align: center"></td>
-						<td th:text="${vendorVO.vendorName}"></td>
-						<td>
-					  	<div class="intro-text" th:text="${vendorVO.vendorIntroduction}"
-						       th:title="${vendorVO.vendorIntroduction}"></div>
-						</td>
-						<td th:text="${vendorVO.origin}"></td>
-						<td><img th:src="@{/vendor/DBGifReader(vendorId=${vendorVO.vendorId})}" width="80px"></td>
-						<td th:text="${vendorVO.contactPerson}"></td>
-						<td th:text="${vendorVO.taxId}"></td>
-						<td th:text="${vendorVO.phone}"></td>
-						<td th:text="${vendorVO.email}"></td>
-						<td>
-						  <span th:if="${vendorVO.isActive == 0}" class="badge badge-secondary">停用</span>
-						  <span th:if="${vendorVO.isActive == 1}" class="badge badge-success">啟用</span>
-						  <span th:if="${vendorVO.isActive == 2}" class="badge badge-warning">審核中</span>
-						</td>
-						<td>
-						  <div class="d-flex">
-						    <form method="post" th:action="@{/vendor/getOne_For_Update}" class="mr-1">
-						      <input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
-						      <button type="submit" class="btn btn-primary btn-sm">修改</button>
-						    </form>
-						    <form method="post" th:action="@{/vendor/delete}">
-						      <input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
-						      <button type="submit" class="btn btn-danger btn-sm">刪除</button>
-						    </form>
-						  </div>
-						</td>
-					</tr>
-				</tbody>
-			</table>
+	<!-- Page Wrapper -->
+	<div id="wrapper">
+
+		<!-- 引入側邊欄 -->
+		<ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+
+		<!-- Content Wrapper -->
+		<div id="content-wrapper" class="d-flex flex-column">
+
+			<!-- Main Content -->
+			<div id="content">
+
+				<!-- 引入Topbar -->
+				<nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+				<!-- 這裡放頁面自己的內容 -->
+				<div class="container-fluid">
+					<h1 class="h3 mb-4 text-gray-800">供應商管理</h1>
+
+					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary mb-3">回供應商管理</a>
+
+					<!-- 供應商查詢全部，樣式參考 tables.html -->
+					<div class="card shadow mb-4">
+						<div class="card-header py-3">
+							<h6 class="m-0 font-weight-bold text-primary">供應商列表</h6>
+						</div>
+						<div class="card-body">
+							<div class="table-responsive">
+								<table class="table table-bordered" id="vendor_list_all" width="100%" cellspacing="0">
+									<thead>
+										<tr>
+											<th style="text-align: center">供應商<br>編號</th>
+											<th>品牌名稱</th>
+											<th>供應商介紹</th>
+											<th>產地</th>
+											<th>品牌標誌</th>
+											<th style="text-align: center">聯絡人<br>姓名</th>
+											<th>統一編號</th>
+											<th>連絡電話</th>
+											<th>電子郵件</th>
+											<th>啟用狀態</th>
+											<th>修改/刪除</th>
+										</tr>
+									</thead>
+									<tfoot>
+										<tr>
+											<th style="text-align: center">供應商<br>編號</th>
+											<th>品牌名稱</th>
+											<th>供應商介紹</th>
+											<th>產地</th>
+											<th>品牌標誌</th>
+											<th style="text-align: center">聯絡人<br>姓名</th>
+											<th>統一編號</th>
+											<th>連絡電話</th>
+											<th>電子郵件</th>
+											<th>啟用狀態</th>
+											<th>修改/刪除</th>
+										</tr>
+									</tfoot>
+									<tbody>
+										<tr th:each="vendorVO : ${vendorListData}">
+											<td th:text="${vendorVO.vendorId}" style="text-align: center"></td>
+											<td th:text="${vendorVO.vendorName}"></td>
+											<td>
+												<div class="intro-text" th:text="${vendorVO.vendorIntroduction}"
+													th:title="${vendorVO.vendorIntroduction}"></div>
+											</td>
+											<td th:text="${vendorVO.origin}"></td>
+											<td><img th:src="@{/vendor/DBGifReader(vendorId=${vendorVO.vendorId})}" width="80px"></td>
+											<td th:text="${vendorVO.contactPerson}"></td>
+											<td th:text="${vendorVO.taxId}"></td>
+											<td th:text="${vendorVO.phone}"></td>
+											<td th:text="${vendorVO.email}"></td>
+											<td>
+												<span th:if="${vendorVO.isActive == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">停用</span>
+												<span th:if="${vendorVO.isActive == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">啟用</span>
+												<span th:if="${vendorVO.isActive == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">審核中</span>
+											</td>
+											<td>
+												<div class="d-flex">
+													<form method="post" th:action="@{/vendor/getOne_For_Update}" class="mr-1">
+														<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
+														<button type="submit" class="btn btn-primary btn-sm">修改</button>
+													</form>
+													<form method="post" th:action="@{/vendor/delete}">
+														<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
+														<button type="submit" class="btn btn-danger btn-sm">刪除</button>
+													</form>
+												</div>
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+
+				</div>
+
+			</div>
+
+			<!-- 引入Footer -->
+			<footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+
 		</div>
 	</div>
-</div>
+
+	<!-- Scroll to Top Button-->
+	<span class="scroll-to-top rounded"> <i class="fas fa-angle-up"></i>
+	</span>
+
+	<!-- 引入js資源 -->
+	<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+	<!-- DataTables 套件與初始化 -->
+	<script th:src="@{/vendor/datatables/jquery.dataTables.min.js}"></script>
+	<script th:src="@{/vendor/datatables/dataTables.bootstrap4.min.js}"></script>
+	<script>
+		$(document).ready(function() {
+			$('#vendor_list_all').DataTable({
+				columnDefs : [ {
+					orderable : false,
+					targets : [ 4, 10 ]
+				} ]
+			});
+		});
+	</script>
 
 </body>
 </html>
