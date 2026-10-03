@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>供應商資料</title>
+</head>
+<body>
+
+<!-- 供應商單筆查詢結果：由 index.html 以 fragment 方式 include，model 需有 vendorVO；表格樣式定義在 index.html -->
+<div th:fragment="vendorOneTable" class="card shadow mb-4">
+	<div class="card-header py-3">
+		<h6 class="m-0 font-weight-bold text-primary">供應商資料</h6>
+	</div>
+	<div class="card-body">
+  <div class="table-responsive">
+    <table class="table table-bordered" width="100%" cellspacing="0">
+      <tbody>
+        <tr>
+          <th class="bg-light" style="width: 150px;">供應商編號</th>
+          <td th:text="${vendorVO.vendorId}"></td>
+        </tr>
+        <tr>
+          <th class="bg-light">品牌名稱</th>
+          <td th:text="${vendorVO.vendorName}"></td>
+        </tr>
+        <tr>
+          <th class="bg-light">供應商介紹</th>
+          <td th:text="${vendorVO.vendorIntroduction}"></td>
+        </tr>
+        <tr>
+          <th class="bg-light">產地</th>
+          <td th:text="${vendorVO.origin}"></td>
+        </tr>
+        <tr>
+          <th class="bg-light">品牌標誌</th>
+          <td><img th:src="@{/vendor/DBGifReader(vendorId=${vendorVO.vendorId})}" width="120px"></td>
+        </tr>
+        <tr>
+          <th class="bg-light">聯絡人姓名</th>
+          <td th:text="${vendorVO.contactPerson}"></td>
+        </tr>
+        <tr>
+          <th class="bg-light">統一編號</th>
+          <td th:text="${vendorVO.taxId}"></td>
+        </tr>
+        <tr>
+          <th class="bg-light">連絡電話</th>
+          <td th:text="${vendorVO.phone}"></td>
+        </tr>
+        <tr>
+          <th class="bg-light">電子郵件</th>
+          <td th:text="${vendorVO.email}"></td>
+        </tr>
+        <tr>
+          <th class="bg-light">啟用狀態</th>
+          <td>
+            <span th:if="${vendorVO.isActive == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">停用</span>
+            <span th:if="${vendorVO.isActive == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">啟用</span>
+            <span th:if="${vendorVO.isActive == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">審核中</span>
+          </td>
+        </tr>
+        <tr>
+          <th class="bg-light">操作</th>
+          <td>
+            <div class="d-flex">
+              <form method="post" th:action="@{/vendor/getOne_For_Update}" class="mr-1">
+                <input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
+                <button type="submit" class="btn btn-primary btn-sm">修改</button>
+              </form>
+              <form method="post" th:action="@{/vendor/delete}">
+                <input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
+                <button type="submit" class="btn btn-danger btn-sm">刪除</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+</body>
+</html>
