@@ -27,7 +27,7 @@ public class VendorController {
 	public String listAllVendor(Model model) {
 		System.out.println("執行listAllVendor導向");
 		
-		return "admin/psi/vendor/listAllVendor"; //view
+		return "admin/psi/vendor/index"; //view
 	}
     
 	

@@ -1,8 +1,10 @@
 package com.fruitude.vendor.controller;
 
 import java.io.IOException;
+import java.io.InputStream;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,12 +33,14 @@ public class DBGifReaderController {
 		ServletOutputStream out = res.getOutputStream();
 
 		try {
-//			EmpService empSvc = new EmpService();
 			out.write(vendorSvc.getOneVendor(Integer.valueOf(vendorId)).getLogo());
 		} catch (Exception e) {
 			System.out.println(e);
 			// 取不到圖片時，顯示預設圖片
-			out.write(vendorSvc.getOneVendor(1).getLogo());
+			res.setContentType("image/jpeg");
+			try (InputStream in = new ClassPathResource("static/img/no_Image.jpg").getInputStream()) {
+				in.transferTo(out);
+			}
 		}
 	}
 }

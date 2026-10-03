@@ -6,6 +6,8 @@
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<!-- DataTables 樣式（供查詢結果表格使用） -->
+<link th:href="@{/vendor/datatables/dataTables.bootstrap4.min.css}" rel="stylesheet">
 </head>
 <body>
 <body id="page-top">
@@ -49,6 +51,10 @@
 <!-- 					</span>  -->
 						<span class="text">新增供應商</span>
 					</form>
+					
+					<div th:if="${vendorListData != null}" class="mt-4">
+ 					<div th:replace="~{admin/psi/vendor/listAllVendor :: vendorListTable}"></div>
+					</div>
 
 
 
@@ -72,6 +78,19 @@
 	</span>
 	<!-- 	引入js資源     -->
 	<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+	<!-- DataTables 套件與初始化（只有顯示查詢結果時才載入） -->
+	<th:block th:if="${vendorListData != null}">
+		<script th:src="@{/vendor/datatables/jquery.dataTables.min.js}"></script>
+		<script th:src="@{/vendor/datatables/dataTables.bootstrap4.min.js}"></script>
+		<script>
+			$(document).ready(function() {
+				$('#vendor_list_all').DataTable({
+					columnDefs : [ { orderable : false, targets : [ 5, 11, 12 ] } ]
+				});
+			});
+		</script>
+	</th:block>
 
 </body>
 

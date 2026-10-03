@@ -1,68 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
 <title>listAllVendor</title>
-
-
-<style type="text/css">
-body {
-	margin: 1rem 12rem 2rem 12rem;
-}
-</style>
 </head>
 <body>
 
-	<table id="vendor_list_all" class="display" style="width: 100%">
-  <thead >
-	<tr style="background-color:#CCCCFF">
-		<th>計數</th>
-		<th>供應商編號</th>
-		<th>品牌名稱</th>
-		<th>供應商介紹</th>
-		<th>產地</th>
-		<th>品牌標誌</th>
-		<th>聯絡人姓名</th>
-		<th>統一編號</th>
-		<th>連絡電話</th>
-		<th>電子郵件</th>
-		<th>啟用狀態</th>
-		<th>修改</th>
-		<th>刪除</th>
-	</tr>
-  </thead>
-	
- <tbody>
-  <th:block th:each="vendorVO : ${vendorListData}">
-    <tr>
-      <td th:text="${vendorVOStat.count}"></td>
-      <td th:text="${vendorVO.vendorId}"></td>
-      <td th:text="${vendorVO.vendorName}"></td>
-      <td th:text="${vendorVO.vendorIntroduction}"></td>
-      <td th:text="${vendorVO.origin}"></td>
-      <td><img th:src="@{/vendor/DBGifReader(vendorId=${vendorVO.vendorId})}" width="100px"></td>
-      <td th:text="${vendorVO.contactPerson}"></td>
-      <td th:text="${vendorVO.taxId}"></td>
-      <td th:text="${vendorVO.phone}"></td>
-      <td th:text="${vendorVO.email}"></td>
-      <td th:text="${vendorVO.isActive}"></td>
-      <td>
-        <form method="post" th:action="@{/vendor/getOne_For_Update}" style="margin-bottom: 0px;">
-          <input type="submit" value="修改">
-          <input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
-        </form>
-      </td>
-      <td>
-        <form method="post" th:action="@{/vendor/delete}" style="margin-bottom: 0px;">
-          <input type="submit" value="刪除">
-          <input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
-        </form>
-      </td>
-    </tr>
-  </th:block>
-</tbody>
-</table>
-	
+<!-- 供應商查詢全部：由 index.html 以 fragment 方式 include，樣式參考 tables.html -->
+<div th:fragment="vendorListTable" class="card shadow mb-4">
+	<div class="card-header py-3">
+		<h6 class="m-0 font-weight-bold text-primary">供應商列表</h6>
+	</div>
+	<div class="card-body">
+		<div class="table-responsive">
+			<table class="table table-bordered" id="vendor_list_all" width="100%" cellspacing="0">
+				<thead>
+					<tr>
+						<th>供應商編號</th>
+						<th>品牌名稱</th>
+						<th>供應商介紹</th>
+						<th>產地</th>
+						<th>品牌標誌</th>
+						<th>聯絡人姓名</th>
+						<th>統一編號</th>
+						<th>連絡電話</th>
+						<th>電子郵件</th>
+						<th>啟用狀態</th>
+						<th>修改</th>
+						<th>刪除</th>
+					</tr>
+				</thead>
+				<tfoot>
+					<tr>
+						<th>供應商編號</th>
+						<th>品牌名稱</th>
+						<th>供應商介紹</th>
+						<th>產地</th>
+						<th>品牌標誌</th>
+						<th>聯絡人姓名</th>
+						<th>統一編號</th>
+						<th>連絡電話</th>
+						<th>電子郵件</th>
+						<th>啟用狀態</th>
+						<th>修改</th>
+						<th>刪除</th>
+					</tr>
+				</tfoot>
+				<tbody>
+					<tr th:each="vendorVO : ${vendorListData}">
+						<td th:text="${vendorVO.vendorId}"></td>
+						<td th:text="${vendorVO.vendorName}"></td>
+						<td th:text="${vendorVO.vendorIntroduction}"></td>
+						<td th:text="${vendorVO.origin}"></td>
+						<td><img th:src="@{/vendor/DBGifReader(vendorId=${vendorVO.vendorId})}" width="100px"></td>
+						<td th:text="${vendorVO.contactPerson}"></td>
+						<td th:text="${vendorVO.taxId}"></td>
+						<td th:text="${vendorVO.phone}"></td>
+						<td th:text="${vendorVO.email}"></td>
+						<td th:text="${vendorVO.isActive}"></td>
+						<td>
+							<form method="post" th:action="@{/vendor/getOne_For_Update}" class="mb-0">
+								<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
+								<button type="submit" class="btn btn-sm btn-primary">修改</button>
+							</form>
+						</td>
+						<td>
+							<form method="post" th:action="@{/vendor/delete}" class="mb-0">
+								<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
+								<button type="submit" class="btn btn-sm btn-danger">刪除</button>
+							</form>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
 
 </body>
 </html>
