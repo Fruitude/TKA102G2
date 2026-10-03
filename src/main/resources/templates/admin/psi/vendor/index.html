@@ -8,6 +8,23 @@
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
 <!-- DataTables 樣式（供查詢結果表格使用） -->
 <link th:href="@{/vendor/datatables/dataTables.bootstrap4.min.css}" rel="stylesheet">
+<style>
+#vendor_list_all th,
+#vendor_list_all td {
+  white-space: nowrap;     /* 不換行 */
+  vertical-align: middle;  /* 內容上下置中 */
+}
+.intro-text {
+  white-space: normal;        /* 這欄允許換行 */
+  width: 120px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;  /* 限制顯示三行 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#vendor_list_all { font-size: 0.9rem; }
+</style>
+
 </head>
 <body>
 <body id="page-top">
