@@ -1,0 +1,154 @@
+package com.fruitude.po.model;
+
+import java.time.LocalDateTime;
+import com.fruitude.vendor.model.VendorVO;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+
+@Entity
+@Table(name = "purchaseorder")
+public class PoVO implements java.io.Serializable{
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY) 
+    @Column(name = "id")
+    private Integer id;                       // 採購單系統編號
+
+    @NotBlank(message = "採購單編號請勿空白")
+    @Size(max = 15, message = "採購單編號長度不可超過15個字")
+    @Column(name = "po_no", nullable = false, length = 15, unique = true)
+    private String poNo;                      // 採購單編號
+    
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "vendor_id", nullable = false)
+    @NotNull(message = "供應商編號，請勿空白")
+    private VendorVO vendor;         // 供應商編號
+
+    @NotNull(message = "採購員工編號請勿空白")
+    @Column(name = "po_employee_id", nullable = false)
+    private Integer poEmployeeId;             // 採購員工編號
+
+    @NotNull(message = "採購日期請勿空白")
+    @Column(name = "order_date", nullable = false)
+    private LocalDateTime orderDate;          // 採購日期
+
+    @NotNull(message = "採購單狀態，請勿空白")
+    @Min(value = 0, message = "採購單狀態值不正確")
+    @Max(value = 2, message = "採購單狀態值不正確")
+    @Column(name = "po_status", nullable = false)
+    private Byte poStatus = 0;                // 採購單狀態 0=待審核,1=申請通過,2=申請未通過
+
+    @NotNull(message = "採購單總金額，請勿空白")
+    @Min(value = 0, message = "總金額不可為負數")
+    @Column(name = "total_amount", nullable = false)
+    private Integer totalAmount;              // 總金額
+
+    @Column(name = "inbound_employee_id")     // 可為 null
+    private Integer inboundEmployeeId;        // 驗收員工編號
+
+    @Column(name = "inbound_date")            // 可為 null
+    private LocalDateTime inboundDate;        // 驗收日期
+
+    @NotNull(message = "驗收狀態，請勿空白")
+    @Min(value = 0, message = "驗收狀態值不正確")
+    @Max(value = 2, message = "驗收狀態值不正確")
+    @Column(name = "inbound_status", nullable = false)
+    private Byte inboundStatus = 0;           // 驗收狀態 0=尚未驗收,1=驗收成功,2=驗收失敗
+
+    @NotNull(message = "驗收實付金額，請勿空白")
+    @Min(value = 0, message = "驗收實付金額不可為負數")
+    @Column(name = "inbound_amount", nullable = false)
+    private Integer inboundAmount = 0;        // 驗收實付金額
+
+	public PoVO() {}
+    
+    public Integer getId() {
+		return id;
+	}
+
+	public String getPoNo() {
+		return poNo;
+	}
+
+	public VendorVO getVendor() {
+		return vendor;
+	}
+
+	public Integer getPoEmployeeId() {
+		return poEmployeeId;
+	}
+
+	public LocalDateTime getOrderDate() {
+		return orderDate;
+	}
+
+	public Byte getPoStatus() {
+		return poStatus;
+	}
+
+	public Integer getTotalAmount() {
+		return totalAmount;
+	}
+
+	public Integer getInboundEmployeeId() {
+		return inboundEmployeeId;
+	}
+
+	public LocalDateTime getInboundDate() {
+		return inboundDate;
+	}
+
+	public Byte getInboundStatus() {
+		return inboundStatus;
+	}
+
+	public Integer getInboundAmount() {
+		return inboundAmount;
+	}
+
+	public void setId(Integer id) {
+		this.id = id;
+	}
+
+	public void setPoNo(String poNo) {
+		this.poNo = poNo;
+	}
+
+	public void setVendor(VendorVO vendor) {
+	    this.vendor = vendor;
+	}
+
+	public void setPoEmployeeId(Integer poEmployeeId) {
+		this.poEmployeeId = poEmployeeId;
+	}
+
+	public void setOrderDate(LocalDateTime orderDate) {
+		this.orderDate = orderDate;
+	}
+
+	public void setPoStatus(Byte poStatus) {
+		this.poStatus = poStatus;
+	}
+
+	public void setTotalAmount(Integer totalAmount) {
+		this.totalAmount = totalAmount;
+	}
+
+	public void setInboundEmployeeId(Integer inboundEmployeeId) {
+		this.inboundEmployeeId = inboundEmployeeId;
+	}
+
+	public void setInboundDate(LocalDateTime inboundDate) {
+		this.inboundDate = inboundDate;
+	}
+
+	public void setInboundStatus(Byte inboundStatus) {
+		this.inboundStatus = inboundStatus;
+	}
+
+	public void setInboundAmount(Integer inboundAmount) {
+		this.inboundAmount = inboundAmount;
+	}
+
+    
+}

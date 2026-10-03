@@ -22,6 +22,7 @@ public class AdminIndexController {
 		
 		return "admin/psi/index"; //view
 	}
+	
     
 	@GetMapping("/account")
 	public String account(Model model) {
