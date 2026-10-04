@@ -49,7 +49,7 @@
 				<div class="container-fluid">
 					<h1 class="h3 mb-4 text-gray-800">供應商管理</h1>
 
-					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary mb-3">回供應商管理</a>
+					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary btn-icon-split mb-3"> <span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> <span class="text">回供應商管理</span></a>
 
 					<!-- 供應商查詢全部，樣式參考 tables.html -->
 					<div class="card shadow mb-4">
@@ -71,7 +71,7 @@
 											<th>連絡電話</th>
 											<th>電子郵件</th>
 											<th>啟用狀態</th>
-											<th>修改/刪除</th>
+											<th>修改</th>
 										</tr>
 									</thead>
 									<tfoot>
@@ -86,7 +86,7 @@
 											<th>連絡電話</th>
 											<th>電子郵件</th>
 											<th>啟用狀態</th>
-											<th>修改/刪除</th>
+											<th>修改</th>
 										</tr>
 									</tfoot>
 									<tbody>
@@ -104,21 +104,15 @@
 											<td th:text="${vendorVO.phone}"></td>
 											<td th:text="${vendorVO.email}"></td>
 											<td>
-												<span th:if="${vendorVO.isActive == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">停用</span>
-												<span th:if="${vendorVO.isActive == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">啟用</span>
-												<span th:if="${vendorVO.isActive == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">審核中</span>
+												<span th:if="${vendorVO.isActive == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">尚未啟用</span>
+												<span th:if="${vendorVO.isActive == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">已啟用</span>
+												<span th:if="${vendorVO.isActive == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">已停用</span>
 											</td>
 											<td>
-												<div class="d-flex">
-													<form method="post" th:action="@{/vendor/getOne_For_Update}" class="mr-1">
-														<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
-														<button type="submit" class="btn btn-primary btn-sm">修改</button>
-													</form>
-													<form method="post" th:action="@{/vendor/delete}">
-														<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
-														<button type="submit" class="btn btn-danger btn-sm">刪除</button>
-													</form>
-												</div>
+												<form method="post" th:action="@{/admin/psi/vendor/getOne_For_Update}">
+													<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
+													<button type="submit" class="btn btn-primary btn-sm">修改</button>
+												</form>
 											</td>
 										</tr>
 									</tbody>
@@ -150,6 +144,9 @@
 	<script>
 		$(document).ready(function() {
 			$('#vendor_list_all').DataTable({
+				searching : false, // 不顯示右上角的 Search 欄位
+				lengthMenu : [ 5, 10, 25, 50, 100 ], // 每頁顯示筆數的選項
+				pageLength : 5, // 預設每頁顯示筆數
 				columnDefs : [ {
 					orderable : false,
 					targets : [ 4, 10 ]

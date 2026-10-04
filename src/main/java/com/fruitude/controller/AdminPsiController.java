@@ -17,7 +17,7 @@ public class AdminPsiController {
 
 	@GetMapping("/vendor")
 	public String vendor(Model model) {
-	    model.addAttribute("vendorListData", vendorSvc.getAll());
+	    model.addAttribute("vendorListData", vendorSvc.getActiveVendors());
 	    return "admin/psi/vendor/index";
 	}
 	
@@ -30,7 +30,7 @@ public class AdminPsiController {
 	
 	@GetMapping("/shipping")
 	public String shipping(Model model) {
-		System.out.println("執行vendor導向");
+		System.out.println("執行shipping導向");
 		
 		return "admin/psi/shipping/index"; //view
 	}
@@ -44,7 +44,7 @@ public class AdminPsiController {
 	
 	@GetMapping("/stock")
 	public String stock(Model model) {
-		System.out.println("執行order導向");
+		System.out.println("執行stock導向");
 		
 		return "admin/psi/stock/index"; //view
 	}
