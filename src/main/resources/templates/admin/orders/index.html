@@ -22,6 +22,20 @@
 			background-color: #f8f9fc;
 			text-align: center;
 		}
+		/* 滑鼠移到表格上才出現的水平捲軸：固定在視窗底部，移開就消失 */
+		#orders-hscroll {
+			display: none;
+			position: fixed;
+			bottom: 0;
+			height: 17px;
+			overflow-x: auto;
+			overflow-y: hidden;
+			z-index: 1050;
+			background: rgba(255, 255, 255, .9);
+		}
+		#orders-hscroll > div {
+			height: 1px;
+		}
 		/* 數字欄靠右 */
 		.orders-table .num {
 			text-align: right;
@@ -57,7 +71,7 @@
 
                     <div class="card shadow mb-4">
                         <div class="card-body">
-                            <div class="table-responsive">
+                            <div class="table-responsive" id="orders-wrap">
                                 <table class="table table-bordered table-hover orders-table" cellspacing="0">
                                     <thead>
                                         <tr>
@@ -131,6 +145,50 @@
 
     <!-- 引入js資源 -->
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+    <!-- 滑鼠在表格上時，才在視窗底部顯示水平捲軸，並與表格同步捲動 -->
+    <div id="orders-hscroll"><div></div></div>
+    <script>
+    (function () {
+        var wrap = document.getElementById('orders-wrap');
+        var bar = document.getElementById('orders-hscroll');
+        var inner = bar.firstElementChild;
+        var hideTimer = null, syncing = false;
+
+        function place() {
+            var r = wrap.getBoundingClientRect();
+            bar.style.left = r.left + 'px';
+            bar.style.width = r.width + 'px';
+            inner.style.width = wrap.scrollWidth + 'px';
+            bar.scrollLeft = wrap.scrollLeft;
+        }
+        function show() {
+            clearTimeout(hideTimer);
+            if (wrap.scrollWidth <= wrap.clientWidth) return;   // 不需要水平捲動就不顯示
+            place();
+            bar.style.display = 'block';
+        }
+        function hide() {
+            // 稍微延遲，滑鼠從表格移到捲軸時不會閃掉
+            hideTimer = setTimeout(function () { bar.style.display = 'none'; }, 150);
+        }
+
+        wrap.addEventListener('mouseenter', show);
+        wrap.addEventListener('mouseleave', hide);
+        bar.addEventListener('mouseenter', show);
+        bar.addEventListener('mouseleave', hide);
+        window.addEventListener('resize', place);
+
+        bar.addEventListener('scroll', function () {
+            if (syncing) { syncing = false; return; }
+            syncing = true; wrap.scrollLeft = bar.scrollLeft;
+        });
+        wrap.addEventListener('scroll', function () {
+            if (syncing) { syncing = false; return; }
+            syncing = true; bar.scrollLeft = wrap.scrollLeft;
+        });
+    })();
+    </script>
 
 </body>
 </html>

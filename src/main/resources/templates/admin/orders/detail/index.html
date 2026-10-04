@@ -22,6 +22,20 @@
 			background-color: #f8f9fc;
 			text-align: center;
 		}
+		/* 滑鼠移到表格上才出現的水平捲軸：固定在視窗底部，移開就消失 */
+		#orders-hscroll {
+			display: none;
+			position: fixed;
+			bottom: 0;
+			height: 17px;
+			overflow-x: auto;
+			overflow-y: hidden;
+			z-index: 1050;
+			background: rgba(255, 255, 255, .9);
+		}
+		#orders-hscroll > div {
+			height: 1px;
+		}
 		/* 數字欄靠右 */
 		.orders-table .num {
 			text-align: right;
@@ -57,19 +71,28 @@
 
                     <div class="card shadow mb-4">
                         <div class="card-body">
-                            <div class="table-responsive">
+                            <div class="table-responsive" id="orders-wrap">
                                 <table class="table table-bordered table-hover orders-table" cellspacing="0">
                                     <thead>
                                         <tr>
-                                            <th>ID</th>
-                                            <th>Member Name</th>
-                                            <th>SKU Name</th>
-                                            <th>Receiver Name</th>
-                                            <th>Shipping Address</th>
-                                            <th>Payment Method</th>
-                                            <th>Actual Payment Amount</th>
-                                            <th>Orders Date</th>
-                                            <th>Orders Status</th>
+                                            <th>明細編號</th>
+                                            <th>會員名稱</th>
+                                            <th>商品規格名稱</th>
+                                            <th>訂單編號</th>
+                                            <th>商品名稱</th>
+                                            <th>訂購數量</th>
+                                            <th>單件價格</th>
+                                            <th>商品評論</th>
+                                            <th>評論時間</th>
+                                            <th>評論狀態</th>
+                                            <th>評論星數</th>
+                                            <th>發票載具</th>
+                                            <th>收件者名稱</th>
+                                            <th>收件地址</th>
+                                            <th>付款方式</th>
+                                            <th>實付金額</th>
+                                            <th>訂單日期</th>
+                                            <th>訂單狀態</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -82,14 +105,21 @@
                                             <td th:text="${details.ordersDetailId}"></td>
                                             <td th:text="${member.memberName}"></td>
                                             <td th:text="${sku.skuName}"></td>
-<!--
+                                            <td th:text="${details.ordersId}"></td>
+                                            <td th:text="${details.productName}"></td>
+                                            <td class="num" th:text="${details.ordersQuantity}"></td>
+                                            <td class="num" th:text="${details.unitPrice}"></td>
+                                            <td class="long" th:text="${details.commentText}" th:title="${details.commentText}"></td>
+                                            <td th:text="${details.commentDate != null} ? ${#temporals.format(details.commentDate, 'yyyy-MM-dd HH:mm')} : ''"></td>
+                                            <td th:text="${details.commentStatus == null} ? '' : (${details.commentStatus == 0} ? '沒有評論' : (${details.commentStatus == 1} ? '有評論' : (${details.commentStatus == 2} ? '被檢舉' : (${details.commentStatus == 3} ? '檢舉成立隱藏' : ${details.commentStatus}))))"></td>
+                                            <td class="num" th:text="${details.commentStar}"></td>
+                                            <td th:text="${details.invoiceCarrier}"></td>
                                             <td th:text="${orders.receiverName}"></td>
                                             <td class="long" th:text="${orders.shippingAddress}" th:title="${orders.shippingAddress}"></td>
                                             <td th:text="${orders.paymentMethod}"></td>
                                             <td class="num" th:text="${orders.actualPaymentAmount}"></td>
                                             <td th:text="${#temporals.format(orders.ordersDate, 'yyyy-MM-dd HH:mm')}"></td>
                                             <td th:text="${orders.ordersStatus}"></td>
- -->
                                         </tr>
                                     </tbody>
                                 </table>
@@ -113,6 +143,50 @@
 
     <!-- 引入js資源 -->
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+    <!-- 滑鼠在表格上時，才在視窗底部顯示水平捲軸，並與表格同步捲動 -->
+    <div id="orders-hscroll"><div></div></div>
+    <script>
+    (function () {
+        var wrap = document.getElementById('orders-wrap');
+        var bar = document.getElementById('orders-hscroll');
+        var inner = bar.firstElementChild;
+        var hideTimer = null, syncing = false;
+
+        function place() {
+            var r = wrap.getBoundingClientRect();
+            bar.style.left = r.left + 'px';
+            bar.style.width = r.width + 'px';
+            inner.style.width = wrap.scrollWidth + 'px';
+            bar.scrollLeft = wrap.scrollLeft;
+        }
+        function show() {
+            clearTimeout(hideTimer);
+            if (wrap.scrollWidth <= wrap.clientWidth) return;   // 不需要水平捲動就不顯示
+            place();
+            bar.style.display = 'block';
+        }
+        function hide() {
+            // 稍微延遲，滑鼠從表格移到捲軸時不會閃掉
+            hideTimer = setTimeout(function () { bar.style.display = 'none'; }, 150);
+        }
+
+        wrap.addEventListener('mouseenter', show);
+        wrap.addEventListener('mouseleave', hide);
+        bar.addEventListener('mouseenter', show);
+        bar.addEventListener('mouseleave', hide);
+        window.addEventListener('resize', place);
+
+        bar.addEventListener('scroll', function () {
+            if (syncing) { syncing = false; return; }
+            syncing = true; wrap.scrollLeft = bar.scrollLeft;
+        });
+        wrap.addEventListener('scroll', function () {
+            if (syncing) { syncing = false; return; }
+            syncing = true; bar.scrollLeft = wrap.scrollLeft;
+        });
+    })();
+    </script>
 
 </body>
 </html>
