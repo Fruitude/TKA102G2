@@ -174,4 +174,9 @@ public class OrdersService {
 		ordersDetailRepository.saveAll(details);
 		return orders;
 	}
+	
+	//####################  後台 ################################
+	public List<Tuple> getOrderDetailById(Integer orderId) {
+		return ordersDetailRepository.getDetail(orderId);
+	}
 }

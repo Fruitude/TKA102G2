@@ -14,9 +14,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import com.fruitude.example.model.ExampleMember;
-import com.fruitude.example.model.ExampleOrders;
-import com.fruitude.example.model.ExampleOrdersService;
+import com.fruitude.orders.model.Member;
+import com.fruitude.orders.model.Orders;
+import com.fruitude.orders.model.OrdersService;
 
 import jakarta.persistence.Tuple;
 
@@ -24,7 +24,7 @@ import jakarta.persistence.Tuple;
 @RequestMapping("/front/view/order")
 public class OrdersController {
 	@Autowired
-	private ExampleOrdersService ordersService;
+	private OrdersService ordersService;
 
 	@GetMapping({"", "/"})
 	public String orderMain() {
@@ -33,7 +33,7 @@ public class OrdersController {
 
 	@GetMapping("/getall")
 	public String getAll(Model model) {
-		List<ExampleOrders> ordersList = ordersService.findAll();
+		List<Orders> ordersList = ordersService.findAll();
 		model.addAttribute("ordersList", ordersList);
 		return "example/order";
 	}
@@ -47,18 +47,18 @@ public class OrdersController {
 
 	@GetMapping("/add")
 	public String showAddForm(Model model) {
-		List<ExampleMember> memberList = ordersService.getMemberList();
+		List<Member> memberList = ordersService.getMemberList();
 		model.addAttribute("memberList", memberList);
 		return "example/add_order";
 	}
 
 	/***
-	 *  ExampleOrders 欄位有十幾個，一個一個寫 @RequestParam 太長，
-	 *  改用 @ModelAttribute：表單 input 的 name 跟 ExampleOrders 屬性名稱一樣（例如 name="shippingAddress"），
-	 *  Spring 會自動把表單值填進 ExampleOrders 物件。
+	 *  Orders 欄位有十幾個，一個一個寫 @RequestParam 太長，
+	 *  改用 @ModelAttribute：表單 input 的 name 跟 Orders 屬性名稱一樣（例如 name="shippingAddress"），
+	 *  Spring 會自動把表單值填進 Orders 物件。
 	 */
 	@PostMapping("/add_order")
-	public String insert(@ModelAttribute ExampleOrders orders,
+	public String insert(@ModelAttribute Orders orders,
 			RedirectAttributes redirectAttributes) {
 		boolean success = ordersService.insert(orders);
 		redirectAttributes.addFlashAttribute("message", success ? "新增成功" : "新增失敗");
@@ -80,13 +80,13 @@ public class OrdersController {
 
 	@GetMapping("/edit")
 	public String showEditForm(@RequestParam(value = "ordersId", required = false) Integer ordersId, Model model) {
-		List<ExampleMember> memberList = ordersService.getMemberList();
+		List<Member> memberList = ordersService.getMemberList();
 		model.addAttribute("memberList", memberList);
 
 		if (ordersId != null) {
 			model.addAttribute("searched", true);
 			model.addAttribute("searchedOrdersId", ordersId);
-			Optional<ExampleOrders> optional = ordersService.findById(ordersId);
+			Optional<Orders> optional = ordersService.findById(ordersId);
 			model.addAttribute("orders", optional.orElse(null));
 		}
 		return "example/edit_order";
@@ -95,7 +95,7 @@ public class OrdersController {
 	@PostMapping("/update")
 	public String update(
 			@RequestParam("ordersId") Integer ordersId,
-			@ModelAttribute ExampleOrders orders,
+			@ModelAttribute Orders orders,
 			RedirectAttributes redirectAttributes) {
 
 		boolean success = ordersService.updateOrders(ordersId, orders);
