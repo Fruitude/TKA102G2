@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.fruitude.vendor.model.VendorService;
+import com.fruitude.vendor.model.VendorVO;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,14 +30,23 @@ public class DBGifReaderController {
 	@GetMapping("DBGifReader")
 	public void dBGifReader(@RequestParam("vendorId") String vendorId, HttpServletRequest req, HttpServletResponse res)
 			                                                                                          throws IOException {
-		res.setContentType("image/gif");
+		byte[] logo = null;
+		try {
+			VendorVO vendorVO = vendorSvc.getOneVendor(Integer.valueOf(vendorId));
+			if (vendorVO != null) {
+				logo = vendorVO.getLogo();
+			}
+		} catch (NumberFormatException e) {
+			// 編號不是數字時，一樣顯示預設圖片
+		}
+
 		ServletOutputStream out = res.getOutputStream();
 
-		try {
-			out.write(vendorSvc.getOneVendor(Integer.valueOf(vendorId)).getLogo());
-		} catch (Exception e) {
-			System.out.println(e);
-			// 取不到圖片時，顯示預設圖片
+		if (logo != null && logo.length > 0) {
+			res.setContentType("image/gif");
+			out.write(logo);
+		} else {
+			// 沒有品牌標誌時，顯示預設圖片
 			res.setContentType("image/jpeg");
 			try (InputStream in = new ClassPathResource("static/img/no_Image.jpg").getInputStream()) {
 				in.transferTo(out);

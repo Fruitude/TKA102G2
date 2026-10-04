@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>修改供應商</title>
+
+<!-- 引入css資源 -->
+<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<style>
+#vendor_update_form label {
+	font-weight: bold;
+}
+
+#vendor_update_form .required::after {
+	content: " *";
+	color: #e74a3b;
+}
+
+#vendor_update_form input[type="file"]::file-selector-button {
+	margin-right: 10px;
+	padding: 0.375rem 0.75rem;
+	font-size: 1rem;
+	line-height: 1.5;
+	color: #fff;
+	background-color: #858796;
+	border: 1px solid #858796;
+	border-radius: 0.35rem;
+	cursor: pointer;
+	transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+#vendor_update_form input[type="file"]::file-selector-button:hover {
+	background-color: #717384;
+	border-color: #6b6d7d;
+}
+
+#blob_holder img {
+	margin-top: 10px;
+	border: 1px solid #d1d3e2;
+}
+</style>
+</head>
+<body id="page-top">
+
+	<!-- Page Wrapper -->
+	<div id="wrapper">
+
+		<!-- 引入側邊欄 -->
+		<ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+
+		<!-- Content Wrapper -->
+		<div id="content-wrapper" class="d-flex flex-column">
+
+			<!-- Main Content -->
+			<div id="content">
+
+				<!-- 引入Topbar -->
+				<nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+				<!-- 這裡放頁面自己的內容 -->
+				<div class="container-fluid">
+					<h1 class="h3 mb-4 text-gray-800">供應商管理</h1>
+
+					<a th:href="@{/admin/psi/vendor/listAllVendor}" class="btn btn-secondary btn-icon-split mb-3"> <span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> <span class="text">回供應商列表</span></a>
+
+					<div class="card shadow mb-4">
+						<div class="card-header py-3">
+							<h6 class="m-0 font-weight-bold text-primary">修改供應商</h6>
+						</div>
+						<div class="card-body">
+							<p class="text-muted"><span class="text-danger">*</span> 為必填欄位</p>
+
+							<!-- vendorVO 由 VendorController 的 getOne_For_Update 依 listAllVendor 選中的 vendorId 查出後放入 model -->
+							<form id="vendor_update_form" th:action="@{/admin/psi/vendor/update}" method="post"
+								th:object="${vendorVO}" enctype="multipart/form-data">
+
+								<div class="form-group">
+									<label for="vendorId">供應商編號</label>
+									<input type="text" th:field="*{vendorId}" class="form-control-plaintext font-weight-bold" readonly />
+								</div>
+
+								<div class="form-group">
+									<label for="vendorName" class="required">品牌名稱</label>
+									<input type="text" th:field="*{vendorName}" class="form-control" maxlength="30"
+										onclick="hideContent('vendorName.errors');" />
+									<span th:if="${#fields.hasErrors('vendorName')}" th:errors="*{vendorName}"
+										class="text-danger d-block mt-1" id="vendorName.errors"></span>
+								</div>
+
+								<div class="form-group">
+									<label for="vendorIntroduction">供應商介紹</label>
+									<textarea th:field="*{vendorIntroduction}" class="form-control" rows="4" maxlength="150"
+										onclick="hideContent('vendorIntroduction.errors');"></textarea>
+									<span th:if="${#fields.hasErrors('vendorIntroduction')}" th:errors="*{vendorIntroduction}"
+										class="text-danger d-block mt-1" id="vendorIntroduction.errors"></span>
+								</div>
+
+								<div class="form-group">
+									<label for="origin" class="required">產地</label>
+									<input type="text" th:field="*{origin}" class="form-control" maxlength="20"
+										onclick="hideContent('origin.errors');" />
+									<span th:if="${#fields.hasErrors('origin')}" th:errors="*{origin}"
+										class="text-danger d-block mt-1" id="origin.errors"></span>
+								</div>
+
+								<div class="form-group">
+									<label for="contactPerson" class="required">聯絡人姓名</label>
+									<input type="text" th:field="*{contactPerson}" class="form-control" maxlength="10"
+										onclick="hideContent('contactPerson.errors');" />
+									<span th:if="${#fields.hasErrors('contactPerson')}" th:errors="*{contactPerson}"
+										class="text-danger d-block mt-1" id="contactPerson.errors"></span>
+								</div>
+
+								<div class="form-group">
+									<label for="taxId">統一編號</label>
+									<input type="text" th:field="*{taxId}" class="form-control" maxlength="8"
+										placeholder="8碼數字" onclick="hideContent('taxId.errors');" />
+									<span th:if="${#fields.hasErrors('taxId')}" th:errors="*{taxId}"
+										class="text-danger d-block mt-1" id="taxId.errors"></span>
+								</div>
+
+								<div class="form-group">
+									<label for="phone" class="required">連絡電話</label>
+									<input type="text" th:field="*{phone}" class="form-control" maxlength="12"
+										placeholder="02-12345678或0987-654321" onclick="hideContent('phone.errors');" />
+									<span th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}"
+										class="text-danger d-block mt-1" id="phone.errors"></span>
+								</div>
+
+								<div class="form-group">
+									<label for="email">電子郵件</label>
+									<input type="text" th:field="*{email}" class="form-control" maxlength="100"
+										onclick="hideContent('email.errors');" />
+									<span th:if="${#fields.hasErrors('email')}" th:errors="*{email}"
+										class="text-danger d-block mt-1" id="email.errors"></span>
+								</div>
+
+								<div class="form-group">
+									<label for="isActive" class="required">啟用狀態</label>
+									<select th:field="*{isActive}" class="custom-select"
+										onclick="hideContent('isActive.errors');">
+										<option value="0">尚未啟用</option>
+										<option value="1">已啟用</option>
+										<option value="2">已停用</option>
+									</select>
+									<span th:if="${#fields.hasErrors('isActive')}" th:errors="*{isActive}"
+										class="text-danger d-block mt-1" id="isActive.errors"></span>
+								</div>
+
+								<!-- 品牌標誌：可以不修改圖片，沒有選擇檔案時保留原本的 logo（VendorService 的 updateVendor） -->
+								<div class="form-group">
+									<label for="upFiles">品牌標誌</label>
+									<input type="file" id="upFiles" name="upFiles" class="form-control-file"
+										accept="image/png, image/jpeg, image/gif"
+										onchange="hideContent('upFiles.errors'); previewImage(this);" />
+									<small class="form-text text-muted">不選擇檔案則保留原圖</small>
+									<span class="text-danger d-block mt-1" th:utext="${errorMessage}" id="upFiles.errors"></span>
+									<div id="blob_holder"><img th:src="@{/vendor/DBGifReader(vendorId=${vendorVO.vendorId})}" width="120px"></div>
+								</div>
+
+								<button type="submit" id="submit" class="btn btn-primary">送出修改</button>
+							</form>
+						</div>
+					</div>
+
+				</div>
+
+			</div>
+
+			<!-- 引入Footer -->
+			<footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+
+		</div>
+	</div>
+
+	<!-- Scroll to Top Button-->
+	<span class="scroll-to-top rounded"> <i class="fas fa-angle-up"></i>
+	</span>
+
+	<!-- 引入js資源 -->
+	<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+	<script>
+		//清除提示信息
+		function hideContent(d) {
+			var el = document.getElementById(d);
+			if (el) {
+				el.style.display = "none";
+			}
+		}
+
+		//送出後鎖住按鈕，避免連按重複送出
+		document.getElementById("vendor_update_form").addEventListener("submit", function() {
+			document.getElementById("submit").disabled = true;
+		});
+
+		//按上一頁回到此頁時，瀏覽器可能還原成鎖住的狀態，需恢復按鈕
+		window.addEventListener("pageshow", function() {
+			document.getElementById("submit").disabled = false;
+		});
+
+		//照片上傳-預覽用
+		var acceptedTypes = {
+			'image/png' : true,
+			'image/jpeg' : true,
+			'image/gif' : true
+		};
+
+		// 原本的品牌標誌，取消選擇檔案時還原
+		var originalLogo = document.getElementById("blob_holder").innerHTML;
+
+		function previewImage(input) {
+			var blob_holder = document.getElementById("blob_holder");
+			var submitBtn = document.getElementById("submit");
+			var file = input.files[0];
+
+			blob_holder.innerHTML = "";
+			submitBtn.disabled = false;
+
+			// 沒有選擇檔案（保留原圖）
+			if (!file) {
+				blob_holder.innerHTML = originalLogo;
+				return;
+			}
+
+			if (acceptedTypes[file.type] === true) {
+				var reader = new FileReader();
+				reader.onload = function(event) {
+					var image = new Image();
+					image.src = event.target.result;
+					image.width = 120;
+					blob_holder.appendChild(image);
+				};
+				reader.readAsDataURL(file);
+			} else {
+				var info = document.createElement("div");
+				info.className = "text-danger small mt-2";
+				info.innerText = "● filename: " + file.name
+						+ "\n● ContentType: " + file.type
+						+ "\n● size: " + file.size + " bytes"
+						+ "\n● 上傳ContentType限制: image/png、image/jpeg、image/gif";
+				blob_holder.appendChild(info);
+				submitBtn.disabled = true;
+			}
+		}
+	</script>
+
+</body>
+</html>
