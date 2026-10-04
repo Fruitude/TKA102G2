@@ -15,7 +15,7 @@ public class AdminIndexController {
 		
 		return "admin/index"; //view
 	}
-    
+	
 	@GetMapping("/psi")
 	public String psi(Model model) {
 		System.out.println("執行psi導向");
