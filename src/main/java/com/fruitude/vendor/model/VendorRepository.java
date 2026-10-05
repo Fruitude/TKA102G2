@@ -17,5 +17,7 @@ public interface VendorRepository extends JpaRepository<VendorVO, Integer> {
 
 	// 聯絡人姓名模糊查詢（contact_person LIKE %關鍵字%），並限定啟用狀態
 	List<VendorVO> findByContactPersonContainingAndIsActive(String contactPerson, Byte isActive);
+	
+	List<VendorVO> findByTaxIdContainingAndIsActive(String taxId, Byte isActive);
 
 }
