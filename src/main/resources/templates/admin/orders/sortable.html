@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+	<!--
+		可排序的表頭欄位，給 admin/orders/index.html 用：
+		<th th:replace="~{admin/orders/sortable :: sortTh('ordersId','ID')}"></th>
+		key：網址參數 sort 的值（要在 OrdersService.SORTABLE 白名單裡），label：欄位顯示名稱。
+		點擊的順序：沒排序 → 升冪 → 降冪 → 回到預設排序（日期新到舊）；
+		換排序條件一律不帶 page，所以會回到第 1 頁；搜尋條件（field、keyword）會保留。
+		用到頁面 model 裡的 field、keyword、sort、dir。
+	-->
+	<th th:fragment="sortTh(key, label)" class="sortable"
+		th:with="isCur=${sort == key},
+		         nextDir=${isCur ? (dir == 'asc' ? 'desc' : (dir == 'desc' ? '' : 'asc')) : 'asc'}">
+		<a th:href="@{/admin/orders/(field=${field}, keyword=${keyword}, sort=${nextDir == '' ? '' : key}, dir=${nextDir})}"
+		   th:title="|依${label}排序|">
+			<span th:text="${label}"></span>
+			<span class="sort-arrow" th:if="${isCur}" th:text="${dir == 'asc' ? '▲' : '▼'}"></span>
+		</a>
+	</th>
+</body>
+</html>

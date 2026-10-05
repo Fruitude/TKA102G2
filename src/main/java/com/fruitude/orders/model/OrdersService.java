@@ -3,15 +3,18 @@ package com.fruitude.orders.model;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fruitude.utils.PostalCodes;
+import com.fruitude.utils.Utils;
 
 import jakarta.persistence.Tuple;
 
@@ -25,6 +28,12 @@ public class OrdersService {
 
 	@Autowired
 	private MemberRepository memberRepository;
+
+	private static final String STATUS = "status";
+	private static final String PHONE = "phone";
+	private static final String RECEIVER = "receiver";
+	private static final String MEMBER = "member";
+	private static final String ID = "id";
 
 	// 目前沒有登入機制、也沒有折扣功能，先用固定值頂著；
 	// 之後有登入、折扣功能時，把這兩個地方換成真正的邏輯即可
@@ -41,9 +50,105 @@ public class OrdersService {
 		return ordersRepository.findAllWithJoin();
 	}
 
-	// page 從 0 開始（Spring Data 的規則）
-	public Page<Tuple> findPageWithJoin(int page, int size) {
-		return ordersRepository.findPageWithJoin(PageRequest.of(page, size));
+	// 後台訂單管理可排序的欄位白名單：key（網址參數 sort 的值）→ 查詢裡的屬性。
+	// 只接受這裡列出的 key，使用者亂傳的值一律當作沒有排序，避免把任意字串帶進查詢。
+	// Orders 的屬性不用加別名（Spring 會自動補 O.）；會員在另一張表，要明確寫 M.memberName。
+	// 注意：狀態是依資料庫的狀態碼（0~12）排序，不是依畫面上顯示的文字。
+	private static final Map<String, String> SORTABLE = Map.ofEntries(
+			Map.entry("ordersId", "ordersId"),
+			Map.entry("member", "M.memberName"),
+			Map.entry("status", "ordersStatus"),
+			Map.entry("postalCode", "postalCode"),
+			Map.entry("address", "shippingAddress"),
+			Map.entry("payment", "paymentMethod"),
+			Map.entry("productTotal", "productTotal"),
+			Map.entry("discount", "discount"),
+			Map.entry("shippingFee", "shippingFee"),
+			Map.entry("shoppingCredit", "shoppingCredit"),
+			Map.entry("actualPayment", "actualPaymentAmount"),
+			Map.entry("receiver", "receiverName"),
+			Map.entry("email", "email"),
+			Map.entry("phone", "phoneNumber"),
+			Map.entry("logisticsNote", "logisticsNote"),
+			Map.entry("ordersNote", "ordersNote"),
+			Map.entry("date", "ordersDate"));
+
+	public static boolean isSortable(String sortKey) {
+		return sortKey != null && SORTABLE.containsKey(sortKey);
+	}
+
+	// 沒指定（或不合法）時：日期新到舊。一律再加上訂單編號當次要排序，
+	// 否則同值的資料順序不固定，翻頁時可能重複或漏掉
+	private Sort buildSort(String sortKey, String dir) {
+		if (!isSortable(sortKey) || !("asc".equals(dir) || "desc".equals(dir))) {
+			return Sort.by(Sort.Order.desc("ordersDate"), Sort.Order.desc("ordersId"));
+		}
+		String property = SORTABLE.get(sortKey);
+		Sort.Order main = "desc".equals(dir) ? Sort.Order.desc(property) : Sort.Order.asc(property);
+		if ("ordersId".equals(property)) {
+			return Sort.by(main);
+		}
+		return Sort.by(main, Sort.Order.asc("ordersId"));
+	}
+
+	// 後台訂單管理搜尋與排序。field：id / member / status / receiver / phone；keyword 空白就等於不搜尋。
+	// sortKey 見 SORTABLE，dir 是 asc / desc。page 從 0 開始
+	public Page<Tuple> search(String field, String keyword, String sortKey, String dir, int page, int size) {
+		String kw = keyword == null ? "" : keyword.trim();
+		int ordersId = 0;
+		String memberName = "", receiverName = "", phoneNumber = "";
+		int statusFilter = 0;
+		List<Integer> statuses = List.of(-1);
+
+		if (!kw.isEmpty() && field != null) {
+			switch (field) {
+			case ID:
+				// 不是正整數就不可能有符合的訂單，用 -1 讓結果是空的
+				ordersId = kw.matches("\\d{1,9}") ? Integer.parseInt(kw) : -1;
+				if (ordersId == 0) {
+					ordersId = -1;
+				}
+				break;
+			case MEMBER:
+				memberName = kw;
+				break;
+			case RECEIVER:
+				receiverName = kw;
+				break;
+			case PHONE:
+				phoneNumber = kw;
+				break;
+			case STATUS:
+				statusFilter = 1;
+				statuses = matchStatusCodes(kw);
+				break;
+			default:
+				break; // 不認得的欄位當作沒有搜尋
+			}
+		}
+		return ordersRepository.search(ordersId, memberName, receiverName, phoneNumber, statusFilter, statuses,
+				PageRequest.of(page, size, buildSort(sortKey, dir)));
+	}
+
+	// 狀態欄位畫面上顯示的是文字（OrderStatus.displayStatus，例如「待出貨」），所以輸入文字就找
+	// 顯示文字含有它的所有狀態碼；輸入的是數字就直接當狀態碼。都找不到回 [-1]，結果會是空的
+	private List<Integer> matchStatusCodes(String keyword) {
+		List<Integer> codes = new ArrayList<>();
+		if (keyword.matches("\\d{1,2}")) {
+			int code = Integer.parseInt(keyword);
+			for (Utils.OrderStatus s : Utils.OrderStatus.values()) {
+				if (s.getCode() == code) {
+					codes.add(code);
+				}
+			}
+		} else {
+			for (Utils.OrderStatus s : Utils.OrderStatus.values()) {
+				if (s.getDisplayStatus().contains(keyword)) {
+					codes.add(s.getCode());
+				}
+			}
+		}
+		return codes.isEmpty() ? List.of(-1) : codes;
 	}
 
 	public Optional<Orders> findById(Integer id) {
