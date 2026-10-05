@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +39,11 @@ public class OrdersService {
 
 	public List<Tuple> findAllWithJoin() {
 		return ordersRepository.findAllWithJoin();
+	}
+
+	// page 從 0 開始（Spring Data 的規則）
+	public Page<Tuple> findPageWithJoin(int page, int size) {
+		return ordersRepository.findPageWithJoin(PageRequest.of(page, size));
 	}
 
 	public Optional<Orders> findById(Integer id) {
