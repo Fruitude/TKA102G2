@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"><body>
+<th:block th:fragment="cards(products)">
+  <div class="w-dyn-item" role="listitem" th:each="p : ${products}">
+    <a class="products-card-link w-inline-block" th:href="@{/front/product/view/(productId=${p.productId})}"
+       th:attr="data-commerce-sku-id=${p.skuId},data-disable-quick-add=${#lists.size(p.skus) > 1 or p.stock == null or p.stock <= 0}">
+      <div class="products-item-image-wrapper"><img class="products-item-image" loading="lazy"
+        th:src="@{${p.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + p.imageId}}" th:alt="${p.name}"></div>
+      <div class="products-item-text-wrapper">
+        <h3 class="heading-h4 heading-h4-white" th:text="${p.name}"></h3>
+        <div class="products-item-description-wrapper">
+          <p class="product-list-desciption product-list-desciption-white" th:text="${p.description}"></p>
+          <p class="product-list-desciption product-list-desciption-white" data-wf-sku-bindings="f_price_"
+             th:text="${'NT$ ' + p.price + (#lists.size(p.skus) > 1 ? ' 起' : '')}"></p>
+        </div>
+      </div>
+    </a>
+  </div>
+  <p class="paragraph-18" style="color:white;grid-column:1 / -1" th:if="${#lists.isEmpty(products)}">目前沒有已上架商品。</p>
+</th:block>
+</body></html>

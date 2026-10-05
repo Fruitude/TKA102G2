@@ -484,7 +484,7 @@
     // instead gives every distinct product its own line, while same-named
     // cards (e.g. the same real product shown on the home page, a category
     // page and "all products") still correctly merge into one.
-    var skuId = "card:" + name;
+    var skuId = card.getAttribute("data-commerce-sku-id") || "card:" + name;
 
     return {
       skuId: skuId,
@@ -499,7 +499,7 @@
   // the price. Runs once at page load since these cards are static HTML.
   function injectCardAddToCartButtons() {
     document.querySelectorAll(".products-card-link").forEach(function (card) {
-      if (card.querySelector(".card-add-to-cart-btn")) return;
+      if (card.querySelector(".card-add-to-cart-btn") || card.getAttribute("data-disable-quick-add") === "true") return;
 
       var btn = document.createElement("button");
       btn.type = "button";

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>修改商品</title>
+    <style>
+        body { font-family: Arial, "Microsoft JhengHei", sans-serif; margin: 30px; background: #f5f7f4; }
+        .container { max-width: 700px; margin: auto; background: white; padding: 28px; border-radius: 10px; }
+        label { display: block; margin-top: 16px; font-weight: bold; }
+        input, textarea, select { box-sizing: border-box; width: 100%; padding: 9px; margin-top: 6px; }
+        textarea { min-height: 100px; }
+        button, .back { display: inline-block; margin-top: 22px; padding: 10px 18px; border: 0; border-radius: 5px; background: #287a4b; color: white; text-decoration: none; cursor: pointer; }
+        .back { background: #68736c; margin-left: 8px; }
+        .error { color: #b42318; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>修改商品</h1>
+
+    <form th:action="@{/product/update}" th:object="${product}" method="post">
+        <ul class="error" th:if="${#fields.hasAnyErrors()}"><li th:each="e:${#fields.allErrors()}" th:text="${e}"></li></ul><input type="hidden" th:field="*{productId}">
+
+        <label>商品編號</label>
+        <input type="text" th:value="*{productId}" disabled>
+
+        <label for="productName">商品名稱</label>
+        <input id="productName" type="text" th:field="*{productName}" required>
+        <div class="error" th:if="${#fields.hasErrors('productName')}" th:errors="*{productName}"></div>
+
+        <label for="productDesc">商品描述</label>
+        <textarea id="productDesc" th:field="*{productDesc}"></textarea>
+        <div class="error" th:if="${#fields.hasErrors('productDesc')}" th:errors="*{productDesc}"></div>
+
+        <label for="category">商品分類</label>
+        <select id="category" name="productCategory.productCategoryId" required>
+            <option value="">請選擇分類</option>
+            <option th:each="category : ${productCategoryListData}"
+                    th:value="${category.productCategoryId}"
+                    th:text="${category.categoryName}"
+                    th:selected="${product.productCategory != null and product.productCategory.productCategoryId == category.productCategoryId}">
+            </option>
+        </select>
+
+        <label for="vendor">供應廠商</label>
+        <select id="vendor" name="vendor.vendorId" required>
+            <option value="">請選擇廠商</option>
+            <option th:each="vendor : ${vendorListData}"
+                    th:value="${vendor.vendorId}"
+                    th:text="${vendor.vendorName}"
+                    th:selected="${product.vendor != null and product.vendor.vendorId == vendor.vendorId}">
+            </option>
+        </select>
+
+        <label for="status">商品狀態</label>
+        <select id="status" th:field="*{status}">
+            <option value="0">下架</option>
+            <option value="1">上架</option><option value="2">缺貨</option><option value="3">即將下架</option>
+        </select>
+
+        	<button type="submit">儲存修改</button>
+        	<a class="back" th:href="@{/product/listAllProduct}">返回列表</a>
+    </form>
+</div>
+</body>
+</html>
