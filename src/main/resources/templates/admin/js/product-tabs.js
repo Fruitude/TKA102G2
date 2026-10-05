@@ -111,7 +111,7 @@
         // The outer page already supplies the return link and function tabs.
         doc.querySelectorAll('a[href]').forEach(link => {
             const path = new URL(link.href).pathname;
-            if (path.endsWith('/admin/psi/product') || link.textContent.trim() === '返回首頁') link.hidden = true;
+            if (path.endsWith('/admin/product') || link.textContent.trim() === '返回首頁') link.hidden = true;
         });
         doc.addEventListener('click', event => {
             const link = event.target.closest('a[href]');

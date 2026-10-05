@@ -8,11 +8,11 @@
 <body class="p-4 bg-white">
 <main>
     <h1 class="h4 mb-4">商品查詢</h1>
-    <form class="form-inline mb-4" th:action="@{/admin/psi/product/search}" method="get">
+    <form class="form-inline mb-4" th:action="@{/admin/product/search}" method="get">
         <label for="keyword" class="mr-2">商品編號或名稱</label>
         <input id="keyword" name="keyword" class="form-control mr-2" th:value="${keyword}" placeholder="輸入商品編號或名稱">
         <button class="btn btn-primary" type="submit">查詢</button>
-        <a class="btn btn-outline-secondary ml-2" th:href="@{/admin/psi/product/search}">重設</a>
+        <a class="btn btn-outline-secondary ml-2" th:href="@{/admin/product/search}">重設</a>
     </form>
     <div class="table-responsive">
         <table class="table table-bordered table-hover">

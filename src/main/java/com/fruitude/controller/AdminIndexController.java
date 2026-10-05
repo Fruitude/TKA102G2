@@ -23,11 +23,18 @@ public class AdminIndexController {
 		return "admin/psi/index"; //view
 	}
 	
-    @GetMapping("/psi/product")
-    public String product() { return "admin/psi/product"; }
+    @GetMapping("/product")
+    public String product() { return "admin/productmanagement/product"; }
 
-    @GetMapping({"/psi/productmanagement.html", "/psi/productmanagement/content", "/product", "/product.html", "/product/", "/psi/product.html", "/psi/product/"})
-    public String oldProductManagement() { return "redirect:/admin/psi/product"; }
+    @GetMapping({"/psi/productmanagement.html", "/psi/productmanagement/content", "/psi/product", "/product.html", "/product/", "/psi/product.html", "/psi/product/"})
+    public String oldProductManagement() { return "redirect:/admin/product"; }
+
+    @GetMapping({"/psi/product/search", "/psi/product/stock"})
+    public String oldProductQuery(jakarta.servlet.http.HttpServletRequest request) {
+        String page = request.getRequestURI().endsWith("/stock") ? "stock" : "search";
+        String query = request.getQueryString();
+        return "redirect:/admin/product/" + page + (query == null ? "" : "?" + query);
+    }
 
     @GetMapping({"/vendor", "/vendor.html", "/vendor/", "/psi/vendor.html"})
     public String oldVendor() { return "redirect:/admin/psi/vendor"; }

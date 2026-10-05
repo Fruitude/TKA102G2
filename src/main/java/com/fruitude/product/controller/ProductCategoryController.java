@@ -35,11 +35,11 @@ public class ProductCategoryController {
     @ModelAttribute
     void referenceData(Model model) { model.addAttribute("categoryList", productCategoryService.getAll()); }
     @GetMapping("/list")
-    public String list() { return "admin/psi/productmanagement/productcategory/list"; }
+    public String list() { return "admin/productmanagement/productcategory/list"; }
     @GetMapping({"/add", "/addProductCategory"})
     public String add(Model model) {
         model.addAttribute("productCategory", new ProductCategory());
-        return "admin/psi/productmanagement/productcategory/add";
+        return "admin/productmanagement/productcategory/add";
     }
     @GetMapping("/edit/{id}")
     public String edit(@PathVariable Integer id, Model model, RedirectAttributes redirect) {
@@ -47,14 +47,14 @@ public class ProductCategoryController {
         if (category == null) { redirect.addFlashAttribute("errorMessage", "分類不存在"); return "redirect:/productcategory/list"; }
         model.addAttribute("productCategory", category);
         model.addAttribute("parentCategoryId", category.getParentCategory() == null ? null : category.getParentCategory().getProductCategoryId());
-        return "admin/psi/productmanagement/productcategory/edit";
+        return "admin/productmanagement/productcategory/edit";
     }
     @GetMapping("/detail/{id}")
     public String detail(@PathVariable Integer id, Model model, RedirectAttributes redirect) {
         ProductCategory category = productCategoryService.getOneProductCategory(id);
         if (category == null) { redirect.addFlashAttribute("errorMessage", "分類不存在"); return "redirect:/productcategory/list"; }
         model.addAttribute("productCategory", category);
-        return "admin/psi/productmanagement/productcategory/detail";
+        return "admin/productmanagement/productcategory/detail";
     }
     private ProductCategory validate(ProductCategory form, Integer parentId, BindingResult result) {
         if (form.getCategoryName() == null || form.getCategoryName().trim().isEmpty() || form.getCategoryName().trim().length() > 50)
@@ -86,10 +86,10 @@ public class ProductCategoryController {
         form.setProductCategoryId(null);
         ProductCategory parent = validate(form, parentCategoryId, result);
         model.addAttribute("parentCategoryId", parentCategoryId);
-        if (result.hasErrors()) return "admin/psi/productmanagement/productcategory/add";
+        if (result.hasErrors()) return "admin/productmanagement/productcategory/add";
         form.setParentCategory(parent);
         try { productCategoryService.addProductCategory(form); }
-        catch (DataIntegrityViolationException e) { result.reject("save", "分類名稱重複，或父分類已變更"); return "admin/psi/productmanagement/productcategory/add"; }
+        catch (DataIntegrityViolationException e) { result.reject("save", "分類名稱重複，或父分類已變更"); return "admin/productmanagement/productcategory/add"; }
         redirect.addFlashAttribute("successMessage", "分類新增成功");
         return "redirect:/productcategory/list";
     }
@@ -100,7 +100,7 @@ public class ProductCategoryController {
         if (original == null) { redirect.addFlashAttribute("errorMessage", "分類不存在"); return "redirect:/productcategory/list"; }
         ProductCategory parent = validate(form, parentCategoryId, result);
         model.addAttribute("parentCategoryId", parentCategoryId);
-        if (result.hasErrors()) return "admin/psi/productmanagement/productcategory/edit";
+        if (result.hasErrors()) return "admin/productmanagement/productcategory/edit";
         original.setCategoryName(form.getCategoryName());
         original.setCategoryDesc(form.getCategoryDesc());
         original.setSortOrder(form.getSortOrder());
@@ -108,7 +108,7 @@ public class ProductCategoryController {
         original.setParentCategory(parent);
         original.setUpdatedAt(LocalDateTime.now());
         try { productCategoryService.updateProductCategory(original); }
-        catch (DataIntegrityViolationException e) { result.reject("save", "分類名稱重複，或關聯資料已變更"); return "admin/psi/productmanagement/productcategory/edit"; }
+        catch (DataIntegrityViolationException e) { result.reject("save", "分類名稱重複，或關聯資料已變更"); return "admin/productmanagement/productcategory/edit"; }
         redirect.addFlashAttribute("successMessage", "分類修改成功");
         return "redirect:/productcategory/list";
     }

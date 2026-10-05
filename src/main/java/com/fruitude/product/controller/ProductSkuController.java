@@ -33,7 +33,7 @@ public class ProductSkuController {
         ProductSku sku = productSkuSvc.getOneProductSku(skuId);
         if (sku == null) { redirect.addFlashAttribute("errorMsg", "規格不存在"); return "redirect:/productsku/listAllProductSku"; }
         model.addAttribute("productSku", sku);
-        return "admin/psi/productmanagement/productsku/detail";
+        return "admin/productmanagement/productsku/detail";
     }
 
     @Autowired
@@ -54,7 +54,7 @@ public class ProductSkuController {
         List<ProductSku> productSkuList = productSkuSvc.getAll();
         model.addAttribute("productSkuList", productSkuList);
 
-        return "admin/psi/productmanagement/productsku/listAllProductSku";
+        return "admin/productmanagement/productsku/listAllProductSku";
     }
 
     // 顯示新增規格頁
@@ -63,7 +63,7 @@ public class ProductSkuController {
         model.addAttribute("productSku", new ProductSku());
         addProductList(model);
 
-        return "admin/psi/productmanagement/productsku/addProductSku";
+        return "admin/productmanagement/productsku/addProductSku";
     }
 
     // 新增規格
@@ -96,7 +96,7 @@ public class ProductSkuController {
         if (errorMsg != null) {
             model.addAttribute("errorMsg", errorMsg);
             addProductList(model);
-            return "admin/psi/productmanagement/productsku/addProductSku";
+            return "admin/productmanagement/productsku/addProductSku";
         }
 
         productSku.setProduct(product);
@@ -107,7 +107,7 @@ public class ProductSkuController {
         catch (org.springframework.dao.DataIntegrityViolationException e) {
             model.addAttribute("errorMsg", "規格名稱重複，或商品已被刪除。");
             addProductList(model);
-            return "admin/psi/productmanagement/productsku/addProductSku";
+            return "admin/productmanagement/productsku/addProductSku";
         }
 
         redirectAttributes.addFlashAttribute("success", "規格新增成功");
@@ -125,13 +125,13 @@ public class ProductSkuController {
         if (productSku == null) {
             model.addAttribute("errorMsg", "找不到指定的商品規格。");
             model.addAttribute("productSkuList", productSkuSvc.getAll());
-            return "admin/psi/productmanagement/productsku/listAllProductSku";
+            return "admin/productmanagement/productsku/listAllProductSku";
         }
 
         model.addAttribute("productSku", productSku);
         addProductList(model);
 
-        return "admin/psi/productmanagement/productsku/updateProductSkuInput";
+        return "admin/productmanagement/productsku/updateProductSkuInput";
     }
 
     // 修改規格
@@ -148,7 +148,7 @@ public class ProductSkuController {
         if (originalSku == null) {
             model.addAttribute("errorMsg", "找不到要修改的商品規格。");
             model.addAttribute("productSkuList", productSkuSvc.getAll());
-            return "admin/psi/productmanagement/productsku/listAllProductSku";
+            return "admin/productmanagement/productsku/listAllProductSku";
         }
 
         String errorMsg = validateProductSku(formSku);
@@ -172,7 +172,7 @@ public class ProductSkuController {
             model.addAttribute("productSku", formSku);
             model.addAttribute("errorMsg", errorMsg);
             addProductList(model);
-            return "admin/psi/productmanagement/productsku/updateProductSkuInput";
+            return "admin/productmanagement/productsku/updateProductSkuInput";
         }
 
         // 修改時保留原本關聯的商品，不允許表單改動 product_id
@@ -191,7 +191,7 @@ public class ProductSkuController {
             formSku.setProduct(originalSku.getProduct());
             model.addAttribute("errorMsg", "規格名稱重複，或關聯資料已變更。");
             addProductList(model);
-            return "admin/psi/productmanagement/productsku/updateProductSkuInput";
+            return "admin/productmanagement/productsku/updateProductSkuInput";
         }
 
         redirectAttributes.addFlashAttribute("success", "規格修改成功");
@@ -238,7 +238,7 @@ public class ProductSkuController {
         }
 
         model.addAttribute("productSkuList", productSkuSvc.getAll());
-        return "admin/psi/productmanagement/productsku/listAllProductSku";
+        return "admin/productmanagement/productsku/listAllProductSku";
     }
 
     // 表單欄位基本檢查

@@ -8,12 +8,12 @@
 <body class="p-4 bg-white">
 <main>
     <h1 class="h4 mb-4">庫存查詢</h1>
-    <form class="form-inline mb-4" th:action="@{/admin/psi/product/stock}" method="get">
+    <form class="form-inline mb-4" th:action="@{/admin/product/stock}" method="get">
         <label for="keyword" class="mr-2">商品或規格</label>
         <input id="keyword" name="keyword" class="form-control mr-2" th:value="${keyword}" placeholder="商品名稱、規格名稱或規格編號">
         <label class="mr-3"><input type="checkbox" name="belowOnly" value="true" class="mr-1" th:checked="${belowOnly}">低於安全庫存</label>
         <button class="btn btn-primary" type="submit">查詢</button>
-        <a class="btn btn-outline-secondary ml-2" th:href="@{/admin/psi/product/stock}">重設</a>
+        <a class="btn btn-outline-secondary ml-2" th:href="@{/admin/product/stock}">重設</a>
     </form>
     <div class="table-responsive">
         <table class="table table-bordered table-hover">
