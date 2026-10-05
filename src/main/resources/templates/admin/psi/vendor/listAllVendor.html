@@ -47,9 +47,18 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
-					<h1 class="h3 mb-4 text-gray-800">供應商管理</h1>
+					<h2 class="h3 mb-4 text-gray-800" th:switch="${isActive}">
+					    <span th:case="0">尚未啟用的供應商</span>
+					    <span th:case="1">已啟用的供應商</span>
+					    <span th:case="2">已停用的供應商</span>
+					    <span th:case="*">全部供應商</span>
+					</h2>
 
-					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary btn-icon-split mb-3"> <span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> <span class="text">回供應商管理</span></a>
+					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary btn-icon-split mb-3"> 
+						<span class="icon text-white-50">
+						<i class="fas fa-arrow-left"></i></span> 
+						<span class="text">回供應商管理</span>
+					</a>
 
 					<!-- 供應商查詢全部，樣式參考 tables.html -->
 					<div class="card shadow mb-4">
@@ -61,6 +70,7 @@
 								<table class="table table-bordered" id="vendor_list_all" width="100%" cellspacing="0">
 									<thead>
 										<tr>
+											<th>操作</th>
 											<th style="text-align: center">供應商<br>編號</th>
 											<th>品牌名稱</th>
 											<th>供應商介紹</th>
@@ -71,11 +81,11 @@
 											<th>連絡電話</th>
 											<th>電子郵件</th>
 											<th>啟用狀態</th>
-											<th>修改</th>
 										</tr>
 									</thead>
 									<tfoot>
 										<tr>
+											<th>操作</th>
 											<th style="text-align: center">供應商<br>編號</th>
 											<th>品牌名稱</th>
 											<th>供應商介紹</th>
@@ -86,11 +96,17 @@
 											<th>連絡電話</th>
 											<th>電子郵件</th>
 											<th>啟用狀態</th>
-											<th>修改</th>
 										</tr>
 									</tfoot>
 									<tbody>
 										<tr th:each="vendorVO : ${vendorListData}">
+											<td>
+												<a th:href="@{/admin/psi/vendor/listOneVendor(vendorId=${vendorVO.vendorId})}" class="btn btn-primary btn-sm mb-1">詳細</a><br>
+												<form method="post" th:action="@{/admin/psi/vendor/getOne_For_Update}" class="d-inline">
+													<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
+													<button type="submit" class="btn btn-danger btn-sm">修改</button>
+												</form>
+											</td>
 											<td th:text="${vendorVO.vendorId}" style="text-align: center"></td>
 											<td th:text="${vendorVO.vendorName}"></td>
 											<td>
@@ -107,12 +123,6 @@
 												<span th:if="${vendorVO.isActive == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">尚未啟用</span>
 												<span th:if="${vendorVO.isActive == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">已啟用</span>
 												<span th:if="${vendorVO.isActive == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">已停用</span>
-											</td>
-											<td>
-												<form method="post" th:action="@{/admin/psi/vendor/getOne_For_Update}">
-													<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
-													<button type="submit" class="btn btn-primary btn-sm">修改</button>
-												</form>
 											</td>
 										</tr>
 									</tbody>
@@ -144,13 +154,28 @@
 	<script>
 		$(document).ready(function() {
 			$('#vendor_list_all').DataTable({
-				searching : false, // 不顯示右上角的 Search 欄位
+				searching : true, // 顯示右上角的搜尋欄位
 				lengthMenu : [ 5, 10, 25, 50, 100 ], // 每頁顯示筆數的選項
 				pageLength : 5, // 預設每頁顯示筆數
 				columnDefs : [ {
 					orderable : false,
-					targets : [ 4, 10 ]
-				} ]
+					searchable : false,
+					targets : [ 0, 5 ] // 操作、品牌標誌
+				} ],
+				order : [ [ 1, 'asc' ] ], // 預設依供應商編號排序
+				language : {
+					lengthMenu : "每頁顯示 _MENU_ 筆", // 左上角的筆數選單
+					search : "搜尋：", // 右上角的搜尋欄位
+					info : "顯示第 _START_ 至 _END_ 筆，共 _TOTAL_ 筆", // 左下角的資訊
+					infoEmpty : "顯示第 0 至 0 筆，共 0 筆", // 沒有資料時的左下角資訊
+					infoFiltered : "（從 _MAX_ 筆中篩選）", // 搜尋後附加在左下角資訊後面
+					zeroRecords : "找不到符合的資料", // 搜尋不到資料時顯示
+					emptyTable : "目前沒有資料", // 表格完全沒資料時顯示
+					paginate : {
+						previous : "上一頁",
+						next : "下一頁"
+					}
+				}
 			});
 		});
 	</script>

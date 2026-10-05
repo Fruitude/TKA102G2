@@ -23,7 +23,12 @@
 	
 	    <!-- Custom styles for this template-->
 	    <link th:href="@{/css/sb-admin-2.min.css}" rel="stylesheet">
+	    <style>
+		.sidebar-dark .nav-item.active .nav-link { 
+			background: rgba(255, 255, 255, .15); }
+		</style>
 	</th:block>
+	
 	
 </head>
 
@@ -48,7 +53,7 @@
             <hr class="sidebar-divider my-0">
 
             <!-- Nav Item - Dashboard -->
-            <li class="nav-item active">
+            <li class="nav-item" th:classappend="${activeMenu == null or activeMenu == 'dashboard'} ? 'active'">
                <a th:href="@{/admin}" class="nav-link">
 	              <i class="fas fa-fw fa-tachometer-alt"></i>
 	              <span>首頁</span>
@@ -113,7 +118,7 @@
             </li>
 
             <!-- Nav Item - 進銷存系統 -->
-            <li class="nav-item">
+            <li class="nav-item" th:classappend="${activeMenu == 'psi'} ? 'active'">
                 <a th:href="@{/admin/psi}" class="nav-link">
                   	<i class="fas fa-fw fa-warehouse"></i>
                   	<span>進銷存系統</span>
