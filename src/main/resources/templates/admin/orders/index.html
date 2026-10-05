@@ -184,7 +184,7 @@
                                             <td th:text="${member.memberName}"></td>
                                             <td th:with="statuses=${T(com.fruitude.utils.Utils$OrderStatus).values()}"
                                                 th:text="${orders.ordersStatus != null and orders.ordersStatus >= 0 and orders.ordersStatus < statuses.length}
-                                                         ? ${statuses[orders.ordersStatus].displayStatus} : '狀態異常'"></td>
+                                                         ? ${statuses[orders.ordersStatus].displayStatus + '(' + orders.ordersStatus + ')'} : '狀態異常'"></td>
                                             <td th:text="${orders.postalCode}"></td>
                                             <td class="long" th:text="${orders.shippingAddress}" th:title="${orders.shippingAddress}"></td>
                                             <td th:text="${orders.paymentMethod}"></td>

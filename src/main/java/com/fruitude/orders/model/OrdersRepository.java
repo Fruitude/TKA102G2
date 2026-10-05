@@ -18,16 +18,14 @@ public interface OrdersRepository extends JpaRepository<Orders, Integer>{
 	List<Tuple> findAllWithJoin();
 
 	// 後台訂單管理搜尋與分頁用（沒填搜尋條件就是全部訂單）；Tuple 投影不能自動推出總筆數，所以要自己寫 countQuery。
-	//條件沒填就用「不篩選」的值（0 或空字串）讓那一項條件恆成立，
-	// 這樣不用組動態 SQL；比對文字用 LOCATE（找子字串），不會把使用者輸入的 % _ 當萬用字元
-	// statusFilter：1 = 要依 statuses 篩選，0 = 不篩選（statuses 這時放 -1 湊數，避免 IN () 空清單）
+	// 條件沒填就用「不篩選」的值（0 或空字串）讓那一項條件恆成立，
 	@Query(value = "SELECT O AS orders, M AS member FROM Orders O JOIN Member M ON O.memberId = M.memberId "
 			+ "WHERE (:ordersId = 0 OR O.ordersId = :ordersId) "
 			+ "AND (:memberName = '' OR LOCATE(:memberName, M.memberName) > 0) "
 			+ "AND (:receiverName = '' OR LOCATE(:receiverName, O.receiverName) > 0) "
 			+ "AND (:phoneNumber = '' OR LOCATE(:phoneNumber, O.phoneNumber) > 0) "
 			+ "AND (:statusFilter = 0 OR O.ordersStatus IN :statuses) "
-			+ "order by O.ordersId",
+			+ "order by O.ordersDate DESC",
 			countQuery = "SELECT COUNT(O) FROM Orders O JOIN Member M ON O.memberId = M.memberId "
 			+ "WHERE (:ordersId = 0 OR O.ordersId = :ordersId) "
 			+ "AND (:memberName = '' OR LOCATE(:memberName, M.memberName) > 0) "
