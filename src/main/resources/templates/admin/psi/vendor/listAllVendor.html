@@ -18,7 +18,7 @@
 	white-space: normal; /* 這欄允許換行 */
 	width: 120px;
 	display: -webkit-box;
-	-webkit-line-clamp: 3; /* 限制顯示三行 */
+	 /*-webkit-line-clamp: 3; 限制顯示三行 */
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 }
@@ -47,12 +47,12 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
-					<h2 class="h3 mb-4 text-gray-800" th:switch="${isActive}">
+					<h4 class="h4 mb-4 text-gray-800" th:switch="${isActive}">
 					    <span th:case="0">尚未啟用的供應商</span>
 					    <span th:case="1">已啟用的供應商</span>
 					    <span th:case="2">已停用的供應商</span>
 					    <span th:case="*">全部供應商</span>
-					</h2>
+					</h4>
 
 					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary btn-icon-split mb-3"> 
 						<span class="icon text-white-50">
@@ -71,12 +71,12 @@
 									<thead>
 										<tr>
 											<th>操作</th>
-											<th style="text-align: center">供應商<br>編號</th>
+											<th style="text-align: center">編號</th>
 											<th>品牌名稱</th>
 											<th>供應商介紹</th>
 											<th>產地</th>
 											<th>品牌標誌</th>
-											<th style="text-align: center">聯絡人<br>姓名</th>
+											<th style="text-align: center">聯絡人</th>
 											<th>統一編號</th>
 											<th>連絡電話</th>
 											<th>電子郵件</th>
@@ -86,12 +86,12 @@
 									<tfoot>
 										<tr>
 											<th>操作</th>
-											<th style="text-align: center">供應商<br>編號</th>
+											<th style="text-align: center">編號</th>
 											<th>品牌名稱</th>
 											<th>供應商介紹</th>
 											<th>產地</th>
 											<th>品牌標誌</th>
-											<th style="text-align: center">聯絡人<br>姓名</th>
+											<th style="text-align: center">聯絡人</th>
 											<th>統一編號</th>
 											<th>連絡電話</th>
 											<th>電子郵件</th>
@@ -153,7 +153,7 @@
 	<script th:src="@{/vendor/datatables/dataTables.bootstrap4.min.js}"></script>
 	<script>
 		$(document).ready(function() {
-			$('#vendor_list_all').DataTable({
+			var table = $('#vendor_list_all').DataTable({
 				searching : true, // 顯示右上角的搜尋欄位
 				lengthMenu : [ 5, 10, 25, 50, 100 ], // 每頁顯示筆數的選項
 				pageLength : 5, // 預設每頁顯示筆數
@@ -176,6 +176,30 @@
 						next : "下一頁"
 					}
 				}
+			});
+			
+			var searchInput = $('#vendor_list_all_filter input');
+			var searchButton = $('<button type="button" class="btn btn-primary btn-sm ml-2">搜尋</button>');
+			
+			searchInput.off('.DT'); // 移除 DataTables 內建的即時搜尋
+			$('#vendor_list_all_filter').append(searchButton); // 把按鈕放在搜尋欄位後面
+
+			searchButton.on('click', function() {
+			    table.search(searchInput.val()).draw();
+			});
+
+			// 在搜尋欄位按 Enter 也可以搜尋
+			searchInput.on('keydown', function(e) {
+			    if (e.key === 'Enter') {
+			        table.search(searchInput.val()).draw();
+			    }
+			});
+			
+			// 搜尋欄位被清空時，自動還原成全部資料
+			searchInput.on('input', function() {
+			    if (searchInput.val().trim() === '') {
+			        table.search('').draw();
+			    }
 			});
 		});
 	</script>

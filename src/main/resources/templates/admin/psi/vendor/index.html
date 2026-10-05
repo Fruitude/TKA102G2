@@ -83,12 +83,22 @@
 							</form>
 
 							<form method="post"
-								th:action="@{/admin/psi/vendor/listVendorsByContactPerson}"
-								class="form-inline">
+								th:action="@{/admin/psi/vendor/listVendors_ByContactPerson}"
+								class="form-inline mb-3">
 								<label for="contactPersonInput" class="mr-3" style="width: 120px;">輸入聯絡人姓名</label>
 								<input type="text" id="contactPersonInput" name="contactPerson"
 									class="form-control mr-2" placeholder="請輸入聯絡人姓名關鍵字" maxlength="10"
 									th:value="${param.contactPerson}">
+								<button type="submit" class="btn btn-primary">送出</button>
+							</form>
+							
+							<form method="post"
+								th:action="@{/admin/psi/vendor/listVendors_ByTaxId}"
+								class="form-inline">
+								<label for="taxIdInput" class="mr-3" style="width: 120px;">輸入統一編號</label>
+								<input type="text" id="taxIdInput" name="taxId"
+									class="form-control mr-2" placeholder="請輸統一編號" maxlength="8"
+									th:value="${param.taxId}">
 								<button type="submit" class="btn btn-primary">送出</button>
 							</form>
 						</div>
