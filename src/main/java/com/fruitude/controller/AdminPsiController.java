@@ -12,12 +12,9 @@ import com.fruitude.vendor.model.VendorService;
 @RequestMapping("/admin/psi")
 public class AdminPsiController {
 	
-	@Autowired
-	VendorService vendorSvc;
 
 	@GetMapping("/vendor")
 	public String vendor(Model model) {
-	    model.addAttribute("vendorListData", vendorSvc.getActiveVendors());
 	    return "admin/psi/vendor/index";
 	}
 	

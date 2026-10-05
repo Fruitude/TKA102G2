@@ -15,6 +15,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
@@ -39,7 +40,8 @@ public class MemberVO implements Serializable {
 	private String memberName;
 
 	@PastOrPresent(message = "生日不可晚於今天")
-	@Column(name = "member_birthday")
+	@NotNull(message = "會員生日不可空白")
+	@Column(name = "member_birthday", nullable = false)
 	private LocalDate memberBirthday;
 
 	@NotBlank(message = "會員帳號不可空白")

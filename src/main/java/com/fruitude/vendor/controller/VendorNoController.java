@@ -32,7 +32,7 @@ public class VendorNoController {
 	VendorService vendorSvc;
 
 	@PostMapping("/getOne_For_Display")
-	public String getOneForDisplay(
+	public String getOne_For_Display(
 			@RequestParam(value = "vendorId", required = false) 
 			@NotNull(message = "供應商編號，請勿空白") 
 			@Min(value = 1, message = "供應商編號: 不能小於{value}") 
@@ -61,7 +61,7 @@ public class VendorNoController {
 
 	// 依產地模糊查詢已啟用的供應商，結果以 listAllVendor.html 顯示
 	@PostMapping("/listVendors_ByOrigin")
-	public String listVendorsByOrigin(Model model, @RequestParam(value = "origin", required = false) String origin) {
+	public String listVendors_ByOrigin(Model model, @RequestParam(value = "origin", required = false) String origin) {
 
 		String errorMessage = null;
 		List<VendorVO> vendors = null;

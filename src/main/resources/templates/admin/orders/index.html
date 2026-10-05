@@ -25,14 +25,47 @@
 		/* 仿 Gmail 的分頁列：靠右，灰字「1–50 筆 (共 N 筆)」加上 < > 兩個箭頭 */
 		.orders-pager {
 			display: flex;
-			justify-content: flex-end;
+			justify-content: space-between;   /* 搜尋在左，筆數與箭頭在右 */
 			align-items: center;
+			flex-wrap: wrap;
+			gap: .5rem;
 			margin-bottom: .5rem;
 			color: #5f6368;
 			font-size: .85rem;
 		}
+		.orders-pager .pager-right {
+			display: flex;
+			align-items: center;
+			margin-left: auto;
+		}
 		.orders-pager .pager-info {
 			margin-right: 1rem;
+		}
+		/* 可排序的表頭：滑鼠移上去變手指，已排序的欄位後面顯示 ▲ 或 ▼ */
+		.orders-table thead th.sortable a {
+			color: inherit;
+			text-decoration: none;
+			cursor: pointer;
+			display: block;
+		}
+		.orders-table thead th.sortable a:hover {
+			color: #4e73df;
+		}
+		.orders-table thead th.sortable .sort-arrow {
+			font-size: .7em;
+			margin-left: .25rem;
+			color: #4e73df;
+		}
+		.orders-search {
+			display: flex;
+			align-items: center;
+			gap: .4rem;
+		}
+		.orders-search select {
+			width: auto;
+		}
+		.orders-search input[type="text"] {
+			width: 200px;
 		}
 		.orders-pager .pager-btn {
 			display: inline-flex;
@@ -103,37 +136,56 @@
                         <div class="card-body">
                             <!-- 分頁列：1–50 筆 (共 N 筆)  <  > ；< 上一頁、> 下一頁，到頭尾時變灰不能按 -->
                             <div class="orders-pager">
-                                <span class="pager-info"
-                                      th:text="|${fromIndex}–${toIndex} 筆 (共 ${totalCount} 筆)|"></span>
-                                <a th:if="${currentPage > 1}" class="pager-btn" title="上一頁"
-                                   th:href="@{/admin/orders/(page=${currentPage - 1})}"><i class="fas fa-chevron-left"></i></a>
-                                <span th:unless="${currentPage > 1}" class="pager-btn disabled"><i class="fas fa-chevron-left"></i></span>
-                                <a th:if="${currentPage < totalPages}" class="pager-btn" title="下一頁"
-                                   th:href="@{/admin/orders/(page=${currentPage + 1})}"><i class="fas fa-chevron-right"></i></a>
-                                <span th:unless="${currentPage < totalPages}" class="pager-btn disabled"><i class="fas fa-chevron-right"></i></span>
+                                <!-- 搜尋：選欄位、輸入內容、按搜尋；用 GET，網址帶著條件，翻頁也不會掉 -->
+                                <form class="orders-search" method="get" th:action="@{/admin/orders/}">
+                                    <!-- 搜尋時保留目前的排序 -->
+                                    <input type="hidden" name="sort" th:value="${sort}" />
+                                    <input type="hidden" name="dir" th:value="${dir}" />
+                                    <select name="field" class="form-control form-control-sm" aria-label="搜尋欄位">
+                                        <option value="id" th:selected="${field == 'id'}">ID</option>
+                                        <option value="member" th:selected="${field == 'member'}">會員</option>
+                                        <option value="status" th:selected="${field == 'status'}">狀態</option>
+                                        <option value="receiver" th:selected="${field == 'receiver'}">收件者名稱</option>
+                                        <option value="phone" th:selected="${field == 'phone'}">電話號碼</option>
+                                    </select>
+                                    <input type="text" name="keyword" class="form-control form-control-sm"
+                                           placeholder="輸入搜尋內容" maxlength="50" th:value="${keyword}" />
+                                    <button type="submit" class="btn btn-primary btn-sm">搜尋</button>
+                                    <a th:if="${keyword != ''}" th:href="@{/admin/orders/}" class="btn btn-light btn-sm">清除</a>
+                                </form>
+                                <div class="pager-right">
+                                    <span class="pager-info"
+                                          th:text="|${fromIndex}–${toIndex} 筆 (共 ${totalCount} 筆)|"></span>
+                                    <a th:if="${currentPage > 1}" class="pager-btn" title="上一頁"
+                                       th:href="@{/admin/orders/(page=${currentPage - 1}, field=${field}, keyword=${keyword}, sort=${sort}, dir=${dir})}"><i class="fas fa-chevron-left"></i></a>
+                                    <span th:unless="${currentPage > 1}" class="pager-btn disabled"><i class="fas fa-chevron-left"></i></span>
+                                    <a th:if="${currentPage < totalPages}" class="pager-btn" title="下一頁"
+                                       th:href="@{/admin/orders/(page=${currentPage + 1}, field=${field}, keyword=${keyword}, sort=${sort}, dir=${dir})}"><i class="fas fa-chevron-right"></i></a>
+                                    <span th:unless="${currentPage < totalPages}" class="pager-btn disabled"><i class="fas fa-chevron-right"></i></span>
+                                </div>
                             </div>
                             <div class="table-responsive" id="orders-wrap">
                                 <table class="table table-bordered table-hover orders-table" cellspacing="0">
                                     <thead>
                                         <tr>
                                             <th>操作</th>
-                                            <th>ID</th>
-                                            <th>會員</th>
-                                            <th>狀態</th>
-                                            <th>郵遞區號</th>
-                                            <th>地址</th>
-                                            <th>付款方式</th>
-                                            <th>商品總額</th>
-                                            <th>折扣</th>
-                                            <th>運費</th>
-                                            <th>購物金</th>
-                                            <th>實付</th>
-                                            <th>收件者名稱</th>
-                                            <th>電子信箱</th>
-                                            <th>電話號碼</th>
-                                            <th>物流備註</th>
-                                            <th>訂單備註</th>
-                                            <th>日期</th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('ordersId','ID')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('member','會員')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('status','狀態')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('postalCode','郵遞區號')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('address','地址')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('payment','付款方式')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('productTotal','商品總額')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('discount','折扣')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('shippingFee','運費')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('shoppingCredit','購物金')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('actualPayment','實付')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('receiver','收件者名稱')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('email','電子信箱')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('phone','電話號碼')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('logisticsNote','物流備註')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('ordersNote','訂單備註')}"></th>
+                                            <th th:replace="~{admin/orders/sortable :: sortTh('date','日期')}"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -150,7 +202,7 @@
                                             <td th:text="${member.memberName}"></td>
                                             <td th:with="statuses=${T(com.fruitude.utils.Utils$OrderStatus).values()}"
                                                 th:text="${orders.ordersStatus != null and orders.ordersStatus >= 0 and orders.ordersStatus < statuses.length}
-                                                         ? ${statuses[orders.ordersStatus].displayStatus} : '狀態異常'"></td>
+                                                         ? ${statuses[orders.ordersStatus].displayStatus + '(' + orders.ordersStatus + ')'} : '狀態異常'"></td>
                                             <td th:text="${orders.postalCode}"></td>
                                             <td class="long" th:text="${orders.shippingAddress}" th:title="${orders.shippingAddress}"></td>
                                             <td th:text="${orders.paymentMethod}"></td>

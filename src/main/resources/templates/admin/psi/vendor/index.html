@@ -27,21 +27,6 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
-					<!-- 標題列：左邊標題，右邊操作按鈕 -->
-					<div class="d-flex justify-content-between align-items-center mb-4">
-						<h1 class="h3 mb-0 text-gray-800">供應商管理</h1>
-						<div>
-							<a th:href="@{/admin/psi}"
-								class="btn btn-secondary btn-icon-split mr-2"> <span
-								class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
-								<span class="text">回進銷存管理</span>
-							</a> <a th:href="@{/admin/psi/vendor/addVendor}"
-								class="btn btn-success btn-icon-split"> <span
-								class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
-								class="text">新增供應商</span>
-							</a>
-						</div>
-					</div>		
 					<!-- 錯誤訊息 -->
 					<div class="alert alert-danger alert-dismissible fade show" role="alert"
 					     th:if="${errorMessage != null}">
@@ -53,8 +38,16 @@
 
 					<!-- 條件查詢：依編號、名稱查單筆；依產地查多筆 -->
 					<div class="card shadow mb-4">
-						<div class="card-header py-3">
+						<div class="card-header py-3 d-flex justify-content-between align-items-center">
+							
 							<h6 class="m-0 font-weight-bold text-primary">條件查詢</h6>
+
+							 <a th:href="@{/admin/psi/vendor/addVendor}"
+								class="btn btn-success btn-icon-split"> <span
+								class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
+								class="text">新增供應商</span>
+							</a>
+
 						</div>
 						<div class="card-body">
 						
@@ -76,31 +69,6 @@
 								<input type="text" id="vendorIdInput" name="vendorId"
 									class="form-control mr-2" placeholder="請輸入供應商編號"
 									th:value="${param.vendorId}">
-								<button type="submit" class="btn btn-primary">送出</button>
-							</form>
-
-							<form method="post"
-								th:action="@{/admin/psi/vendor/getOne_For_Display}"
-								class="form-inline mb-3">
-								<label for="vendorIdSelect" class="mr-3" style="width: 120px;">選擇供應商編號</label>
-								<select id="vendorIdSelect" name="vendorId"
-									class="custom-select mr-2">
-									<option th:each="vendorVO : ${vendorListData}"
-										th:value="${vendorVO.vendorId}" th:text="${vendorVO.vendorId}" />
-								</select>
-								<button type="submit" class="btn btn-primary">送出</button>
-							</form>
-
-							<form method="post"
-								th:action="@{/admin/psi/vendor/getOne_For_Display}"
-								class="form-inline mb-3">
-								<label for="vendorNameSelect" class="mr-3" style="width: 120px;">選擇供應商名稱</label>
-								<select id="vendorNameSelect" name="vendorId"
-									class="custom-select mr-2">
-									<option th:each="vendorVO : ${vendorListData}"
-										th:value="${vendorVO.vendorId}"
-										th:text="${vendorVO.vendorName}" />
-								</select>
 								<button type="submit" class="btn btn-primary">送出</button>
 							</form>
 

@@ -26,12 +26,12 @@ public class PoDetailVO implements java.io.Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
-    private Integer id;                          // 採購明細編號
+    private Integer poDetailId;                          // 採購明細編號
 
     @NotNull(message = "採購單系統編號，請勿空白")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "po_id", nullable = false)
-    private PoVO po;                         // 採購單系統編號 (FK)
+    private PoVO poId;                         // 採購單系統編號 (FK)
 
     @NotNull(message = "商品規格編號，請勿空白")
     @Column(name = "sku_id", nullable = false)
@@ -74,19 +74,19 @@ public class PoDetailVO implements java.io.Serializable {
 
     // 對應資料庫的 CHECK (arrived_pcs <= quantity)
     @AssertTrue(message = "到貨數量不可大於採購數量")
-    private boolean isArrivedPcsValid() {
+    public boolean isArrivedPcsValid() {
         if (arrivedPcs == null || quantity == null) {
             return true;  // 空值交給 @NotNull 處理
         }
         return arrivedPcs <= quantity;
     }
 
-	public Integer getId() {
-		return id;
+	public Integer getPoDetailId() {
+		return poDetailId;
 	}
 
-	public PoVO getPo() {
-		return po;
+	public PoVO getPoId() {
+		return poId;
 	}
 
 	public Integer getSkuId() {
@@ -121,12 +121,12 @@ public class PoDetailVO implements java.io.Serializable {
 		return inboundSubtotal;
 	}
 
-	public void setId(Integer id) {
-		this.id = id;
+	public void setPoDetailId(Integer poDetailId) {
+		this.poDetailId = poDetailId;
 	}
 
-	public void setPoId(PoVO po) {
-		this.po = po;
+	public void setPoId(PoVO poId) {
+		this.poId = poId;
 	}
 
 	public void setSkuId(Integer skuId) {
@@ -161,11 +161,7 @@ public class PoDetailVO implements java.io.Serializable {
 		this.inboundSubtotal = inboundSubtotal;
 	}
 
-	public PoDetailVO() {
-		
-	}
-
-    
+	
 
 
 }

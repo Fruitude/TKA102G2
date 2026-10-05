@@ -22,7 +22,7 @@ public class VendorVO implements java.io.Serializable{
 	private String vendorName;
 
 	@Column(name = "vendor_introduction", columnDefinition = "TEXT")
-	@Size(max = 150, message = "供應商介紹，字數過多")
+	@Size(max = 200, message = "供應商介紹，字數過多")
 	private String vendorIntroduction;
 
 	@NotBlank(message = "產地，請勿空白")

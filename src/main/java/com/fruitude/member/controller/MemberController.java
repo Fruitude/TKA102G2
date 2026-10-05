@@ -8,7 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -146,28 +145,6 @@ public class MemberController {
 			session.invalidate();
 		}
 		return ResponseEntity.noContent().build();
-	}
-
-	/** 依會員編號查詢個人資料。 */
-	@GetMapping("/{memberId}")
-	public ResponseEntity<?> getProfile(@PathVariable Integer memberId) {
-		Optional<MemberVO> member = memberService.findById(memberId);
-		return member.isPresent()
-				? ResponseEntity.ok(member.get())
-				: ResponseEntity.status(HttpStatus.NOT_FOUND).body(message("找不到會員"));
-	}
-
-	/** 修改可由會員自行維護的個人資料。 */
-	@PutMapping("/{memberId}")
-	public ResponseEntity<?> updateProfile(@PathVariable Integer memberId, @RequestBody MemberVO form) {
-		try {
-			Optional<MemberVO> member = memberService.updateProfile(memberId, form);
-			return member.isPresent()
-					? ResponseEntity.ok(member.get())
-					: ResponseEntity.status(HttpStatus.NOT_FOUND).body(message("找不到會員"));
-		} catch (IllegalArgumentException e) {
-			return ResponseEntity.status(HttpStatus.CONFLICT).body(message(e.getMessage()));
-		}
 	}
 
 	// 集中讀取 session 內的會員編號，沒有登入時回傳 null。
