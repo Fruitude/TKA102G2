@@ -132,7 +132,8 @@
             cursor: pointer;
         }
 
-        .arrow:hover {
+        .arrow:disabled { background: #d1d5db; color: #777; cursor: default; }
+        .arrow:hover:not(:disabled) {
             background: #1e603a;
         }
 
@@ -344,6 +345,38 @@
             }
         }
     </style>
+<style th:if="${param.modal != null}">
+        body { margin: 0; background: white; }
+        .container { padding: 20px; }
+        .container > h1 { display: none; }
+        body { font-size: 13px; line-height: 1.4; }
+        .container { padding: 12px 16px; }
+        .detail-layout { grid-template-columns: 280px minmax(0, 1fr); gap: 20px; }
+        .gallery, .main-image-box, .thumbnail-area { width: 280px; }
+        .main-image-box { height: 250px; }
+        .thumbnail-area { gap: 6px; margin-top: 10px; }
+        .thumb-viewport { width: 204px; max-width: calc(100% - 64px); }
+        .thumb-track { gap: 6px; }
+        .thumbnail { flex-basis: 64px; width: 64px; height: 56px; }
+        .arrow { flex-basis: 26px; width: 26px; height: 26px; font-size: 18px; }
+        .item { padding: 6px 0; }
+        .name { width: 82px; }
+        .sku-section { margin-top: 10px; }
+        .sku-title { margin-bottom: 6px; }
+        .sku-options { gap: 6px; }
+        .sku-option { padding: 5px 8px; font-size: 12px; }
+        .sku-panel { margin-top: 8px; padding: 8px 10px; }
+        .sku-panel.active { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; }
+        .sku-panel .item { padding: 5px 0; }
+        .sku-panel .name { width: 72px; }
+        .sku-panel .value { white-space: normal; }
+        .status { padding: 2px 6px; font-size: 12px; }
+        @media (max-width: 650px) {
+            .detail-layout { grid-template-columns: 1fr; gap: 12px; }
+            .gallery { margin: auto; }
+        }
+        @media (max-width: 380px) { .sku-panel.active { grid-template-columns: 1fr; } }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -377,9 +410,8 @@
 
                 <button type="button"
                         class="arrow"
-                        th:if="${#lists.size(productImageList) > 3}"
-                        onclick="scrollThumbnails(-1)"
-                        aria-label="往左滑動">
+                        id="previous-image" disabled onclick="scrollThumbnails(-1)"
+                        aria-label="上一張圖片">
                     &#8249;
                 </button>
 
@@ -390,7 +422,7 @@
                                 class="thumbnail"
                                 th:each="image, stat : ${productImageList}"
                                 th:classappend="${stat.index == 0 ? ' active' : ''}"
-                                th:attr="data-image-url=@{/product/image/{imageId}(imageId=${image.imageId})}"
+                                th:attr="data-image-url=@{/product/image/{imageId}(imageId=${image.imageId})},data-sku-id=${image.productSku.skuId}"
                                 onclick="changeMainImage(this)">
 
                             <img th:src="@{/product/image/{imageId}(imageId=${image.imageId})}"
@@ -402,9 +434,8 @@
 
                 <button type="button"
                         class="arrow"
-                        th:if="${#lists.size(productImageList) > 3}"
-                        onclick="scrollThumbnails(1)"
-                        aria-label="往右滑動">
+                        id="next-image" th:disabled="${#lists.size(productImageList) <= 1}" onclick="scrollThumbnails(1)"
+                        aria-label="下一張圖片">
                     &#8250;
                 </button>
             </div>
@@ -469,7 +500,7 @@
                             class="sku-option"
                             th:each="sku, stat : ${productSkuList}"
                             th:classappend="${stat.index == 0 ? ' active' : ''}"
-                            th:attr="data-panel-id=|sku-panel-${sku.skuId}|"
+                            th:attr="data-panel-id=|sku-panel-${sku.skuId}|,data-sku-id=${sku.skuId}"
                             onclick="showSkuInfo(this)"
                             th:text="${sku.skuName}">
                     </button>
@@ -533,7 +564,7 @@
             </div>
 
             <!-- 修改與返回按鈕 -->
-            <div class="action-buttons"><a class="btn" th:href="@{/productsku/listAllProductSku}">管理規格</a>
+            <div class="action-buttons" th:if="${param.modal == null}"><a class="btn" th:href="@{/productsku/listAllProductSku}">管理規格</a>
 
                 <form th:action="@{/product/getOne_For_Update}" method="post">
                     <input type="hidden"
@@ -552,50 +583,40 @@
 </div>
 
 <script>
-    // 點擊小圖，切換上方大圖
+    const thumbnails = Array.from(document.querySelectorAll('.thumbnail'));
+    let selectedImageIndex = thumbnails.findIndex(button => button.classList.contains('active'));
+
+    function updateImageArrows() {
+        const previous = document.getElementById('previous-image');
+        const next = document.getElementById('next-image');
+        if (previous) previous.disabled = selectedImageIndex <= 0;
+        if (next) next.disabled = selectedImageIndex < 0 || selectedImageIndex >= thumbnails.length - 1;
+    }
+
     function changeMainImage(button) {
-        const mainImage = document.getElementById("mainImage");
-        const imageUrl = button.dataset.imageUrl;
-
-        if (!mainImage || !imageUrl) {
-            return;
+        const mainImage = document.getElementById('mainImage');
+        if (!mainImage || !button?.dataset.imageUrl) return;
+        selectedImageIndex = thumbnails.indexOf(button);
+        mainImage.src = button.dataset.imageUrl;
+        mainImage.hidden = false;
+        const noImage = document.querySelector('.main-image-box .no-image');
+        if (noImage) noImage.hidden = true;
+        thumbnails.forEach(thumb => thumb.classList.toggle('active', thumb === button));
+        updateImageArrows();
+        const viewport = document.querySelector('.thumb-viewport');
+        if (viewport) {
+            const left = button.getBoundingClientRect().left - viewport.getBoundingClientRect().left + viewport.scrollLeft;
+            viewport.scrollTo({left: Math.max(0, left - (viewport.clientWidth - button.offsetWidth) / 2), behavior: 'smooth'});
         }
-
-        mainImage.src = imageUrl;
-
-        // 更新目前選取的小圖外框
-        document.querySelectorAll(".thumbnail").forEach(function (thumb) {
-            thumb.classList.remove("active");
-        });
-
-        button.classList.add("active");
     }
 
-    // 左右箭頭：每次滑動一張小圖的寬度加間距
     function scrollThumbnails(direction) {
-        const track = document.getElementById("thumbTrack");
-        const viewport = document.querySelector(".thumb-viewport");
-
-        if (!track || !viewport) {
-            return;
-        }
-
-        const firstThumbnail = track.querySelector(".thumbnail");
-        if (!firstThumbnail) {
-            return;
-        }
-
-        const trackStyle = window.getComputedStyle(track);
-        const gap = parseFloat(trackStyle.columnGap) || 10;
-        const moveDistance = firstThumbnail.getBoundingClientRect().width + gap;
-
-        viewport.scrollBy({
-            left: direction * moveDistance,
-            behavior: "smooth"
-        });
+        const nextIndex = selectedImageIndex + direction;
+        if (selectedImageIndex < 0 || nextIndex < 0 || nextIndex >= thumbnails.length) return;
+        changeMainImage(thumbnails[nextIndex]);
     }
-    
- // 點選規格按鈕，顯示該規格的詳細資訊
+
+    // 點選規格按鈕，顯示該規格的詳細資訊
     function showSkuInfo(button) {
         const panelId = button.dataset.panelId;
 
@@ -613,11 +634,30 @@
 
         button.classList.add("active");
 
+        const firstImage = thumbnails.find(image => image.dataset.skuId === button.dataset.skuId);
+        if (firstImage) {
+            changeMainImage(firstImage);
+        } else {
+            selectedImageIndex = -1;
+            thumbnails.forEach(image => image.classList.remove('active'));
+            const mainImage = document.getElementById('mainImage');
+            if (mainImage) mainImage.hidden = true;
+            const box = document.querySelector('.main-image-box');
+            if (box) {
+                let message = box.querySelector('.no-image');
+                if (!message) { message = document.createElement('span'); message.className = 'no-image'; box.appendChild(message); }
+                message.textContent = '此規格沒有圖片'; message.hidden = false;
+            }
+            updateImageArrows();
+        }
         const selectedPanel = document.getElementById(panelId);
         if (selectedPanel) {
             selectedPanel.classList.add("active");
         }
     }
+    const initialSku = document.querySelector('.sku-option.active');
+    if (initialSku) showSkuInfo(initialSku);
+    else updateImageArrows();
 </script>
 </body>
 </html>

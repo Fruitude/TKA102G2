@@ -31,7 +31,7 @@ public class ProductOverviewFiltersTest {
         ReflectionTestUtils.setField(controller, "productSvc", new ProductService() {
             @Override public Page<ProductOverview> getOverviewPage(int page, int size, String status,
                     Integer parentId, Integer categoryId, Integer vendorId, String stockFilter,
-                    Integer minComments, Integer maxComments, String ratingFilter) {
+                    Integer minComments, Integer maxComments, String ratingFilter, String sortBy, String sortDirection) {
                 stockFilters.add(stockFilter);
                 reviews.add(Arrays.asList(minComments, maxComments, ratingFilter));
                 calls.add(Arrays.asList(page, size, parentId, categoryId, vendorId));

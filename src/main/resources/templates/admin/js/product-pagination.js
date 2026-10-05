@@ -21,6 +21,22 @@
 
     const page = Number(table.dataset.page) || 1;
     const totalPages = Number(table.dataset.totalPages) || 0;
+    let sortBy = table.dataset.sortBy || '';
+    let sortDirection = table.dataset.sortDirection === 'desc' ? 'desc' : 'asc';
+    const sortButtons = Array.from(table.querySelectorAll('[data-sort]'));
+    sortButtons.forEach(button => {
+        const selected = button.dataset.sort === sortBy;
+        const nextDirection = selected && sortDirection === 'asc' ? 'desc' : 'asc';
+        button.title = '點擊依' + (button.dataset.sort === 'comments' ? '總評數' : '平均分') + (nextDirection === 'asc' ? '升冪' : '降冪') + '排列';
+        button.querySelectorAll('[data-direction]').forEach(arrow => {
+            arrow.classList.toggle('active', selected && arrow.dataset.direction === sortDirection);
+        });
+        button.addEventListener('click', () => {
+            sortDirection = button.dataset.sort === sortBy && sortDirection === 'asc' ? 'desc' : 'asc';
+            sortBy = button.dataset.sort;
+            navigate(1);
+        });
+    });
     const totalProducts = Number(table.dataset.totalProducts) || 0;
 
     function savePreferences() {
@@ -74,6 +90,8 @@
         savePreferences();
         const url = new URL(location.href);
         url.searchParams.set('page', String(target));
+        url.searchParams.set('sortBy', sortBy);
+        url.searchParams.set('sortDirection', sortDirection);
         url.searchParams.set('size', sizeSelect.value);
         url.searchParams.delete('hideOffline');
         url.searchParams.set('statusFilter', statusFilter.value);

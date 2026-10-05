@@ -45,7 +45,7 @@
                                     <i class="fas fa-plus-circle mr-2" aria-hidden="true"></i>新增商品
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-search" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-product-tab th:attr="data-url=@{/admin/product/search}">
-                                    <i class="fas fa-search mr-2" aria-hidden="true"></i>商品查詢
+                                    <i class="fas fa-search mr-2" aria-hidden="true"></i>規格查詢
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-stock" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-product-tab th:attr="data-url=@{/admin/product/stock}">
                                     <i class="fas fa-boxes mr-2" aria-hidden="true"></i>庫存查詢
@@ -76,5 +76,6 @@
 	<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
 
 <script th:src="@{/admin/js/product-tabs.js}" defer></script>
+<script th:src="@{/admin/js/product-detail-modal.js}" defer></script>
 </body>
 </html>

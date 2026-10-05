@@ -82,6 +82,16 @@ public class ProductService {
         return getOverviewPage(page, size, statusFilter, null, null, null);
     }
 
+    public java.util.Map<Integer, List<String>> getOverviewSkuNames(List<Integer> productIds) {
+        var names = new java.util.LinkedHashMap<Integer, List<String>>();
+        if (!productIds.isEmpty()) {
+            for (var sku : repository.findOverviewSkuNames(productIds)) {
+                names.computeIfAbsent(sku.getProductId(), id -> new java.util.ArrayList<>()).add(sku.getSkuName());
+            }
+        }
+        return names;
+    }
+
     public java.util.Map<Integer, List<Integer>> getOverviewImageIds(List<Integer> productIds) {
         var images = new java.util.LinkedHashMap<Integer, List<Integer>>();
         if (!productIds.isEmpty()) {
@@ -141,15 +151,28 @@ public class ProductService {
     public org.springframework.data.domain.Page<ProductOverview> getOverviewPage(int page, int size, String statusFilter,
             Integer parentCategoryId, Integer categoryId, Integer vendorId, String stockFilter,
             Integer minComments, Integer maxComments, String ratingFilter) {
+        return getOverviewPage(page, size, statusFilter, parentCategoryId, categoryId, vendorId,
+            stockFilter, minComments, maxComments, ratingFilter, "", "asc");
+    }
+
+    public static String normalizeOverviewSort(String value) {
+        return java.util.Set.of("comments", "rating").contains(value == null ? "" : value) ? value : "";
+    }
+
+    public org.springframework.data.domain.Page<ProductOverview> getOverviewPage(int page, int size, String statusFilter,
+            Integer parentCategoryId, Integer categoryId, Integer vendorId, String stockFilter,
+            Integer minComments, Integer maxComments, String ratingFilter, String sortBy, String sortDirection) {
+        sortBy = normalizeOverviewSort(sortBy);
+        sortDirection = "desc".equals(sortDirection) ? "desc" : "asc";
         stockFilter = normalizeStockFilter(stockFilter);
         ratingFilter = normalizeRatingFilter(ratingFilter);
         Integer ratingBucket = ratingFilter.isEmpty() ? null : "unrated".equals(ratingFilter) ? -1 : ratingFilter.charAt(0) - '0';
         int safeSize = java.util.Set.of(10, 20, 50, 100).contains(size) ? size : 10;
         Integer productStatus = "on".equals(statusFilter) ? Integer.valueOf(1) : "off".equals(statusFilter) ? Integer.valueOf(0) : null;
-        var result = repository.findOverviewPage(productStatus, parentCategoryId, categoryId, vendorId, stockFilter, minComments, maxComments, ratingBucket,
+        var result = repository.findOverviewPage(productStatus, parentCategoryId, categoryId, vendorId, stockFilter, minComments, maxComments, ratingBucket, sortBy, sortDirection,
             org.springframework.data.domain.PageRequest.of(Math.max(0, page - 1), safeSize));
         if (result.getTotalPages() > 0 && result.getNumber() >= result.getTotalPages()) {
-            return repository.findOverviewPage(productStatus, parentCategoryId, categoryId, vendorId, stockFilter, minComments, maxComments, ratingBucket,
+            return repository.findOverviewPage(productStatus, parentCategoryId, categoryId, vendorId, stockFilter, minComments, maxComments, ratingBucket, sortBy, sortDirection,
             org.springframework.data.domain.PageRequest.of(result.getTotalPages() - 1, safeSize));
         }
         return result;

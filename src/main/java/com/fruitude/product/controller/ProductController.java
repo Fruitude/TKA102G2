@@ -424,6 +424,8 @@ public class ProductController {
             @RequestParam(required = false) String minComments,
             @RequestParam(required = false) String maxComments,
             @RequestParam(required = false) String ratingFilter,
+            @RequestParam(defaultValue = "") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection,
             @org.springframework.web.bind.annotation.CookieValue(value = "fruitudeProductMinComments", defaultValue = "") String savedMinComments,
             @org.springframework.web.bind.annotation.CookieValue(value = "fruitudeProductMaxComments", defaultValue = "") String savedMaxComments,
             @org.springframework.web.bind.annotation.CookieValue(value = "fruitudeProductRatingFilter", defaultValue = "") String savedRatingFilter,
@@ -463,8 +465,10 @@ public class ProductController {
         Integer minCount = ProductService.normalizeCommentCount(minComments == null ? savedMinComments : minComments);
         Integer maxCount = ProductService.normalizeCommentCount(maxComments == null ? savedMaxComments : maxComments);
         String rating = ProductService.normalizeRatingFilter(ratingFilter == null ? savedRatingFilter : ratingFilter);
+        sortBy = ProductService.normalizeOverviewSort(sortBy);
+        sortDirection = "desc".equals(sortDirection) ? "desc" : "asc";
         var result = productSvc.getOverviewPage(page, size == null ? savedSize : size, status,
-              parentCategoryId, categoryId, vendorId, stock, minCount, maxCount, rating);
+              parentCategoryId, categoryId, vendorId, stock, minCount, maxCount, rating, sortBy, sortDirection);
 
         model.addAttribute("parentCategoryListData", parents);
         model.addAttribute("childCategoryListData", children);
@@ -474,6 +478,7 @@ public class ProductController {
 
         model.addAttribute("productListData", result.getContent());
         var overviewProductIds = result.getContent().stream().map(com.fruitude.product.model.ProductOverview::getProductId).toList();
+        model.addAttribute("overviewSkuNames", productSvc.getOverviewSkuNames(overviewProductIds));
         model.addAttribute("overviewImageIds", productSvc.getOverviewImageIds(overviewProductIds));
         model.addAttribute("overviewStockStatuses", productSvc.getOverviewStockStatuses(overviewProductIds));
         model.addAttribute("overviewLightweight", true);
@@ -486,6 +491,8 @@ public class ProductController {
         model.addAttribute("minComments", minCount);
         model.addAttribute("maxComments", maxCount);
         model.addAttribute("ratingFilter", rating);
+        model.addAttribute("sortBy", sortBy);
+        model.addAttribute("sortDirection", sortDirection);
 
         return "admin/productmanagement/product/listAllProduct";
     }
@@ -502,6 +509,11 @@ public class ProductController {
     /*
      * 查詢單筆商品
      */
+    @GetMapping("getOne_For_Display")
+    public String displayProductDetails(@RequestParam("productId") Integer productId, ModelMap model) {
+        return getOne_For_Display(productId, model);
+    }
+
     @PostMapping("getOne_For_Display")
     public String getOne_For_Display(
             @RequestParam("productId") Integer productId,
