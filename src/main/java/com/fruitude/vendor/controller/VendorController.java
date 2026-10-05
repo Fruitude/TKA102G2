@@ -42,7 +42,7 @@ public class VendorController {
 	        model.addAttribute("vendorListData", vendorSvc.getActiveVendors());
 	        return "admin/psi/vendor/index";
 	    }
-
+	    model.addAttribute("isActive", isActive);
 	    model.addAttribute("vendorListData", vendors);
 	    return "admin/psi/vendor/listAllVendor";
 	}
@@ -94,7 +94,7 @@ public class VendorController {
 	}
 
 	@PostMapping("/getOne_For_Update")
-	public String getOneForUpdate(@RequestParam("vendorId") Integer vendorId, Model model) {
+	public String getOne_For_Update(@RequestParam("vendorId") Integer vendorId, Model model) {
 		VendorVO vendorVO = vendorSvc.getOneVendor(vendorId);
 
 		// 資料已被刪除時回到列表

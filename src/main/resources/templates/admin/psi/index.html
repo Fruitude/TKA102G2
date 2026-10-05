@@ -7,15 +7,13 @@
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
  <style>
-    .card.border-left-info[href],
-    a.card {
-        transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
-    }
-
-    a.card:hover {
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.25) !important;
-        transform: translateY(-2px);
-    }
+    .psi-tabs-header { overflow-x: auto; border-bottom: 0; }
+    .psi-tabs { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); padding: .75rem 1.5rem 0; gap: .25rem; }
+    .psi-tabs .nav-link { width: 100%; height: 58px; box-sizing: border-box; border-top: 3px solid transparent; white-space: nowrap; background: transparent; color: #5a5c69; font-weight: 700; padding: .9rem 1.25rem; }
+    .psi-tabs .nav-link.active { color: #4e73df; border-top: 3px solid #4e73df; }
+    .psi-tabs .nav-link:focus-visible { outline: 2px solid #4e73df; outline-offset: -4px; }
+    #psi-frame { display: block; width: 100%; min-height: 400px; height: 400px; border: 0; background: white; }
+    #psi-panel[aria-busy="true"] #psi-frame { visibility: hidden; }
 </style>
 </head>
 <body>
@@ -25,7 +23,7 @@
     <div id="wrapper">
 
         <!-- 引入側邊欄 -->
-        <ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='psi')}"></ul>
 
         <!-- Content Wrapper -->
         <div id="content-wrapper" class="d-flex flex-column">
@@ -38,124 +36,31 @@
 
                 <!-- 這裡放頁面自己的內容 -->
                 <div class="container-fluid">
-                    <h1 class="h3 mb-4 text-gray-800">進銷存管理</h1>
-                    	
-                    <div class="row">
-
-                        <!-- 出貨系統 Card Example -->
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <a class="card border-left-primary shadow h-100 py-2" th:href="@{/admin/psi/shipping}" style="text-decoration: none;">
-                                <div class="card-body">
-                                    <div class="row no-gutters align-items-center">
-                                        <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                                Shipping System</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800">出貨系統</div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <i class="fas fa-truck fa-2x text-gray-300"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
+                              	
+                    <div class="card shadow mb-4">
+                        <div class="card-header bg-white p-0 psi-tabs-header">
+                            <div class="nav nav-tabs psi-tabs" role="tablist" aria-label="進銷存管理功能">
+                                <button class="nav-link active" type="button" role="tab" id="tab-shipping" aria-selected="true" aria-controls="psi-panel" data-psi-tab data-key="shipping" th:attr="data-url=@{/admin/psi/shipping}">
+                                    <i class="fas fa-truck mr-2" aria-hidden="true"></i>出貨系統
+                                </button>
+                                <button class="nav-link" type="button" role="tab" id="tab-receiving" aria-selected="false" aria-controls="psi-panel" tabindex="-1" data-psi-tab data-key="receiving" th:attr="data-url=@{/admin/psi/receiving}">
+                                    <i class="fas fa-dolly mr-2" aria-hidden="true"></i>進貨系統
+                                </button>
+                                <button class="nav-link" type="button" role="tab" id="tab-purchase" aria-selected="false" aria-controls="psi-panel" tabindex="-1" data-psi-tab data-key="purchase" th:attr="data-url=@{/admin/psi/purchase}">
+                                    <i class="fas fa-shopping-cart mr-2" aria-hidden="true"></i>採購系統
+                                </button>
+                                <button class="nav-link" type="button" role="tab" id="tab-stock" aria-selected="false" aria-controls="psi-panel" tabindex="-1" data-psi-tab data-key="stock" th:attr="data-url=@{/admin/psi/stock}">
+                                    <i class="fas fa-boxes mr-2" aria-hidden="true"></i>庫存查詢
+                                </button>
+                                <button class="nav-link" type="button" role="tab" id="tab-vendor" aria-selected="false" aria-controls="psi-panel" tabindex="-1" data-psi-tab data-key="vendor" th:attr="data-url=@{/admin/psi/vendor}">
+                                    <i class="fas fa-handshake mr-2" aria-hidden="true"></i>供應商管理
+                                </button>
+                            </div>
                         </div>
-
-                        <!-- 進貨系統 Card Example -->
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <a class="card border-left-success shadow h-100 py-2" th:href="@{/admin/psi/receiving}" style="text-decoration: none;">
-                                <div class="card-body">
-                                    <div class="row no-gutters align-items-center">
-                                        <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                                Receiving Systems</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800">進貨系統</div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <i class="fas fa-dolly fa-2x text-gray-300"></i>
-
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
+                        <div class="card-body p-0" id="psi-panel" role="tabpanel" aria-labelledby="tab-shipping" aria-busy="true">
+                            <p id="psi-load-status" class="m-3 text-muted" role="status">正在載入出貨系統…</p>
+                            <iframe id="psi-frame" name="psi-content" title="出貨系統"></iframe>
                         </div>
-                        
-                        <!-- 採購系統 Card Example -->
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <a class="card border-left-warning shadow h-100 py-2" th:href="@{/admin/psi/purchase}" style="text-decoration: none;">
-                                <div class="card-body">
-                                    <div class="row no-gutters align-items-center">
-                                        <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                                Purchase System</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800">採購系統</div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                        
-
-                         <!-- 庫存查詢 Card Example -->
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <a class="card border-left-danger shadow h-100 py-2" th:href="@{/admin/psi/stock}" style="text-decoration: none;">
-                                <div class="card-body">
-                                    <div class="row no-gutters align-items-center">
-                                        <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-danger  text-uppercase mb-1">stock
-                                            </div>
-                                            <div class="row no-gutters align-items-center">
-                                                <div class="col-auto">
-                                                    <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">庫存查詢</div>
-                                                </div>
-                                                <div class="col">
-<!--                                                     <div class="progress progress-sm mr-2"> -->
-<!--                                                         <div class="progress-bar bg-info" role="progressbar" -->
-<!--                                                             style="width: 50%" aria-valuenow="50" aria-valuemin="0" -->
-<!--                                                             aria-valuemax="100"></div> -->
-<!--                                                     </div> -->
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <i class="fas fa-boxes fa-2x text-gray-300"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                        <!-- 供應商管理 Card Example -->
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <a class="card border-left-info shadow h-100 py-2" th:href="@{/admin/psi/vendor}" style="text-decoration: none;">
-                                <div class="card-body">
-                                    <div class="row no-gutters align-items-center">
-                                        <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Vendor management
-                                            </div>
-                                            <div class="row no-gutters align-items-center">
-                                                <div class="col-auto">
-                                                    <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">供應商管理</div>
-                                                </div>
-                                                <div class="col">
-<!--                                                      <div class="progress progress-sm mr-2"> -->
-<!--                                                          <div class="progress-bar bg-info" role="progressbar" -->
-<!--                                                             style="width: 50%" aria-valuenow="50" aria-valuemin="0" -->
-<!--                                                             aria-valuemax="100"></div> -->
-<!--                                                     </div> -->
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <i class="fas fa-handshake fa-2x text-gray-300"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>                        
-
-
                     </div>
 
 
@@ -176,6 +81,96 @@
     </span>
 		<!-- 	引入js資源     -->
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+    <!-- 分頁標籤：點選後把對應頁面載入 iframe -->
+    <script>
+        $(document).ready(function() {
+            var tabs = $('[data-psi-tab]');
+            var panel = $('#psi-panel');
+            var loadStatus = $('#psi-load-status');
+            var frame = document.getElementById('psi-frame');
+
+            // 內嵌頁面不需要自己的側邊欄、Topbar、Footer，並取消滿版高度讓 iframe 可以貼合內容
+            var embeddedCss = '#accordionSidebar, .topbar, .sticky-footer, .scroll-to-top { display: none !important; }'
+                    + ' html, body { height: auto !important; min-height: 0 !important; overflow-y: hidden !important; background: #fff !important; }'
+                    + ' #wrapper #content-wrapper { min-height: 0 !important; background: #fff !important; }'
+                    + ' #content { padding-top: 1.5rem; }';
+
+            function selectTab(tab) {
+                var tabName = $.trim(tab.text());
+
+                tabs.removeClass('active').attr('aria-selected', 'false').attr('tabindex', '-1');
+                tab.addClass('active').attr('aria-selected', 'true').removeAttr('tabindex');
+
+                panel.attr('aria-labelledby', tab.attr('id')).attr('aria-busy', 'true');
+                loadStatus.text('正在載入' + tabName + '…').show();
+                frame.title = tabName;
+
+                // 把目前分頁記在網址的 # 後面，重新整理時停留在同一個分頁
+                history.replaceState(null, '', '#' + tab.attr('data-key'));
+                frame.contentWindow.location.replace(tab.attr('data-url'));
+            }
+
+            $(frame).on('load', function() {
+                var frameDoc = null;
+                try {
+                    frameDoc = frame.contentDocument;
+                } catch (e) {
+                    // 讀不到內嵌頁面時，直接顯示 iframe 原本的內容
+                }
+
+                if (frameDoc && frameDoc.body && frame.contentWindow.location.href !== 'about:blank') {
+                    var style = frameDoc.createElement('style');
+                    style.textContent = embeddedCss;
+                    frameDoc.head.appendChild(style);
+
+                    // 「回進銷存管理」這類連回本頁的連結改為整頁跳轉，避免分頁裡又出現一層分頁
+                    $(frameDoc).find('a').filter(function() {
+                        return this.pathname.split(';')[0] === window.location.pathname;
+                    }).attr('target', '_top');
+
+                    // iframe 高度跟著內容走（換頁、切換每頁筆數時也會更新）
+                    var fitHeight = function() {
+                        frame.style.height = frameDoc.body.offsetHeight + 'px';
+                    };
+                    fitHeight();
+                    if (window.ResizeObserver) {
+                        new ResizeObserver(fitHeight).observe(frameDoc.body);
+                    }
+
+                    // 在 iframe 裡送出表單或點連結時，先藏起來等新頁面處理好再顯示
+                    frame.contentWindow.addEventListener('pagehide', function() {
+                        panel.attr('aria-busy', 'true');
+                        loadStatus.show();
+                    });
+                }
+
+                panel.attr('aria-busy', 'false');
+                loadStatus.hide();
+            });
+
+            tabs.on('click', function() {
+                selectTab($(this));
+            });
+
+            // 鍵盤左右鍵切換分頁
+            tabs.on('keydown', function(e) {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                    return;
+                }
+                var nextIndex = tabs.index(this) + (e.key === 'ArrowRight' ? 1 : -1);
+                var nextTab = tabs.eq((nextIndex + tabs.length) % tabs.length);
+                nextTab.focus();
+                selectTab(nextTab);
+            });
+
+            var hashKey = window.location.hash.substring(1);
+            var initialTab = tabs.filter(function() {
+                return $(this).attr('data-key') === hashKey;
+            });
+            selectTab(initialTab.length ? initialTab : tabs.first());
+        });
+    </script>
 
 </body>
 

@@ -1,9 +1,13 @@
 package com.fruitude.po.model;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import com.fruitude.podetail.model.PoDetailVO;
 import com.fruitude.vendor.model.VendorVO;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
+
 
 @Entity
 @Table(name = "purchaseorder")
@@ -12,7 +16,7 @@ public class PoVO implements java.io.Serializable{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) 
     @Column(name = "id")
-    private Integer id;                       // 採購單系統編號
+    private Integer poId;                       // 採購單系統編號
 
     @NotBlank(message = "採購單編號請勿空白")
     @Size(max = 15, message = "採購單編號長度不可超過15個字")
@@ -59,11 +63,15 @@ public class PoVO implements java.io.Serializable{
     @Min(value = 0, message = "驗收實付金額不可為負數")
     @Column(name = "inbound_amount", nullable = false)
     private Integer inboundAmount = 0;        // 驗收實付金額
+    
+    @OneToMany(mappedBy = "poId", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("poDetailId asc")
+    private List<PoDetailVO> poDetails = new ArrayList<>();
 
 	public PoVO() {}
-    
-    public Integer getId() {
-		return id;
+
+	public Integer getPoId() {
+		return poId;
 	}
 
 	public String getPoNo() {
@@ -106,8 +114,12 @@ public class PoVO implements java.io.Serializable{
 		return inboundAmount;
 	}
 
-	public void setId(Integer id) {
-		this.id = id;
+	public List<PoDetailVO> getPoDetails() {
+		return poDetails;
+	}
+
+	public void setPoId(Integer poId) {
+		this.poId = poId;
 	}
 
 	public void setPoNo(String poNo) {
@@ -115,7 +127,7 @@ public class PoVO implements java.io.Serializable{
 	}
 
 	public void setVendor(VendorVO vendor) {
-	    this.vendor = vendor;
+		this.vendor = vendor;
 	}
 
 	public void setPoEmployeeId(Integer poEmployeeId) {
@@ -149,6 +161,12 @@ public class PoVO implements java.io.Serializable{
 	public void setInboundAmount(Integer inboundAmount) {
 		this.inboundAmount = inboundAmount;
 	}
+
+	public void setPoDetails(List<PoDetailVO> poDetails) {
+		this.poDetails = poDetails;
+	}
+    
+
 
     
 }
