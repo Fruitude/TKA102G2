@@ -39,7 +39,6 @@ public class VendorController {
 
 	    if (vendors.isEmpty()) {
 	        model.addAttribute("errorMessage", "查無資料");
-	        model.addAttribute("vendorListData", vendorSvc.getActiveVendors());
 	        return "admin/psi/vendor/index";
 	    }
 	    model.addAttribute("isActive", isActive);

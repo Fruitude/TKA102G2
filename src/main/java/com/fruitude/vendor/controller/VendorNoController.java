@@ -51,7 +51,6 @@ public class VendorNoController {
 		}
 		if (errorMessage != null) {
 			model.addAttribute("errorMessage", errorMessage);
-			model.addAttribute("vendorListData", vendorSvc.getActiveVendors());
 			return "admin/psi/vendor/index";
 		}
 
@@ -80,7 +79,6 @@ public class VendorNoController {
 
 		if (errorMessage != null) {
 			model.addAttribute("errorMessage", errorMessage);
-			model.addAttribute("vendorListData", vendorSvc.getActiveVendors());
 			return "admin/psi/vendor/index";
 		}
 
@@ -89,8 +87,8 @@ public class VendorNoController {
 	}
 
 	// 依聯絡人姓名模糊查詢已啟用的供應商，結果以 listAllVendor.html 顯示
-	@PostMapping("/listVendorsByContactPerson")
-	public String listVendorsByContactPerson(Model model,
+	@PostMapping("/listVendors_ByContactPerson")
+	public String listVendors_ByContactPerson(Model model,
 			@RequestParam(value = "contactPerson", required = false) String contactPerson) {
 
 		String errorMessage = null;
@@ -110,7 +108,35 @@ public class VendorNoController {
 
 		if (errorMessage != null) {
 			model.addAttribute("errorMessage", errorMessage);
-			model.addAttribute("vendorListData", vendorSvc.getActiveVendors());
+			return "admin/psi/vendor/index";
+		}
+
+		model.addAttribute("vendorListData", vendors);
+		return "admin/psi/vendor/listAllVendor";
+	}
+	
+	// 依統一編號模糊查詢，結果以 listAllVendor.html 顯示
+	@PostMapping("/listVendors_ByTaxId")
+	public String listVendors_ByTaxId(Model model, 
+			@RequestParam(value = "taxId", required = false) String taxId) {
+
+		String errorMessage = null;
+		List<VendorVO> vendors = null;
+
+		if (taxId == null || taxId.isBlank()) {
+			errorMessage = "統一編號，請勿空白";
+		} else if (!taxId.trim().matches("^\\d+$")) {
+			// 只接受數字，不可有空白
+			errorMessage = "統一編號，只能輸入數字";
+		} else {
+			vendors = vendorSvc.getActiveVendorsByTaxId(taxId.trim());
+			if (vendors.isEmpty()) {
+				errorMessage = "查無資料";
+			}
+		}
+
+		if (errorMessage != null) {
+			model.addAttribute("errorMessage", errorMessage);
 			return "admin/psi/vendor/index";
 		}
 
@@ -145,7 +171,6 @@ public class VendorNoController {
 
 		ModelAndView mav = new ModelAndView("admin/psi/vendor/index");
 		mav.addObject("errorMessage", String.join("\n", messages));
-		mav.addObject("vendorListData", vendorSvc.getActiveVendors());
 		return mav;
 	}
 

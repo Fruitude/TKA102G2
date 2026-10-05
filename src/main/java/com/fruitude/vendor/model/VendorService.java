@@ -57,4 +57,8 @@ public class VendorService {
 	public List<VendorVO> getActiveVendorsByContactPerson(String contactPerson) {
 		return repository.findByContactPersonContainingAndIsActive(contactPerson, (byte) 1);
 	}
+	
+	public List<VendorVO> getActiveVendorsByTaxId(String taxId) {
+		return repository.findByTaxIdContainingAndIsActive(taxId, (byte) 1);
+	}
 }
