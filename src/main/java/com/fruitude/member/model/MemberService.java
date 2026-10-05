@@ -5,7 +5,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -13,6 +12,9 @@ import java.util.regex.Pattern;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -98,23 +100,23 @@ public class MemberService {
 		return memberRepository.findById(memberId);
 	}
 
-	/** 取得全部會員，供後台清單使用。 */
-	public List<MemberVO> findAll() {
-		return memberRepository.findAll();
-	}
-
-	/** 依狀態篩選會員。 */
-	public List<MemberVO> findByStatus(Integer memberStatus) {
-		validateStatus(memberStatus);
-		return memberRepository.findByMemberStatus(memberStatus);
-	}
-
-	/** 依姓名、帳號或 Email 模糊搜尋會員。 */
-	public List<MemberVO> search(String keyword) {
+	/**
+	 * 後台會員清單使用資料庫分頁，並可同時套用關鍵字與狀態條件。
+	 * 每頁上限設為 100，避免錯誤請求一次讀取過多資料。
+	 */
+	public Page<MemberVO> findAdminPage(String keyword, Integer memberStatus, int page, int size) {
+		if (page < 0) {
+			throw new IllegalArgumentException("頁碼不可小於 0");
+		}
+		if (size < 1 || size > 100) {
+			throw new IllegalArgumentException("每頁筆數必須介於 1 到 100");
+		}
+		if (memberStatus != null) {
+			validateStatus(memberStatus);
+		}
 		String searchText = keyword == null ? "" : keyword.trim();
-		return memberRepository
-				.findByMemberNameContainingIgnoreCaseOrMemberAccountContainingIgnoreCaseOrMemberEmailContainingIgnoreCase(
-						searchText, searchText, searchText);
+		PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "memberId"));
+		return memberRepository.findAdminPage(searchText, memberStatus, pageable);
 	}
 
 	/**
@@ -129,12 +131,15 @@ public class MemberService {
 		}
 
 		validateRequiredProfileFields(form);
-		validateUniqueAccountAndEmail(form.getMemberAccount(), form.getMemberEmail(), memberId);
+		String memberName = form.getMemberName().trim();
+		String memberAccount = form.getMemberAccount().trim();
+		String memberEmail = normalizeEmail(form.getMemberEmail());
+		validateUniqueAccountAndEmail(memberAccount, memberEmail, memberId);
 		MemberVO member = optional.get();
-		member.setMemberName(form.getMemberName());
+		member.setMemberName(memberName);
 		member.setMemberBirthday(form.getMemberBirthday());
-		member.setMemberAccount(form.getMemberAccount());
-		member.setMemberEmail(form.getMemberEmail());
+		member.setMemberAccount(memberAccount);
+		member.setMemberEmail(memberEmail);
 		if (form.getMemberPassword() != null && !form.getMemberPassword().trim().isEmpty()) {
 			member.setMemberPassword(hashPassword(form.getMemberPassword()));
 		}
@@ -171,16 +176,6 @@ public class MemberService {
 		return Optional.of(memberRepository.save(member));
 	}
 
-	/** 後台刪除會員；找不到編號時回傳 false。 */
-	@Transactional
-	public boolean delete(Integer memberId) {
-		if (!memberRepository.existsById(memberId)) {
-			return false;
-		}
-		memberRepository.deleteById(memberId);
-		return true;
-	}
-
 	// 更新資料沒有另外建立表單類別，因此在服務層再次檢查不可缺少的欄位。
 	private void validateRequiredProfileFields(MemberVO form) {
 		if (form == null) {
@@ -194,6 +189,12 @@ public class MemberService {
 		}
 		if (isBlank(form.getMemberEmail())) {
 			throw new IllegalArgumentException("電子郵件不可空白");
+		}
+		if (form.getMemberBirthday() == null) {
+			throw new IllegalArgumentException("會員生日不可空白");
+		}
+		if (form.getMemberBirthday().isAfter(java.time.LocalDate.now())) {
+			throw new IllegalArgumentException("生日不可晚於今天");
 		}
 	}
 

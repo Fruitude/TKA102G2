@@ -64,10 +64,17 @@
             </div>
 
             <!-- Nav Item - 後台帳號管理 -->
-            <li class="nav-item">
-                <span class="nav-link">
+            <li class="nav-item" id="employee-admin-nav-item">
+                <a th:href="@{/admin/employees/}" class="nav-link" id="employee-admin-nav-link">
                     <i class="fas fa-fw fa-user-cog"></i>
-                    <span>後台帳號管理</span></span>
+                    <span>後台帳號管理</span></a>
+            </li>
+
+            <!-- Nav Item - 會員管理 -->
+            <li class="nav-item" id="member-admin-nav-item">
+                <a th:href="@{/admin/members/}" class="nav-link" id="member-admin-nav-link">
+                    <i class="fas fa-fw fa-user-friends"></i>
+                    <span>會員管理</span></a>
             </li>
 
             <!-- Nav Item - 評論管理 -->

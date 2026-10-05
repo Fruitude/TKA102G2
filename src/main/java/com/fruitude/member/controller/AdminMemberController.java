@@ -1,16 +1,16 @@
 package com.fruitude.member.controller;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,7 +19,7 @@ import com.fruitude.member.model.MemberService;
 import com.fruitude.member.model.MemberVO;
 
 /**
- * 後台會員管理 API，提供清單、搜尋、狀態、購物金及刪除功能。
+ * 後台會員管理 API，提供分頁清單、搜尋、狀態與購物金管理功能。
  */
 @RestController
 @RequestMapping("/api/admin/members")
@@ -32,22 +32,25 @@ public class AdminMemberController {
 	}
 
 	/**
-	 * 會員清單：可傳 keyword 搜尋，或傳 status 篩選；兩者都沒傳時回傳全部會員。
+	 * 會員清單：關鍵字與狀態可同時使用，並以資料庫分頁回傳。
 	 */
 	@GetMapping
 	public ResponseEntity<?> getMembers(
 			@RequestParam(value = "keyword", required = false) String keyword,
-			@RequestParam(value = "status", required = false) Integer status) {
+			@RequestParam(value = "status", required = false) Integer status,
+			@RequestParam(value = "page", defaultValue = "0") int page,
+			@RequestParam(value = "size", defaultValue = "20") int size) {
 		try {
-			List<MemberVO> members;
-			if (keyword != null && !keyword.trim().isEmpty()) {
-				members = memberService.search(keyword);
-			} else if (status != null) {
-				members = memberService.findByStatus(status);
-			} else {
-				members = memberService.findAll();
-			}
-			return ResponseEntity.ok(members);
+			Page<MemberVO> members = memberService.findAdminPage(keyword, status, page, size);
+			Map<String, Object> body = new LinkedHashMap<>();
+			body.put("members", members.getContent());
+			body.put("page", members.getNumber());
+			body.put("size", members.getSize());
+			body.put("totalElements", members.getTotalElements());
+			body.put("totalPages", members.getTotalPages());
+			body.put("first", members.isFirst());
+			body.put("last", members.isLast());
+			return ResponseEntity.ok(body);
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest().body(message(e.getMessage()));
 		}
@@ -65,9 +68,9 @@ public class AdminMemberController {
 	/** 將會員設為啟用（1）或停權（0）。 */
 	@PatchMapping("/{memberId}/status")
 	public ResponseEntity<?> updateStatus(@PathVariable Integer memberId,
-			@RequestParam("value") Integer status) {
+			@RequestBody StatusRequest request) {
 		try {
-			Optional<MemberVO> member = memberService.updateStatus(memberId, status);
+			Optional<MemberVO> member = memberService.updateStatus(memberId, request.getMemberStatus());
 			return member.isPresent()
 					? ResponseEntity.ok(member.get())
 					: ResponseEntity.status(HttpStatus.NOT_FOUND).body(message("找不到會員"));
@@ -79,9 +82,9 @@ public class AdminMemberController {
 	/** 設定會員目前的購物金餘額。 */
 	@PatchMapping("/{memberId}/credit")
 	public ResponseEntity<?> updateShoppingCredit(@PathVariable Integer memberId,
-			@RequestParam("value") Integer shoppingCredit) {
+			@RequestBody CreditRequest request) {
 		try {
-			Optional<MemberVO> member = memberService.updateShoppingCredit(memberId, shoppingCredit);
+			Optional<MemberVO> member = memberService.updateShoppingCredit(memberId, request.getShoppingCredit());
 			return member.isPresent()
 					? ResponseEntity.ok(member.get())
 					: ResponseEntity.status(HttpStatus.NOT_FOUND).body(message("找不到會員"));
@@ -90,18 +93,35 @@ public class AdminMemberController {
 		}
 	}
 
-	/** 刪除指定會員。 */
-	@DeleteMapping("/{memberId}")
-	public ResponseEntity<?> deleteMember(@PathVariable Integer memberId) {
-		if (!memberService.delete(memberId)) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message("找不到會員"));
-		}
-		return ResponseEntity.noContent().build();
-	}
-
 	private Map<String, String> message(String text) {
 		Map<String, String> body = new LinkedHashMap<>();
 		body.put("message", text);
 		return body;
+	}
+
+	/** 後台狀態修改請求，只接受 memberStatus 欄位。 */
+	public static class StatusRequest {
+		private Integer memberStatus;
+
+		public Integer getMemberStatus() {
+			return memberStatus;
+		}
+
+		public void setMemberStatus(Integer memberStatus) {
+			this.memberStatus = memberStatus;
+		}
+	}
+
+	/** 後台購物金修改請求，以新的購物金餘額覆蓋原值。 */
+	public static class CreditRequest {
+		private Integer shoppingCredit;
+
+		public Integer getShoppingCredit() {
+			return shoppingCredit;
+		}
+
+		public void setShoppingCredit(Integer shoppingCredit) {
+			this.shoppingCredit = shoppingCredit;
+		}
 	}
 }

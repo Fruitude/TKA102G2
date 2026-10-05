@@ -1,9 +1,12 @@
 package com.fruitude.member.model;
 
-import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -25,10 +28,16 @@ public interface MemberRepository extends JpaRepository<MemberVO, Integer> {
 
 	boolean existsByMemberEmailIgnoreCaseAndMemberIdNot(String memberEmail, Integer memberId);
 
-	// 管理員可依會員狀態篩選清單。
-	List<MemberVO> findByMemberStatus(Integer memberStatus);
-
-	// 管理員輸入一個關鍵字，即可同時比對姓名、帳號及 Email。
-	List<MemberVO> findByMemberNameContainingIgnoreCaseOrMemberAccountContainingIgnoreCaseOrMemberEmailContainingIgnoreCase(
-			String memberName, String memberAccount, String memberEmail);
+	/**
+	 * 後台會員查詢同時支援關鍵字、狀態及分頁，避免會員數量增加後一次載入全部資料。
+	 * keyword 傳空字串代表不限制姓名、帳號與 Email；status 傳 null 代表全部狀態。
+	 */
+	@Query("SELECT member FROM MemberVO member "
+			+ "WHERE (:status IS NULL OR member.memberStatus = :status) "
+			+ "AND (:keyword = '' "
+			+ "OR LOWER(member.memberName) LIKE LOWER(CONCAT('%', :keyword, '%')) "
+			+ "OR LOWER(member.memberAccount) LIKE LOWER(CONCAT('%', :keyword, '%')) "
+			+ "OR LOWER(member.memberEmail) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+	Page<MemberVO> findAdminPage(@Param("keyword") String keyword, @Param("status") Integer status,
+			Pageable pageable);
 }
