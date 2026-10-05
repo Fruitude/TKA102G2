@@ -22,6 +22,36 @@
 			background-color: #f8f9fc;
 			text-align: center;
 		}
+		/* 仿 Gmail 的分頁列：靠右，灰字「1–50 筆 (共 N 筆)」加上 < > 兩個箭頭 */
+		.orders-pager {
+			display: flex;
+			justify-content: flex-end;
+			align-items: center;
+			margin-bottom: .5rem;
+			color: #5f6368;
+			font-size: .85rem;
+		}
+		.orders-pager .pager-info {
+			margin-right: 1rem;
+		}
+		.orders-pager .pager-btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 36px;
+			height: 36px;
+			border-radius: 50%;
+			color: #444746;
+			text-decoration: none;
+		}
+		.orders-pager a.pager-btn:hover {
+			background-color: #e8eaed;
+		}
+		.orders-pager .pager-btn.disabled {
+			color: #c4c7c5;
+			cursor: default;
+			pointer-events: none;
+		}
 		/* 滑鼠移到表格上才出現的水平捲軸：固定在視窗底部，移開就消失 */
 		#orders-hscroll {
 			display: none;
@@ -71,6 +101,17 @@
 
                     <div class="card shadow mb-4">
                         <div class="card-body">
+                            <!-- 分頁列：1–50 筆 (共 N 筆)  <  > ；< 上一頁、> 下一頁，到頭尾時變灰不能按 -->
+                            <div class="orders-pager">
+                                <span class="pager-info"
+                                      th:text="|${fromIndex}–${toIndex} 筆 (共 ${totalCount} 筆)|"></span>
+                                <a th:if="${currentPage > 1}" class="pager-btn" title="上一頁"
+                                   th:href="@{/admin/orders/(page=${currentPage - 1})}"><i class="fas fa-chevron-left"></i></a>
+                                <span th:unless="${currentPage > 1}" class="pager-btn disabled"><i class="fas fa-chevron-left"></i></span>
+                                <a th:if="${currentPage < totalPages}" class="pager-btn" title="下一頁"
+                                   th:href="@{/admin/orders/(page=${currentPage + 1})}"><i class="fas fa-chevron-right"></i></a>
+                                <span th:unless="${currentPage < totalPages}" class="pager-btn disabled"><i class="fas fa-chevron-right"></i></span>
+                            </div>
                             <div class="table-responsive" id="orders-wrap">
                                 <table class="table table-bordered table-hover orders-table" cellspacing="0">
                                     <thead>
