@@ -35,7 +35,7 @@ public class AdminProductNavigationTest {
 
     @Test public void productAndVendorAreIndependentPagesWithSharedStyles() throws Exception {
         MockMvc mvc = mvc();
-        var productResponse = mvc.perform(get("/admin/psi/product")).andReturn().getResponse();
+        var productResponse = mvc.perform(get("/admin/product")).andReturn().getResponse();
         assertEquals(200, productResponse.getStatus());
         String product = productResponse.getContentAsString();
         for (String label : new String[]{"分類管理", "商品總覽", "新增商品", "商品查詢", "庫存查詢"}) {
@@ -43,13 +43,16 @@ public class AdminProductNavigationTest {
         }
         assertTrue(product.contains("id=\"accordionSidebar\""));
         assertTrue(product.contains("href=\"/css/sb-admin-2.min.css\""));
-        assertTrue(product.contains("href=\"/admin/psi/product\""));
+        assertTrue(product.contains("href=\"/admin/product\""));
         assertTrue(product.contains("href=\"/admin/psi\""));
         assertFalse(product.contains("Shipping System"));
         assertFalse(product.contains("product-management.js"));
         assertTrue(product.contains("role=\"tablist\""));
         assertTrue(product.contains("data-url=\"/product/listAllProduct\""));
         assertTrue(product.contains("src=\"/admin/js/product-tabs.js\""));
+        assertTrue(product.contains("data-url=\"/admin/product/search\""));
+        assertTrue(product.contains("data-url=\"/admin/product/stock\""));
+        assertFalse(product.contains("/admin/psi/product"));
         assertFalse(product.replaceAll("(?s)<!--.*?-->", "").contains("th:href"));
         var vendorResponse = mvc.perform(get("/admin/psi/vendor")).andReturn().getResponse();
         assertEquals(200, vendorResponse.getStatus());
@@ -75,14 +78,20 @@ public class AdminProductNavigationTest {
         }
         var product = mvc.perform(get("/admin/psi/productmanagement.html")).andReturn().getResponse();
         assertEquals(302, product.getStatus());
-        assertEquals("/admin/psi/product", product.getRedirectedUrl());
-        assertEquals("/admin/psi/product", mvc.perform(get("/admin/product")).andReturn().getResponse().getRedirectedUrl());
+        assertEquals("/admin/product", product.getRedirectedUrl());
+        for (String old : new String[]{"/admin/psi/product", "/admin/psi/product/", "/admin/product.html"}) {
+            assertEquals("/admin/product", mvc.perform(get(old)).andReturn().getResponse().getRedirectedUrl());
+        }
+        assertEquals("/admin/product/search?keyword=mango", mvc.perform(get("/admin/psi/product/search?keyword=mango"))
+            .andReturn().getResponse().getRedirectedUrl());
+        assertEquals("/admin/product/stock?belowOnly=true", mvc.perform(get("/admin/psi/product/stock?belowOnly=true"))
+            .andReturn().getResponse().getRedirectedUrl());
     }
 
     @Test public void linksRespectDeploymentContextPath() throws Exception {
-        String html = mvc().perform(get("/shop/admin/psi/product").contextPath("/shop"))
+        String html = mvc().perform(get("/shop/admin/product").contextPath("/shop"))
             .andReturn().getResponse().getContentAsString();
-        assertTrue(html.contains("href=\"/shop/admin/psi/product\""));
+        assertTrue(html.contains("href=\"/shop/admin/product\""));
         assertTrue(html.contains("href=\"/shop/admin/psi\""));
         assertTrue(html.contains("data-url=\"/shop/product/addProduct\""));
     }
@@ -106,13 +115,13 @@ public class AdminProductNavigationTest {
             }
         };
         MockMvc mvc = mvc(new com.fruitude.controller.AdminProductQueryController(products, skus));
-        String search = mvc.perform(get("/admin/psi/product/search").param("keyword", "芒果"))
+        String search = mvc.perform(get("/admin/product/search").param("keyword", "芒果"))
             .andReturn().getResponse().getContentAsString();
         assertTrue(search.contains("愛文芒果")); assertFalse(search.contains("香水草莓"));
-        String stock = mvc.perform(get("/admin/psi/product/stock").param("belowOnly", "true"))
+        String stock = mvc.perform(get("/admin/product/stock").param("belowOnly", "true"))
             .andReturn().getResponse().getContentAsString();
         assertTrue(stock.contains("芒果小盒")); assertFalse(stock.contains("草莓大盒"));
-        String empty = mvc.perform(get("/admin/psi/product/search").param("keyword", "不存在"))
+        String empty = mvc.perform(get("/admin/product/search").param("keyword", "不存在"))
             .andReturn().getResponse().getContentAsString();
         assertTrue(empty.contains("沒有符合條件的商品"));
     }
@@ -137,7 +146,7 @@ public class AdminProductNavigationTest {
             model.addAttribute("currentPage", 1); model.addAttribute("pageSize", 10);
             model.addAttribute("stockFilter", "abnormal");
             model.addAttribute("totalPages", 1); model.addAttribute("totalProducts", 1); model.addAttribute("statusFilter", "off");
-            return "admin/psi/productmanagement/product/listAllProduct";
+            return "admin/productmanagement/product/listAllProduct";
         }
     }
 

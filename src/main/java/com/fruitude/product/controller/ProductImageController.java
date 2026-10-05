@@ -42,14 +42,14 @@ public class ProductImageController {
         model.addAttribute("images", productImageService.getAll().stream().filter(i -> skuId == null || (i.getProductSku() != null && skuId.equals(i.getProductSku().getSkuId()))).toList());
         model.addAttribute("skuId", skuId);
         model.addAttribute("skus", productSkuService.getAll());
-        return "admin/psi/productmanagement/productimage/list";
+        return "admin/productmanagement/productimage/list";
     }
     @GetMapping("/add")
     public String add(@RequestParam(required = false) Integer skuId, Model model) {
         model.addAttribute("image", new ProductImage());
         model.addAttribute("skuId", skuId);
         model.addAttribute("skus", productSkuService.getAll());
-        return "admin/psi/productmanagement/productimage/add";
+        return "admin/productmanagement/productimage/add";
     }
     @GetMapping("/edit/{id}")
     public String edit(@PathVariable Integer id, Model model, RedirectAttributes redirect) {
@@ -58,7 +58,7 @@ public class ProductImageController {
         model.addAttribute("image", image);
         model.addAttribute("skuId", image.getProductSku().getSkuId());
         model.addAttribute("skus", productSkuService.getAll());
-        return "admin/psi/productmanagement/productimage/edit";
+        return "admin/productmanagement/productimage/edit";
     }
     @PostMapping("/insert")
     public String insert(@RequestParam Integer skuId, @RequestParam MultipartFile file,
@@ -76,9 +76,9 @@ public class ProductImageController {
             image.setProductSku(sku);
             productImageService.addProductImage(image);
         } catch (IOException | IllegalArgumentException e) {
-            model.addAttribute("errorMessage", e instanceof IOException ? "圖片讀取失敗" : e.getMessage()); return "admin/psi/productmanagement/productimage/add";
+            model.addAttribute("errorMessage", e instanceof IOException ? "圖片讀取失敗" : e.getMessage()); return "admin/productmanagement/productimage/add";
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            model.addAttribute("errorMessage", "所屬規格已變更，請重新選擇"); return "admin/psi/productmanagement/productimage/add";
+            model.addAttribute("errorMessage", "所屬規格已變更，請重新選擇"); return "admin/productmanagement/productimage/add";
         }
         redirect.addFlashAttribute("successMessage", "圖片新增成功");
         return "redirect:/product/image/list?skuId=" + skuId;
@@ -100,7 +100,7 @@ public class ProductImageController {
             model.addAttribute("skuId", original.getProductSku().getSkuId());
             model.addAttribute("skus", productSkuService.getAll());
             model.addAttribute("errorMessage", e instanceof IOException ? "圖片讀取失敗" : e.getMessage());
-            return "admin/psi/productmanagement/productimage/edit";
+            return "admin/productmanagement/productimage/edit";
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             redirect.addFlashAttribute("errorMessage", "圖片或規格已變更，請重新操作"); return "redirect:/product/image/list";
         }

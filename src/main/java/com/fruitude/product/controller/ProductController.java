@@ -102,7 +102,7 @@ public class ProductController {
         );
 
 
-        return "admin/psi/productmanagement/product/addProduct";
+        return "admin/productmanagement/product/addProduct";
     }
 
     /*
@@ -156,7 +156,7 @@ public class ProductController {
                     vendorList
             );
         	
-            return "admin/psi/productmanagement/product/addProduct";
+            return "admin/productmanagement/product/addProduct";
         }
         
      // =========================
@@ -265,7 +265,7 @@ public class ProductController {
         	                    e instanceof IOException ? "圖片上傳失敗" : e.getMessage()
         	                );
 
-        	                return "admin/psi/productmanagement/product/addProduct";
+        	                return "admin/productmanagement/product/addProduct";
         	            }
         	        }
         	    }
@@ -276,7 +276,7 @@ public class ProductController {
         try { productSvc.addProduct(product); }
         catch (org.springframework.dao.DataIntegrityViolationException e) {
             result.reject("save", "商品或規格名稱重複，或關聯資料已變更");
-            return "admin/psi/productmanagement/product/addProduct";
+            return "admin/productmanagement/product/addProduct";
         }
 
         // 新增完成，準備轉交
@@ -299,7 +299,7 @@ public class ProductController {
         if (product == null) return "redirect:/product/listAllProduct";
         model.addAttribute("product", product);
 
-        return "admin/psi/productmanagement/product/update_product_input";
+        return "admin/productmanagement/product/update_product_input";
     }
 
     /*
@@ -316,14 +316,14 @@ public class ProductController {
 
         // 輸入格式驗證失敗，回到修改頁面
         if (result.hasErrors()) {
-            return "admin/psi/productmanagement/product/update_product_input";
+            return "admin/productmanagement/product/update_product_input";
         }
 
         // 修改資料
         try { productSvc.updateBasicFields(product); }
         catch (org.springframework.dao.DataIntegrityViolationException e) {
             result.reject("save", "商品名稱重複，或關聯資料已變更");
-            return "admin/psi/productmanagement/product/update_product_input";
+            return "admin/productmanagement/product/update_product_input";
         }
 
         // 修改完成，重新查詢最新資料
@@ -334,7 +334,7 @@ public class ProductController {
         model.addAttribute("productSkuList", product.getProductSkus());
         model.addAttribute("productImageList", product.getProductSkus().stream().flatMap(s -> s.getProductImages().stream()).filter(i -> i.getImageData() != null).toList());
 
-        return "admin/psi/productmanagement/product/listOneProduct";
+        return "admin/productmanagement/product/listOneProduct";
     }
     
     @PostMapping("updateStatus")
@@ -487,7 +487,7 @@ public class ProductController {
         model.addAttribute("maxComments", maxCount);
         model.addAttribute("ratingFilter", rating);
 
-        return "admin/psi/productmanagement/product/listAllProduct";
+        return "admin/productmanagement/product/listAllProduct";
     }
 
     private static Integer savedFilterId(String value) {
@@ -533,6 +533,6 @@ public class ProductController {
         model.addAttribute("productSkuList", product.getProductSkus());
         model.addAttribute("productImageList", productImageList);
 
-        return "admin/psi/productmanagement/product/listOneProduct";
+        return "admin/productmanagement/product/listOneProduct";
     }
 }

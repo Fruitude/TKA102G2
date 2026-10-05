@@ -154,6 +154,9 @@
         const trigger = document.getElementById('category-trigger');
         const menu = document.getElementById('category-menu');
         const caption = document.getElementById('category-caption');
+        const search = document.getElementById('category-search');
+        const noResults = document.getElementById('category-no-results');
+        const normalize = text => text.trim().toLocaleLowerCase();
         const groups = Array.from(menu.querySelectorAll('.category-group'));
         const choices = Array.from(menu.querySelectorAll('[data-category-parent]'));
         const selected = choices.find(item => (item.dataset.categoryParent || '') === parentCategory.value
@@ -192,7 +195,28 @@
             if (submenu.getBoundingClientRect().right > window.innerWidth - 4) submenu.classList.add('open-left');
             group.querySelector('.category-expand').setAttribute('aria-expanded', 'true');
         }
-        trigger.addEventListener('click', () => menu.hidden ? openMenu() : closeMenu());
+        function filterCategories() {
+            const query = normalize(search.value);
+            closeChildren();
+            let firstChildMatch;
+            groups.forEach(group => {
+                const parentMatch = normalize(group.querySelector('.category-parent').textContent).includes(query);
+                const children = Array.from(group.querySelectorAll('.category-child'));
+                children.forEach(child => { child.hidden = !parentMatch && !normalize(child.textContent).includes(query); });
+                const childMatch = children.some(child => !child.hidden);
+                group.hidden = !parentMatch && !childMatch;
+                if (query && !parentMatch && childMatch && !firstChildMatch) firstChildMatch = group;
+            });
+            menu.querySelector('.category-all').hidden = !!query;
+            noResults.hidden = !query || groups.some(group => !group.hidden);
+            if (firstChildMatch) openChildren(firstChildMatch);
+            positionMenu();
+        }
+        search.addEventListener('input', filterCategories);
+        trigger.addEventListener('click', () => {
+            if (!menu.hidden) { closeMenu(); return; }
+            search.value = ''; openMenu(); filterCategories(); search.focus();
+        });
         trigger.addEventListener('keydown', event => {
             if (event.key === 'ArrowDown') {
                 event.preventDefault(); openMenu();
@@ -239,7 +263,69 @@
         document.addEventListener('click', event => { if (!categoryDropdown.contains(event.target)) closeMenu(); });
         document.addEventListener('focusin', event => { if (!categoryDropdown.contains(event.target)) closeMenu(); });
         window.addEventListener('resize', () => closeMenu());
-        document.addEventListener('scroll', () => closeMenu(), true);
+        document.addEventListener('scroll', event => { if (!menu.contains(event.target)) closeMenu(); }, true);
+    }
+    const vendorDropdown = document.getElementById('vendor-dropdown');
+    if (vendorDropdown && vendor) {
+        const trigger = document.getElementById('vendor-trigger');
+        const menu = document.getElementById('vendor-menu');
+        const search = document.getElementById('vendor-search');
+        const options = document.getElementById('vendor-options');
+        const noResults = document.getElementById('vendor-no-results');
+        const caption = document.getElementById('vendor-caption');
+        caption.textContent = vendor.selectedOptions[0]?.textContent || '全部供應廠商';
+        trigger.title = caption.textContent;
+        const buttons = Array.from(vendor.options, option => {
+            const item = document.createElement('button');
+            item.type = 'button'; item.className = 'category-child';
+            item.setAttribute('role', 'menuitem'); item.textContent = option.textContent;
+            if (option.selected) item.setAttribute('aria-current', 'true');
+            item.addEventListener('click', () => {
+                vendor.value = option.value;
+                close();
+                vendor.dispatchEvent(new Event('change'));
+            });
+            options.appendChild(item);
+            return item;
+        });
+        function close(returnFocus = false) {
+            menu.hidden = true; trigger.setAttribute('aria-expanded', 'false');
+            if (returnFocus) trigger.focus();
+        }
+        function position() {
+            const rect = trigger.getBoundingClientRect();
+            menu.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 4)) + 'px';
+            menu.style.top = Math.max(4, rect.bottom + 4 + menu.offsetHeight > window.innerHeight
+                ? rect.top - menu.offsetHeight - 4 : rect.bottom + 4) + 'px';
+        }
+        function filter() {
+            const query = search.value.trim().toLocaleLowerCase();
+            buttons.forEach(item => { item.hidden = !item.textContent.toLocaleLowerCase().includes(query); });
+            noResults.hidden = buttons.some(item => !item.hidden);
+            position();
+        }
+        function open() {
+            search.value = ''; menu.hidden = false; trigger.setAttribute('aria-expanded', 'true');
+            filter(); search.focus();
+        }
+        trigger.addEventListener('click', () => menu.hidden ? open() : close());
+        trigger.addEventListener('keydown', event => {
+            if (event.key === 'ArrowDown') { event.preventDefault(); open(); }
+        });
+        search.addEventListener('input', filter);
+        menu.addEventListener('keydown', event => {
+            if (event.key === 'Escape') { event.preventDefault(); close(true); }
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                const visible = buttons.filter(item => !item.hidden);
+                const index = visible.indexOf(event.target);
+                visible[(index + (event.key === 'ArrowDown' ? 1 : -1) + visible.length) % visible.length]?.focus();
+            }
+        });
+        document.addEventListener('click', event => { if (!vendorDropdown.contains(event.target)) close(); });
+        document.addEventListener('focusin', event => { if (!vendorDropdown.contains(event.target)) close(); });
+        window.addEventListener('resize', () => close());
+        document.addEventListener('scroll', event => { if (!menu.contains(event.target)) close(); }, true);
     }
     // A status update stays visible. The next page request applies the database filter again.
     render();

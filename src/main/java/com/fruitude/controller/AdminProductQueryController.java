@@ -11,7 +11,7 @@ import com.fruitude.product.model.ProductService;
 import com.fruitude.product.model.ProductSkuService;
 
 @Controller
-@RequestMapping("/admin/psi/product")
+@RequestMapping("/admin/product")
 public class AdminProductQueryController {
     private final ProductService products;
     private final ProductSkuService skus;
@@ -31,7 +31,7 @@ public class AdminProductQueryController {
         model.addAttribute("keyword", keyword.trim());
         model.addAttribute("products", products.getAll().stream().filter(p -> query.isEmpty()
             || Objects.toString(p.getProductId(), "").equals(query) || matches(p.getProductName(), query)).toList());
-        return "admin/psi/productmanagement/product/search";
+        return "admin/productmanagement/product/search";
     }
 
     @GetMapping("/stock")
@@ -45,6 +45,6 @@ public class AdminProductQueryController {
                 || matches(s.getSkuName(), query)
                 || (s.getProduct() != null && matches(s.getProduct().getProductName(), query)))
             .filter(s -> !belowOnly || s.isBelowSafetyStock()).toList());
-        return "admin/psi/productmanagement/product/stock";
+        return "admin/productmanagement/product/stock";
     }
 }
