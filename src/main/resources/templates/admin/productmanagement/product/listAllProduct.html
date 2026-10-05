@@ -10,36 +10,69 @@
     <style>
         body { font-family: 'Huninn', sans-serif; margin: 30px; background: #f5f7f4; }
         button, input, select, textarea { font-family: 'Huninn', sans-serif; }
-        .container { max-width: 1100px; min-width: 800px; margin: auto; background: white; padding: 25px; border-radius: 10px; overflow-x: auto; }
-        .container { --product-table-width: calc(560px + 38em); }
-        #product-table { width: var(--product-table-width); table-layout: fixed; border-collapse: separate; border-spacing: 0; outline: 1px solid #ddd; margin: 10px 0 0 5px; font-size: 16px; }
-        #product-table th { height: 35px; box-sizing: border-box; border: 0; box-shadow: inset -1px -1px 0 #ddd; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; }
-        #product-table td { height: 80px; box-sizing: border-box; border: 0; box-shadow: inset -1px -1px 0 #ddd; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; }
-        .col-number { width: 20px; }
-        .col-image { width: 4em; }
-        .col-name { width: 10em; }
-        .col-vendor { width: 10em; }
-        .col-stock { width: 4em; }
-        .col-count, .col-score { width: 4em; }
-        .col-status { width: 3.5em; }
-        .col-actions { width: 120px; }
+        .container { width: 100%; max-width: none; min-width: 0; box-sizing: border-box; margin: auto; background: white; padding: 20px; border-radius: 10px; overflow-x: auto; }
+        /* Change these pixel values to resize columns; the table width follows automatically. */
+        .container {
+            --col-number-width: 24px;
+            --col-image-width: 56px;
+            --col-name-width: 140px;
+            --col-sku-width: 240px;
+            --col-vendor-width: 140px;
+            --col-stock-width: 60px;
+            --col-count-width: 60px;
+            --col-score-width: 60px;
+            --col-status-width: 60px;
+            --col-actions-width: 130px;
+            --product-table-width: calc(var(--col-number-width) + var(--col-image-width) + var(--col-name-width) + var(--col-sku-width) + var(--col-vendor-width) + var(--col-stock-width) + var(--col-count-width) + var(--col-score-width) + var(--col-status-width) + var(--col-actions-width));
+        }
+        #product-table { width: var(--product-table-width); table-layout: fixed; border-collapse: separate; border-spacing: 0; outline: 1px solid #ddd; margin: 10px 0 0 5px; font-size: 14px; }
+        #product-table th { height: 35px; box-sizing: border-box; border: 0; box-shadow: inset -1px -1px 0 #ddd; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; font-size: 12px;}
+        #product-table td { height: 55px; box-sizing: border-box; border: 0; box-shadow: inset -1px -1px 0 #ddd; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; }
+        .review-sort { display: inline-flex; align-items: center; justify-content: center; gap: 3px; padding: 0; height: 35px; width: 100%; border-radius: 0; background: transparent; color: inherit; font: inherit; }
+        .review-sort:focus-visible { outline: 2px solid #287a4b; outline-offset: -2px; }
+        .sort-arrows { display: flex; flex-direction: column; font-size: 9px; line-height: 10px; color: #9ca3af; }
+        .sort-arrows .active { color: #166534; }
+        .col-number { width: var(--col-number-width); }
+        .col-image { width: var(--col-image-width); }
+        .col-name { width: var(--col-name-width); }
+        .col-sku { width: var(--col-sku-width); }
+        .sku-switcher { display: flex; align-items: center; justify-content: center; gap: 0.5em; padding: 0 8px; min-width: 0; }
+        .sku-counter { flex: 0 0 auto; min-width: 36px; height: 20px; box-sizing: border-box; border: 0; background: #D8D4F2; color: #625e72; }
+        .sku-counter:disabled { cursor: default; }
+        .sku-counter:focus-visible { outline: 2px solid #166534; outline-offset: 2px; }
+        .sku-name-viewport { flex: 0 1 auto; min-width: 0; height: 30px; overflow: hidden; text-align: center; }
+        .sku-name-track { display: flex; flex-direction: column; transform: translateY(0); }
+        .sku-name { display: block; flex: 0 0 30px; height: 30px; line-height: 30px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .sku-name-track.is-sliding-up { transform: translateY(-30px); transition: transform 250ms ease-in-out; }
+        @media (prefers-reduced-motion: reduce) { .sku-name-track.is-sliding-up { transition: none; } }
+        .col-vendor { width: var(--col-vendor-width); }
+        .col-stock { width: var(--col-stock-width); }
+        .col-count { width: var(--col-count-width); }
+        .col-score { width: var(--col-score-width); }
+        .col-status { width: var(--col-status-width); }
+        .col-actions { width: var(--col-actions-width); }
         .cell-name { display: block; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .stock-alerts { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 3px; padding: 3px 4px; box-sizing: border-box; height: 80px; overflow-y: auto; white-space: normal; }
+        .stock-alerts { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 3px; padding: 3px 4px; box-sizing: border-box; height: 50px; overflow-y: auto; white-space: normal; }
         .stock-alert { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; line-height: 16px; white-space: nowrap; }
         .stock-normal { color: #166534; background: #dcfce7; }
         .stock-danger { color: #991b1b; background: #fee2e2; }
         .stock-warning { color: #854d0e; background: #fef3c7; }
         .filter-row-actions { display: flex; align-items: center; }
         .page-status-buttons { display: flex; gap: 8px; }
-        .page-status-buttons button { padding: 6px 12px; height: 36px; font-size: 14px; }
-        .page-status-buttons .page-status-off { background: #b42318; }
+        .page-status-buttons button { padding: 4px 8px; height: 26px; font-size: 12px; line-height: 18px; box-sizing: border-box; }
+        .product-actions button { background: rgb(0, 128, 192); }
+		.page-status-buttons button { background: rgb(0, 128, 192); }
+        .product-actions button:hover, .page-status-buttons button:hover { background: rgb(0, 128, 255); }
+        .product-actions button.delete, .page-status-buttons .page-status-off { background: #e74a3b; }
+        .product-actions button.delete:hover, .page-status-buttons .page-status-off:hover { background: #e02d1b; }
+        #product-table td.score-unrated { font-size: 11px; }
         .page-status-buttons button:disabled { opacity: .5; cursor: wait; }
         .status-toggle:disabled + .slider { opacity: .6; cursor: wait; }
         #page-status-message { margin: 0 0 8px 5px; color: #166534; }
         #page-status-message.status-error { color: #b42318; }
         .product-actions { display: flex; justify-content: center; align-items: center; gap: 4px; }
         .product-actions form { margin: 0; }
-        .product-actions button { width: 44px; box-sizing: border-box; padding: 7px 0; font-size: 13px; }
+        .product-actions button { width: 36px; height: 24px; box-sizing: border-box; padding: 3px 0; font-size: 12px; line-height: 18px; }
         th { background: #e9f2eb; }
         form { display: inline; }
         button, .link { padding: 7px 10px; border: 0; border-radius: 4px; background: #287a4b; color: white; cursor: pointer; text-decoration: none; }
@@ -48,7 +81,7 @@
         .products-loading .container { visibility: hidden; }
         .empty { padding: 18px; text-align: center; }
         [hidden] { display: none !important; }
-        .list-controls { display: flex; flex-direction: column; gap: 12px; width: var(--product-table-width); margin: 12px 0 12px 5px; }
+        .list-controls { font-size: 14px; display: flex; flex-direction: column; gap: 12px; width: var(--product-table-width); margin: 12px 0 12px 5px; }
         .filter-row-primary, .filter-row-secondary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; width: 100%; }
         .filter-row-primary label, .filter-row-secondary label { display: flex; align-items: center; gap: 6px; margin: 0; }
         .list-controls label { white-space: nowrap; }
@@ -85,17 +118,17 @@
         .pagination button[aria-current="page"] { background: #287a4b; color: white; }
         .pagination button:disabled { color: #999; cursor: default; background: #f5f5f5; }
         .pagination button:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
-        .product-thumbnail { display: inline-block; width: 70px; height: 70px; overflow: hidden; vertical-align: middle; }
-        .product-thumbnail-track { display: flex; width: 140px; height: 70px; transform: translateX(0); }
-        .product-thumbnail-track img { flex: 0 0 70px; width: 70px; height: 70px; object-fit: cover; }
-        .product-thumbnail-track.is-sliding { transform: translateX(-70px); transition: transform 450ms ease-in-out; }
+        .product-thumbnail { display: inline-block; width: 50px; height: 50px; overflow: hidden; vertical-align: middle; }
+        .product-thumbnail-track { display: flex; width: 140px; height: 50px; transform: translateX(0); }
+        .product-thumbnail-track img { flex: 0 0 50px; width: 50px; height: 50px; object-fit: cover; }
+        .product-thumbnail-track.is-sliding { transform: translateX(-50px); transition: transform 450ms ease-in-out; }
         
         /* 開關外層 */
 .switch {
     position: relative;
     display: inline-block;
-    width: 64px;
-    height: 26px;
+    width: 50px;
+    height: 22px;
     vertical-align: middle;
 }
 
@@ -111,7 +144,7 @@
     position: absolute;
     inset: 0;
     cursor: pointer;
-    background-color: #b42318;
+    background-color: #e74a3b;
     border-radius: 20px;
     transition: .25s;
     box-sizing: border-box;
@@ -121,8 +154,8 @@
 .slider::before {
     content: "";
     position: absolute;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     left: 3px;
     top: 3px;
     background-color: white;
@@ -139,7 +172,7 @@
     width: 50%;
     transform: translateY(-50%);
     text-align: center;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: bold;
     color: white;
     z-index: 2;
@@ -159,11 +192,11 @@
 
 /* 開啟：綠色軌道，圓鈕移到右側 */
 .switch input:checked + .slider {
-    background-color: #287a4b;
+    background-color: #287A47;
 }
 
 .switch input:checked + .slider::before {
-    transform: translateX(38px);
+    transform: translateX(28px);
 }
 
 /* 開啟時顯示上架 */
@@ -272,12 +305,12 @@ tr.product-off td {
                 <option value="off" th:selected="${statusFilter == 'off'}">僅顯示下架商品</option>
             </select>
         </label>
-        <label class="comment-range" for="min-comments">總評數
-            <input id="min-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="總評數下限" th:value="${minComments}" autocomplete="off">
+        <label class="comment-range" for="min-comments">評論數
+            <input id="min-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="評論數下限" th:value="${minComments}" autocomplete="off">
             <span>~</span>
-            <input id="max-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="總評數上限" th:value="${maxComments}" autocomplete="off">
+            <input id="max-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="評論數上限" th:value="${maxComments}" autocomplete="off">
         </label>
-        <label for="rating-filter">平均分
+        <label for="rating-filter">平均評分
             <select id="rating-filter">
                 <option value="" th:selected="${ratingFilter == ''}">全部</option>
                 <option value="unrated" th:selected="${ratingFilter == 'unrated'}">尚未評分</option>
@@ -297,9 +330,9 @@ tr.product-off td {
         </div>
     </div>
     <p id="page-status-message" role="status" aria-live="polite" hidden></p>
-    <table id="product-table" th:attr="data-page=${currentPage},data-total-pages=${totalPages},data-total-products=${totalProducts}">
+    <table id="product-table" th:attr="data-page=${currentPage},data-total-pages=${totalPages},data-total-products=${totalProducts},data-sort-by=${sortBy},data-sort-direction=${sortDirection}">
         <colgroup>
-            <col class="col-number"><col class="col-image"><col class="col-name"><col class="col-vendor"><col class="col-stock">
+            <col class="col-number"><col class="col-image"><col class="col-name"><col class="col-sku"><col class="col-vendor"><col class="col-stock">
             <col class="col-count"><col class="col-score"><col class="col-status"><col class="col-actions">
         </colgroup>
         <thead>
@@ -307,10 +340,15 @@ tr.product-off td {
             <th> </th>
             <th>商品圖片</th>
             <th>商品名稱</th>
+            <th>規格名稱</th>
             <th>供應廠商</th>
             <th>庫存狀態</th>
-            <th>總評數</th>
-            <th>平均分</th>
+            <th scope="col" th:attr="aria-sort=${sortBy == 'comments' ? (sortDirection == 'desc' ? 'descending' : 'ascending') : 'none'}">
+                <button type="button" class="review-sort" data-sort="comments" aria-label="評論數排序"><span>評論數</span><span class="sort-arrows" aria-hidden="true"><span data-direction="asc">▲</span><span data-direction="desc">▼</span></span></button>
+            </th>
+            <th scope="col" th:attr="aria-sort=${sortBy == 'rating' ? (sortDirection == 'desc' ? 'descending' : 'ascending') : 'none'}">
+                <button type="button" class="review-sort" data-sort="rating" aria-label="平均評分排序"><span>平均評分</span><span class="sort-arrows" aria-hidden="true"><span data-direction="asc">▲</span><span data-direction="desc">▼</span></span></button>
+            </th>
             <th>狀態</th>
             <th>操作</th>
         </tr>
@@ -323,9 +361,9 @@ tr.product-off td {
     			<th:block th:if="${thumbnailId != null}">
 		        <span class="product-thumbnail"><span class="product-thumbnail-track">
 		        <img
-       			    th:attr="data-src=@{/product/image/{imageId}(imageId=${thumbnailId})},data-image-base=@{/product/image/},data-image-ids=${overviewImageIds != null and overviewImageIds[product.productId] != null ? #strings.listJoin(overviewImageIds[product.productId], ',') : ''}" loading="lazy" decoding="async" width="70" height="70"
+       			    th:attr="data-src=@{/product/image/{imageId}(imageId=${thumbnailId})},data-image-base=@{/product/image/},data-image-ids=${overviewImageIds != null and overviewImageIds[product.productId] != null ? #strings.listJoin(overviewImageIds[product.productId], ',') : ''}" loading="lazy" decoding="async" width="50px" height="50px"
             		th:alt="${product.productName}"
-            		style="width: 70px; height: 70px; object-fit: cover;">
+            		style="width: 50px; height: 50px; object-fit: cover;">
 		        </span></span>
     			</th:block>
 			    <th:block th:unless="${thumbnailId != null}">
@@ -333,6 +371,14 @@ tr.product-off td {
     			</th:block>
 			</td>
             <td><span class="cell-name" th:text="${#strings.length(product.productName) > 10 ? #strings.substring(product.productName, 0, 10) + '…' : product.productName}" th:title="${product.productName}"></span></td>
+            <td th:with="skuNames=${overviewSkuNames != null ? overviewSkuNames[product.productId] : null}">
+                <div class="sku-switcher" th:if="${skuNames != null and !#lists.isEmpty(skuNames)}">
+                    <div class="sku-name-viewport" aria-live="polite" aria-atomic="true"><div class="sku-name-track"><span class="sku-name" th:text="${skuNames[0]}" th:title="${skuNames[0]}"></span></div></div>
+                    <button type="button" class="sku-counter stock-alert" th:text="${'1/' + #lists.size(skuNames)}" th:disabled="${#lists.size(skuNames) <= 1}" th:attr="aria-label=${'切換下一個規格，目前第1個，共' + #lists.size(skuNames) + '個'}"></button>
+                    <div class="sku-name-options" hidden><span th:each="skuName : ${skuNames}" th:text="${skuName}"></span></div>
+                </div>
+                <span th:unless="${skuNames != null and !#lists.isEmpty(skuNames)}">無規格</span>
+            </td>
             <td><span class="cell-name" th:text="${displayVendorName != null ? displayVendorName : '—'}" th:title="${displayVendorName}"></span></td>
             <td>
                 <div class="stock-alerts" th:if="${overviewStockStatuses != null and overviewStockStatuses[product.productId] != null}">
@@ -342,7 +388,7 @@ tr.product-off td {
                 </div>
             </td>
             <td th:text="${product.allCommentAmount}"> </td>
-            <td class="score" th:text="${product.allCommentAmount != null and product.allCommentAmount > 0 ? #numbers.formatDecimal((product.allCommentStar == null ? 0 : product.allCommentStar) * 1.0 / product.allCommentAmount, 1, 1) : '尚未評分'}"> </td>
+            <td class="score" th:classappend="${product.allCommentAmount == null or product.allCommentAmount == 0 ? 'score-unrated' : ''}" th:text="${product.allCommentAmount != null and product.allCommentAmount > 0 ? #numbers.formatDecimal((product.allCommentStar == null ? 0 : product.allCommentStar) * 1.0 / product.allCommentAmount, 1, 1) : '尚未評分'}"> </td>
 			<td>
     			<label class="switch">
        		 	<input
@@ -360,10 +406,7 @@ tr.product-off td {
 			</td>
             <td>
                 <div class="product-actions">
-                <form th:action="@{/product/getOne_For_Display}" method="post">
-                    <input type="hidden" name="productId" th:value="${product.productId}">
-                    <button type="submit">查看</button>
-                </form>
+                <button type="button" data-product-detail th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)}">查看</button>
 
                 <form th:action="@{/product/getOne_For_Update}" method="post">
                     <input type="hidden" name="productId" th:value="${product.productId}">
@@ -379,7 +422,7 @@ onsubmit="return confirm('確定要刪除這筆商品嗎？');">
             </td>
         </tr>
         <tr id="empty-products" hidden>
-            <td class="empty" colspan="9">目前沒有商品資料</td>
+            <td class="empty" colspan="10">目前沒有商品資料</td>
         </tr>
         </tbody>
     </table>
@@ -454,5 +497,7 @@ async function changePageProductStatus(status) {
 
 </script>
 <script th:src="@{/admin/js/product-pagination.js}" defer></script>
+<script th:src="@{/admin/js/product-detail-modal.js}" defer></script>
+<script th:src="@{/admin/js/product-sku-switcher.js}" defer></script>
 </body>
 </html>

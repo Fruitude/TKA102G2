@@ -37,7 +37,7 @@ public class ProductOverviewPagingTest {
             new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
                 assertEquals("findOverviewPage", method.getName());
                 filters.add((Integer) args[0]);
-                Pageable requested = (Pageable) args[8]; requests.add(requested);
+                Pageable requested = (Pageable) args[args.length - 1]; requests.add(requested);
                 int amount = requested.getPageNumber() >= 8 ? 0 : Math.min(20, 150 - (int)requested.getOffset());
                 return new PageImpl<ProductOverview>(Collections.nCopies(amount, null), requested, 150);
             });
@@ -57,5 +57,19 @@ public class ProductOverviewPagingTest {
         assertEquals(7, last.getNumber());
         assertEquals(10, last.getNumberOfElements());
         assertEquals(140, requests.get(requests.size()-1).getOffset());
+    }
+    @Test public void sortSurvivesPageClampingAndInvalidSortIsSanitized() {
+        List<List<String>> sorts = new ArrayList<>();
+        ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),
+            new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
+                sorts.add(List.of((String) args[8], (String) args[9]));
+                Pageable requested = (Pageable) args[10];
+                return new PageImpl<ProductOverview>(List.of(), requested, 25);
+            });
+        var service = new ProductService(); ReflectionTestUtils.setField(service, "repository", repo);
+        service.getOverviewPage(99, 10, "all", null, null, null, "all", null, null, "", "rating", "desc");
+        assertEquals(List.of(List.of("rating", "desc"), List.of("rating", "desc")), sorts);
+        service.getOverviewPage(1, 10, "all", null, null, null, "all", null, null, "", "unknown", "invalid");
+        assertEquals(List.of("", "asc"), sorts.get(2));
     }
 }

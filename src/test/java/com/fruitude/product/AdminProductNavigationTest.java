@@ -25,9 +25,6 @@ public class AdminProductNavigationTest {
         view.setCharacterEncoding("UTF-8");
         if (controllers.length == 0) {
             var psi = new com.fruitude.controller.AdminPsiController();
-            org.springframework.test.util.ReflectionTestUtils.setField(psi, "vendorSvc", new com.fruitude.vendor.model.VendorService() {
-                @Override public java.util.List<com.fruitude.vendor.model.VendorVO> getActiveVendors() { return java.util.List.of(); }
-            });
             controllers = new Object[]{new AdminIndexController(), psi};
         }
         return MockMvcBuilders.standaloneSetup(controllers).setViewResolvers(view).build();
@@ -38,7 +35,7 @@ public class AdminProductNavigationTest {
         var productResponse = mvc.perform(get("/admin/product")).andReturn().getResponse();
         assertEquals(200, productResponse.getStatus());
         String product = productResponse.getContentAsString();
-        for (String label : new String[]{"分類管理", "商品總覽", "新增商品", "商品查詢", "庫存查詢"}) {
+        for (String label : new String[]{"分類管理", "商品總覽", "新增商品", "規格查詢", "庫存查詢"}) {
             assertTrue(product.contains(label));
         }
         assertTrue(product.contains("id=\"accordionSidebar\""));
@@ -57,7 +54,7 @@ public class AdminProductNavigationTest {
         var vendorResponse = mvc.perform(get("/admin/psi/vendor")).andReturn().getResponse();
         assertEquals(200, vendorResponse.getStatus());
         String vendor = vendorResponse.getContentAsString();
-        assertTrue(vendor.contains("供應商管理"));
+        assertTrue(vendor.contains("新增供應商"));
         assertTrue(vendor.contains("id=\"accordionSidebar\""));
         assertTrue(vendor.contains("href=\"/css/sb-admin-2.min.css\""));
         assertFalse(vendor.contains("showProductManagement"));
@@ -72,7 +69,7 @@ public class AdminProductNavigationTest {
         }
         var psi = mvc.perform(get("/admin/psi")).andReturn().getResponse();
         assertEquals(200, psi.getStatus());
-        assertTrue(psi.getContentAsString().contains("Shipping System"));
+        assertTrue(psi.getContentAsString().contains("進銷存管理功能"));
         for (String old : new String[]{"/admin/psi/", "/admin/psi/index.html"}) {
             assertEquals("/admin/psi", mvc.perform(get(old)).andReturn().getResponse().getRedirectedUrl());
         }
@@ -158,6 +155,8 @@ public class AdminProductNavigationTest {
         assertTrue(html.contains("class=\"products-loading\""));
         assertTrue(html.contains("測試總覽"));
         assertTrue(html.contains("測試供應商"));
+        assertTrue(html.contains("data-detail-url=\"/shop/product/getOne_For_Display?productId=42&amp;modal=true\""));
+        assertTrue(html.contains("src=\"/shop/admin/js/product-detail-modal.js\""));
         assertTrue(html.contains("data-src=\"/shop/product/image/9\""));
         assertTrue(html.contains("data-image-ids=\"9,10,11\""));
         assertTrue(html.contains("data-image-base=\"/shop/product/image/\""));
@@ -165,7 +164,7 @@ public class AdminProductNavigationTest {
         assertTrue(html.contains("待進貨超過100"));
         assertTrue(html.contains("未設安全庫存"));
         assertTrue(html.contains("stock-alert stock-danger"));
-        assertTrue(html.contains("colspan=\"9\""));
+        assertTrue(html.contains("colspan=\"10\""));
         assertTrue(html.contains("value=\"abnormal\" selected=\"selected\""));
         assertFalse(html.contains(" src=\"/shop/product/image/9\""));
         assertTrue(html.contains("product-off"));

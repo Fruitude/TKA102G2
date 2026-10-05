@@ -59,7 +59,16 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
                 ORDER BY s.sku_id, i.sort_order, i.image_id LIMIT 1) AS imageId
         FROM product p LEFT JOIN vendor v ON v.vendor_id = p.vendor_id
         LEFT JOIN product_category c ON c.product_category_id = p.product_category_id
-        """ + OVERVIEW_FILTER + " ORDER BY p.product_id",
+        """ + OVERVIEW_FILTER + """
+        ORDER BY
+          CASE WHEN :sortBy = 'comments' AND :sortDirection = 'asc' THEN COALESCE(p.all_comment_amount,0) END ASC,
+          CASE WHEN :sortBy = 'comments' AND :sortDirection = 'desc' THEN COALESCE(p.all_comment_amount,0) END DESC,
+          CASE WHEN :sortBy = 'rating' AND :sortDirection = 'asc'
+            THEN COALESCE(p.all_comment_star / NULLIF(p.all_comment_amount,0),0) END ASC,
+          CASE WHEN :sortBy = 'rating' AND :sortDirection = 'desc'
+            THEN COALESCE(p.all_comment_star / NULLIF(p.all_comment_amount,0),0) END DESC,
+          p.product_id ASC
+        """,
         countQuery = "SELECT COUNT(*) FROM product p LEFT JOIN product_category c ON c.product_category_id = p.product_category_id " + OVERVIEW_FILTER, nativeQuery = true)
     org.springframework.data.domain.Page<ProductOverview> findOverviewPage(
         @org.springframework.data.repository.query.Param("productStatus") Integer productStatus,
@@ -70,7 +79,13 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
         @org.springframework.data.repository.query.Param("minComments") Integer minComments,
         @org.springframework.data.repository.query.Param("maxComments") Integer maxComments,
         @org.springframework.data.repository.query.Param("ratingBucket") Integer ratingBucket,
+        @org.springframework.data.repository.query.Param("sortBy") String sortBy,
+        @org.springframework.data.repository.query.Param("sortDirection") String sortDirection,
         org.springframework.data.domain.Pageable pageable);
+
+    @Query(value = "SELECT product_id AS productId, sku_name AS skuName FROM product_sku WHERE product_id IN (:productIds) ORDER BY product_id, sku_id", nativeQuery = true)
+    java.util.List<ProductOverviewSku> findOverviewSkuNames(
+        @org.springframework.data.repository.query.Param("productIds") java.util.List<Integer> productIds);
 
     java.util.List<Product> findByStatusOrderByProductIdAsc(Byte status);
 
