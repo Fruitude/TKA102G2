@@ -25,14 +25,32 @@
 		/* 仿 Gmail 的分頁列：靠右，灰字「1–50 筆 (共 N 筆)」加上 < > 兩個箭頭 */
 		.orders-pager {
 			display: flex;
-			justify-content: flex-end;
+			justify-content: space-between;   /* 搜尋在左，筆數與箭頭在右 */
 			align-items: center;
+			flex-wrap: wrap;
+			gap: .5rem;
 			margin-bottom: .5rem;
 			color: #5f6368;
 			font-size: .85rem;
 		}
+		.orders-pager .pager-right {
+			display: flex;
+			align-items: center;
+			margin-left: auto;
+		}
 		.orders-pager .pager-info {
 			margin-right: 1rem;
+		}
+		.orders-search {
+			display: flex;
+			align-items: center;
+			gap: .4rem;
+		}
+		.orders-search select {
+			width: auto;
+		}
+		.orders-search input[type="text"] {
+			width: 200px;
 		}
 		.orders-pager .pager-btn {
 			display: inline-flex;
@@ -103,14 +121,30 @@
                         <div class="card-body">
                             <!-- 分頁列：1–50 筆 (共 N 筆)  <  > ；< 上一頁、> 下一頁，到頭尾時變灰不能按 -->
                             <div class="orders-pager">
-                                <span class="pager-info"
-                                      th:text="|${fromIndex}–${toIndex} 筆 (共 ${totalCount} 筆)|"></span>
-                                <a th:if="${currentPage > 1}" class="pager-btn" title="上一頁"
-                                   th:href="@{/admin/orders/(page=${currentPage - 1})}"><i class="fas fa-chevron-left"></i></a>
-                                <span th:unless="${currentPage > 1}" class="pager-btn disabled"><i class="fas fa-chevron-left"></i></span>
-                                <a th:if="${currentPage < totalPages}" class="pager-btn" title="下一頁"
-                                   th:href="@{/admin/orders/(page=${currentPage + 1})}"><i class="fas fa-chevron-right"></i></a>
-                                <span th:unless="${currentPage < totalPages}" class="pager-btn disabled"><i class="fas fa-chevron-right"></i></span>
+                                <!-- 搜尋：選欄位、輸入內容、按搜尋；用 GET，網址帶著條件，翻頁也不會掉 -->
+                                <form class="orders-search" method="get" th:action="@{/admin/orders/}">
+                                    <select name="field" class="form-control form-control-sm" aria-label="搜尋欄位">
+                                        <option value="id" th:selected="${field == 'id'}">ID</option>
+                                        <option value="member" th:selected="${field == 'member'}">會員</option>
+                                        <option value="status" th:selected="${field == 'status'}">狀態</option>
+                                        <option value="receiver" th:selected="${field == 'receiver'}">收件者名稱</option>
+                                        <option value="phone" th:selected="${field == 'phone'}">電話號碼</option>
+                                    </select>
+                                    <input type="text" name="keyword" class="form-control form-control-sm"
+                                           placeholder="輸入搜尋內容" maxlength="50" th:value="${keyword}" />
+                                    <button type="submit" class="btn btn-primary btn-sm">搜尋</button>
+                                    <a th:if="${keyword != ''}" th:href="@{/admin/orders/}" class="btn btn-light btn-sm">清除</a>
+                                </form>
+                                <div class="pager-right">
+                                    <span class="pager-info"
+                                          th:text="|${fromIndex}–${toIndex} 筆 (共 ${totalCount} 筆)|"></span>
+                                    <a th:if="${currentPage > 1}" class="pager-btn" title="上一頁"
+                                       th:href="@{/admin/orders/(page=${currentPage - 1}, field=${field}, keyword=${keyword})}"><i class="fas fa-chevron-left"></i></a>
+                                    <span th:unless="${currentPage > 1}" class="pager-btn disabled"><i class="fas fa-chevron-left"></i></span>
+                                    <a th:if="${currentPage < totalPages}" class="pager-btn" title="下一頁"
+                                       th:href="@{/admin/orders/(page=${currentPage + 1}, field=${field}, keyword=${keyword})}"><i class="fas fa-chevron-right"></i></a>
+                                    <span th:unless="${currentPage < totalPages}" class="pager-btn disabled"><i class="fas fa-chevron-right"></i></span>
+                                </div>
                             </div>
                             <div class="table-responsive" id="orders-wrap">
                                 <table class="table table-bordered table-hover orders-table" cellspacing="0">

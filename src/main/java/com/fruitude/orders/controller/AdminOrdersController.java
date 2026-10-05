@@ -27,14 +27,20 @@ public class AdminOrdersController {
 	private OrdersPageSettings pageSettings;
 
 	@GetMapping("/")
-	public String getOrderList(@RequestParam(defaultValue = "1") int page, Model model) {
+	public String getOrderList(@RequestParam(defaultValue = "1") int page,
+			@RequestParam(defaultValue = "id") String field,
+			@RequestParam(defaultValue = "") String keyword,
+			Model model) {
 		// 每次請求只讀一次，避免處理途中被 API 改掉造成頁碼算錯
 		int pageSize = pageSettings.getPageSize();
 		// page 從 1 開始給使用者看；超出範圍就夾回第一頁到最後一頁
-		Page<Tuple> result = ordersService.findPageWithJoin(Math.max(page, 1) - 1, pageSize);
+		Page<Tuple> result = ordersService.search(field, keyword, Math.max(page, 1) - 1, pageSize);
 		if (result.getTotalPages() > 0 && page > result.getTotalPages()) {
-			result = ordersService.findPageWithJoin(result.getTotalPages() - 1, pageSize);
+			result = ordersService.search(field, keyword, result.getTotalPages() - 1, pageSize);
 		}
+		// 搜尋條件要傳回頁面：填回輸入框，翻頁連結也要帶著它
+		model.addAttribute("field", field);
+		model.addAttribute("keyword", keyword.trim());
 		int current = result.getNumber() + 1;
 		long total = result.getTotalElements();
 		model.addAttribute("ordersList", result.getContent());

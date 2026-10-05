@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fruitude.utils.PostalCodes;
+import com.fruitude.utils.Utils;
 
 import jakarta.persistence.Tuple;
 
@@ -25,6 +26,12 @@ public class OrdersService {
 
 	@Autowired
 	private MemberRepository memberRepository;
+
+	private static final String STATUS = "status";
+	private static final String PHONE = "phone";
+	private static final String RECEIVER = "receiver";
+	private static final String MEMBER = "member";
+	private static final String ID = "id";
 
 	// 目前沒有登入機制、也沒有折扣功能，先用固定值頂著；
 	// 之後有登入、折扣功能時，把這兩個地方換成真正的邏輯即可
@@ -41,9 +48,64 @@ public class OrdersService {
 		return ordersRepository.findAllWithJoin();
 	}
 
-	// page 從 0 開始（Spring Data 的規則）
-	public Page<Tuple> findPageWithJoin(int page, int size) {
-		return ordersRepository.findPageWithJoin(PageRequest.of(page, size));
+	// 後台訂單管理搜尋。field：id / member / status / receiver / phone；keyword 空白就等於不搜尋。
+	// page 從 0 開始
+	public Page<Tuple> search(String field, String keyword, int page, int size) {
+		String kw = keyword == null ? "" : keyword.trim();
+		int ordersId = 0;
+		String memberName = "", receiverName = "", phoneNumber = "";
+		int statusFilter = 0;
+		List<Integer> statuses = List.of(-1);
+
+		if (!kw.isEmpty() && field != null) {
+			switch (field) {
+			case ID:
+				// 不是正整數就不可能有符合的訂單，用 -1 讓結果是空的
+				ordersId = kw.matches("\\d{1,9}") ? Integer.parseInt(kw) : -1;
+				if (ordersId == 0) {
+					ordersId = -1;
+				}
+				break;
+			case MEMBER:
+				memberName = kw;
+				break;
+			case RECEIVER:
+				receiverName = kw;
+				break;
+			case PHONE:
+				phoneNumber = kw;
+				break;
+			case STATUS:
+				statusFilter = 1;
+				statuses = matchStatusCodes(kw);
+				break;
+			default:
+				break; // 不認得的欄位當作沒有搜尋
+			}
+		}
+		return ordersRepository.search(ordersId, memberName, receiverName, phoneNumber, statusFilter, statuses,
+				PageRequest.of(page, size));
+	}
+
+	// 狀態欄位畫面上顯示的是文字（OrderStatus.displayStatus，例如「待出貨」），所以輸入文字就找
+	// 顯示文字含有它的所有狀態碼；輸入的是數字就直接當狀態碼。都找不到回 [-1]，結果會是空的
+	private List<Integer> matchStatusCodes(String keyword) {
+		List<Integer> codes = new ArrayList<>();
+		if (keyword.matches("\\d{1,2}")) {
+			int code = Integer.parseInt(keyword);
+			for (Utils.OrderStatus s : Utils.OrderStatus.values()) {
+				if (s.getCode() == code) {
+					codes.add(code);
+				}
+			}
+		} else {
+			for (Utils.OrderStatus s : Utils.OrderStatus.values()) {
+				if (s.getDisplayStatus().contains(keyword)) {
+					codes.add(s.getCode());
+				}
+			}
+		}
+		return codes.isEmpty() ? List.of(-1) : codes;
 	}
 
 	public Optional<Orders> findById(Integer id) {
