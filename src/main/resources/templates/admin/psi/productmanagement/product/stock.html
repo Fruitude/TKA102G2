@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>庫存查詢</title>
+    <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+</head>
+<body class="p-4 bg-white">
+<main>
+    <h1 class="h4 mb-4">庫存查詢</h1>
+    <form class="form-inline mb-4" th:action="@{/admin/psi/product/stock}" method="get">
+        <label for="keyword" class="mr-2">商品或規格</label>
+        <input id="keyword" name="keyword" class="form-control mr-2" th:value="${keyword}" placeholder="商品名稱、規格名稱或規格編號">
+        <label class="mr-3"><input type="checkbox" name="belowOnly" value="true" class="mr-1" th:checked="${belowOnly}">低於安全庫存</label>
+        <button class="btn btn-primary" type="submit">查詢</button>
+        <a class="btn btn-outline-secondary ml-2" th:href="@{/admin/psi/product/stock}">重設</a>
+    </form>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="thead-light"><tr><th>規格編號</th><th>商品</th><th>規格</th><th>現有庫存</th><th>待進貨</th><th>待出貨</th><th>預計庫存</th><th>安全庫存</th><th>提醒</th></tr></thead>
+            <tbody>
+                <tr th:each="s : ${skus}">
+                    <td th:text="${s.skuId}"></td><td th:text="${s.product == null ? '未設定' : s.product.productName}"></td>
+                    <td th:text="${s.skuName}"></td><td th:text="${s.stock}"></td>
+                    <td th:text="${s.inboundQty}"></td><td th:text="${s.outboundQty}"></td>
+                    <td th:text="${s.expectedStock}"></td><td th:text="${s.safetyStock}"></td>
+                    <td><span class="badge" th:classappend="${s.belowSafetyStock ? 'badge-danger' : 'badge-success'}" th:text="${s.belowSafetyStock ? '低於安全庫存' : '正常'}"></span></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(skus)}"><td colspan="9" class="text-center">沒有符合條件的庫存資料</td></tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>商品查詢</title>
+    <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+</head>
+<body class="p-4 bg-white">
+<main>
+    <h1 class="h4 mb-4">商品查詢</h1>
+    <form class="form-inline mb-4" th:action="@{/admin/psi/product/search}" method="get">
+        <label for="keyword" class="mr-2">商品編號或名稱</label>
+        <input id="keyword" name="keyword" class="form-control mr-2" th:value="${keyword}" placeholder="輸入商品編號或名稱">
+        <button class="btn btn-primary" type="submit">查詢</button>
+        <a class="btn btn-outline-secondary ml-2" th:href="@{/admin/psi/product/search}">重設</a>
+    </form>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="thead-light"><tr><th>商品編號</th><th>商品名稱</th><th>分類</th><th>供應商</th><th>操作</th></tr></thead>
+            <tbody>
+                <tr th:each="p : ${products}">
+                    <td th:text="${p.productId}"></td><td th:text="${p.productName}"></td>
+                    <td th:text="${p.productCategory == null ? '未分類' : p.productCategory.categoryName}"></td>
+                    <td th:text="${p.vendor == null ? '未設定' : p.vendor.vendorName}"></td>
+                    <td><form th:action="@{/product/getOne_For_Display}" method="post">
+                        <input type="hidden" name="productId" th:value="${p.productId}">
+                        <button class="btn btn-sm btn-success" type="submit">查看</button>
+                    </form></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(products)}"><td colspan="5" class="text-center">沒有符合條件的商品</td></tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

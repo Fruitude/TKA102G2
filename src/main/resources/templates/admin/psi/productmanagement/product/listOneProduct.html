@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>商品詳細資料</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
+            margin: 30px;
+            background: #f5f7f4;
+            color: #333;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: auto;
+            background: white;
+            padding: 28px;
+            border-radius: 10px;
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 24px;
+        }
+
+        /* 左圖右資料 */
+        .detail-layout {
+            display: grid;
+            grid-template-columns: 420px minmax(0, 1fr);
+            gap: 32px;
+            align-items: start;
+        }
+
+        /* 左側圖片區 */
+        .gallery {
+    		width: 420px;
+    		max-width: 100%;
+    		min-width: 0;
+        }
+
+        .main-image-box {
+            width: 420px;
+            max-width: 100%;
+            height: 390px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f7f7f7;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .main-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .no-image {
+            color: #888;
+            font-size: 16px;
+        }
+
+        /* 小圖與左右箭頭 */
+        .thumbnail-area {
+        	width: 420px;
+    		max-width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 14px auto 0;
+        }
+
+        .thumb-viewport {
+            width: 320px;
+            max-width: calc(100% - 84px);
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+        }
+
+        .thumb-viewport::-webkit-scrollbar {
+            display: none;
+        }
+
+        .thumb-track {
+            display: flex;
+            gap: 10px;
+            width: max-content;
+        }
+
+        .thumbnail {
+            flex: 0 0 100px;
+            width: 100px;
+            height: 85px;
+            padding: 0;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            background: white;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .thumbnail img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .thumbnail.active {
+            border-color: #287a4b;
+        }
+
+        .arrow {
+            flex: 0 0 32px;
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 50%;
+            background: #287a4b;
+            color: white;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .arrow:hover {
+            background: #1e603a;
+        }
+
+        /* 右側商品資料 */
+        .product-info {
+            min-width: 0;
+        }
+
+        .item {
+            display: flex;
+            align-items: flex-start;
+            padding: 13px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .name {
+            display: inline-block;
+            width: 120px;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        .value {
+            flex: 1;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
+        }
+
+        /* 規格選項 */
+        .sku-section {
+            margin-top: 22px;
+        }
+
+        .sku-title {
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .sku-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .sku-option {
+            padding: 9px 14px;
+            border: 1px solid #aaa;
+            border-radius: 5px;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .sku-option:hover {
+            border-color: #287a4b;
+            color: #287a4b;
+        }
+
+        .sku-option.active {
+            border: 2px solid #287a4b;
+            background: #edf6ef;
+            color: #287a4b;
+            font-weight: bold;
+        }
+
+        /* 規格詳細資料 */
+        .sku-panel {
+            display: none;
+            margin-top: 16px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 14px 16px;
+            background: #fcfcfc;
+        }
+
+        .sku-panel.active {
+            display: block;
+        }
+
+        .sku-panel .item:first-child {
+            padding-top: 0;
+        }
+
+        .sku-panel .item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .status-0 {
+            background: #eee;
+            color: #666;
+        }
+
+        .status-1 {
+            background: #e5f4e9;
+            color: #287a4b;
+        }
+
+        .status-2 {
+            background: #fff0d9;
+            color: #a45b00;
+        }
+
+        .status-3 {
+            background: #fff0f0;
+            color: #b33a3a;
+        }
+
+        .no-sku {
+            color: #888;
+            padding: 12px 0;
+        }
+
+        /* 底部按鈕 */
+        .action-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .action-buttons form {
+            margin: 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 5px;
+            background: #287a4b;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #1e603a;
+        }
+
+        .btn-edit {
+            background: #557aaf;
+        }
+
+        .btn-edit:hover {
+            background: #3f6396;
+        }
+
+        @media (max-width: 760px) {
+            body {
+                margin: 12px;
+            }
+
+            .container {
+                padding: 18px;
+            }
+
+            .detail-layout {
+                grid-template-columns: 1fr;
+                gap: 26px;
+            }
+            
+            .gallery {
+        		width: 100%;
+    		}
+
+            .main-image-box {
+            	width: 100%;
+                height: 320px;
+            }
+            
+            .thumbnail-area {
+        		width: 100%;
+    		}
+
+            .product-info {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-image-box {
+                height: 260px;
+            }
+
+            .name {
+                width: 100px;
+            }
+
+            .thumb-viewport {
+                width: 230px;
+            }
+
+            .thumbnail {
+                flex-basis: 70px;
+                width: 70px;
+                height: 65px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <h1>商品詳細資料</h1>
+
+    <div class="detail-layout">
+
+        <!-- 左側：商品圖片 -->
+        <section class="gallery">
+
+            <!-- 有圖片時顯示第一張大圖 -->
+            <div class="main-image-box"
+                 th:if="${productImageList != null and !#lists.isEmpty(productImageList)}">
+
+                <img id="mainImage"
+                     class="main-image"
+                     th:src="@{/product/image/{imageId}(imageId=${productImageList[0].imageId})}"
+                     th:alt="${product.productName}">
+            </div>
+
+            <!-- 沒有圖片時 -->
+            <div class="main-image-box"
+                 th:if="${productImageList == null or #lists.isEmpty(productImageList)}">
+                <span class="no-image">目前沒有商品圖片</span>
+            </div>
+
+            <!-- 小圖列 -->
+            <div class="thumbnail-area"
+                 th:if="${productImageList != null and !#lists.isEmpty(productImageList)}">
+
+                <button type="button"
+                        class="arrow"
+                        th:if="${#lists.size(productImageList) > 3}"
+                        onclick="scrollThumbnails(-1)"
+                        aria-label="往左滑動">
+                    &#8249;
+                </button>
+
+                <div class="thumb-viewport">
+                    <div class="thumb-track" id="thumbTrack">
+
+                        <button type="button"
+                                class="thumbnail"
+                                th:each="image, stat : ${productImageList}"
+                                th:classappend="${stat.index == 0 ? ' active' : ''}"
+                                th:attr="data-image-url=@{/product/image/{imageId}(imageId=${image.imageId})}"
+                                onclick="changeMainImage(this)">
+
+                            <img th:src="@{/product/image/{imageId}(imageId=${image.imageId})}"
+                                 th:alt="${product.productName + '圖片' + (stat.index + 1)}">
+                        </button>
+
+                    </div>
+                </div>
+
+                <button type="button"
+                        class="arrow"
+                        th:if="${#lists.size(productImageList) > 3}"
+                        onclick="scrollThumbnails(1)"
+                        aria-label="往右滑動">
+                    &#8250;
+                </button>
+            </div>
+        </section>
+
+        <!-- 右側：商品基本資料與規格 -->
+        <section class="product-info">
+
+            <div class="item">
+                <span class="name">商品名稱</span>
+                <span class="value" th:text="${product.productName}"></span>
+            </div>
+
+            <div class="item">
+                <span class="name">商品分類</span>
+                <span class="value"
+                      th:text="${product.productCategory != null ? product.productCategory.categoryName : '—'}">
+                </span>
+            </div>
+
+            <div class="item">
+                <span class="name">供應廠商</span>
+                <span class="value"
+                      th:text="${product.vendor != null ? product.vendor.vendorName : '—'}">
+                </span>
+            </div>
+
+            <div class="item">
+                <span class="name">商品描述</span>
+                <span class="value" th:text="${product.productDesc}"></span>
+            </div>
+
+            <div class="item">
+                <span class="name">商品狀態</span>
+                <span class="value"
+                      th:text="${product.status == 1 ? '上架' : (product.status == 0 ? '下架' : (product.status == 2 ? '缺貨' : (product.status == 3 ? '即將下架' : '未設定')))}">
+                </span>
+            </div>
+
+            <div class="item">
+                <span class="name">建立時間</span>
+                <span class="value"
+                      th:text="${product.createdAt != null ? #strings.replace(#strings.toString(product.createdAt), 'T', ' ') : ''}">
+                </span>
+            </div>
+
+            <div class="item">
+                <span class="name">更新時間</span>
+                <span class="value"
+                      th:text="${product.updatedAt != null ? #strings.replace(#strings.toString(product.updatedAt), 'T', ' ') : ''}">
+                </span>
+            </div>
+
+            <!-- 規格按鈕 -->
+            <div class="sku-section">
+                <div class="sku-title">規格選項</div>
+
+                <div class="sku-options"
+                     th:if="${productSkuList != null and !#lists.isEmpty(productSkuList)}">
+
+                    <button type="button"
+                            class="sku-option"
+                            th:each="sku, stat : ${productSkuList}"
+                            th:classappend="${stat.index == 0 ? ' active' : ''}"
+                            th:attr="data-panel-id=|sku-panel-${sku.skuId}|"
+                            onclick="showSkuInfo(this)"
+                            th:text="${sku.skuName}">
+                    </button>
+                </div>
+
+                <div class="no-sku"
+                     th:if="${productSkuList == null or #lists.isEmpty(productSkuList)}">
+                    目前沒有規格資料
+                </div>
+
+                <!-- 各規格資訊區塊 -->
+                <div th:each="sku, stat : ${productSkuList}"
+                     th:id="|sku-panel-${sku.skuId}|"
+                     class="sku-panel"
+                     th:classappend="${stat.index == 0 ? ' active' : ''}">
+
+                    <div class="item">
+                        <span class="name">規格價格</span>
+                        <span class="value"
+                              th:text="${sku.price != null ? 'NT$ ' + sku.price : '—'}">
+                        </span>
+                    </div>
+
+                    <div class="item">
+    					<span class="name">規格狀態</span>
+    					<span class="value" th:switch="${sku.status}">
+        					<span th:case="0" class="status status-0">下架</span>
+        					<span th:case="1" class="status status-1">上架</span>
+        					<span th:case="2" class="status status-2">缺貨</span>
+        					<span th:case="3" class="status status-3">即將下架</span>
+        					<span th:case="*" class="status">未設定</span>
+    					</span>
+					</div>
+
+                    <div class="item">
+                        <span class="name">庫存量</span>
+                        <span class="value" th:text="${sku.stock != null ? sku.stock : 0}"></span>
+                    </div>
+
+                    <div class="item">
+                        <span class="name">安全庫存量</span>
+                        <span class="value"
+                              th:text="${sku.safetyStock != null ? sku.safetyStock : 0}">
+                        </span>
+                    </div>
+
+                    <div class="item">
+                        <span class="name">待進貨</span>
+                        <span class="value"
+                              th:text="${sku.inboundQty != null ? sku.inboundQty : 0}">
+                        </span>
+                    </div>
+
+                    <div class="item">
+                        <span class="name">待出貨</span>
+                        <span class="value"
+                              th:text="${sku.outboundQty != null ? sku.outboundQty : 0}">
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 修改與返回按鈕 -->
+            <div class="action-buttons"><a class="btn" th:href="@{/productsku/listAllProductSku}">管理規格</a>
+
+                <form th:action="@{/product/getOne_For_Update}" method="post">
+                    <input type="hidden"
+                           name="productId"
+                           th:value="${product.productId}">
+                    <button type="submit" class="btn btn-edit">修改</button>
+                </form>
+
+                <a class="btn" th:href="@{/product/listAllProduct}">
+                    返回商品列表
+                </a>
+            </div>
+
+        </section>
+    </div>
+</div>
+
+<script>
+    // 點擊小圖，切換上方大圖
+    function changeMainImage(button) {
+        const mainImage = document.getElementById("mainImage");
+        const imageUrl = button.dataset.imageUrl;
+
+        if (!mainImage || !imageUrl) {
+            return;
+        }
+
+        mainImage.src = imageUrl;
+
+        // 更新目前選取的小圖外框
+        document.querySelectorAll(".thumbnail").forEach(function (thumb) {
+            thumb.classList.remove("active");
+        });
+
+        button.classList.add("active");
+    }
+
+    // 左右箭頭：每次滑動一張小圖的寬度加間距
+    function scrollThumbnails(direction) {
+        const track = document.getElementById("thumbTrack");
+        const viewport = document.querySelector(".thumb-viewport");
+
+        if (!track || !viewport) {
+            return;
+        }
+
+        const firstThumbnail = track.querySelector(".thumbnail");
+        if (!firstThumbnail) {
+            return;
+        }
+
+        const trackStyle = window.getComputedStyle(track);
+        const gap = parseFloat(trackStyle.columnGap) || 10;
+        const moveDistance = firstThumbnail.getBoundingClientRect().width + gap;
+
+        viewport.scrollBy({
+            left: direction * moveDistance,
+            behavior: "smooth"
+        });
+    }
+    
+ // 點選規格按鈕，顯示該規格的詳細資訊
+    function showSkuInfo(button) {
+        const panelId = button.dataset.panelId;
+
+        if (!panelId) {
+            return;
+        }
+
+        document.querySelectorAll(".sku-option").forEach(function (option) {
+            option.classList.remove("active");
+        });
+
+        document.querySelectorAll(".sku-panel").forEach(function (panel) {
+            panel.classList.remove("active");
+        });
+
+        button.classList.add("active");
+
+        const selectedPanel = document.getElementById(panelId);
+        if (selectedPanel) {
+            selectedPanel.classList.add("active");
+        }
+    }
+</script>
+</body>
+</html>

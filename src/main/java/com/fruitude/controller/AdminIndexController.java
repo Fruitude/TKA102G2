@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @RequestMapping("/admin")
 public class AdminIndexController {
 	
-	@GetMapping("")
+	@GetMapping({"", "/"})
 	public String index(Model model) {
 		System.out.println("執行index導向");
 		
@@ -23,8 +23,19 @@ public class AdminIndexController {
 		return "admin/psi/index"; //view
 	}
 	
-    
-	@GetMapping("/account")
+    @GetMapping("/psi/product")
+    public String product() { return "admin/psi/product"; }
+
+    @GetMapping({"/psi/productmanagement.html", "/psi/productmanagement/content", "/product", "/product.html", "/product/", "/psi/product.html", "/psi/product/"})
+    public String oldProductManagement() { return "redirect:/admin/psi/product"; }
+
+    @GetMapping({"/vendor", "/vendor.html", "/vendor/", "/psi/vendor.html"})
+    public String oldVendor() { return "redirect:/admin/psi/vendor"; }
+
+    @GetMapping({"/psi/", "/psi/index", "/psi/index.html"})
+    public String oldPsi() { return "redirect:/admin/psi"; }
+
+    @GetMapping("/account")
 	public String account(Model model) {
 		System.out.println("執行account導向");
 		

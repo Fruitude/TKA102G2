@@ -5,6 +5,7 @@ import java.io.IOException;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -24,7 +25,11 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addViewControllers(ViewControllerRegistry registry) {
-		PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        // Preserve the latest vendor controller's model for its old directory URLs.
+        for (String url : java.util.List.of("/admin/psi/vendor/", "/admin/psi/vendor/index", "/admin/psi/vendor/index.html")) {
+            registry.addRedirectViewController(url, "/admin/psi/vendor");
+        }
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
 		for (String site : SITES) {
 			try {
 				Resource[] pages = resolver.getResources("classpath:/templates/" + site + "/**/index.html");
@@ -34,6 +39,11 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 					String viewName = url.substring(url.lastIndexOf(TEMPLATE_ROOT) + TEMPLATE_ROOT.length())
 							.replaceFirst("\\.html$", "");
 					String dir = "/" + viewName.substring(0, viewName.length() - "index".length()); // /fruitude/about/
+
+                    // These pages need database models supplied by FrontProductController.
+                    if (java.util.Set.of("front/index", "front/product/view/index", "front/all-products/index",
+                        "front/category/seasonal-fresh-fruit/index", "front/category/featured-gift-boxes/index",
+                        "admin/orders/index", "admin/orders/detail/index", "admin/psi/vendor/index").contains(viewName)) continue;
 					registry.addViewController(dir).setViewName(viewName);
 					registry.addViewController(dir + "index").setViewName(viewName);
 					registry.addViewController(dir + "index.html").setViewName(viewName);
@@ -46,6 +56,10 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Prevent an old client-side pagination script from being reused with server-side paging.
+        registry.addResourceHandler("/admin/js/product-pagination.js", "/admin/js/product-tabs.js")
+            .addResourceLocations("classpath:/templates/")
+            .setCacheControl(CacheControl.noStore());
 		for (String site : SITES) {
 			registry.addResourceHandler("/" + site + "/**")
 					.addResourceLocations("classpath:/templates/" + site + "/");

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>新增商品</title>
+     <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
+            margin: 30px;
+            background: #f5f7f4;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: auto;
+            padding: 28px;
+            background: white;
+            border-radius: 10px;
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 24px;
+        }
+
+        .form-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .form-table th,
+        .form-table td {
+            padding: 12px;
+            border: 1px solid #dce3dc;
+            vertical-align: middle;
+        }
+
+        .form-table th {
+            width: 155px;
+            background: #f0f4ef;
+            text-align: left;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 9px;
+            border: 1px solid #cbd5cb;
+            border-radius: 5px;
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .select-with-add {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .select-with-add select {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .add-icon {
+            flex: 0 0 36px;
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: #287a4b;
+            color: white;
+            font-size: 24px;
+            line-height: 1;
+            text-decoration: none;
+        }
+
+        .add-icon:hover {
+            background: #1e6039;
+        }
+
+        .section-title {
+            margin: 30px 0 12px;
+            font-size: 20px;
+        }
+
+        .sku-card {
+            margin-bottom: 20px;
+            border: 1px solid #b9c9ba;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .sku-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: #eaf2e9;
+            font-weight: bold;
+        }
+
+        .sku-heading button {
+            margin: 0;
+            padding: 5px 10px;
+            background: #a83c35;
+        }
+
+        .sku-table th {
+            width: 155px;
+        }
+
+        .image-upload-area {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .image-preview {
+            width: 76px;
+            height: 76px;
+            object-fit: cover;
+            border: 1px solid #cbd5cb;
+            border-radius: 5px;
+            background: #f7f7f7;
+        }
+
+        .image-input {
+            max-width: 260px;
+            border: 0;
+            padding: 0;
+        }
+
+        button,
+        .back {
+            display: inline-block;
+            margin-top: 22px;
+            padding: 10px 18px;
+            border: 0;
+            border-radius: 5px;
+            background: #287a4b;
+            color: white;
+            text-decoration: none;
+            font: inherit;
+            cursor: pointer;
+        }
+
+        button:hover,
+        .back:hover {
+            background: #1e6039;
+        }
+
+        .back {
+            background: #68736c;
+            margin-left: 8px;
+        }
+
+        .back:hover {
+            background: #505a53;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .form-actions button,
+        .form-actions .back {
+            margin-top: 22px;
+            font-size: 16px;
+        }
+
+        .error {
+            color: #b42318;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                width: 100%;
+                margin: 0;
+                padding: 12px;
+                overflow-x: hidden;
+            }
+
+            .container {
+                width: 100%;
+                max-width: 100%;
+                padding: 16px 12px;
+            }
+
+            .form-table th,
+            .sku-table th {
+                width: 110px;
+            }
+
+            .form-table th,
+            .form-table td {
+                padding: 8px;
+            }
+
+            .select-with-add {
+                gap: 6px;
+            }
+
+            .add-icon {
+                flex-basis: 32px;
+                width: 32px;
+                height: 32px;
+            }
+
+            .image-upload-area {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .image-input {
+                max-width: 100%;
+            }
+
+            .form-actions {
+                justify-content: flex-end;
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <form th:action="@{/product/insert}"
+          th:object="${product}"
+          method="post"
+          enctype="multipart/form-data"><ul class="error" th:if="${#fields.hasAnyErrors()}"><li th:each="e:${#fields.allErrors()}" th:text="${e}"></li></ul><p></p>
+
+        <!-- 商品基本資料 -->
+        <table class="form-table">
+            <tbody>
+            <tr>
+                <th><label for="productName">商品名稱</label></th>
+                <td>
+                    <input id="productName"
+                           type="text"
+                           th:field="*{productName}"
+                           required>
+                    <div class="error"
+                         th:if="${#fields.hasErrors('productName')}"
+                         th:errors="*{productName}"></div>
+                </td>
+            </tr>
+
+            
+
+            <tr>
+                <th><label for="category">商品分類</label></th>
+                <td>
+                    <div class="select-with-add">
+                        <select id="category" name="productCategory.productCategoryId" required><option value="">請選擇分類</option><option th:each="category:${productCategoryListData}" th:value="${category.productCategoryId}" th:text="${category.parentCategory == null ? category.categoryName : category.parentCategory.categoryName + '／' + category.categoryName}" th:selected="${product.productCategory != null and product.productCategory.productCategoryId == category.productCategoryId}"></option></select>
+                        <!-- 請依實際新增分類路徑調整 -->
+                        <a class="add-icon"
+                           th:href="@{/productcategory/add}"
+                           title="新增分類"
+                           aria-label="新增分類">+</a>
+                    </div>
+                </td>
+            </tr>
+
+            <tr>
+                <th><label for="vendor">供應廠商</label></th>
+                <td>
+                    <div class="select-with-add">
+                        <select id="vendor" name="vendor.vendorId" required>
+                            <option value="">請選擇廠商</option>
+                            <option th:each="vendor : ${vendorListData}"
+                                    th:value="${vendor.vendorId}"
+                                    th:text="${vendor.vendorName}" th:selected="${product.vendor != null and product.vendor.vendorId == vendor.vendorId}">
+                            </option>
+                        </select>
+                        <!-- 請依實際新增廠商路徑調整 -->
+                        
+                    </div>
+                </td>
+            </tr>
+
+            <tr>
+                <th><label for="productDesc">商品描述</label></th>
+                <td>
+                    <textarea id="productDesc" th:field="*{productDesc}"></textarea>
+                    <div class="error"
+                         th:if="${#fields.hasErrors('productDesc')}"
+                         th:errors="*{productDesc}"></div>
+                </td>
+            </tr>
+
+            <tr>
+                <th><label for="status">商品狀態</label></th>
+                <td>
+                    <select id="status" th:field="*{status}">
+                        <option value="0">下架</option>
+                        <option value="1">上架</option>
+                    </select>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <!-- 商品規格 -->
+        <h2 class="section-title">商品規格</h2>
+
+        <div id="skuContainer">
+            <!-- 第一筆規格 -->
+            <div class="sku-card" th:each="sku, stat : *{productSkus}">
+                <div class="sku-heading">
+                    <span th:text="${'商品規格 ' + (stat.index + 1)}">商品規格</span><button type="button" class="remove-sku-button">刪除此規格</button>
+                </div>
+
+                <table class="form-table sku-table">
+                    <tbody>
+                    <tr>
+                        <th><label th:for="|skuName${stat.index}|">規格名稱</label></th>
+                        <td>
+                            <input th:id="|skuName${stat.index}|"
+                                   type="text"
+                                   th:field="*{productSkus[__${stat.index}__].skuName}"
+                                   required>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th><label th:for="|anotherName${stat.index}|">規格別稱</label></th>
+                        <td>
+                            <input th:id="|anotherName${stat.index}|"
+                                   type="text"
+                                   th:field="*{productSkus[__${stat.index}__].anotherName}">
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th><label th:for="|price${stat.index}|">規格價格</label></th>
+                        <td>
+                            <input th:id="|price${stat.index}|"
+                                   type="number"
+                                   th:field="*{productSkus[__${stat.index}__].price}"
+                                   min="1"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th>規格圖片</th>
+                        <td>
+                            <div class="image-upload-area">
+                                <img class="image-preview"
+                                     src=""
+                                     alt="圖片預覽"
+                                     hidden>
+                                <input class="image-input"
+                                       type="file"
+                                       th:name="|skuImages[${stat.index}]|"
+                                       accept="image/png,image/jpeg,image/gif">
+                                 <p style="text-align: right;">圖片限 PNG、JPEG、GIF，單張最多 5 MB。</p>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th><label th:for="|stock${stat.index}|">庫存量</label></th>
+                        <td>
+                            <input th:id="|stock${stat.index}|"
+                                   type="number"
+                                   th:field="*{productSkus[__${stat.index}__].stock}"
+                                   value="0"
+                                   min="0"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th><label th:for="|safetyStock${stat.index}|">安全庫存量</label></th>
+                        <td>
+                            <input th:id="|safetyStock${stat.index}|"
+                                   type="number"
+                                   th:field="*{productSkus[__${stat.index}__].safetyStock}"
+                                   value="0"
+                                   min="0"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th><label th:for="|skuStatus${stat.index}|">規格狀態</label></th>
+                        <td>
+                            <select th:id="|skuStatus${stat.index}|"
+                                    th:field="*{productSkus[__${stat.index}__].status}"
+                                    required>
+                                <option value="0">下架</option>
+                                <option value="1">上架</option>
+<!--                                 <option value="2">缺貨</option> -->
+<!--                                 <option value="3">即將下架</option> -->
+                            </select>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <button type="button" id="addSkuButton">＋ 更多規格</button>
+
+        <div class="form-actions">
+            <button type="submit">新增商品</button>
+            <a class="back" th:href="@{/}">返回首頁</a>
+        </div>
+    </form>
+</div>
+
+<script>
+
+ // 動態新增規格表格
+    const skuContainer = document.getElementById("skuContainer");
+    const addSkuButton = document.getElementById("addSkuButton");
+
+    let skuCount = skuContainer.querySelectorAll(".sku-card").length;
+
+    function createSkuCard(index) {
+        const card = document.createElement("div");
+        card.className = "sku-card";
+
+        card.innerHTML = `
+            <div class="sku-heading">
+                <span>商品規格 ${index + 1}</span>
+                <button type="button" class="remove-sku-button">刪除此規格</button>
+            </div>
+
+            <table class="form-table sku-table">
+                <tbody>
+                    <tr>
+                        <th><label for="skuName${index}">規格名稱</label></th>
+                        <td>
+                            <input id="skuName${index}"
+                                   type="text"
+                                   name="productSkus[${index}].skuName"
+                                   required>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="anotherName${index}">規格別稱</label></th>
+                        <td>
+                            <input id="anotherName${index}"
+                                   type="text"
+                                   name="productSkus[${index}].anotherName">
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="price${index}">規格價格</label></th>
+                        <td>
+                            <input id="price${index}"
+                                   type="number"
+                                   name="productSkus[${index}].price"
+                                   min="1"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>規格圖片</th>
+                        <td>
+                            <div class="image-upload-area">
+                                <img class="image-preview"
+                                     src=""
+                                     alt="圖片預覽"
+                                     hidden>
+                                <input class="image-input"
+                                       type="file"
+                                       name="skuImages[${index}]"
+                                       accept="image/png,image/jpeg,image/gif">
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="stock${index}">庫存量</label></th>
+                        <td>
+                            <input id="stock${index}"
+                                   type="number"
+                                   name="productSkus[${index}].stock"
+                                   value="0"
+                                   min="0"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="safetyStock${index}">安全庫存量</label></th>
+                        <td>
+                            <input id="safetyStock${index}"
+                                   type="number"
+                                   name="productSkus[${index}].safetyStock"
+                                   value="0"
+                                   min="0"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="skuStatus${index}">規格狀態</label></th>
+                        <td>
+                            <select id="skuStatus${index}"
+                                    name="productSkus[${index}].status"
+                                    required>
+                                <option value="0">下架</option>
+                                <option value="1">上架</option>
+//                                 <option value="2">缺貨</option>
+//                                 <option value="3">即將下架</option>
+                            </select>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+
+        return card;
+    }
+
+    addSkuButton.addEventListener("click", function () {
+        const card = createSkuCard(skuCount);
+        skuContainer.appendChild(card);
+        skuCount++;
+    });
+
+    // 刪除規格：移除後重新編號，確保索引連續
+    skuContainer.addEventListener("click", function (event) {
+        if (!event.target.classList.contains("remove-sku-button")) {
+            return;
+        }
+
+        if (skuContainer.querySelectorAll(".sku-card").length <= 1) { alert("至少保留一個規格"); return; }
+        event.target.closest(".sku-card").remove();
+
+        const cards = skuContainer.querySelectorAll(".sku-card");
+        cards.forEach((card, index) => {
+            card.querySelector(".sku-heading span").textContent =
+                `商品規格 ${index + 1}`;
+
+            card.querySelectorAll("[name]").forEach(input => {
+                input.name = input.name.replace(
+                    /productSkus\[\d+\]/,
+                    `productSkus[${index}]`
+                ).replace(
+                    /skuImages\[\d+\]/,
+                    `skuImages[${index}]`
+                );
+            });
+
+            card.querySelectorAll("input[id], label[for], select[id]")
+                .forEach(element => {
+                    const currentId = element.hasAttribute("for") ? element.htmlFor : element.id;
+                    const suffix = currentId.match(/\d+$/);
+                    if (!suffix) return;
+
+                    const newId = currentId.replace(/\d+$/, index);
+                    element.id = newId;
+
+                    if (element.hasAttribute("for")) {
+                        element.htmlFor = newId;
+                    }
+                });
+        });
+
+        skuCount = cards.length;
+    });
+
+    // 圖片即時預覽
+    skuContainer.addEventListener("change", function (event) {
+        if (!event.target.classList.contains("image-input")) {
+            return;
+        }
+
+        const file = event.target.files[0];
+        const preview = event.target
+            .closest(".image-upload-area")
+            .querySelector(".image-preview");
+
+        if (!file) {
+            preview.src = "";
+            preview.hidden = true;
+            return;
+        }
+
+        if (!file.type.startsWith("image/")) {
+            alert("請選擇圖片檔案。");
+            event.target.value = "";
+            preview.src = "";
+            preview.hidden = true;
+            return;
+        }
+
+        preview.src = URL.createObjectURL(file);
+        preview.hidden = false;
+    });
+</script>
+</body>
+</html>
