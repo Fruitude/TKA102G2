@@ -79,6 +79,7 @@
                                             <th>ID</th>
                                             <th>會員</th>
                                             <th>狀態</th>
+                                            <th>郵遞區號</th>
                                             <th>地址</th>
                                             <th>付款方式</th>
                                             <th>商品總額</th>
@@ -109,6 +110,7 @@
                                             <td th:with="statuses=${T(com.fruitude.utils.Utils$OrderStatus).values()}"
                                                 th:text="${orders.ordersStatus != null and orders.ordersStatus >= 0 and orders.ordersStatus < statuses.length}
                                                          ? ${statuses[orders.ordersStatus].displayStatus} : '狀態異常'"></td>
+                                            <td th:text="${orders.postalCode}"></td>
                                             <td class="long" th:text="${orders.shippingAddress}" th:title="${orders.shippingAddress}"></td>
                                             <td th:text="${orders.paymentMethod}"></td>
                                             <td class="num" th:text="${orders.productTotal}"></td>

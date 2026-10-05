@@ -6,10 +6,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -17,6 +19,7 @@ import com.fruitude.orders.model.CheckoutForm;
 import com.fruitude.orders.model.CheckoutItem;
 import com.fruitude.orders.model.Orders;
 import com.fruitude.orders.model.OrdersService;
+import com.fruitude.utils.PostalCodes;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -38,6 +41,11 @@ public class CheckoutController {
      */
     @PostMapping("/confirm")
     public String saveToSession(@ModelAttribute CheckoutForm form, HttpSession session) {
+    	// 前端也會檢查，這裡是最後一道：不能信任瀏覽器送來的值
+    	if (!PostalCodes.isValid(form.getShippingZip())) {
+    		return "redirect:/front/checkout/?error=zip";
+    	}
+    	form.setShippingZip(form.getShippingZip().trim());
     	form.setItems(parseItems(form.getCartItemsJson()));
     	if (form.getItems().isEmpty()) {
     		// 購物車是空的，或 JS 沒能把資料塞進 cartItemsJson，擋回 checkout 頁重填
@@ -45,6 +53,13 @@ public class CheckoutController {
     	}
     	session.setAttribute(SESSION_KEY, form);
 		return "redirect:/front/checkout/confirm/";
+    }
+
+    /** 給結帳頁前端檢查郵遞區號用：所有合法的 3 碼區號，清單只維護 PostalCodes 一處 */
+    @GetMapping("/postal-codes")
+    @ResponseBody
+    public List<String> postalCodes() {
+    	return PostalCodes.areaCodes();
     }
 
     /** 把前端送來的 JSON 字串解析成品項清單，格式不對就當作空清單，不要讓下單流程整個炸掉 */
