@@ -3,11 +3,13 @@ package com.fruitude.orders.model;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,9 +50,50 @@ public class OrdersService {
 		return ordersRepository.findAllWithJoin();
 	}
 
-	// 後台訂單管理搜尋。field：id / member / status / receiver / phone；keyword 空白就等於不搜尋。
-	// page 從 0 開始
-	public Page<Tuple> search(String field, String keyword, int page, int size) {
+	// 後台訂單管理可排序的欄位白名單：key（網址參數 sort 的值）→ 查詢裡的屬性。
+	// 只接受這裡列出的 key，使用者亂傳的值一律當作沒有排序，避免把任意字串帶進查詢。
+	// Orders 的屬性不用加別名（Spring 會自動補 O.）；會員在另一張表，要明確寫 M.memberName。
+	// 注意：狀態是依資料庫的狀態碼（0~12）排序，不是依畫面上顯示的文字。
+	private static final Map<String, String> SORTABLE = Map.ofEntries(
+			Map.entry("ordersId", "ordersId"),
+			Map.entry("member", "M.memberName"),
+			Map.entry("status", "ordersStatus"),
+			Map.entry("postalCode", "postalCode"),
+			Map.entry("address", "shippingAddress"),
+			Map.entry("payment", "paymentMethod"),
+			Map.entry("productTotal", "productTotal"),
+			Map.entry("discount", "discount"),
+			Map.entry("shippingFee", "shippingFee"),
+			Map.entry("shoppingCredit", "shoppingCredit"),
+			Map.entry("actualPayment", "actualPaymentAmount"),
+			Map.entry("receiver", "receiverName"),
+			Map.entry("email", "email"),
+			Map.entry("phone", "phoneNumber"),
+			Map.entry("logisticsNote", "logisticsNote"),
+			Map.entry("ordersNote", "ordersNote"),
+			Map.entry("date", "ordersDate"));
+
+	public static boolean isSortable(String sortKey) {
+		return sortKey != null && SORTABLE.containsKey(sortKey);
+	}
+
+	// 沒指定（或不合法）時：日期新到舊。一律再加上訂單編號當次要排序，
+	// 否則同值的資料順序不固定，翻頁時可能重複或漏掉
+	private Sort buildSort(String sortKey, String dir) {
+		if (!isSortable(sortKey) || !("asc".equals(dir) || "desc".equals(dir))) {
+			return Sort.by(Sort.Order.desc("ordersDate"), Sort.Order.desc("ordersId"));
+		}
+		String property = SORTABLE.get(sortKey);
+		Sort.Order main = "desc".equals(dir) ? Sort.Order.desc(property) : Sort.Order.asc(property);
+		if ("ordersId".equals(property)) {
+			return Sort.by(main);
+		}
+		return Sort.by(main, Sort.Order.asc("ordersId"));
+	}
+
+	// 後台訂單管理搜尋與排序。field：id / member / status / receiver / phone；keyword 空白就等於不搜尋。
+	// sortKey 見 SORTABLE，dir 是 asc / desc。page 從 0 開始
+	public Page<Tuple> search(String field, String keyword, String sortKey, String dir, int page, int size) {
 		String kw = keyword == null ? "" : keyword.trim();
 		int ordersId = 0;
 		String memberName = "", receiverName = "", phoneNumber = "";
@@ -84,7 +127,7 @@ public class OrdersService {
 			}
 		}
 		return ordersRepository.search(ordersId, memberName, receiverName, phoneNumber, statusFilter, statuses,
-				PageRequest.of(page, size));
+				PageRequest.of(page, size, buildSort(sortKey, dir)));
 	}
 
 	// 狀態欄位畫面上顯示的是文字（OrderStatus.displayStatus，例如「待出貨」），所以輸入文字就找
