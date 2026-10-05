@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fruitude.utils.PostalCodes;
+
 import jakarta.persistence.Tuple;
 
 @Service
@@ -119,7 +121,8 @@ public class OrdersService {
 		orders.setReceiverName(form.getReceiverName());
 		orders.setEmail(form.getEmail());
 		orders.setPhoneNumber(form.getPhoneNumber());
-		orders.setShippingAddress(form.getShippingZip() + " " + form.getShippingAddress());
+		orders.setPostalCode(PostalCodes.toInteger(form.getShippingZip()));
+		orders.setShippingAddress(form.getShippingAddress());
 		orders.setPaymentMethod(form.getPaymentMethod());
 		orders.setLogisticsNote(form.getLogisticsNote());
 		orders.setOrdersNote(form.getOrderNote());

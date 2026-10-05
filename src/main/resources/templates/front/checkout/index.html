@@ -394,8 +394,8 @@
 							class="required-mark">*</span></label><input
 							class="text-field order-input" id="checkout-shipping-zip"
 							name="shippingZip" form="checkout-form" required=""
-							inputmode="numeric" pattern="\d{3}(\d{2,3})?" maxlength="6"
-							title="請輸入 3、5 或 6 碼郵遞區號" type="text" /><label
+							inputmode="numeric" pattern="\d{3}(\d{3})?" maxlength="6"
+							title="請輸入 3 碼或 3+3 共 6 碼的台灣郵遞區號" type="text" /><label
 							class="w-commerce-commercecheckoutlabel field-label"
 							for="checkout-shipping-address">地址 <span
 							class="required-mark">*</span></label><input
@@ -975,7 +975,35 @@
 				return check;
 			}
 
+			// 台灣郵遞區號：3 碼，或 3+3 共 6 碼，且前 3 碼必須是中華郵政公告的區號。
+			// 合法區號清單由後端（PostalCodes）提供，只維護一處；清單還沒載入時先只檢查格式，
+			// 後端送出時會再完整檢查一次
+			var zipAreaCodes = null;
+			fetch("postal-codes").then(function(res) {
+				return res.ok ? res.json() : null;
+			}).then(function(list) {
+				if (list) {
+					zipAreaCodes = new Set(list);
+					zipCheck(false);
+				}
+			}).catch(function() {
+			});
+			function isValidZip(value) {
+				if (!/^\d{3}(\d{3})?$/.test(value)) {
+					return false;
+				}
+				return zipAreaCodes === null || zipAreaCodes.has(value.substring(0, 3));
+			}
+			var zipCheck = attachFormatCheck(
+					document.getElementById("checkout-shipping-zip"), isValidZip,
+					"郵遞區號不正確，請輸入 3 碼或 3+3 共 6 碼的台灣郵遞區號，例：106 或 106001");
+
+			if (new URLSearchParams(location.search).get("error") === "zip") {
+				alert("郵遞區號不正確，請重新確認後再送出");
+			}
+
 			var formatChecks = [
+					zipCheck,
 					attachFormatCheck(document.getElementById("wf-ecom-email"),
 							function(value) {
 								return EMAIL_PATTERN.test(value);

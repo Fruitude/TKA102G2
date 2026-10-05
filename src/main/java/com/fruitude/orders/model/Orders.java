@@ -21,6 +21,9 @@ public class Orders {
     @Column(name = "member_id")
     private Integer memberId;
 
+    @Column(name = "postal_code")
+    private Integer postalCode;
+
     @Column(name = "shipping_address", length = 255)
     private String shippingAddress;
 
@@ -80,6 +83,14 @@ public class Orders {
 
 	public void setMemberId(Integer memberId) {
 		this.memberId = memberId;
+	}
+
+	public Integer getPostalCode() {
+		return postalCode;
+	}
+
+	public void setPostalCode(Integer postalCode) {
+		this.postalCode = postalCode;
 	}
 
 	public String getShippingAddress() {
