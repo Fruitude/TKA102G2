@@ -14,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fruitude.member.model.MemberVO;
 import com.fruitude.utils.PostalCodes;
 import com.fruitude.utils.Utils;
 
@@ -157,7 +158,7 @@ public class OrdersService {
 		return ordersRepository.findById(id);
 	}
 
-	public List<Member> getMemberList() {
+	public List<MemberVO> getMemberList() {
 		return memberRepository.findAll();
 	}
 
@@ -233,7 +234,7 @@ public class OrdersService {
 	public com.fruitude.promo.model.ProductDiscount findProductDiscount(Integer memberId, int productTotal) {
 		boolean isFirstOrder = ordersRepository.countByMemberId(memberId) == 0;
 		boolean isBirthdayMonth = false;
-		Member member = memberRepository.findById(memberId).orElse(null);
+		MemberVO member = memberRepository.findById(memberId).orElse(null);
 		if (member != null && member.getMemberBirthday() != null) {
 			isBirthdayMonth = member.getMemberBirthday().getMonth() == LocalDate.now().getMonth();
 		}

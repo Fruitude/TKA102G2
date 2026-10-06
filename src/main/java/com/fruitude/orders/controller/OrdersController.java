@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import com.fruitude.orders.model.Member;
+import com.fruitude.member.model.MemberVO;
 import com.fruitude.orders.model.Orders;
 import com.fruitude.orders.model.OrdersService;
 
@@ -47,7 +47,7 @@ public class OrdersController {
 
 	@GetMapping("/add")
 	public String showAddForm(Model model) {
-		List<Member> memberList = ordersService.getMemberList();
+		List<MemberVO> memberList = ordersService.getMemberList();
 		model.addAttribute("memberList", memberList);
 		return "example/add_order";
 	}
@@ -80,7 +80,7 @@ public class OrdersController {
 
 	@GetMapping("/edit")
 	public String showEditForm(@RequestParam(value = "ordersId", required = false) Integer ordersId, Model model) {
-		List<Member> memberList = ordersService.getMemberList();
+		List<MemberVO> memberList = ordersService.getMemberList();
 		model.addAttribute("memberList", memberList);
 
 		if (ordersId != null) {
