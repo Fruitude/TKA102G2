@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = """
         SELECT p.product_id AS productId, p.product_name AS name, p.product_desc AS description,
-               p.product_category_id AS categoryId, s.sku_id AS skuId, s.sku_name AS skuName,
+               p.product_category_id AS categoryId, s.sku_id AS skuId, s.sku_name AS skuName, s.another_name AS anotherName,
                s.status AS skuStatus, s.price AS price, CASE WHEN s.status = 3 THEN s.stock ELSE NULL END AS stock,
                CASE WHEN s.status = 3 THEN s.inbound_qty ELSE NULL END AS inboundQty,
                CASE WHEN s.status = 3 THEN s.outbound_qty ELSE NULL END AS outboundQty
@@ -34,7 +34,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     java.util.List<FrontCategoryRow> findFrontCategories();
 
     @Query(value = """
-        SELECT s.sku_id AS skuId, p.product_name AS name, s.sku_name AS skuName,
+        SELECT s.sku_id AS skuId, p.product_name AS name, s.sku_name AS skuName, s.another_name AS anotherName,
                s.price AS price, CASE WHEN s.status = 3 THEN s.stock ELSE NULL END AS stock,
                CASE WHEN s.status = 3 THEN s.inbound_qty ELSE NULL END AS inboundQty,
                CASE WHEN s.status = 3 THEN s.outbound_qty ELSE NULL END AS outboundQty, p.status AS productStatus, s.status AS skuStatus
@@ -95,6 +95,8 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
         LEFT JOIN product_category c ON c.product_category_id = p.product_category_id
         """ + OVERVIEW_FILTER + """
         ORDER BY
+          CASE WHEN :sortBy = 'modified' AND :sortDirection = 'asc' THEN COALESCE(p.updated_at,p.created_at) END ASC,
+          CASE WHEN :sortBy = 'modified' AND :sortDirection = 'desc' THEN COALESCE(p.updated_at,p.created_at) END DESC,
           CASE WHEN :sortBy = 'comments' AND :sortDirection = 'asc' THEN COALESCE(p.all_comment_amount,0) END ASC,
           CASE WHEN :sortBy = 'comments' AND :sortDirection = 'desc' THEN COALESCE(p.all_comment_amount,0) END DESC,
           CASE WHEN :sortBy = 'rating' AND :sortDirection = 'asc'
@@ -117,7 +119,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
         @org.springframework.data.repository.query.Param("sortDirection") String sortDirection,
         org.springframework.data.domain.Pageable pageable);
 
-    @Query(value = "SELECT product_id AS productId, sku_name AS skuName FROM product_sku WHERE product_id IN (:productIds) ORDER BY product_id, sku_id", nativeQuery = true)
+    @Query(value = "SELECT product_id AS productId, sku_name AS skuName, another_name AS anotherName FROM product_sku WHERE product_id IN (:productIds) ORDER BY product_id, sku_id", nativeQuery = true)
     java.util.List<ProductOverviewSku> findOverviewSkuNames(
         @org.springframework.data.repository.query.Param("productIds") java.util.List<Integer> productIds);
 

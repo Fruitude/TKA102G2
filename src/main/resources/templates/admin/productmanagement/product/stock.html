@@ -21,7 +21,7 @@
             <tbody>
                 <tr th:each="s : ${skus}">
                     <td th:text="${s.skuId}"></td><td th:text="${s.product == null ? '未設定' : s.product.productName}"></td>
-                    <td th:text="${s.skuName}"></td><td th:text="${s.stock}"></td>
+                    <td th:text="${s.displayName}"></td><td th:text="${s.stock}"></td>
                     <td th:text="${s.inboundQty}"></td><td th:text="${s.outboundQty}"></td>
                     <td th:text="${s.expectedStock}"></td><td th:text="${s.safetyStock}"></td>
                     <td><span class="badge" th:classappend="${s.belowSafetyStock ? 'badge-danger' : 'badge-success'}" th:text="${s.belowSafetyStock ? '低於安全庫存' : '正常'}"></span></td>

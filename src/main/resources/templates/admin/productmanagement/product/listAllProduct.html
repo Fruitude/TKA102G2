@@ -13,10 +13,10 @@
         .container { width: 100%; max-width: none; min-width: 0; box-sizing: border-box; margin: auto; background: white; padding: 20px; border-radius: 10px; overflow-x: auto; }
         /* Change these pixel values to resize columns; the table width follows automatically. */
         .container {
-            --col-number-width: 24px;
-            --col-image-width: 56px;
+            --col-number-width: 35px;
+            --col-image-width: 55px;
             --col-name-width: 140px;
-            --col-sku-width: 240px;
+            --col-sku-width: 190px;
             --col-vendor-width: 140px;
             --col-stock-width: 60px;
             --col-count-width: 60px;
@@ -60,7 +60,13 @@
         .stock-normal { color: #166534; background: #dcfce7; }
         .stock-danger { color: #991b1b; background: #fee2e2; }
         .stock-warning { color: #854d0e; background: #fef3c7; }
-        .filter-row-actions { display: flex; align-items: center; }
+        .product-table-toolbar { position: relative; height: 22px; width: var(--product-table-width); margin: 0 0 0 5px; box-sizing: border-box; }
+        .product-table-toolbar .page-status-buttons { position: absolute; right: calc(var(--col-actions-width) + var(--col-status-width) / 2); transform: translateX(50%); display: flex; gap: 4px; width: max-content; }
+        .product-table-toolbar .page-status-buttons button { width: 48px; height: 22px; padding: 2px 4px; font-size: 10px; line-height: 16px; }
+        .modified-sort-control button { height: 36px; min-width: 4em; padding: 6px 10px; font: inherit; background: white; color: #333; border: 1px solid #767676; }
+        .modified-sort-control button[aria-pressed="true"][data-order="desc"] { background: #FFFBB4; }
+        .modified-sort-control button[aria-pressed="true"][data-order="asc"] { background: #BFA084; }
+        .time-sort-icon { display: inline-block; vertical-align: middle; width: 18px; height: 18px; }
         .page-status-buttons { display: flex; gap: 8px; }
         .page-status-buttons button { padding: 4px 8px; height: 26px; font-size: 12px; line-height: 18px; box-sizing: border-box; }
         .product-actions button { background: rgb(0, 128, 192); }
@@ -85,14 +91,16 @@
         .empty { padding: 18px; text-align: center; }
         [hidden] { display: none !important; }
         .list-controls { font-size: 14px; display: flex; flex-direction: column; gap: 12px; width: var(--product-table-width); margin: 12px 0 12px 5px; }
-        .filter-row-primary, .filter-row-secondary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; width: 100%; }
+        .filter-row-primary { display: grid; grid-template-columns: var(--filter-columns, repeat(4, max-content)); gap: 40px; width: max-content; }
+        .filter-row-primary > *, .filter-row-secondary > * { width: max-content; }
+        .filter-row-secondary { display: grid; grid-template-columns: var(--filter-columns, repeat(4, max-content)); gap: 40px; width: max-content; }
         .filter-row-primary label, .filter-row-secondary label { display: flex; align-items: center; gap: 6px; margin: 0; }
         .list-controls label { white-space: nowrap; }
         .list-controls select { width: 10em; flex: 0 0 10em; font: inherit; height: 36px; box-sizing: border-box; padding: 6px 10px; margin: 0; }
         #page-size { width: calc(3em + 36px); flex-basis: calc(3em + 36px); padding: 6px 4px; }
 
         .filter-row-secondary .comment-range { padding-left: 1em; }
-        .filter-row-secondary label[for="rating-filter"] { padding-left: 1em; }
+        .filter-row-secondary label[for="rating-filter"] { padding-left: 0; }
         .comment-range input[aria-invalid="true"] { border: 1px solid #e74a3b; }
         #comment-range-error { margin: 0; color: #e74a3b; font-size: 12px; }
         .comment-range input { width: 4em; font: inherit; height: 36px; padding: 6px 4px; box-sizing: border-box; min-width: 0; }
@@ -290,6 +298,9 @@ tr.product-off td {
                 </div>
             </div>
         </div>
+        <label class="modified-sort-control" for="modified-sort">修改時間
+            <button type="button" id="modified-sort" aria-label="修改時間排序" th:attr="aria-pressed=${sortBy == 'modified'},data-order=${sortBy == 'modified' and sortDirection == 'asc' ? 'asc' : 'desc'}"><svg class="time-sort-icon" th:if="${sortBy != 'modified'}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span th:if="${sortBy == 'modified'}" th:text="${sortDirection == 'asc' ? '最舊' : '最新'}">最新</span></button><span>排序</span>
+        </label>
         </div>
         <div class="filter-row-secondary">
         <label for="stock-filter">庫存狀態
@@ -329,13 +340,13 @@ tr.product-off td {
         </label>
         </div>
         <p id="comment-range-error" role="status" aria-live="polite" hidden></p>
-        <div class="filter-row-actions" aria-label="本頁商品狀態操作">
+    </div>
+        <div class="product-table-toolbar" aria-label="本頁商品狀態操作">
             <div class="page-status-buttons">
                 <button type="button" id="page-status-on" title="本頁全部上架" aria-label="本頁全部上架" th:disabled="${#lists.isEmpty(productListData)}" onclick="changePageProductStatus(1)">全部上架</button>
                 <button type="button" id="page-status-off" class="page-status-off" title="本頁全部下架" aria-label="本頁全部下架" th:disabled="${#lists.isEmpty(productListData)}" onclick="changePageProductStatus(0)">全部下架</button>
             </div>
         </div>
-    </div>
     <p id="page-status-message" role="status" aria-live="polite" hidden></p>
     <table id="product-table" th:attr="data-page=${currentPage},data-total-pages=${totalPages},data-total-products=${totalProducts},data-sort-by=${sortBy},data-sort-direction=${sortDirection}">
         <colgroup>
@@ -380,7 +391,7 @@ tr.product-off td {
             <td><span class="cell-name" th:text="${#strings.length(product.productName) > 10 ? #strings.substring(product.productName, 0, 10) + '…' : product.productName}" th:title="${product.productName}"></span></td>
             <td th:with="skuNames=${overviewSkuNames != null ? overviewSkuNames[product.productId] : null}">
                 <div class="sku-switcher" th:if="${skuNames != null and !#lists.isEmpty(skuNames)}">
-                    <div class="sku-name-viewport" aria-live="polite" aria-atomic="true"><div class="sku-name-track"><span class="sku-name" th:text="${skuNames[0]}" th:title="${skuNames[0]}"></span></div></div>
+                    <div class="sku-name-viewport" aria-live="polite" aria-atomic="true"><div class="sku-name-track"><span class="sku-name" th:text="${#strings.length(skuNames[0]) > 8 ? #strings.substring(skuNames[0], 0, 8) + '…' : skuNames[0]}" th:title="${skuNames[0]}"></span></div></div>
                     <button type="button" class="sku-counter stock-alert" th:text="${'1/' + #lists.size(skuNames)}" th:disabled="${#lists.size(skuNames) <= 1}" th:attr="aria-label=${'切換下一個規格，目前第1個，共' + #lists.size(skuNames) + '個'}"></button>
                     <div class="sku-name-options" hidden><span th:each="skuName : ${skuNames}" th:text="${skuName}"></span></div>
                 </div>
@@ -413,7 +424,7 @@ tr.product-off td {
 			</td>
             <td>
                 <div class="product-actions">
-                <button type="button" data-product-detail th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)}">查看</button>
+                <button type="button" data-product-detail th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)},data-detail-name=${product.productName}">查看</button>
 
                 <form th:action="@{/product/getOne_For_Update}" method="post">
                     <input type="hidden" name="productId" th:value="${product.productId}">
@@ -421,7 +432,7 @@ tr.product-off td {
                 </form>
 
 <form th:action="@{/product/delete}" method="post"
-onsubmit="return confirm('確定要刪除這筆商品嗎？');">
+onsubmit="return confirm('刪除有可能造成客戶歷史訂單顯示錯誤，或客戶未完成訂單顯示錯誤，您確定要刪除這筆商品嗎？　　　　　　　　　　　　　　　　　　　【建議使用下架功能】');">
 <input type="hidden" name="productId" th:value="${product.productId}">
 <button class="delete" type="submit">刪除</button>
 </form>

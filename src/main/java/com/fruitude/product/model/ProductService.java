@@ -86,7 +86,7 @@ public class ProductService {
         var names = new java.util.LinkedHashMap<Integer, List<String>>();
         if (!productIds.isEmpty()) {
             for (var sku : repository.findOverviewSkuNames(productIds)) {
-                names.computeIfAbsent(sku.getProductId(), id -> new java.util.ArrayList<>()).add(sku.getSkuName());
+                names.computeIfAbsent(sku.getProductId(), id -> new java.util.ArrayList<>()).add(ProductSku.resolveDisplayName(sku.getSkuName(), sku.getAnotherName()));
             }
         }
         return names;
@@ -162,7 +162,7 @@ public class ProductService {
     }
 
     public static String normalizeOverviewSort(String value) {
-        return java.util.Set.of("comments", "rating").contains(value == null ? "" : value) ? value : "";
+        return java.util.Set.of("comments", "rating", "modified").contains(value == null ? "" : value) ? value : "";
     }
 
     public org.springframework.data.domain.Page<ProductOverview> getOverviewPage(int page, int size, String statusFilter,
