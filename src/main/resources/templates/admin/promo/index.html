@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Promo List</title>
+
+	<!-- 引入css資源 -->
+	<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+
+	<!-- 只作用在這頁的活動表格（class="promo-table"），不影響其他頁面的 table -->
+	<style>
+		.promo-table {
+			width: 100%;
+			white-space: nowrap;        /* 欄位內容不換行，不會被擠成直的 */
+		}
+		.promo-table th,
+		.promo-table td {
+			vertical-align: middle;
+			padding: .5rem .75rem;
+		}
+		.promo-table thead th {
+			background-color: #f8f9fc;
+			text-align: center;
+		}
+		/* 活動內容較長：限制寬度，超過用 ... 省略，滑鼠移上去可看完整內容（title） */
+		.promo-table .long {
+			max-width: 300px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		/* 工具列：搜尋在左，筆數與箭頭在右（樣式同訂單管理） */
+		.promo-toolbar {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: .5rem;
+			margin-bottom: .5rem;
+			color: #5f6368;
+			font-size: .85rem;
+		}
+		.promo-toolbar .toolbar-right {
+			display: flex;
+			align-items: center;
+			margin-left: auto;
+		}
+		.promo-toolbar .toolbar-info {
+			margin-right: 1rem;
+		}
+		.promo-toolbar .pager-btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 36px;
+			height: 36px;
+			border-radius: 50%;
+			color: #c4c7c5;
+			cursor: default;
+		}
+		.promo-search {
+			display: flex;
+			align-items: center;
+			gap: .4rem;
+		}
+		.promo-search select {
+			width: auto;
+		}
+		.promo-search input[type="text"],
+		.promo-search input[type="date"] {
+			width: 200px;
+		}
+		/* 按鈕不被輸入框擠壓、文字不換行 */
+		.promo-search .btn {
+			flex-shrink: 0;
+			white-space: nowrap;
+		}
+	</style>
+</head>
+<body id="page-top">
+
+    <!-- Page Wrapper -->
+    <div id="wrapper">
+
+        <!-- 引入側邊欄，activeMenu='promo' 讓左邊選單的「活動管理」反白 -->
+        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='promo')}"></ul>
+
+        <!-- Content Wrapper -->
+        <div id="content-wrapper" class="d-flex flex-column">
+
+            <!-- Main Content -->
+            <div id="content">
+
+                <!-- 引入Topbar -->
+                <nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+                <!-- 這裡放頁面自己的內容 -->
+                <div class="container-fluid">
+                    <h1 class="h3 mb-4 text-gray-800">活動管理</h1>
+
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <!-- 工具列（殼）：搜尋與分頁都還沒接資料，先用 disabled 擺著 -->
+                            <div class="promo-toolbar">
+                                <form class="promo-search" method="get" th:action="@{/admin/promo/}">
+                                    <select id="promo-search-field" name="field" class="form-control form-control-sm" aria-label="搜尋欄位">
+                                        <option value="id" th:selected="${field == 'id'}">活動編號</option>
+                                        <option value="title" th:selected="${field == 'title'}">活動標題</option>
+                                        <option value="context" th:selected="${field == 'context'}">活動內容</option>
+                                        <option value="start" th:selected="${field == 'start'}">開始時間</option>
+                                        <option value="end" th:selected="${field == 'end'}">結束時間</option>
+                                    </select>
+                                    <input id="promo-search-keyword" type="text" name="keyword" class="form-control form-control-sm"
+                                           placeholder="輸入搜尋內容" th:value="${keyword}" />
+                                    <button type="submit" class="btn btn-primary btn-sm">搜尋</button>
+                                    <a th:if="${keyword != ''}" th:href="@{/admin/promo/}" class="btn btn-light btn-sm">清除</a>
+                                </form>
+                                <div class="toolbar-right">
+                                    <span class="toolbar-info" th:text="|共 ${#lists.size(promoProjects)} 筆|">共 0 筆</span>
+                                    <span class="pager-btn"><i class="fas fa-chevron-left"></i></span>
+                                    <span class="pager-btn"><i class="fas fa-chevron-right"></i></span>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover promo-table" cellspacing="0">
+                                    <thead>
+                                        <tr>
+                                            <th>操作</th>
+                                            <th>活動編號</th>
+                                            <th>活動標題</th>
+                                            <th>活動內容</th>
+                                            <th>開始時間</th>
+                                            <th>結束時間</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="promo : ${promoProjects}">
+                                            <td>
+                                                <button type="button" class="btn btn-warning btn-sm btn-edit-promo"
+                                                    th:attr="data-id=${promo.promoProjectId},
+                                                             data-title=${promo.promoProjectTitle},
+                                                             data-context=${promo.promoProjectContext},
+                                                             data-start=${#temporals.format(promo.promoProjectStart, 'yyyy-MM-dd HH:mm')},
+                                                             data-end=${#temporals.format(promo.promoProjectEnd, 'yyyy-MM-dd HH:mm')}">修改</button>
+                                            </td>
+                                            <td th:text="${promo.promoProjectId}"></td>
+                                            <td th:text="${promo.promoProjectTitle}"></td>
+                                            <td class="long" th:text="${promo.promoProjectContext}"
+                                                th:title="${promo.promoProjectContext}"></td>
+                                            <td th:text="${#temporals.format(promo.promoProjectStart, 'yyyy-MM-dd HH:mm')}"></td>
+                                            <td th:text="${#temporals.format(promo.promoProjectEnd, 'yyyy-MM-dd HH:mm')}"></td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(promoProjects)}">
+                                            <td colspan="6" class="text-center text-muted py-4">目前沒有資料</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 引入Footer -->
+            <footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+
+        </div>
+    </div>
+
+    <!-- Scroll to Top Button-->
+    <span class="scroll-to-top rounded">
+        <i class="fas fa-angle-up"></i>
+    </span>
+
+    <!-- 引入js資源 -->
+    <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+    <!-- 修改活動：按列上的「修改」跳出這個對話框，欄位先帶入目前的值 -->
+    <div class="modal fade" id="edit-promo-modal" tabindex="-1" role="dialog"
+         aria-labelledby="edit-promo-title" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="edit-promo-title">修改活動</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="關閉">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">活動編號：<strong id="edit-promo-id"></strong></p>
+                    <div class="form-group">
+                        <label for="edit-promo-input-title">活動標題</label>
+                        <input type="text" id="edit-promo-input-title" class="form-control" maxlength="50" />
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-promo-input-context">活動內容</label>
+                        <textarea id="edit-promo-input-context" class="form-control" rows="4" maxlength="255"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-promo-input-start">開始時間</label>
+                        <input type="datetime-local" id="edit-promo-input-start" class="form-control" />
+                    </div>
+                    <div class="form-group mb-0">
+                        <label for="edit-promo-input-end">結束時間</label>
+                        <input type="datetime-local" id="edit-promo-input-end" class="form-control" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="edit-promo-confirm">確定</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script th:inline="javascript">
+    // 按「修改」：把這一列的活動資料帶進對話框；按「確定」：POST 到 /admin/promo/update，成功後重新載入頁面
+    $(function () {
+        // 搜尋欄位選「開始時間／結束時間」時，輸入框改成日期選擇器（搜尋該日期當天）
+        var $field = $('#promo-search-field');
+        var $keyword = $('#promo-search-keyword');
+        function syncKeywordType() {
+            var f = $field.val();
+            $keyword.attr('type', (f === 'start' || f === 'end') ? 'date' : 'text');
+        }
+        $field.on('change', function () {
+            $keyword.val('');
+            syncKeywordType();
+        });
+        syncKeywordType();
+
+        var currentId = null;
+        var $confirm = $('#edit-promo-confirm');
+
+        $('.btn-edit-promo').on('click', function () {
+            var $btn = $(this);
+            currentId = $btn.attr('data-id');
+            $('#edit-promo-id').text(currentId);
+            $('#edit-promo-input-title').val($btn.attr('data-title') || '');
+            $('#edit-promo-input-context').val($btn.attr('data-context') || '');
+            // datetime-local 需要 yyyy-MM-ddTHH:mm
+            $('#edit-promo-input-start').val(($btn.attr('data-start') || '').replace(' ', 'T'));
+            $('#edit-promo-input-end').val(($btn.attr('data-end') || '').replace(' ', 'T'));
+            $('#edit-promo-modal').modal('show');
+        });
+
+        $confirm.on('click', function () {
+            var title = $.trim($('#edit-promo-input-title').val());
+            var start = $('#edit-promo-input-start').val();
+            var end = $('#edit-promo-input-end').val();
+            if (title === '') {
+                alert('請輸入活動標題');
+                return;
+            }
+            if (start === '' || end === '') {
+                alert('請輸入開始與結束時間');
+                return;
+            }
+            if (end <= start) {   // 同格式字串可直接比大小
+                alert('結束時間必須晚於開始時間');
+                return;
+            }
+            $confirm.prop('disabled', true);   // 送出中，避免連按重複送出
+            $.ajax({
+                url: /*[[@{/admin/promo/update}]]*/ '/admin/promo/update',
+                type: 'POST',
+                data: {
+                    promoProjectId: currentId,
+                    promoProjectTitle: title,
+                    promoProjectContext: $('#edit-promo-input-context').val(),
+                    promoProjectStart: start,
+                    promoProjectEnd: end
+                }
+            }).done(function () {
+                location.reload();
+            }).fail(function (xhr) {
+                alert('更新失敗：' + (xhr.responseText || '請稍後再試'));
+                $confirm.prop('disabled', false);
+            });
+        });
+    });
+    </script>
+
+</body>
+</html>
