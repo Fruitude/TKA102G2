@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>會員管理</title>
     <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
-    <link th:href="@{/css/member-admin.css?v=1}" rel="stylesheet">
+    <link th:href="@{/css/member-admin.css?v=6}" rel="stylesheet">
 </head>
 <body id="page-top">
 <div id="wrapper">
@@ -26,56 +26,135 @@
 
                 <div class="member-feedback" id="member-feedback" role="status" aria-live="polite" hidden></div>
 
-                <section class="member-console" aria-label="會員資料清單">
-                    <div class="member-toolbar">
-                        <div class="member-filter-row">
-                            <label class="sr-only" for="member-status-filter">會員狀態</label>
-                            <select id="member-status-filter">
-                                <option value="">全部狀態</option>
-                                <option value="1">正常</option>
-                                <option value="0">停權</option>
-                            </select>
-                            <div class="member-search-control">
-                                <i class="fas fa-search" aria-hidden="true"></i>
-                                <label class="sr-only" for="member-search">搜尋會員</label>
-                                <input id="member-search" type="search" autocomplete="off"
-                                       placeholder="搜尋姓名、帳號或 Email">
+                <section class="member-console" aria-label="會員管理控制台">
+                    <nav class="member-tabs" aria-label="會員管理分類">
+                        <button class="member-tab is-active" data-tab="members" type="button">
+                            <i class="fas fa-users" aria-hidden="true"></i><span>會員名單</span>
+                        </button>
+                        <button class="member-tab" data-tab="credit-records" type="button">
+                            <i class="fas fa-coins" aria-hidden="true"></i><span>購物金異動紀錄</span>
+                        </button>
+                    </nav>
+
+                    <div class="member-panel is-active" data-panel="members">
+                        <div class="member-toolbar">
+                            <div class="member-filter-row">
+                                <label class="sr-only" for="member-status-filter">會員狀態</label>
+                                <select id="member-status-filter">
+                                    <option value="">全部狀態</option>
+                                    <option value="1">正常</option>
+                                    <option value="0">停權</option>
+                                </select>
+                                <div class="member-search-control">
+                                    <i class="fas fa-search" aria-hidden="true"></i>
+                                    <label class="sr-only" for="member-search">搜尋會員</label>
+                                    <input id="member-search" type="search" autocomplete="off"
+                                           placeholder="搜尋姓名、帳號或 Email">
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="table-responsive member-table-wrap">
-                        <table class="table member-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>會員</th>
-                                    <th>電子郵件</th>
-                                    <th>生日</th>
-                                    <th>加入時間</th>
-                                    <th>購物金</th>
-                                    <th>狀態</th>
-                                    <th class="text-right">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="member-table-body"></tbody>
-                        </table>
-                    </div>
-
-                    <div class="member-empty" id="member-empty" hidden>
-                        找不到符合條件的會員，請調整搜尋條件。
-                    </div>
-
-                    <footer class="member-pagination" aria-label="會員清單分頁">
-                        <span id="member-page-summary">第 0 / 0 頁</span>
-                        <div class="member-page-actions">
-                            <button id="member-page-previous" type="button" title="上一頁" aria-label="上一頁">
-                                <i class="fas fa-chevron-left" aria-hidden="true"></i>
-                            </button>
-                            <button id="member-page-next" type="button" title="下一頁" aria-label="下一頁">
-                                <i class="fas fa-chevron-right" aria-hidden="true"></i>
-                            </button>
+                        <div class="table-responsive member-table-wrap">
+                            <table class="table member-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>會員</th>
+                                        <th>電子郵件</th>
+                                        <th>生日</th>
+                                        <th>加入時間</th>
+                                        <th>購物金</th>
+                                        <th>狀態</th>
+                                        <th class="text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="member-table-body"></tbody>
+                            </table>
                         </div>
-                    </footer>
+
+                        <div class="member-empty" id="member-empty" hidden>
+                            找不到符合條件的會員，請調整搜尋條件。
+                        </div>
+
+                        <footer class="member-pagination" aria-label="會員清單分頁">
+                            <span id="member-page-summary">第 0 / 0 頁</span>
+                            <div class="member-page-actions">
+                                <button id="member-page-previous" type="button" title="上一頁" aria-label="上一頁">
+                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                </button>
+                                <button id="member-page-next" type="button" title="下一頁" aria-label="下一頁">
+                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </footer>
+                    </div>
+
+                    <div class="member-panel" data-panel="credit-records" hidden>
+                        <div class="member-toolbar credit-toolbar">
+                            <div class="credit-filter-row">
+                                <div class="member-search-control credit-search-control">
+                                    <i class="fas fa-search" aria-hidden="true"></i>
+                                    <label class="sr-only" for="credit-all-search">搜尋紀錄</label>
+                                    <input id="credit-all-search" type="search" placeholder="搜尋會員姓名、帳號、原因或訂單編號...">
+                                </div>
+                                <div class="credit-select-control">
+                                    <label class="sr-only" for="credit-all-type-filter">異動類型</label>
+                                    <select id="credit-all-type-filter" title="異動類型">
+                                        <option value="">全部類型</option>
+                                        <option value="1">退款轉入</option>
+                                        <option value="2">訂單折抵</option>
+                                        <option value="3">後台增加</option>
+                                        <option value="4">後台扣除</option>
+                                        <option value="5">訂單取消退回</option>
+                                    </select>
+                                </div>
+                                <div class="credit-date-range">
+                                    <span class="credit-date-label"><i class="far fa-calendar-alt mr-1"></i>日期</span>
+                                    <input id="credit-all-start-date" type="date" title="開始日期" placeholder="開始日期">
+                                    <span class="credit-date-separator">至</span>
+                                    <input id="credit-all-end-date" type="date" title="結束日期" placeholder="結束日期">
+                                </div>
+                                <div class="credit-actions">
+                                    <button class="btn btn-outline-secondary credit-btn" id="credit-all-reset-button" type="button" title="清除所有條件">
+                                        <i class="fas fa-undo-alt mr-1"></i><span>重設</span>
+                                    </button>
+                                    <button class="btn btn-primary credit-btn" id="credit-all-refresh-button" type="button" title="重新查詢">
+                                        <i class="fas fa-sync-alt mr-1"></i><span>查詢</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive member-table-wrap">
+                            <table class="table member-table credit-all-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>異動時間</th>
+                                        <th>會員</th>
+                                        <th>類型</th>
+                                        <th>異動金額</th>
+                                        <th>異動前後餘額</th>
+                                        <th>關聯單號</th>
+                                        <th>原因說明</th>
+                                        <th>經手人員</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="credit-all-table-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="member-empty" id="credit-all-empty" hidden>找不到符合條件的購物金異動紀錄。</div>
+
+                        <footer class="member-pagination credit-all-pagination" aria-label="購物金紀錄分頁">
+                            <span id="credit-all-page-summary">第 0 / 0 頁，共 0 筆</span>
+                            <div class="member-page-actions">
+                                <button id="credit-all-page-previous" type="button" title="上一頁" aria-label="上一頁">
+                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                </button>
+                                <button id="credit-all-page-next" type="button" title="下一頁" aria-label="下一頁">
+                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </footer>
+                    </div>
                 </section>
             </main>
         </div>
@@ -115,6 +194,11 @@
                         <label for="member-credit-value">新的購物金餘額</label>
                         <input class="form-control" id="member-credit-value" type="number" min="0" step="1" required>
                     </div>
+                    <div class="form-group mt-3 mb-0">
+                        <label for="member-credit-reason">調整原因 *</label>
+                        <textarea class="form-control" id="member-credit-reason" maxlength="255" rows="3"
+                                  placeholder="例如：退款轉入購物金、客服補償" required></textarea>
+                    </div>
                     <p class="member-modal-feedback" id="member-credit-feedback" aria-live="polite"></p>
                 </div>
                 <div class="modal-footer">
@@ -124,6 +208,34 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="member-credit-history-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content member-modal">
+            <div class="modal-header">
+                <div><h2 class="modal-title">購物金紀錄</h2><p class="member-modal-subject mb-0" id="member-credit-history-subject"></p></div>
+                <button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive credit-history-wrap">
+                    <table class="table credit-history-table mb-0">
+                        <thead><tr><th>時間</th><th>類型</th><th>異動金額</th><th>異動前後</th><th>關聯資料</th><th>原因</th></tr></thead>
+                        <tbody id="member-credit-history-body"></tbody>
+                    </table>
+                </div>
+                <div class="member-empty m-3" id="member-credit-history-empty" hidden>目前沒有購物金異動紀錄。</div>
+            </div>
+            <div class="modal-footer credit-history-footer">
+                <span id="member-credit-history-summary">第 0 / 0 頁</span>
+                <div>
+                    <button class="member-history-page" id="member-credit-history-previous" type="button" title="上一頁"><i class="fas fa-chevron-left"></i></button>
+                    <button class="member-history-page" id="member-credit-history-next" type="button" title="下一頁"><i class="fas fa-chevron-right"></i></button>
+                    <button type="button" class="btn btn-light ml-2" data-dismiss="modal">關閉</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -149,6 +261,6 @@
 
 <span class="scroll-to-top rounded"><i class="fas fa-angle-up"></i></span>
 <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-<script th:src="@{/js/member-admin.js?v=1}"></script>
+<script th:src="@{/js/member-admin.js?v=6}"></script>
 </body>
 </html>

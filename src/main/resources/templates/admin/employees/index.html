@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>後台帳號管理</title>
     <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
-    <link th:href="@{/css/employee-admin.css?v=7}" rel="stylesheet">
+    <link th:href="@{/css/employee-admin.css?v=12}" rel="stylesheet">
 </head>
 <body id="page-top">
 <div id="wrapper">
@@ -41,6 +41,9 @@
                         </button>
                         <button class="employee-tab" data-tab="functions" type="button">
                             <i class="fas fa-key" aria-hidden="true"></i><span>權限功能</span>
+                        </button>
+                        <button class="employee-tab" data-tab="audit" type="button">
+                            <i class="fas fa-history" aria-hidden="true"></i><span>更改紀錄</span>
                         </button>
                     </nav>
 
@@ -123,25 +126,39 @@
                     <div class="employee-panel" data-panel="assignments" hidden>
                         <div class="permission-layout">
                             <aside class="permission-employee-picker">
-                                <label for="permission-employee-search">搜尋員工</label>
-                                <div class="employee-search-control">
+                                <div class="permission-picker-header">
+                                    <label class="mb-0" for="permission-position-filter">員工與職位篩選</label>
+                                    <span class="permission-picker-count" id="permission-employee-count">共 0 位</span>
+                                </div>
+                                <div class="permission-filter-select-wrap">
+                                    <label class="sr-only" for="permission-position-filter">篩選職位部門</label>
+                                    <select id="permission-position-filter" class="permission-position-select" title="選擇職位部門">
+                                        <option value="">全部職位部門</option>
+                                    </select>
+                                </div>
+                                <div class="permission-position-pills" id="permission-position-pills" aria-label="職位快捷標籤"></div>
+                                <div class="employee-search-control permission-search-bar">
                                     <i class="fas fa-search" aria-hidden="true"></i>
-                                    <input id="permission-employee-search" type="text" autocomplete="off"
-                                           placeholder="姓名、帳號、Email 或職位">
+                                    <label class="sr-only" for="permission-employee-search">搜尋員工</label>
+                                    <input id="permission-employee-search" type="search" autocomplete="off"
+                                           placeholder="搜尋姓名、帳號或 Email...">
                                     <button class="employee-search-clear" id="permission-employee-search-clear"
                                             type="button" title="清除搜尋" aria-label="清除搜尋" hidden>
                                         <i class="fas fa-times" aria-hidden="true"></i>
                                     </button>
                                 </div>
                                 <div class="permission-employee-results" id="permission-employee-results"
-                                     role="listbox" aria-label="員工搜尋結果"></div>
-                                <div class="permission-selected-employee" id="permission-selected-employee"></div>
+                                     role="listbox" aria-label="員工名單"></div>
                             </aside>
                             <div class="permission-editor">
                                 <div class="permission-editor-heading">
                                     <div>
                                         <h2>分配權限</h2>
-                                        <span id="permission-selection-count">0 項已選</span>
+                                        <div class="permission-target-info" id="permission-target-info">
+                                            <span class="permission-target-name" id="permission-target-name">--</span>
+                                            <span class="permission-target-role" id="permission-target-role">--</span>
+                                            <span class="permission-selection-badge" id="permission-selection-count">0 項已選</span>
+                                        </div>
                                     </div>
                                     <button class="btn btn-primary employee-command" id="permission-save-button" type="button">
                                         <i class="fas fa-save" aria-hidden="true"></i><span>儲存權限</span>
@@ -181,6 +198,67 @@
                         </div>
                         <div class="employee-empty" id="function-empty" hidden>找不到符合條件的權限功能。</div>
                     </div>
+
+                    <div class="employee-panel" data-panel="audit" hidden>
+                        <div class="employee-toolbar audit-toolbar">
+                            <div class="audit-filter-row">
+                                <div class="employee-search-control audit-search-control">
+                                    <i class="fas fa-search" aria-hidden="true"></i>
+                                    <label class="sr-only" for="audit-search">搜尋更改紀錄</label>
+                                    <input id="audit-search" type="search" placeholder="搜尋操作者、對象或修改內容...">
+                                </div>
+                                <div class="audit-select-control">
+                                    <label class="sr-only" for="audit-module-filter">異動模組</label>
+                                    <select id="audit-module-filter" title="異動模組">
+                                        <option value="">全部模組</option>
+                                        <option value="EMPLOYEE">員工帳號</option>
+                                        <option value="EMPLOYEE_PERMISSION">權限配置</option>
+                                        <option value="POSITION">職位管理</option>
+                                        <option value="PERMISSION_FUNCTION">權限功能</option>
+                                    </select>
+                                </div>
+                                <div class="audit-select-control">
+                                    <label class="sr-only" for="audit-action-filter">操作動作</label>
+                                    <select id="audit-action-filter" title="操作動作">
+                                        <option value="">全部動作</option>
+                                        <option value="CREATE">新增</option>
+                                        <option value="UPDATE">修改</option>
+                                        <option value="STATUS">狀態變更</option>
+                                        <option value="PASSWORD">重設密碼</option>
+                                        <option value="ASSIGN">權限配置</option>
+                                    </select>
+                                </div>
+                                <div class="audit-date-range">
+                                    <span class="audit-date-label"><i class="far fa-calendar-alt mr-1"></i>日期</span>
+                                    <input id="audit-start-date" type="date" title="開始日期" placeholder="開始日期">
+                                    <span class="audit-date-separator">至</span>
+                                    <input id="audit-end-date" type="date" title="結束日期" placeholder="結束日期">
+                                </div>
+                                <div class="audit-actions">
+                                    <button class="btn btn-outline-secondary audit-btn" id="audit-reset-button" type="button" title="清除所有條件">
+                                        <i class="fas fa-undo-alt mr-1"></i><span>重設</span>
+                                    </button>
+                                    <button class="btn btn-primary audit-btn" id="audit-refresh-button" type="button" title="重新查詢">
+                                        <i class="fas fa-sync-alt mr-1"></i><span>查詢</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive employee-table-wrap">
+                            <table class="table employee-table audit-table mb-0">
+                                <thead><tr><th>操作時間</th><th>操作者</th><th>模組／動作</th><th>異動對象</th><th>更改內容</th><th>來源 IP</th></tr></thead>
+                                <tbody id="audit-table-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="employee-empty" id="audit-empty" hidden>找不到符合條件的更改紀錄。</div>
+                        <footer class="audit-pagination" aria-label="更改紀錄分頁">
+                            <span id="audit-page-summary">第 0 / 0 頁</span>
+                            <div>
+                                <button id="audit-page-previous" type="button" title="上一頁" aria-label="上一頁"><i class="fas fa-chevron-left"></i></button>
+                                <button id="audit-page-next" type="button" title="下一頁" aria-label="下一頁"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                        </footer>
+                    </div>
                 </section>
             </main>
         </div>
@@ -201,14 +279,38 @@
                 </div>
                 <div class="modal-body">
                     <input id="employee-id" type="hidden">
-                    <div class="form-group"><label for="employee-name">員工姓名 *</label><input class="form-control" id="employee-name" maxlength="50" required type="text"></div>
-                    <div class="form-group"><label for="employee-account">登入帳號 *</label><input autocomplete="username" class="form-control" id="employee-account" maxlength="50" pattern="[A-Za-z0-9_]{4,50}" required type="text"></div>
-                    <div class="form-group" id="employee-password-group"><label for="employee-password">初始密碼 *</label><input autocomplete="new-password" class="form-control" id="employee-password" maxlength="72" minlength="8" type="password"></div>
-                    <div class="form-row">
-                        <div class="form-group col-md-6"><label for="employee-phone">聯絡電話 *</label><input class="form-control" id="employee-phone" maxlength="20" required type="tel"></div>
-                        <div class="form-group col-md-6"><label for="employee-email">電子信箱 *</label><input class="form-control" id="employee-email" maxlength="100" required type="email"></div>
+                    <div class="form-group">
+                        <label for="employee-name">員工姓名 *</label>
+                        <input class="form-control" id="employee-name" maxlength="50" minlength="2" required type="text" placeholder="例：王小明">
+                        <small class="form-text text-muted">2～50 個字元，請輸入真實中文或英文姓名。</small>
                     </div>
-                    <div class="form-group"><label for="employee-position">員工職位 *</label><select class="form-control" id="employee-position" required></select></div>
+                    <div class="form-group">
+                        <label for="employee-account">登入帳號 *</label>
+                        <input autocomplete="username" class="form-control" id="employee-account" maxlength="50" pattern="[A-Za-z0-9_]{4,50}" required type="text" placeholder="例：employee05">
+                        <small class="form-text text-muted">4～50 碼半形英數字或底線，系統內不可重複。</small>
+                    </div>
+                    <div class="form-group" id="employee-password-group">
+                        <label for="employee-password">初始密碼 *</label>
+                        <input autocomplete="new-password" class="form-control" id="employee-password" maxlength="72" minlength="8" type="password" placeholder="請設定 8 碼以上密碼">
+                        <small class="form-text text-muted">8～72 個字元，建議同時包含英文與數字。</small>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="employee-phone">聯絡電話 *</label>
+                            <input class="form-control" id="employee-phone" maxlength="20" required type="tel" placeholder="例：0912-345-678">
+                            <small class="form-text text-muted">台灣手機 10 碼（例：0912-345-678），不可重複。</small>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="employee-email">電子信箱 *</label>
+                            <input class="form-control" id="employee-email" maxlength="100" required type="email" placeholder="例：user@company.com">
+                            <small class="form-text text-muted">有效 Email 格式，用於重設密碼與系統通知，不可重複。</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="employee-position">員工職位 *</label>
+                        <select class="form-control" id="employee-position" required></select>
+                        <small class="form-text text-muted">必選，決定員工預設角色與業務權限群組。</small>
+                    </div>
                     <p class="employee-modal-feedback" data-modal-feedback aria-live="polite"></p>
                 </div>
                 <div class="modal-footer">
@@ -259,7 +361,11 @@
                 <div class="modal-body">
                     <input id="password-employee-id" type="hidden">
                     <div class="employee-modal-target" id="password-employee-name"></div>
-                    <div class="form-group"><label for="new-employee-password">新密碼 *</label><input autocomplete="new-password" class="form-control" id="new-employee-password" maxlength="72" minlength="8" required type="password"></div>
+                    <div class="form-group">
+                        <label for="new-employee-password">新密碼 *</label>
+                        <input autocomplete="new-password" class="form-control" id="new-employee-password" maxlength="72" minlength="8" required type="password" placeholder="請輸入 8 碼以上新密碼">
+                        <small class="form-text text-muted">8～72 個字元，建議包含英文與數字。</small>
+                    </div>
                     <p class="employee-modal-feedback" data-modal-feedback aria-live="polite"></p>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">取消</button><button class="btn btn-primary" type="submit"><i class="fas fa-key mr-1"></i>更新密碼</button></div>
@@ -300,6 +406,6 @@
 </div>
 
 <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-<script th:src="@{/js/employee-admin.js?v=7}"></script>
+<script th:src="@{/js/employee-admin.js?v=12}"></script>
 </body>
 </html>

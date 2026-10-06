@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>評論管理</title>
+    <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+    <link th:href="@{/css/comment-admin.css?v=1}" rel="stylesheet">
+</head>
+<body id="page-top">
+<div id="wrapper">
+    <ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            <nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+            <main class="container-fluid comment-admin" id="comment-admin-root">
+                <header class="comment-page-heading">
+                    <div>
+                        <p class="comment-kicker">內容品質與檢舉審核</p>
+                        <h1 class="h3 text-gray-800 mb-0">評論管理</h1>
+                    </div>
+                    <div class="comment-queue-indicator" aria-live="polite">
+                        <span>待處理檢舉</span>
+                        <strong id="reported-heading-count">--</strong>
+                    </div>
+                </header>
+
+                <section class="comment-summary" aria-label="評論統計">
+                    <div class="comment-summary-item">
+                        <span>全部評論</span><strong id="summary-total">--</strong>
+                    </div>
+                    <div class="comment-summary-item is-visible">
+                        <span>顯示中</span><strong id="summary-visible">--</strong>
+                    </div>
+                    <div class="comment-summary-item is-reported">
+                        <span>待審核</span><strong id="summary-reported">--</strong>
+                    </div>
+                    <div class="comment-summary-item is-hidden">
+                        <span>已隱藏</span><strong id="summary-hidden">--</strong>
+                    </div>
+                </section>
+
+                <div class="comment-feedback" id="comment-feedback" role="status" aria-live="polite" hidden></div>
+
+                <section class="comment-console" aria-label="評論管理工作區">
+                    <nav class="comment-tabs" aria-label="評論管理分類">
+                        <button class="comment-tab is-active" data-comment-tab="all" type="button">
+                            <i class="fas fa-list" aria-hidden="true"></i><span>全部評論</span>
+                        </button>
+                        <button class="comment-tab" data-comment-tab="reported" type="button">
+                            <i class="fas fa-flag" aria-hidden="true"></i><span>檢舉處理</span>
+                            <span class="comment-tab-count" id="reported-tab-count">0</span>
+                        </button>
+                    </nav>
+
+                    <div class="comment-report-notice" id="comment-report-notice" hidden>
+                        <i class="fas fa-shield-alt" aria-hidden="true"></i>
+                        <div><strong>待審核檢舉</strong><span>先查看完整評論，再決定保留或隱藏；系統不會刪除原始訂單明細。</span></div>
+                    </div>
+
+                    <div class="comment-toolbar">
+                        <div class="comment-search-control">
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                            <label class="sr-only" for="comment-search">搜尋評論</label>
+                            <input id="comment-search" type="search" autocomplete="off"
+                                   placeholder="搜尋會員、商品、訂單編號或評論內容">
+                        </div>
+                        <div class="comment-select-control" id="comment-status-control">
+                            <label class="sr-only" for="comment-status-filter">評論狀態</label>
+                            <select id="comment-status-filter" title="評論狀態">
+                                <option value="">全部狀態</option>
+                                <option value="1">顯示中</option>
+                                <option value="2">待審核</option>
+                                <option value="3">已隱藏</option>
+                            </select>
+                        </div>
+                        <div class="comment-select-control">
+                            <label class="sr-only" for="comment-rating-filter">評論星等</label>
+                            <select id="comment-rating-filter" title="評論星等">
+                                <option value="">全部星等</option>
+                                <option value="5">5 星</option>
+                                <option value="4">4 星</option>
+                                <option value="3">3 星</option>
+                                <option value="2">2 星</option>
+                                <option value="1">1 星</option>
+                            </select>
+                        </div>
+                        <div class="comment-date-range">
+                            <label class="sr-only" for="comment-start-date">開始日期</label>
+                            <input id="comment-start-date" type="date" title="開始日期">
+                            <span>至</span>
+                            <label class="sr-only" for="comment-end-date">結束日期</label>
+                            <input id="comment-end-date" type="date" title="結束日期">
+                        </div>
+                        <div class="comment-toolbar-actions">
+                            <button class="btn btn-outline-secondary" id="comment-reset" type="button" title="清除條件">
+                                <i class="fas fa-undo-alt" aria-hidden="true"></i><span>重設</span>
+                            </button>
+                            <button class="btn btn-primary" id="comment-refresh" type="button" title="重新查詢">
+                                <i class="fas fa-sync-alt" aria-hidden="true"></i><span>查詢</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive comment-table-wrap">
+                        <table class="table comment-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>評論時間</th>
+                                    <th>商品／訂單</th>
+                                    <th>會員</th>
+                                    <th>星等</th>
+                                    <th>評論內容</th>
+                                    <th>狀態</th>
+                                    <th class="text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comment-table-body"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="comment-empty" id="comment-empty" hidden>
+                        <i class="far fa-comment-dots" aria-hidden="true"></i>
+                        <strong id="comment-empty-title">找不到符合條件的評論</strong>
+                        <span id="comment-empty-copy">請調整搜尋或篩選條件。</span>
+                    </div>
+
+                    <footer class="comment-pagination" aria-label="評論清單分頁">
+                        <span id="comment-page-summary">第 0 / 0 頁，共 0 筆</span>
+                        <div class="comment-page-actions">
+                            <button id="comment-page-previous" type="button" title="上一頁" aria-label="上一頁">
+                                <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                            </button>
+                            <button id="comment-page-next" type="button" title="下一頁" aria-label="下一頁">
+                                <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </footer>
+                </section>
+            </main>
+        </div>
+        <footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+    </div>
+</div>
+
+<div class="modal fade" id="comment-detail-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content comment-modal">
+            <div class="modal-header">
+                <div><p class="comment-modal-kicker" id="comment-modal-kicker">評論明細</p><h2 class="modal-title h5" id="comment-modal-title">商品評論</h2></div>
+                <button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="comment-detail-meta">
+                    <div><span>會員</span><strong id="detail-member">--</strong></div>
+                    <div><span>訂單</span><strong id="detail-order">--</strong></div>
+                    <div><span>星等</span><strong class="comment-detail-stars" id="detail-rating">--</strong></div>
+                    <div><span>評論時間</span><strong id="detail-date">--</strong></div>
+                </div>
+                <blockquote class="comment-detail-text" id="detail-text"></blockquote>
+
+                <div class="comment-moderation" id="comment-moderation" hidden>
+                    <div class="comment-moderation-heading">
+                        <i class="fas fa-flag" aria-hidden="true"></i>
+                        <div><strong>檢舉判定</strong><span>選擇處理結果前，請填寫判定說明。</span></div>
+                    </div>
+                    <label for="comment-moderation-note">判定說明 *</label>
+                    <textarea class="form-control" id="comment-moderation-note" minlength="5" maxlength="255"
+                              rows="3" placeholder="例如：內容未違反規範，保留顯示" required></textarea>
+                    <p class="comment-modal-feedback" id="comment-modal-feedback" aria-live="polite"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-dismiss="modal">關閉</button>
+                <div class="comment-decision-actions" id="comment-decision-actions" hidden>
+                    <button class="btn btn-outline-success" data-moderation-action="KEEP" type="button">
+                        <i class="fas fa-check mr-1" aria-hidden="true"></i>保留評論
+                    </button>
+                    <button class="btn btn-danger" data-moderation-action="HIDE" type="button">
+                        <i class="fas fa-eye-slash mr-1" aria-hidden="true"></i>隱藏評論
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<span class="scroll-to-top rounded"><i class="fas fa-angle-up"></i></span>
+<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+<script th:src="@{/js/comment-admin.js?v=1}"></script>
+</body>
+</html>

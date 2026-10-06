@@ -34,10 +34,13 @@ public class MemberService {
 	private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
 	private final MemberRepository memberRepository;
+	private final MemberCreditTransactionRepository creditTransactionRepository;
 
-	// 使用建構子注入，物件建立時就能確保 Repository 一定存在，也比較方便測試。
-	public MemberService(MemberRepository memberRepository) {
+	// 使用建構子注入，物件建立時就能確保會員與購物金流水 Repository 一定存在。
+	public MemberService(MemberRepository memberRepository,
+			MemberCreditTransactionRepository creditTransactionRepository) {
 		this.memberRepository = memberRepository;
+		this.creditTransactionRepository = creditTransactionRepository;
 	}
 
 	/** 註冊會員，並由系統設定編號、建立時間、啟用狀態及初始購物金。 */
@@ -83,16 +86,42 @@ public class MemberService {
 
 	/** 使用帳號或 Email 登入；停權會員即使密碼正確也不能登入。 */
 	public Optional<MemberVO> login(String accountOrEmail, String password) {
-		Optional<MemberVO> optional = memberRepository
-				.findByMemberAccountIgnoreCaseOrMemberEmailIgnoreCase(accountOrEmail, accountOrEmail);
-		if (!optional.isPresent()) {
+		try {
+			return Optional.of(loginOrThrow(accountOrEmail, password));
+		} catch (IllegalArgumentException error) {
 			return Optional.empty();
+		}
+	}
+
+	/**
+	 * 驗證會員登入並回傳明確的失敗原因，讓登入頁能分辨查無會員、密碼錯誤或帳號停權。
+	 */
+	public MemberVO loginOrThrow(String accountOrEmail, String password) {
+		String loginName = accountOrEmail == null ? "" : accountOrEmail.trim();
+		if (loginName.isEmpty()) {
+			throw new IllegalArgumentException("請輸入會員帳號或電子郵件");
+		}
+		if (password == null || password.isEmpty()) {
+			throw new IllegalArgumentException("請輸入密碼");
+		}
+		Optional<MemberVO> optional = memberRepository
+				.findByMemberAccountIgnoreCaseOrMemberEmailIgnoreCase(loginName, loginName);
+		if (!optional.isPresent()) {
+			// 登入欄位同時接受帳號與 Email，因此依輸入格式顯示對應的錯誤原因。
+			if (loginName.contains("@")) {
+				throw new IllegalArgumentException("查無此電子郵件，請確認輸入內容或先完成註冊");
+			}
+			throw new IllegalArgumentException("帳號錯誤，查無此會員帳號，請確認輸入內容或先完成註冊");
 		}
 
 		MemberVO member = optional.get();
-		boolean active = Integer.valueOf(STATUS_ACTIVE).equals(member.getMemberStatus());
-		boolean passwordCorrect = passwordsMatch(password, member.getMemberPassword());
-		return active && passwordCorrect ? Optional.of(member) : Optional.empty();
+		if (!Integer.valueOf(STATUS_ACTIVE).equals(member.getMemberStatus())) {
+			throw new IllegalArgumentException("此會員帳號目前已停權，請聯絡客服協助處理");
+		}
+		if (!passwordsMatch(password, member.getMemberPassword())) {
+			throw new IllegalArgumentException("密碼錯誤，請重新輸入；若忘記密碼請聯絡客服");
+		}
+		return member;
 	}
 
 	/** 依會員編號取得單筆資料。 */
@@ -160,20 +189,110 @@ public class MemberService {
 		return Optional.of(memberRepository.save(member));
 	}
 
-	/** 後台調整會員購物金，購物金不可小於 0。 */
+	/**
+	 * 後台調整會員購物金，並在同一個交易內保存異動前後餘額。
+	 * 只有餘額真的改變時才新增流水，避免產生沒有意義的零元紀錄。
+	 */
 	@Transactional
-	public Optional<MemberVO> updateShoppingCredit(Integer memberId, Integer shoppingCredit) {
+	public Optional<MemberVO> updateShoppingCredit(Integer memberId, Integer shoppingCredit,
+			String reason, Integer employeeId) {
 		if (shoppingCredit == null || shoppingCredit < 0) {
 			throw new IllegalArgumentException("購物金不可小於 0");
 		}
+		String cleanReason = reason == null ? "" : reason.trim();
+		if (cleanReason.isEmpty()) throw new IllegalArgumentException("請填寫購物金調整原因");
+		if (cleanReason.length() > 255) throw new IllegalArgumentException("購物金調整原因最多 255 個字");
 		Optional<MemberVO> optional = memberRepository.findById(memberId);
 		if (!optional.isPresent()) {
 			return Optional.empty();
 		}
 
 		MemberVO member = optional.get();
+		int balanceBefore = member.getShoppingCredit() == null ? 0 : member.getShoppingCredit();
+		if (balanceBefore == shoppingCredit.intValue()) return Optional.of(member);
+
 		member.setShoppingCredit(shoppingCredit);
-		return Optional.of(memberRepository.save(member));
+		MemberVO savedMember = memberRepository.save(member);
+
+		MemberCreditTransaction transaction = new MemberCreditTransaction();
+		transaction.setMemberId(memberId);
+		transaction.setTransactionType(shoppingCredit > balanceBefore
+				? MemberCreditTransaction.TYPE_ADMIN_ADD : MemberCreditTransaction.TYPE_ADMIN_DEDUCT);
+		transaction.setAmount(shoppingCredit - balanceBefore);
+		transaction.setBalanceBefore(balanceBefore);
+		transaction.setBalanceAfter(shoppingCredit);
+		transaction.setEmployeeId(employeeId);
+		transaction.setReason(cleanReason);
+		creditTransactionRepository.save(transaction);
+		return Optional.of(savedMember);
+	}
+
+	/**
+	 * 退款完成後將退款金額轉入會員購物金，並保存訂單及退款單來源。
+	 * 此方法提供退款模組呼叫；同一張退款單只能成功入帳一次。
+	 */
+	@Transactional
+	public MemberCreditTransaction addRefundCredit(Integer memberId, Integer amount,
+			Integer ordersId, Integer refundOrderId, String reason) {
+		if (memberId == null) throw new IllegalArgumentException("會員編號不可空白");
+		if (amount == null || amount <= 0) throw new IllegalArgumentException("退款購物金必須大於 0");
+		if (refundOrderId == null) throw new IllegalArgumentException("退款單編號不可空白");
+		if (creditTransactionRepository.existsByRefundOrderId(refundOrderId)) {
+			throw new IllegalArgumentException("這張退款單已轉入購物金");
+		}
+		String cleanReason = isBlank(reason) ? "退款轉入購物金" : reason.trim();
+		if (cleanReason.length() > 255) throw new IllegalArgumentException("退款原因最多 255 個字");
+
+		MemberVO member = memberRepository.findById(memberId)
+				.orElseThrow(() -> new java.util.NoSuchElementException("找不到會員"));
+		int balanceBefore = member.getShoppingCredit() == null ? 0 : member.getShoppingCredit();
+		int balanceAfter;
+		try {
+			balanceAfter = Math.addExact(balanceBefore, amount);
+		} catch (ArithmeticException e) {
+			throw new IllegalArgumentException("退款後購物金金額超出可保存範圍");
+		}
+		member.setShoppingCredit(balanceAfter);
+		memberRepository.save(member);
+
+		MemberCreditTransaction transaction = new MemberCreditTransaction();
+		transaction.setMemberId(memberId);
+		transaction.setTransactionType(MemberCreditTransaction.TYPE_REFUND);
+		transaction.setAmount(amount);
+		transaction.setBalanceBefore(balanceBefore);
+		transaction.setBalanceAfter(balanceAfter);
+		transaction.setOrdersId(ordersId);
+		transaction.setRefundOrderId(refundOrderId);
+		transaction.setReason(cleanReason);
+		return creditTransactionRepository.save(transaction);
+	}
+
+	/** 集中分頁查詢所有會員的購物金異動紀錄，可搭配關鍵字、類型與日期區間。 */
+	public Page<MemberCreditTransactionDTO> findAllCreditTransactions(String keyword, Byte type,
+			java.time.LocalDate startDate, java.time.LocalDate endDate, int page, int size) {
+		if (page < 0) throw new IllegalArgumentException("頁碼不可小於 0");
+		if (size < 1 || size > 100) throw new IllegalArgumentException("每頁筆數必須介於 1 到 100");
+		if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+			throw new IllegalArgumentException("開始日期不可晚於結束日期");
+		}
+		java.time.LocalDateTime startAt = startDate == null ? null : startDate.atStartOfDay();
+		java.time.LocalDateTime endAt = endDate == null ? null : endDate.plusDays(1).atStartOfDay();
+		PageRequest pageable = PageRequest.of(page, size,
+				Sort.by(Sort.Direction.DESC, "createdAt")
+						.and(Sort.by(Sort.Direction.DESC, "creditTransactionId")));
+		String cleanKeyword = keyword == null ? "" : keyword.trim();
+		return creditTransactionRepository.searchAllTransactions(cleanKeyword, type, startAt, endAt, pageable);
+	}
+
+	/** 依時間由新到舊讀取指定會員的購物金流水。 */
+	public Page<MemberCreditTransaction> findCreditTransactions(Integer memberId, int page, int size) {
+		if (!memberRepository.existsById(memberId)) throw new java.util.NoSuchElementException("找不到會員");
+		if (page < 0) throw new IllegalArgumentException("頁碼不可小於 0");
+		if (size < 1 || size > 100) throw new IllegalArgumentException("每頁筆數必須介於 1 到 100");
+		PageRequest pageable = PageRequest.of(page, size,
+				Sort.by(Sort.Direction.DESC, "createdAt")
+						.and(Sort.by(Sort.Direction.DESC, "creditTransactionId")));
+		return creditTransactionRepository.findByMemberId(memberId, pageable);
 	}
 
 	// 更新資料沒有另外建立表單類別，因此在服務層再次檢查不可缺少的欄位。

@@ -923,6 +923,22 @@
     loginLink.parentNode.replaceChild(menu, loginLink);
   }
 
+  // 登入後才在「宅配服務」後方顯示我的最愛；不改動會員下拉選單的原有項目。
+  function renderFavoriteNavLink(loginLink) {
+    var nav = loginLink.closest(".nav-inner-container");
+    if (!nav || nav.querySelector(".member-favorite-nav-link")) return;
+    var serviceLink = Array.prototype.find.call(nav.querySelectorAll(".nav-link"), function(link) {
+      return link.textContent.trim() === "宅配服務";
+    });
+    if (!serviceLink) return;
+
+    var favoriteLink = document.createElement("a");
+    favoriteLink.className = "nav-link member-favorite-nav-link";
+    favoriteLink.href = getContextPath() + "/front/about/member/favorites/";
+    favoriteLink.textContent = "我的最愛";
+    serviceLink.insertAdjacentElement("afterend", favoriteLink);
+  }
+
   function initMemberMenu() {
     var loginLinks = findLoginLinks();
     if (!loginLinks.length) return;
@@ -940,6 +956,7 @@
       .then(function (member) {
         if (!member.loggedIn) return;
         loginLinks.forEach(function (link) {
+          renderFavoriteNavLink(link);
           renderMemberMenu(link, member);
         });
       })
