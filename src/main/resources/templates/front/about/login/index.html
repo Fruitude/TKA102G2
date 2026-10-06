@@ -625,7 +625,12 @@
 			}
 
 			function goToHome() {
-				window.location.assign(contextPath + '/front/');
+				// 從結帳頁被導來登入時，網址會帶 ?next=原本的頁面，登入後回去；
+					// next 只接受本站 /front/ 底下的路徑，避免被拿來導去別的網站
+					const next = new URLSearchParams(window.location.search).get('next');
+					const safeNext = next && next.indexOf(contextPath + '/front/') === 0
+							&& next.indexOf('//') === -1 && next.indexOf('\\') === -1;
+					window.location.assign(safeNext ? next : contextPath + '/front/');
 			}
 
 			fetch(contextPath + '/api/members/session', {

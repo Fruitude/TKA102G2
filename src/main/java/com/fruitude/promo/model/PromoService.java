@@ -41,12 +41,36 @@ public class PromoService {
 		return threshold;
 	}
 
-	// 「新會員首購」折扣金額：目前進行中的活動裡，取折扣金額最大的一個（折扣率或折抵金額），
-	// 商品金額沒達該活動的最低消費就不算；折扣不會超過商品金額。是不是首購由呼叫端判斷
-	public int calcNewMemberDiscount(int productTotal) {
-		List<PromoProject> actives = promoRepository.findActiveByType(PromoType.NEW_MEMBER_FIRST_ORDER.name(),
-				LocalDateTime.now());
-		int best = 0;
+	// 商品折扣：全館折扣、壽星月、新會員首購這幾種「改商品價格」的活動，同一筆訂單只套用折扣金額最大的一個
+	// （不疊加），並回傳是哪個活動給的。壽星月要會員目前在生日月、新會員首購要是第一筆訂單，
+	// 這兩個條件由呼叫端判斷後傳進來。折扣不會超過商品金額；沒有符合的活動回傳 ProductDiscount.NONE
+	public ProductDiscount calcProductDiscount(boolean isBirthdayMonth, boolean isFirstOrder, int productTotal) {
+		LocalDateTime now = LocalDateTime.now();
+		ProductDiscount best = bestDiscount(promoRepository.findActiveByType(PromoType.STOREWIDE.name(), now),
+				productTotal);
+		if (isBirthdayMonth) {
+			ProductDiscount d = bestDiscount(
+					promoRepository.findActiveByType(PromoType.BIRTHDAY_MONTH.name(), now), productTotal);
+			if (d.amount() > best.amount()) {
+				best = d;
+			}
+		}
+		if (isFirstOrder) {
+			ProductDiscount d = bestDiscount(
+					promoRepository.findActiveByType(PromoType.NEW_MEMBER_FIRST_ORDER.name(), now), productTotal);
+			if (d.amount() > best.amount()) {
+				best = d;
+			}
+		}
+		if (best.amount() > productTotal) {
+			return new ProductDiscount(productTotal, best.title());
+		}
+		return best;
+	}
+
+	// 一組活動裡，對這個商品金額折扣金額最大的一個（折扣率或折抵金額）及它的標題；沒達該活動最低消費的不算
+	private ProductDiscount bestDiscount(List<PromoProject> actives, int productTotal) {
+		ProductDiscount best = ProductDiscount.NONE;
 		for (PromoProject p : actives) {
 			Integer min = p.getMinOrderAmount();
 			Integer value = p.getBenefitValue();
@@ -59,11 +83,12 @@ public class PromoService {
 			} else if (BenefitType.AMOUNT_OFF.name().equals(p.getBenefitType())) {
 				discount = value;
 			}
-			if (discount > best) {
-				best = discount;
+			if (discount > best.amount()) {
+				String title = p.getPromoProjectTitle();
+				best = new ProductDiscount(discount, title == null ? "" : title);
 			}
 		}
-		return Math.min(best, productTotal);
+		return best;
 	}
 
 	// 查單筆活動；找不到回傳 null

@@ -69,6 +69,10 @@
           <div class="paragraph-18">活動折扣</div>
           <div class="paragraph-18" id="confirm-promo-discount"></div>
         </div>
+        <div class="w-commerce-commercecheckoutsummarylineitem" id="confirm-promo-title-row" style="display:none">
+          <div class="paragraph-18">折抵活動</div>
+          <div class="paragraph-18" id="confirm-promo-title"></div>
+        </div>
         <div class="w-commerce-commercecheckoutsummarylineitem" id="confirm-credit-discount-row" style="display:none">
           <div class="paragraph-18">購物金折抵</div>
           <div class="paragraph-18" id="confirm-credit-discount"></div>
@@ -90,7 +94,7 @@
     <button class="primary-button buy-button" id="confirm-pay-button" type="button"
             th:data-place-order-url="@{/front/checkout/place-order}"
             th:data-free-shipping-url="@{/front/checkout/free-shipping}"
-            th:data-new-member-discount-url="@{/front/checkout/new-member-discount}">確認付款</button>
+            th:data-product-discount-url="@{/front/checkout/product-discount}">確認付款</button>
   </div>
 </div>
 
@@ -100,7 +104,8 @@
   "use strict";
 
   var SHIPPING_FEE = 45;
-  var PROMO_DISCOUNT = 0; // 新會員首購等商品折扣，同樣只供畫面顯示
+  var PROMO_DISCOUNT = 0; // 全館折扣、壽星月、新會員首購等商品折扣，同樣只供畫面顯示
+  var PROMO_TITLE = "";   // 給折扣的活動名稱，顯示在「活動折扣」下一行
   var SHIPPING_DISCOUNT = 0; // 滿額免運達標時才會是 SHIPPING_FEE（只供畫面顯示，實際金額以下單時伺服器重算為準）
 
   var itemListEl = document.getElementById("confirm-item-list");
@@ -172,11 +177,16 @@
     shippingFeeEl.textContent = formatMoney(SHIPPING_FEE);
     shippingDiscountEl.textContent = formatMoney(-SHIPPING_DISCOUNT);
 
+    var promoTitleRow = document.getElementById("confirm-promo-title-row");
     if (PROMO_DISCOUNT > 0) {
       promoDiscountRow.style.display = "";
       promoDiscountEl.textContent = formatMoney(-PROMO_DISCOUNT);
+      // textContent：活動名稱是後台輸入的，不能當 HTML 解析
+      document.getElementById("confirm-promo-title").textContent = PROMO_TITLE;
+      promoTitleRow.style.display = PROMO_TITLE ? "" : "none";
     } else {
       promoDiscountRow.style.display = "none";
+      promoTitleRow.style.display = "none";
     }
 
     if (creditApplied > 0) {
@@ -222,12 +232,13 @@
         }
       })
       .catch(function () {});
-    // 新會員首購折扣（不是首購或沒有活動回傳 0）
-    fetch(payButton.dataset.newMemberDiscountUrl + "?itemsTotal=" + Math.floor(window.SSXCart.getSubtotal(items)))
-      .then(function (res) { return res.ok ? res.json() : 0; })
+    // 商品折扣：全館折扣、壽星月、新會員首購（只取折扣最大的一個，沒有符合的活動回傳 0）
+    fetch(payButton.dataset.productDiscountUrl + "?itemsTotal=" + Math.floor(window.SSXCart.getSubtotal(items)))
+      .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (discount) {
-        if (discount > 0) {
-          PROMO_DISCOUNT = discount;
+        if (discount && discount.amount > 0) {
+          PROMO_DISCOUNT = discount.amount;
+          PROMO_TITLE = discount.title || "";
           recalc();
         }
       })
@@ -244,6 +255,11 @@
           if (res.status === 410) { // session expired: checkout data is gone
             alert("結帳資料已逾時，請重新填寫");
             window.location.href = "../";
+            return;
+          }
+          if (res.status === 401) { // 登入逾時：導去登入頁，登入後回到結帳頁
+            alert("登入已逾時，請重新登入");
+            window.location.href = "../../about/login/?next=" + encodeURIComponent(window.location.pathname.replace(/confirm\/?$/, ""));
             return;
           }
           if (res.status === 409) { // 例如購物金餘額不足、商品已下架：顯示伺服器說明，讓使用者調整後重試

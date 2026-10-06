@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.http.CacheControl;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -52,6 +53,12 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 				throw new IllegalStateException("掃描 " + site + " 頁面失敗", e);
 			}
 		}
+	}
+
+	@Override
+	public void addInterceptors(InterceptorRegistry registry) {
+		// 結帳流程要先登入會員（細節見 CheckoutLoginInterceptor）
+		registry.addInterceptor(new CheckoutLoginInterceptor()).addPathPatterns("/front/checkout/**");
 	}
 
 	@Override

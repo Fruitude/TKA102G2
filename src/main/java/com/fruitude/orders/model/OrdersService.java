@@ -1,5 +1,6 @@
 package com.fruitude.orders.model;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,9 +40,6 @@ public class OrdersService {
 	private static final String MEMBER = "member";
 	private static final String ID = "id";
 
-	// 目前沒有登入機制、也沒有折扣功能，先用固定值頂著；
-	// 之後有登入、折扣功能時，把這兩個地方換成真正的邏輯即可
-	private static final Integer DEFAULT_MEMBER_ID = 1;
 	private static final Integer INITIAL_ORDERS_STATUS = 0;
 	// 跟前台 checkout 頁 cart.js 的 CHECKOUT_SHIPPING_FEE 一致
 	private static final int SHIPPING_FEE = 45;
@@ -230,23 +228,23 @@ public class OrdersService {
 		return updatedRows > 0;
 	}
 
-	// 目前結帳的會員 id。還沒有登入機制，先回傳固定值，之後改成登入會員，下單和預覽都會一起跟著改
-	public Integer getCurrentMemberId() {
-		return DEFAULT_MEMBER_ID;
-	}
-
-	// 新會員首購折扣金額：會員已經有訂單就是 0，否則取目前進行中活動的最大折扣
-	public int findNewMemberDiscount(Integer memberId, int productTotal) {
-		if (ordersRepository.countByMemberId(memberId) > 0) {
-			return 0;
+	// 商品折扣金額（全館折扣、壽星月、新會員首購，只套用折扣最大的一個）。
+	// 壽星月：會員生日的月份等於現在的月份；新會員首購：這個會員還沒有任何訂單
+	public com.fruitude.promo.model.ProductDiscount findProductDiscount(Integer memberId, int productTotal) {
+		boolean isFirstOrder = ordersRepository.countByMemberId(memberId) == 0;
+		boolean isBirthdayMonth = false;
+		Member member = memberRepository.findById(memberId).orElse(null);
+		if (member != null && member.getMemberBirthday() != null) {
+			isBirthdayMonth = member.getMemberBirthday().getMonth() == LocalDate.now().getMonth();
 		}
-		return promoService.calcNewMemberDiscount(productTotal);
+		return promoService.calcProductDiscount(isBirthdayMonth, isFirstOrder, productTotal);
 	}
 
 	// 把結帳頁送來的 CheckoutForm 轉成訂單主檔 Orders（還沒存檔）
-	public Orders toOrders(CheckoutForm form, Integer storeCredit) {
+	// memberId 是目前登入的會員（由 Controller 從 session 取得，不接受前端自己傳）
+	public Orders toOrders(CheckoutForm form, Integer storeCredit, Integer memberId) {
 		Orders orders = new Orders();
-		orders.setMemberId(DEFAULT_MEMBER_ID); // TODO 等登入功能做好，改成目前登入會員的 id
+		orders.setMemberId(memberId);
 		orders.setReceiverName(form.getReceiverName());
 		orders.setEmail(form.getEmail());
 		orders.setPhoneNumber(form.getPhoneNumber());
@@ -266,8 +264,8 @@ public class OrdersService {
 		// 以伺服器重新計算為準，不信任前端畫面上顯示的金額
 		int freeShippingThreshold = promoService.findFreeShippingThreshold();
 		int discount = (freeShippingThreshold > 0 && productTotal >= freeShippingThreshold) ? SHIPPING_FEE : 0;
-		// 新會員首購折扣：這個會員還沒有任何訂單才有
-		discount += findNewMemberDiscount(getCurrentMemberId(), productTotal);
+		// 商品折扣：全館折扣、壽星月、新會員首購，同一筆訂單只套用折扣最大的一個
+		discount += findProductDiscount(memberId, productTotal).amount();
 		int beforeCredit = Math.max(0, productTotal + SHIPPING_FEE - discount);
 		// 不能讓購物金折抵超過應付金額，也不能是負數
 		int shoppingCredit = storeCredit == null ? 0 : Math.min(Math.max(storeCredit, 0), beforeCredit);
@@ -303,9 +301,9 @@ public class OrdersService {
 	// 結帳頁「確認付款」的進入點：主檔、明細一起存，其中一個失敗就整筆回滾，
 	// 不會留下沒有明細的訂單
 	@Transactional
-	public Orders placeOrder(CheckoutForm form, Integer storeCredit) {
+	public Orders placeOrder(CheckoutForm form, Integer storeCredit, Integer memberId) {
 		frontCatalogService.validateCheckoutItems(form.getItems());
-		Orders orders = toOrders(form, storeCredit);
+		Orders orders = toOrders(form, storeCredit, memberId);
 		// 實際折抵的購物金要從會員餘額扣掉；餘額不足就丟例外，整筆交易回滾，不會留下訂單
 		int usedCredit = orders.getShoppingCredit();
 		if (usedCredit > 0 && memberRepository.deductShoppingCredit(orders.getMemberId(), usedCredit) == 0) {
