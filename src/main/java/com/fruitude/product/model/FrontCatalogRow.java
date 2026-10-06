@@ -7,6 +7,7 @@ public interface FrontCatalogRow {
     Integer getCategoryId();
     Integer getSkuId();
     String getSkuName();
+    String getAnotherName();
     Integer getPrice();
     Integer getStock();
     Integer getInboundQty();

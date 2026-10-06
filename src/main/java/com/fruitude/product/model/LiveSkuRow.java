@@ -4,6 +4,7 @@ public interface LiveSkuRow {
     Integer getSkuId();
     String getName();
     String getSkuName();
+    String getAnotherName();
     Integer getPrice();
     Integer getStock();
     Integer getInboundQty();

@@ -92,6 +92,15 @@ public class ProductSku implements java.io.Serializable {
 	this.product = product;
 	}
 	
+    @jakarta.persistence.Transient
+    public String getDisplayName() {
+        return resolveDisplayName(skuName, anotherName);
+    }
+
+    public static String resolveDisplayName(String name, String alias) {
+        return alias != null && !alias.isBlank() ? alias.strip() : name;
+    }
+
 	public String getSkuName() {
 		return skuName;
 	}

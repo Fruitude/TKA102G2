@@ -424,7 +424,7 @@ tr.product-off td {
 			</td>
             <td>
                 <div class="product-actions">
-                <button type="button" data-product-detail th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)}">查看</button>
+                <button type="button" data-product-detail th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)},data-detail-name=${product.productName}">查看</button>
 
                 <form th:action="@{/product/getOne_For_Update}" method="post">
                     <input type="hidden" name="productId" th:value="${product.productId}">
@@ -432,7 +432,7 @@ tr.product-off td {
                 </form>
 
 <form th:action="@{/product/delete}" method="post"
-onsubmit="return confirm('刪除有可能造成客戶歷史訂單顯示錯誤，或客戶未完成訂單顯示錯誤，您確定要刪除這筆商品嗎？　　　　　【建議使用下架功能】');">
+onsubmit="return confirm('刪除有可能造成客戶歷史訂單顯示錯誤，或客戶未完成訂單顯示錯誤，您確定要刪除這筆商品嗎？　　　　　　　　　　　　　　　　　　　【建議使用下架功能】');">
 <input type="hidden" name="productId" th:value="${product.productId}">
 <button class="delete" type="submit">刪除</button>
 </form>

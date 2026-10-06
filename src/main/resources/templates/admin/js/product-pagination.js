@@ -2,6 +2,16 @@
     const table = document.getElementById('product-table');
     if (!table) return;
     const rows = Array.from(table.querySelectorAll('[data-product-row]'));
+    document.addEventListener('product-status-updated', event => {
+        const update = event.detail;
+        if (!update || ![0,1].includes(update.status)) return;
+        const toggle = Array.from(table.querySelectorAll('.status-toggle'))
+            .find(control => Number(control.dataset.productId) === Number(update.productId));
+        if (toggle) {
+            toggle.checked = update.status === 1;
+            toggle.closest('tr').classList.toggle('product-off', update.status === 0);
+        }
+    });
     const primaryFilters = document.querySelector('.filter-row-primary');
     const secondaryFilters = document.querySelector('.filter-row-secondary');
     function alignFilterColumns() {
