@@ -23,7 +23,7 @@ public class FrontCatalogTest {
                         rows.add(projection(FrontCatalogRow.class, key -> switch (key) {
                             case "getProductId" -> p.getProductId(); case "getName" -> p.getProductName(); case "getDescription" -> p.getProductDesc();
                             case "getCategoryId" -> p.getProductCategory() == null ? null : p.getProductCategory().getProductCategoryId();
-                            case "getSkuId" -> s.getSkuId(); case "getSkuName" -> s.getSkuName(); case "getPrice" -> s.getPrice(); case "getSkuStatus" -> (int)s.getStatus(); case "getStock" -> s.getStock(); case "getInboundQty" -> s.getInboundQty(); case "getOutboundQty" -> s.getOutboundQty(); default -> null;
+                            case "getSkuId" -> s.getSkuId(); case "getSkuName" -> s.getSkuName(); case "getAnotherName" -> s.getAnotherName(); case "getPrice" -> s.getPrice(); case "getSkuStatus" -> (int)s.getStatus(); case "getStock" -> s.getStock(); case "getInboundQty" -> s.getInboundQty(); case "getOutboundQty" -> s.getOutboundQty(); default -> null;
                         }));
                 return rows;
             }
@@ -126,6 +126,20 @@ public class FrontCatalogTest {
         assertTrue(html.contains("（缺貨）")); assertTrue(html.contains("（即將下架）"));
         String detail = mvc(service).perform(get("/front/product/view/").param("productId","22")).andReturn().getResponse().getContentAsString();
         assertTrue(detail.contains("data-sku-status=\"2\"")); assertTrue(detail.contains("data-stock=\"9\""));
+    }
+    @Test public void aliasIsPreferredAndBlankAliasFallsBackAcrossFrontPages() throws Exception {
+        Product p = product(22, "測試水果");
+        ProductSku named = sku(p, 100, 100, 1); named.setSkuName("原名禮盒"); named.setAnotherName("  特選小盒  ");
+        ProductSku blank = sku(p, 101, 200, 1); blank.setSkuName("原名大盒"); blank.setAnotherName(" \t ");
+        FrontCatalogService service = service(List.of(p));
+        assertEquals("特選小盒", service.getProducts().get(0).skus().get(0).name());
+        assertEquals("原名大盒", service.getProducts().get(0).skus().get(1).name());
+        assertTrue(service.getProducts().get(0).giftBox());
+        for (String route : List.of("/front/", "/front/product/view/")) {
+            String html = mvc(service).perform(get(route).param("productId","22")).andReturn().getResponse().getContentAsString();
+            assertTrue(html.contains("特選小盒")); assertTrue(html.contains("原名大盒")); assertFalse(html.contains(">原名禮盒<"));
+        }
+        assertEquals("特選小盒", named.getDisplayName()); assertEquals("原名大盒", blank.getDisplayName());
     }
     @Test public void giftCategoryAndCanonicalRoutesRender() throws Exception {
         Product p = product(8, "芒果禮盒"); sku(p, 18, 899, 1);

@@ -86,7 +86,7 @@ public class ProductService {
         var names = new java.util.LinkedHashMap<Integer, List<String>>();
         if (!productIds.isEmpty()) {
             for (var sku : repository.findOverviewSkuNames(productIds)) {
-                names.computeIfAbsent(sku.getProductId(), id -> new java.util.ArrayList<>()).add(sku.getSkuName());
+                names.computeIfAbsent(sku.getProductId(), id -> new java.util.ArrayList<>()).add(ProductSku.resolveDisplayName(sku.getSkuName(), sku.getAnotherName()));
             }
         }
         return names;
