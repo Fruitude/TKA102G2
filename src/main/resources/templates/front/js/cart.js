@@ -382,9 +382,27 @@
   // 固定運費，跟「配送方式」的宅配選項、confirm 頁的運費一致
   var CHECKOUT_SHIPPING_FEE = 45;
 
+  // 「滿額免運」的門檻，0 = 目前沒有活動。只用來顯示，實際折抵以下單時伺服器重算為準；
+  // 跟 confirm 頁共用同一個 /front/checkout/free-shipping，兩頁的運費折抵才會一致
+  var freeShippingThreshold = 0;
+  var freeShippingRequested = false;
+
+  function loadFreeShippingThreshold() {
+    if (freeShippingRequested) return;
+    freeShippingRequested = true;
+    fetch(getContextPath() + "/front/checkout/free-shipping", { cache: "no-store", credentials: "same-origin" })
+      .then(function (response) { return response.ok ? response.json() : 0; })
+      .then(function (threshold) {
+        freeShippingThreshold = Number(threshold) || 0;
+        if (freeShippingThreshold > 0) renderCheckoutSummary(readCart());
+      })
+      .catch(function () { /* 取不到就維持原價，不影響結帳 */ });
+  }
+
   function renderCheckoutSummary(items) {
     var list = document.querySelector(".w-commerce-commercecheckoutorderitemslist");
     if (!list) return; // not on the checkout page
+    loadFreeShippingThreshold();
 
     var checkedItems = getCheckedItems(items);
 
@@ -397,11 +415,16 @@
     var shippingFee = checkedItems.length > 0 ? CHECKOUT_SHIPPING_FEE : 0;
     var subtotalEl = document.querySelector('[data-wf-bindings*="commerceOrder.subtotal"]');
     var shippingFeeEl = document.getElementById("checkout-summary-shipping-fee");
+    var shippingDiscountEl = document.getElementById("checkout-summary-shipping-discount");
     var totalEl = document.querySelector(".w-commerce-commercecheckoutsummarytotal");
-    // No tax modelled in this static cart, so total == subtotal + shipping fee.
+    // 滿額免運：商品金額達門檻就把運費折抵掉
+    var shippingDiscount = (shippingFee > 0 && freeShippingThreshold > 0 && subtotal >= freeShippingThreshold)
+      ? shippingFee : 0;
+    // No tax modelled in this static cart, so total == subtotal + shipping fee - shipping discount.
     if (subtotalEl) subtotalEl.textContent = formatMoney(subtotal);
     if (shippingFeeEl) shippingFeeEl.textContent = formatMoney(shippingFee);
-    if (totalEl) totalEl.textContent = formatMoney(subtotal + shippingFee);
+    if (shippingDiscountEl) shippingDiscountEl.textContent = formatMoney(-shippingDiscount);
+    if (totalEl) totalEl.textContent = formatMoney(subtotal + shippingFee - shippingDiscount);
   }
 
   function renderAll(opts) {

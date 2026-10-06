@@ -52,7 +52,10 @@
 
                     <div class="card shadow mb-4">
                         <div class="card-body">
-                            <div class="table-responsive">
+                            <!-- 只有「指定商品」類型（或還沒設定類型的舊資料）才有 promotion 明細；其他類型不指定商品 -->
+                            <p th:if="${promo.promoType != null and promo.promoType != 'SKU'}" class="text-muted mb-0"
+                               th:text="|此活動類型為「${T(com.fruitude.promo.model.PromoType).labelOf(promo.promoType)}」，不需要指定商品。|"></p>
+                            <div class="table-responsive" th:unless="${promo.promoType != null and promo.promoType != 'SKU'}">
                                 <table class="table table-bordered table-hover promo-table" cellspacing="0">
                                     <thead>
                                         <tr>

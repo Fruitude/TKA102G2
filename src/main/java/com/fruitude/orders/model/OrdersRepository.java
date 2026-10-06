@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.Tuple;
 
 public interface OrdersRepository extends JpaRepository<Orders, Integer>{
+
+	// 這個會員已經下過幾筆訂單（判斷「新會員首購」用）
+	long countByMemberId(Integer memberId);
 	//注意，不用寫 SessionFactory/Session 下 HQL，Spring 已經包裝好，
 	//使用 @Query 即可下指令
 	@Query("SELECT O AS orders, M AS member FROM Orders O JOIN Member M ON O.memberId = M.memberId order by O.ordersId")

@@ -16,18 +16,25 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.fruitude.promo.model.BenefitType;
 import com.fruitude.promo.model.PromoProject;
 import com.fruitude.promo.model.PromoService;
+import com.fruitude.promo.model.PromoType;
 
 /**
- * 後台「活動管理」頁面（目前只是頁面的殼：版型、工具列、表頭都在，還沒有讀取資料）。
- * 對應資料表 promo_project（活動專案）。
+ * 後台「活動管理」：列表（搜尋）、詳細、新增、修改、啟用／停用。
+ * 對應資料表 promo_project（活動專案）與 promotion（活動商品）。
  */
 @Controller
 @RequestMapping("/admin/promo")
 public class AdminPromoController {
 	@Autowired
 	private PromoService promoService;
+
+	// 新增與修改共用：通過檢查、並依活動類型整理過的欄位（用不到的欄位一律是 null）
+	private record PromoInput(String title, String context, LocalDateTime start, LocalDateTime end,
+			String promoType, String benefitType, Integer benefitValue, Integer minOrderAmount, Integer quota) {
+	}
 
 	@GetMapping("/")
 	public String getPromoList(@RequestParam(required = false, defaultValue = "id") String field,
@@ -51,29 +58,135 @@ public class AdminPromoController {
 		return "admin/promo/detail/index";
 	}
 
-	// 編輯對話框按「確定」時呼叫：更新這筆活動的標題、內容、開始與結束時間。
-	// 欄位檢查在伺服器端做，不能信任瀏覽器送來的值
+	// 對話框按「確定」時呼叫：更新這筆活動。欄位檢查在伺服器端做，不能信任瀏覽器送來的值
 	@PostMapping("/update")
 	@ResponseBody
 	public ResponseEntity<String> update(@RequestParam Integer promoProjectId,
 			@RequestParam String promoProjectTitle,
 			@RequestParam String promoProjectContext,
 			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime promoProjectStart,
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime promoProjectEnd) {
-		String title = promoProjectTitle.trim();
-		String context = promoProjectContext.trim();
-		if (title.isEmpty() || title.length() > 50) {
-			return ResponseEntity.badRequest().body("活動標題必填，且不可超過 50 字");
+			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime promoProjectEnd,
+			@RequestParam String promoType,
+			@RequestParam(required = false) String benefitType,
+			@RequestParam(required = false) Integer benefitValue,
+			@RequestParam(required = false) Integer minOrderAmount,
+			@RequestParam(required = false) Integer quota) {
+		PromoInput in;
+		try {
+			in = buildInput(promoProjectTitle, promoProjectContext, promoProjectStart, promoProjectEnd, promoType,
+					benefitType, benefitValue, minOrderAmount, quota);
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
 		}
-		if (context.length() > 255) {
-			return ResponseEntity.badRequest().body("活動內容不可超過 255 字");
-		}
-		if (!promoProjectEnd.isAfter(promoProjectStart)) {
-			return ResponseEntity.badRequest().body("結束時間必須晚於開始時間");
-		}
-		if (!promoService.update(promoProjectId, title, context, promoProjectStart, promoProjectEnd)) {
+		if (!promoService.update(promoProjectId, in.title(), in.context(), in.start(), in.end(), in.promoType(),
+				in.benefitType(), in.benefitValue(), in.minOrderAmount(), in.quota())) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("找不到這筆活動");
 		}
 		return ResponseEntity.ok("更新成功");
+	}
+
+	// 「新增活動」對話框按「確定」時呼叫：欄位與修改相同，檢查規則共用 buildInput
+	@PostMapping("/create")
+	@ResponseBody
+	public ResponseEntity<String> create(@RequestParam String promoProjectTitle,
+			@RequestParam String promoProjectContext,
+			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime promoProjectStart,
+			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime promoProjectEnd,
+			@RequestParam String promoType,
+			@RequestParam(required = false) String benefitType,
+			@RequestParam(required = false) Integer benefitValue,
+			@RequestParam(required = false) Integer minOrderAmount,
+			@RequestParam(required = false) Integer quota) {
+		PromoInput in;
+		try {
+			in = buildInput(promoProjectTitle, promoProjectContext, promoProjectStart, promoProjectEnd, promoType,
+					benefitType, benefitValue, minOrderAmount, quota);
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
+		}
+		PromoProject created = promoService.create(in.title(), in.context(), in.start(), in.end(), in.promoType(),
+				in.benefitType(), in.benefitValue(), in.minOrderAmount(), in.quota());
+		return ResponseEntity.ok("新增成功，活動編號：" + created.getPromoProjectId() + "（預設為停用）");
+	}
+
+	// 列表上的開關：只切換啟用／停用。要啟用的活動必須已經設定類型與優惠方式，
+	// 不然啟用了也不會有任何效果，還會誤以為活動生效
+	@PostMapping("/toggle")
+	@ResponseBody
+	public ResponseEntity<String> toggle(@RequestParam Integer promoProjectId, @RequestParam Integer status) {
+		if (status != 0 && status != 1) {
+			return ResponseEntity.badRequest().body("狀態不正確");
+		}
+		PromoProject promo = promoService.findById(promoProjectId);
+		if (promo == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("找不到這筆活動");
+		}
+		if (status == 1 && (!PromoType.isValid(promo.getPromoType()) || !BenefitType.isValid(promo.getBenefitType()))) {
+			return ResponseEntity.badRequest().body("請先按「修改」設定活動類型與優惠方式，才能啟用");
+		}
+		promoService.updateStatus(promoProjectId, status);
+		return ResponseEntity.ok(status == 1 ? "已啟用" : "已停用");
+	}
+
+	// 新增與修改共用：檢查欄位並依活動類型的規則（PromoType）整理。
+	// 優惠方式只有一種選擇就自動帶入；優惠值、最低消費、名額這個類型用不到就存 null（避免從別的類型切換過來時殘留舊值）。
+	// 有問題丟 IllegalArgumentException，訊息就是要顯示給使用者的文字
+	private PromoInput buildInput(String title, String context, LocalDateTime start, LocalDateTime end,
+			String promoType, String benefitType, Integer benefitValue, Integer minOrderAmount, Integer quota) {
+		String trimmedTitle = title.trim();
+		if (trimmedTitle.isEmpty() || trimmedTitle.length() > 50) {
+			throw new IllegalArgumentException("活動標題必填，且不可超過 50 字");
+		}
+		String trimmedContext = context.trim();
+		if (trimmedContext.length() > 255) {
+			throw new IllegalArgumentException("活動內容不可超過 255 字");
+		}
+		if (!end.isAfter(start)) {
+			throw new IllegalArgumentException("結束時間必須晚於開始時間");
+		}
+		PromoType type = PromoType.of(promoType);
+		if (type == null) {
+			throw new IllegalArgumentException("活動類型不正確");
+		}
+		String resolvedBenefitType = type.resolveBenefitType(benefitType);
+		if (resolvedBenefitType == null) {
+			throw new IllegalArgumentException("優惠方式不正確");
+		}
+
+		Integer value = null;
+		if (type.isUsesBenefitValue()) {
+			if (benefitValue == null || benefitValue < 1) {
+				throw new IllegalArgumentException("優惠值必須大於 0");
+			}
+			if (BenefitType.PERCENT_OFF.name().equals(resolvedBenefitType) && benefitValue > 99) {
+				throw new IllegalArgumentException("折扣率請填 1～99（90 = 9 折）");
+			}
+			value = benefitValue;
+		}
+
+		Integer min = null;
+		if (type.isUsesMinOrderAmount()) {
+			if (type.isMinOrderAmountRequired() && (minOrderAmount == null || minOrderAmount < 1)) {
+				throw new IllegalArgumentException(type.getLabel() + "必須填最低消費");
+			}
+			if (minOrderAmount != null && minOrderAmount < 0) {
+				throw new IllegalArgumentException("最低消費不可為負數");
+			}
+			min = minOrderAmount;
+		}
+
+		Integer limit = null;
+		if (type.isUsesQuota()) {
+			if (type.isQuotaRequired() && (quota == null || quota < 1)) {
+				throw new IllegalArgumentException(type.getLabel() + "必須填名額");
+			}
+			if (quota != null && quota < 1) {
+				throw new IllegalArgumentException("名額必須大於 0");
+			}
+			limit = quota;
+		}
+
+		return new PromoInput(trimmedTitle, trimmedContext, start, end, type.name(), resolvedBenefitType, value, min,
+				limit);
 	}
 }

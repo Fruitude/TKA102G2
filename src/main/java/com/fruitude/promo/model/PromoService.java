@@ -26,6 +26,45 @@ public class PromoService {
 		return promotionRepository.findByPromoProjectIdOrderByPromotionId(promoProjectId);
 	}
 
+	// 目前進行中的「滿額免運」活動的最低消費門檻（多個活動取最低的）；沒有進行中的活動回傳 0
+	public int findFreeShippingThreshold() {
+		List<PromoProject> actives = promoRepository.findActiveByType(PromoType.FREE_SHIPPING.name(),
+				LocalDateTime.now());
+		int threshold = 0;
+		for (PromoProject p : actives) {
+			Integer min = p.getMinOrderAmount();
+			if (min != null && min > 0 && (threshold == 0 || min < threshold)) {
+				threshold = min;
+			}
+		}
+		return threshold;
+	}
+
+	// 「新會員首購」折扣金額：目前進行中的活動裡，取折扣金額最大的一個（折扣率或折抵金額），
+	// 商品金額沒達該活動的最低消費就不算；折扣不會超過商品金額。是不是首購由呼叫端判斷
+	public int calcNewMemberDiscount(int productTotal) {
+		List<PromoProject> actives = promoRepository.findActiveByType(PromoType.NEW_MEMBER_FIRST_ORDER.name(),
+				LocalDateTime.now());
+		int best = 0;
+		for (PromoProject p : actives) {
+			Integer min = p.getMinOrderAmount();
+			Integer value = p.getBenefitValue();
+			if ((min != null && productTotal < min) || value == null || value < 1) {
+				continue;
+			}
+			int discount = 0;
+			if (BenefitType.PERCENT_OFF.name().equals(p.getBenefitType())) {
+				discount = productTotal * (100 - value) / 100;
+			} else if (BenefitType.AMOUNT_OFF.name().equals(p.getBenefitType())) {
+				discount = value;
+			}
+			if (discount > best) {
+				best = discount;
+			}
+		}
+		return Math.min(best, productTotal);
+	}
+
 	// 查單筆活動；找不到回傳 null
 	public PromoProject findById(Integer id) {
 		return promoRepository.findById(id).orElse(null);
@@ -68,17 +107,50 @@ public class PromoService {
 		return findAllByStartDateDesc();
 	}
 
-	// 更新活動的標題、內容、開始與結束時間；找不到這筆活動回傳 false
-	public boolean update(Integer id, String title, String context, LocalDateTime start, LocalDateTime end) {
+	// 更新活動的標題、內容、起訖時間與類型相關欄位（不動啟用／停用狀態，狀態用 updateStatus 切換）；
+	// 找不到這筆活動回傳 false
+	public boolean update(Integer id, String title, String context, LocalDateTime start, LocalDateTime end,
+			String promoType, String benefitType, Integer benefitValue, Integer minOrderAmount, Integer quota) {
 		PromoProject promo = promoRepository.findById(id).orElse(null);
 		if (promo == null) {
 			return false;
 		}
+		fillFields(promo, title, context, start, end, promoType, benefitType, benefitValue, minOrderAmount, quota);
+		promoRepository.save(promo);
+		return true;
+	}
+
+	// 新增活動，回傳存檔後的活動（含自動產生的編號）。新活動一律先停用，確認設定沒問題再用列表的開關啟用
+	public PromoProject create(String title, String context, LocalDateTime start, LocalDateTime end,
+			String promoType, String benefitType, Integer benefitValue, Integer minOrderAmount, Integer quota) {
+		PromoProject promo = new PromoProject();
+		fillFields(promo, title, context, start, end, promoType, benefitType, benefitValue, minOrderAmount, quota);
+		promo.setStatus(0);
+		return promoRepository.save(promo);
+	}
+
+	// 只切換啟用／停用狀態；找不到這筆活動回傳 false
+	public boolean updateStatus(Integer id, Integer status) {
+		PromoProject promo = promoRepository.findById(id).orElse(null);
+		if (promo == null) {
+			return false;
+		}
+		promo.setStatus(status);
+		promoRepository.save(promo);
+		return true;
+	}
+
+	private void fillFields(PromoProject promo, String title, String context, LocalDateTime start,
+			LocalDateTime end, String promoType, String benefitType, Integer benefitValue, Integer minOrderAmount,
+			Integer quota) {
 		promo.setPromoProjectTitle(title);
 		promo.setPromoProjectContext(context);
 		promo.setPromoProjectStart(start);
 		promo.setPromoProjectEnd(end);
-		promoRepository.save(promo);
-		return true;
+		promo.setPromoType(promoType);
+		promo.setBenefitType(benefitType);
+		promo.setBenefitValue(benefitValue);
+		promo.setMinOrderAmount(minOrderAmount);
+		promo.setQuota(quota);
 	}
 }

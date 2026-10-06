@@ -34,6 +34,7 @@ public class CheckoutController {
     @Autowired
     private OrdersService ordersService;
     @Autowired private com.fruitude.product.model.FrontCatalogService frontCatalogService;
+    @Autowired private com.fruitude.promo.model.PromoService promoService;
 
     /**
      * checkout 頁送出 → 把 cartItemsJson 解析成 items → 存進 session → redirect 到 confirm
@@ -68,6 +69,21 @@ public class CheckoutController {
     	return PostalCodes.areaCodes();
     }
 
+    /** 給確認頁顯示用：目前「滿額免運」的最低消費門檻，0 代表目前沒有活動。實際折抵以下單時伺服器重算為準 */
+    @GetMapping("/free-shipping")
+    @ResponseBody
+    public int freeShippingThreshold() {
+    	return promoService.findFreeShippingThreshold();
+    }
+
+    /** 給確認頁顯示用：目前會員的「新會員首購」折扣金額（不是首購或沒有活動就是 0）。
+     *  itemsTotal 是前端算的商品金額，只用來預覽；實際折扣以下單時伺服器重算為準 */
+    @GetMapping("/new-member-discount")
+    @ResponseBody
+    public int newMemberDiscount(@RequestParam int itemsTotal) {
+    	return ordersService.findNewMemberDiscount(ordersService.getCurrentMemberId(), Math.max(itemsTotal, 0));
+    }
+
     /** 把前端送來的 JSON 字串解析成品項清單，格式不對就當作空清單，不要讓下單流程整個炸掉 */
     private List<CheckoutItem> parseItems(String cartItemsJson) {
     	if (cartItemsJson == null || cartItemsJson.isBlank()) {
@@ -94,6 +110,8 @@ public class CheckoutController {
             try {
             	orders = ordersService.placeOrder(form, storeCredit);
             } catch (com.fruitude.product.model.ProductUnavailableException e) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+            } catch (com.fruitude.orders.model.InsufficientCreditException e) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
             } catch (Exception e) {
             	e.printStackTrace();

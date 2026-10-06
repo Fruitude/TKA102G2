@@ -15,6 +15,11 @@ public interface PromoRepository extends JpaRepository<PromoProject, Integer> {
 	@Query("FROM PromoProject ORDER BY promoProjectStart DESC")
 	List<PromoProject> findAllByStartDateDesc();
 
+	// 某類型、已啟用、且目前時間在活動期間內的活動，最低消費門檻低的排前面
+	@Query("FROM PromoProject WHERE promoType = :type AND status = 1 "
+			+ "AND promoProjectStart <= :now AND promoProjectEnd >= :now ORDER BY minOrderAmount ASC")
+	List<PromoProject> findActiveByType(@Param("type") String type, @Param("now") LocalDateTime now);
+
 	@Query("FROM PromoProject WHERE promoProjectId = :id ORDER BY promoProjectStart DESC")
 	List<PromoProject> searchById(@Param("id") Integer id);
 

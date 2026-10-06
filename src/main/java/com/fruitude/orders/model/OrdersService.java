@@ -30,6 +30,8 @@ public class OrdersService {
 	private MemberRepository memberRepository;
 	@Autowired
 	private com.fruitude.product.model.FrontCatalogService frontCatalogService;
+	@Autowired
+	private com.fruitude.promo.model.PromoService promoService;
 
 	private static final String STATUS = "status";
 	private static final String PHONE = "phone";
@@ -228,6 +230,19 @@ public class OrdersService {
 		return updatedRows > 0;
 	}
 
+	// 目前結帳的會員 id。還沒有登入機制，先回傳固定值，之後改成登入會員，下單和預覽都會一起跟著改
+	public Integer getCurrentMemberId() {
+		return DEFAULT_MEMBER_ID;
+	}
+
+	// 新會員首購折扣金額：會員已經有訂單就是 0，否則取目前進行中活動的最大折扣
+	public int findNewMemberDiscount(Integer memberId, int productTotal) {
+		if (ordersRepository.countByMemberId(memberId) > 0) {
+			return 0;
+		}
+		return promoService.calcNewMemberDiscount(productTotal);
+	}
+
 	// 把結帳頁送來的 CheckoutForm 轉成訂單主檔 Orders（還沒存檔）
 	public Orders toOrders(CheckoutForm form, Integer storeCredit) {
 		Orders orders = new Orders();
@@ -247,7 +262,12 @@ public class OrdersService {
 			productTotal += item.getPrice() * item.getQty();
 		}
 
-		int discount = 0; // 目前沒有折扣機制
+		// 滿額免運：有進行中的活動且商品金額達門檻，就把運費折抵掉（算進 discount，運費欄位仍記原本的運費）。
+		// 以伺服器重新計算為準，不信任前端畫面上顯示的金額
+		int freeShippingThreshold = promoService.findFreeShippingThreshold();
+		int discount = (freeShippingThreshold > 0 && productTotal >= freeShippingThreshold) ? SHIPPING_FEE : 0;
+		// 新會員首購折扣：這個會員還沒有任何訂單才有
+		discount += findNewMemberDiscount(getCurrentMemberId(), productTotal);
 		int beforeCredit = Math.max(0, productTotal + SHIPPING_FEE - discount);
 		// 不能讓購物金折抵超過應付金額，也不能是負數
 		int shoppingCredit = storeCredit == null ? 0 : Math.min(Math.max(storeCredit, 0), beforeCredit);
@@ -286,6 +306,11 @@ public class OrdersService {
 	public Orders placeOrder(CheckoutForm form, Integer storeCredit) {
 		frontCatalogService.validateCheckoutItems(form.getItems());
 		Orders orders = toOrders(form, storeCredit);
+		// 實際折抵的購物金要從會員餘額扣掉；餘額不足就丟例外，整筆交易回滾，不會留下訂單
+		int usedCredit = orders.getShoppingCredit();
+		if (usedCredit > 0 && memberRepository.deductShoppingCredit(orders.getMemberId(), usedCredit) == 0) {
+			throw new InsufficientCreditException("購物金餘額不足，請調整折抵金額");
+		}
 		ordersRepository.save(orders); // 先存，拿到自動產生的 ordersId
 		List<OrdersDetail> details = toOrdersDetails(orders, form.getItems(), form.getInvoiceCarrier());
 		ordersDetailRepository.saveAll(details);

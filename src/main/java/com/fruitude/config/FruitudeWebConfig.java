@@ -60,6 +60,12 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/admin/js/product-pagination.js", "/admin/js/product-tabs.js")
             .addResourceLocations("classpath:/templates/")
             .setCacheControl(CacheControl.noStore());
+		// 購物車與結帳金額的計算都在 front/js 底下的 cart.js 等檔案，改版後瀏覽器一定要拿到新的；
+		// noCache 是每次先向伺服器確認檔案有沒有更新，沒變就回 304（不重傳），有變就用新的。
+		// 要放在下面「整個資料夾」的規則之前才會生效
+		registry.addResourceHandler("/front/js/**")
+				.addResourceLocations("classpath:/templates/front/js/")
+				.setCacheControl(CacheControl.noCache());
 		for (String site : SITES) {
 			registry.addResourceHandler("/" + site + "/**")
 					.addResourceLocations("classpath:/templates/" + site + "/");
