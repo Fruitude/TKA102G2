@@ -470,6 +470,13 @@ public class ProductController {
         var result = productSvc.getOverviewPage(page, size == null ? savedSize : size, status,
               parentCategoryId, categoryId, vendorId, stock, minCount, maxCount, rating, sortBy, sortDirection);
 
+        model.addAttribute("categoryChildrenByParent", categories.stream()
+            .filter(c -> c.getParentCategory() != null)
+            .collect(java.util.stream.Collectors.groupingBy(c -> c.getParentCategory().getProductCategoryId())));
+        model.addAttribute("stockAlertLabels", java.util.Map.of(
+            "正常", "正常", "低於安全庫存", "低安全", "庫存低於10", "庫<10", "庫存高於100", "庫>100",
+            "待進貨超過50", "進>50", "待進貨超過100", "進>100",
+            "待出貨超過50", "出>50", "待出貨超過100", "出>100", "未設安全庫存", "未設"));
         model.addAttribute("parentCategoryListData", parents);
         model.addAttribute("childCategoryListData", children);
         model.addAttribute("selectedParentCategoryId", parentCategoryId);

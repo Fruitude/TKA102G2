@@ -138,6 +138,7 @@ public class AdminProductNavigationTest {
                 });
             model.addAttribute("productListData", java.util.List.of(row));
             model.addAttribute("overviewLightweight", true);
+            model.addAttribute("stockAlertLabels", java.util.Map.of("低於安全庫存", "低安全", "庫存低於10", "庫<10", "待進貨超過100", "進>100", "未設安全庫存", "未設"));
             model.addAttribute("overviewImageIds", java.util.Map.of(42, java.util.List.of(9, 10, 11)));
             model.addAttribute("overviewStockStatuses", java.util.Map.of(42, java.util.List.of("低於安全庫存", "庫存低於10", "待進貨超過100", "未設安全庫存")));
             model.addAttribute("currentPage", 1); model.addAttribute("pageSize", 10);
@@ -157,12 +158,14 @@ public class AdminProductNavigationTest {
         assertTrue(html.contains("測試供應商"));
         assertTrue(html.contains("data-detail-url=\"/shop/product/getOne_For_Display?productId=42&amp;modal=true\""));
         assertTrue(html.contains("src=\"/shop/admin/js/product-detail-modal.js\""));
-        assertTrue(html.contains("data-src=\"/shop/product/image/9\""));
+        assertTrue(html.contains("data-src=\"/shop/product/image/9/thumbnail\""));
         assertTrue(html.contains("data-image-ids=\"9,10,11\""));
         assertTrue(html.contains("data-image-base=\"/shop/product/image/\""));
         assertTrue(html.contains("庫存狀態"));
         assertTrue(html.contains("待進貨超過100"));
         assertTrue(html.contains("未設安全庫存"));
+        assertTrue(html.contains(">低安全</span>"));
+        assertTrue(html.contains(">進&gt;100</span>"));
         assertTrue(html.contains("stock-alert stock-danger"));
         assertTrue(html.contains("colspan=\"10\""));
         assertTrue(html.contains("value=\"abnormal\" selected=\"selected\""));

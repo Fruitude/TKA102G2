@@ -161,8 +161,9 @@
 <p class="paragraph-18" id="pv-description" th:text="${dbProduct.description}" style="margin-top:1rem;"></p>
 <div class="paragraph-18" data-wf-sku-bindings="f_price_" id="pv-price" th:text="${'NT$ ' + dbProduct.price}" style="font-size:1.5rem; margin:1.5rem 0;"></div>
 <form th:attr="data-commerce-sku-id=${dbProduct.skuId}" data-node-type="x-commerce-add-to-cart-form" id="pv-form">
-<label class="form_field-label" for="pv-sku">商品規格</label><select class="form-input" id="pv-sku"><option th:each="s:${dbProduct.skus}" th:value="${s.skuId}" th:text="${s.name}" th:selected="${s.skuId == dbProduct.skuId}" th:attr="data-price=${s.price},data-stock=${s.stock},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId}}"></option></select><label class="form_field-label" for="pv-qty">數量</label>
+<label class="form_field-label" for="pv-sku">商品規格</label><select class="form-input" id="pv-sku"><option th:each="s:${dbProduct.skus}" th:value="${s.skuId}" th:text="${s.name}" th:selected="${s.skuId == dbProduct.skuId}" th:attr="data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId}}"></option></select><label class="form_field-label" for="pv-qty">數量</label>
 <input class="form-input quantity-input" id="pv-qty" min="1" name="commerce-add-to-cart-quantity-input" type="number" value="1"/>
+<p id="pv-quantity-notice" role="status" style="font-size:13px;color:#a65b00" hidden></p>
 <div class="product-page-buttom-wrapper">
 <input class="w-commerce-commerceaddtocartbutton primary-button" data-loading-text="Adding to cart..." type="submit" value="加入購物車"/>
 <a class="w-commerce-commercebuynowbutton secondary-button" data-default-text="Buy now" href="../../checkout/">立即購買</a>
@@ -196,7 +197,16 @@
     var buy = form.querySelector('.w-commerce-commercebuynowbutton');
     buy.hidden = stock === 0;
   }
-  select.addEventListener("change", updateSku);
+  function updateNotice() {
+    var notice = document.getElementById("pv-quantity-notice");
+    notice.textContent = window.SSXCart.quantityNotice(select.options[select.selectedIndex].dataset.skuStatus, Number(document.getElementById("pv-qty").value));
+    notice.hidden = !notice.textContent;
+  }
+  document.getElementById("pv-qty").addEventListener("input", updateNotice);
+  document.getElementById("pv-qty").addEventListener("change", function () {
+    var qty = this; qty.value = String(Math.min(Number(qty.max), Math.max(1, Math.floor(Number(qty.value) || 1)))); updateNotice();
+  });
+  select.addEventListener("change", function () { updateSku(); updateNotice(); });
   updateSku();
 })();
 </script>

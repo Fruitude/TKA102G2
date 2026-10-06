@@ -8,6 +8,10 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ProductImageService {
+    public ProductImageSource getImageSource(Integer imageId) { return repository.findImageSource(imageId).orElse(null); }
+    public ProductThumbnailSource getThumbnailSource(Integer imageId) {
+        return repository.findThumbnailSource(imageId).orElse(null);
+    }
 
     @org.springframework.transaction.annotation.Transactional
     public void replaceImage(Integer id, Integer sortOrder, ProductImage replacement) {

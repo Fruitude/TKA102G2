@@ -29,13 +29,29 @@ public class ProductImageController {
     @Autowired private ProductSkuService productSkuService;
     @GetMapping("/{imageId}")
     public ResponseEntity<byte[]> getImage(@PathVariable Integer imageId) {
-        ProductImage image = productImageService.getOneProductImage(imageId);
+        var image = productImageService.getImageSource(imageId);
         if (image == null || image.getImageData() == null) return ResponseEntity.notFound().build();
         String type = image.getImageType();
         if (!java.util.Set.of("image/png", "image/jpeg", "image/gif").contains(type == null ? "" : type)) type = "application/octet-stream";
-        return ResponseEntity.ok().header("X-Content-Type-Options", "nosniff")
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(10)).cachePrivate())
+            .header("X-Content-Type-Options", "nosniff")
             .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename("image-" + imageId).build().toString())
             .contentType(MediaType.parseMediaType(type)).body(image.getImageData());
+    }
+    @GetMapping("/{imageId}/thumbnail")
+    public ResponseEntity<byte[]> getThumbnail(@PathVariable Integer imageId,
+            org.springframework.web.context.request.WebRequest request) throws IOException {
+        var source = productImageService.getThumbnailSource(imageId);
+        if (source == null || source.getImageData() == null || source.getImageData().length == 0)
+            return ResponseEntity.notFound().build();
+        byte[] original = source.getImageData();
+        String etag = "\"" + org.springframework.util.DigestUtils.md5DigestAsHex(original) + "-thumb100\"";
+        var cache = org.springframework.http.CacheControl.noCache().cachePrivate();
+        if (request.checkNotModified(etag)) return ResponseEntity.status(304).eTag(etag).cacheControl(cache).build();
+        byte[] thumbnail = ProductThumbnailSupport.resize(original);
+        if (thumbnail == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok().eTag(etag).cacheControl(cache)
+            .header("X-Content-Type-Options", "nosniff").contentType(MediaType.IMAGE_JPEG).body(thumbnail);
     }
     @GetMapping("/list")
     public String list(@RequestParam(required = false) Integer skuId, Model model) {

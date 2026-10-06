@@ -95,6 +95,15 @@ public class ProductOverviewFiltersTest {
         mvc.perform(get("/product/listAllProduct").param("statusFilter", "on")
             .param("minComments", "12").param("ratingFilter", "unrated"));
         assertEquals(Arrays.asList(12, null, "unrated"), reviews.get(11));
+        var fullwidth = mvc.perform(get("/product/listAllProduct").param("statusFilter", "on")
+            .param("minComments", "１２").param("maxComments", "1００"))
+            .andReturn().getModelAndView();
+        assertEquals(Arrays.asList(12, 100, ""), reviews.get(12));
+        assertEquals(12, fullwidth.getModel().get("minComments"));
+        assertEquals(100, fullwidth.getModel().get("maxComments"));
+        mvc.perform(get("/product/listAllProduct").param("statusFilter", "on")
+            .param("minComments", "１２a").param("maxComments", "２１４７４８３６４８"));
+        assertEquals(Arrays.asList(null, null, ""), reviews.get(13));
     }
 
     private ProductCategory category(int id, ProductCategory parent) {
