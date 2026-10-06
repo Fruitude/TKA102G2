@@ -14,8 +14,21 @@ public class PromoService {
 	@Autowired
 	private PromoRepository promoRepository;
 
+	@Autowired
+	private PromotionRepository promotionRepository;
+
 	public List<PromoProject> findAllByStartDateDesc() {
 		return promoRepository.findAllByStartDateDesc();
+	}
+
+	// 查某個活動底下的活動商品（promotion）
+	public List<Promotion> findPromotionsByProjectId(Integer promoProjectId) {
+		return promotionRepository.findByPromoProjectIdOrderByPromotionId(promoProjectId);
+	}
+
+	// 查單筆活動；找不到回傳 null
+	public PromoProject findById(Integer id) {
+		return promoRepository.findById(id).orElse(null);
 	}
 
 	// 依欄位搜尋：id=活動編號（完全相符）、title/context=關鍵字包含、start/end=該日期（yyyy-MM-dd）當天。

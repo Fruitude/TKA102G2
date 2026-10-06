@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.fruitude.promo.model.PromoProject;
 import com.fruitude.promo.model.PromoService;
@@ -21,7 +22,6 @@ import com.fruitude.promo.model.PromoService;
 /**
  * 後台「活動管理」頁面（目前只是頁面的殼：版型、工具列、表頭都在，還沒有讀取資料）。
  * 對應資料表 promo_project（活動專案）。
- * TODO 之後接上 Entity / Repository / Service，查詢活動並放進 model 給 admin/promo/index.html 顯示。
  */
 @Controller
 @RequestMapping("/admin/promo")
@@ -37,6 +37,18 @@ public class AdminPromoController {
 		model.addAttribute("field", field);
 		model.addAttribute("keyword", keyword);
 		return "admin/promo/index";
+	}
+
+	// 列表的「詳細」按鈕：顯示這個活動底下的活動商品（promotion 資料表）
+	@GetMapping("/detail")
+	public String getPromoDetail(@RequestParam Integer promoProjectId, Model model) {
+		PromoProject promo = promoService.findById(promoProjectId);
+		if (promo == null) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "找不到這筆活動");
+		}
+		model.addAttribute("promo", promo);
+		model.addAttribute("promotions", promoService.findPromotionsByProjectId(promoProjectId));
+		return "admin/promo/detail/index";
 	}
 
 	// 編輯對話框按「確定」時呼叫：更新這筆活動的標題、內容、開始與結束時間。

@@ -136,6 +136,8 @@
                                     <tbody>
                                         <tr th:each="promo : ${promoProjects}">
                                             <td>
+                                                <button type="button" class="btn btn-primary btn-sm"
+                                                    th:onclick="|location.href='@{/admin/promo/detail(promoProjectId=${promo.promoProjectId})}'|">詳細</button>
                                                 <button type="button" class="btn btn-warning btn-sm btn-edit-promo"
                                                     th:attr="data-id=${promo.promoProjectId},
                                                              data-title=${promo.promoProjectTitle},
