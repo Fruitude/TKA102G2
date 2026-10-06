@@ -1,5 +1,6 @@
 package com.fruitude.employee.controller;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -7,6 +8,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,11 +21,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fruitude.employee.model.Employee;
 import com.fruitude.employee.model.EmployeeAdminService;
 import com.fruitude.employee.model.EmployeePermissionFunction;
 import com.fruitude.employee.model.EmployeePosition;
+import com.fruitude.employee.model.OperationAuditLog;
+import com.fruitude.employee.model.OperationAuditService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * 後台員工管理 API：提供員工帳號、權限配置與權限功能資料的讀寫介面。
@@ -32,9 +40,12 @@ import com.fruitude.employee.model.EmployeePosition;
 public class EmployeeAdminApiController {
 
 	private final EmployeeAdminService employeeAdminService;
+	private final OperationAuditService auditService;
 
-	public EmployeeAdminApiController(EmployeeAdminService employeeAdminService) {
+	public EmployeeAdminApiController(EmployeeAdminService employeeAdminService,
+			OperationAuditService auditService) {
 		this.employeeAdminService = employeeAdminService;
+		this.auditService = auditService;
 	}
 
 	/** 取得員工清單，並附上每位員工目前的權限數量。 */
@@ -50,33 +61,49 @@ public class EmployeeAdminApiController {
 	}
 
 	/** 新增員工帳號。 */
+	@Transactional
 	@PostMapping
-	public ResponseEntity<Map<String, Object>> createEmployee(@RequestBody EmployeeForm form) {
+	public ResponseEntity<Map<String, Object>> createEmployee(@RequestBody EmployeeForm form,
+			HttpServletRequest request) {
 		Employee employee = employeeAdminService.createEmployee(form.getEmployeeName(), form.getEmployeeAccount(),
 				form.getEmployeePassword(), form.getEmployeePhone(), form.getEmployeeEmail(), form.getPositionId());
+		auditService.record(request, "EMPLOYEE", "CREATE", employee.getEmployeeId(), employee.getEmployeeName(),
+				"建立員工帳號 " + employee.getEmployeeAccount());
 		return ResponseEntity.status(HttpStatus.CREATED).body(employeeResponse(employee));
 	}
 
 	/** 修改員工姓名、帳號、電話與 Email。 */
+	@Transactional
 	@PutMapping("/{employeeId}")
 	public Map<String, Object> updateEmployee(@PathVariable("employeeId") Integer employeeId,
-			@RequestBody EmployeeForm form) {
-		return employeeResponse(employeeAdminService.updateEmployee(employeeId, form.getEmployeeName(),
-				form.getEmployeeAccount(), form.getEmployeePhone(), form.getEmployeeEmail(), form.getPositionId()));
+			@RequestBody EmployeeForm form, HttpServletRequest request) {
+		Employee employee = employeeAdminService.updateEmployee(employeeId, form.getEmployeeName(),
+				form.getEmployeeAccount(), form.getEmployeePhone(), form.getEmployeeEmail(), form.getPositionId());
+		auditService.record(request, "EMPLOYEE", "UPDATE", employeeId, employee.getEmployeeName(),
+				"更新員工基本資料與職位");
+		return employeeResponse(employee);
 	}
 
 	/** 啟用或停用員工帳號。 */
+	@Transactional
 	@PutMapping("/{employeeId}/status")
 	public Map<String, Object> updateStatus(@PathVariable("employeeId") Integer employeeId,
-			@RequestBody StatusForm form) {
-		return employeeResponse(employeeAdminService.updateStatus(employeeId, form.getEmployeeStatus()));
+			@RequestBody StatusForm form, HttpServletRequest request) {
+		Employee employee = employeeAdminService.updateStatus(employeeId, form.getEmployeeStatus());
+		auditService.record(request, "EMPLOYEE", "STATUS", employeeId, employee.getEmployeeName(),
+				"員工帳號狀態變更為" + (form.getEmployeeStatus() == 1 ? "正常" : "停用"));
+		return employeeResponse(employee);
 	}
 
 	/** 重設員工密碼，API 回應不包含密碼或密碼雜湊。 */
+	@Transactional
 	@PutMapping("/{employeeId}/password")
 	public Map<String, Object> resetPassword(@PathVariable("employeeId") Integer employeeId,
-			@RequestBody PasswordForm form) {
-		return employeeResponse(employeeAdminService.resetPassword(employeeId, form.getEmployeePassword()));
+			@RequestBody PasswordForm form, HttpServletRequest request) {
+		Employee employee = employeeAdminService.resetPassword(employeeId, form.getEmployeePassword());
+		auditService.record(request, "EMPLOYEE", "PASSWORD", employeeId, employee.getEmployeeName(),
+				"重設員工密碼（未保存密碼內容）");
+		return employeeResponse(employee);
 	}
 
 	/** 取得所有可分配的權限功能。 */
@@ -92,35 +119,51 @@ public class EmployeeAdminApiController {
 	}
 
 	/** 新增員工職位。 */
+	@Transactional
 	@PostMapping("/positions")
-	public ResponseEntity<EmployeePosition> createPosition(@RequestBody PositionForm form) {
+	public ResponseEntity<EmployeePosition> createPosition(@RequestBody PositionForm form,
+			HttpServletRequest request) {
 		EmployeePosition position = employeeAdminService.createPosition(form.getPositionCode(),
 				form.getPositionName(), form.getPositionDescription());
+		auditService.record(request, "POSITION", "CREATE", position.getPositionId(), position.getPositionName(),
+				"建立職位 " + position.getPositionCode());
 		return ResponseEntity.status(HttpStatus.CREATED).body(position);
 	}
 
 	/** 修改職位名稱與說明，職位代碼維持不變。 */
+	@Transactional
 	@PutMapping("/positions/{positionId}")
 	public EmployeePosition updatePosition(@PathVariable("positionId") Integer positionId,
-			@RequestBody PositionForm form) {
-		return employeeAdminService.updatePosition(positionId, form.getPositionName(),
+			@RequestBody PositionForm form, HttpServletRequest request) {
+		EmployeePosition position = employeeAdminService.updatePosition(positionId, form.getPositionName(),
 				form.getPositionDescription());
+		auditService.record(request, "POSITION", "UPDATE", positionId, position.getPositionName(),
+				"更新職位名稱與說明");
+		return position;
 	}
 
 	/** 啟用或停用員工職位。 */
+	@Transactional
 	@PutMapping("/positions/{positionId}/status")
 	public EmployeePosition updatePositionStatus(@PathVariable("positionId") Integer positionId,
-			@RequestBody PositionStatusForm form) {
-		return employeeAdminService.updatePositionStatus(positionId, form.getPositionStatus());
+			@RequestBody PositionStatusForm form, HttpServletRequest request) {
+		EmployeePosition position = employeeAdminService.updatePositionStatus(positionId, form.getPositionStatus());
+		auditService.record(request, "POSITION", "STATUS", positionId, position.getPositionName(),
+				"職位狀態變更為" + (form.getPositionStatus() == 1 ? "啟用" : "停用"));
+		return position;
 	}
 
 	/** 修改權限功能的顯示資料，權限代碼不接受變更。 */
+	@Transactional
 	@PutMapping("/permission-functions/{permissionId}")
 	public EmployeePermissionFunction updatePermissionFunction(
 			@PathVariable("permissionId") Integer permissionId,
-			@RequestBody PermissionFunctionForm form) {
-		return employeeAdminService.updatePermissionFunction(permissionId, form.getPermissionName(),
-				form.getPermissionDescription(), form.getPermissionGroup());
+			@RequestBody PermissionFunctionForm form, HttpServletRequest request) {
+		EmployeePermissionFunction function = employeeAdminService.updatePermissionFunction(permissionId,
+				form.getPermissionName(), form.getPermissionDescription(), form.getPermissionGroup());
+		auditService.record(request, "PERMISSION_FUNCTION", "UPDATE", permissionId,
+				function.getPermissionName(), "更新權限功能顯示資料");
+		return function;
 	}
 
 	/** 取得指定員工目前擁有的權限編號。 */
@@ -133,13 +176,38 @@ public class EmployeeAdminApiController {
 	}
 
 	/** 一次取代指定員工的權限清單。 */
+	@Transactional
 	@PutMapping("/{employeeId}/permissions")
 	public Map<String, Object> replaceEmployeePermissions(@PathVariable("employeeId") Integer employeeId,
-			@RequestBody PermissionAssignmentForm form) {
+			@RequestBody PermissionAssignmentForm form, HttpServletRequest request) {
+		Employee employee = employeeAdminService.findEmployee(employeeId);
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("employeeId", employeeId);
-		body.put("permissionIds", employeeAdminService.replaceEmployeePermissions(
-				employeeId, form.getPermissionIds()));
+		List<Integer> permissionIds = employeeAdminService.replaceEmployeePermissions(employeeId, form.getPermissionIds());
+		body.put("permissionIds", permissionIds);
+		auditService.record(request, "EMPLOYEE_PERMISSION", "ASSIGN", employeeId, employee.getEmployeeName(),
+				"儲存權限配置，共 " + permissionIds.size() + " 項");
+		return body;
+	}
+
+	/** 依關鍵字、模組、動作與日期查詢後台更改紀錄。 */
+	@GetMapping("/audit-logs")
+	public Map<String, Object> findAuditLogs(
+			@RequestParam(name = "keyword", required = false) String keyword,
+			@RequestParam(name = "module", required = false) String module,
+			@RequestParam(name = "action", required = false) String action,
+			@RequestParam(name = "startDate", required = false)
+			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+			@RequestParam(name = "endDate", required = false)
+			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+			@RequestParam(name = "page", defaultValue = "0") int page,
+			@RequestParam(name = "size", defaultValue = "20") int size) {
+		Page<OperationAuditLog> logs = auditService.searchEmployeeAuditLogs(keyword, module, action, startDate, endDate, page, size);
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("logs", logs.getContent());
+		body.put("page", logs.getNumber());
+		body.put("totalPages", logs.getTotalPages());
+		body.put("totalElements", logs.getTotalElements());
 		return body;
 	}
 
@@ -155,10 +223,37 @@ public class EmployeeAdminApiController {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message(error.getMessage()));
 	}
 
-	/** 資料庫唯一鍵或外鍵衝突時回傳容易理解的訊息。 */
+	/** 資料庫唯一鍵或外鍵衝突時回傳容易理解的精確訊息。 */
 	@ExceptionHandler(DataIntegrityViolationException.class)
 	public ResponseEntity<Map<String, String>> handleConflict(DataIntegrityViolationException error) {
-		return ResponseEntity.status(HttpStatus.CONFLICT).body(message("資料重複或仍被其他資料使用，無法完成操作"));
+		String detail = error.getMessage() != null ? error.getMessage().toLowerCase() : "";
+		Throwable root = error.getRootCause();
+		if (root != null && root.getMessage() != null) {
+			detail += " " + root.getMessage().toLowerCase();
+		}
+
+		if (detail.contains("uk_employee_account")) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(message("此員工帳號已被使用，請更換其他帳號"));
+		}
+		if (detail.contains("uk_employee_email")) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(message("此電子信箱已被使用，請更換其他信箱"));
+		}
+		if (detail.contains("uk_employee_phone")) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(message("此聯絡電話已被使用，請更換其他電話"));
+		}
+		if (detail.contains("uk_position_code")) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(message("此職位代碼已被使用，請更換職位代碼"));
+		}
+		if (detail.contains("uk_position_name")) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(message("此職位名稱已被使用，請更換職位名稱"));
+		}
+		if (detail.contains("foreign key") || detail.contains("fk_")) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(message("此項目仍被其他資料關聯使用中，無法執行操作"));
+		}
+		if (detail.contains("cannot be null")) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(message("必填欄位缺少或無效，請檢查輸入資料"));
+		}
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(message("資料存取約束衝突，無法完成操作"));
 	}
 
 	// 將員工實體轉成頁面需要的資料，刻意不包含密碼。

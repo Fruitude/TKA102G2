@@ -74,17 +74,18 @@ public class MemberController {
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestParam("account") String accountOrEmail,
 			@RequestParam("password") String password, HttpServletRequest request) {
-		Optional<MemberVO> member = memberService.login(accountOrEmail, password);
-		if (!member.isPresent()) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(message("帳號、密碼錯誤或會員已停權"));
+		try {
+			MemberVO member = memberService.loginOrThrow(accountOrEmail, password);
+			// 登入成功後更新 session ID，並只保存後續頁面需要的會員識別資料。
+			HttpSession session = request.getSession();
+			request.changeSessionId();
+			session.setAttribute("loggedInMemberId", member.getMemberId());
+			session.setAttribute("loggedInMemberName", member.getMemberName());
+			return ResponseEntity.ok(member);
+		} catch (IllegalArgumentException error) {
+			// 將查無會員、密碼錯誤及停權分別說明，避免使用者無法判斷問題。
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(message(error.getMessage()));
 		}
-
-		// 登入成功後更新 session ID，並只保存後續頁面需要的會員識別資料。
-		HttpSession session = request.getSession();
-		request.changeSessionId();
-		session.setAttribute("loggedInMemberId", member.get().getMemberId());
-		session.setAttribute("loggedInMemberName", member.get().getMemberName());
-		return ResponseEntity.ok(member.get());
 	}
 
 	/** 讓前端確認目前瀏覽器是否已有登入中的會員 session。 */

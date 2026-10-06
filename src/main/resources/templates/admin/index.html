@@ -21,8 +21,9 @@
 	        href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
 	        rel="stylesheet">
 	
-	    <!-- Custom styles for this template-->
-	    <link th:href="@{/css/sb-admin-2.min.css}" rel="stylesheet">
+		    <!-- Custom styles for this template-->
+		    <link th:href="@{/css/sb-admin-2.min.css}" rel="stylesheet">
+		    <link th:href="@{/css/admin-topbar.css?v=3}" rel="stylesheet">
 	    <style>
 		.sidebar-dark .nav-item.active .nav-link { 
 			background: rgba(255, 255, 255, .15); }
@@ -83,10 +84,10 @@
             </li>
 
             <!-- Nav Item - 評論管理 -->
-            <li class="nav-item">
-                <span class="nav-link">
+            <li class="nav-item" th:classappend="${activeMenu == 'comments'} ? 'active'">
+                <a th:href="@{/admin/comments/}" class="nav-link">
                     <i class="fas fa-fw fa-comments"></i>
-                    <span>評論管理</span></span>
+                    <span>評論管理</span></a>
             </li>
 
             <!-- Nav Item - 訂單管理 -->
@@ -166,54 +167,110 @@
                         <i class="fa fa-bars"></i>
                     </button>
 
-                    <!-- Topbar Search -->
-                    <form
-                        class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search">
-                        <div class="input-group">
-                            <input type="text" class="form-control bg-light border-0 small" placeholder="Search for..."
-                                aria-label="Search" aria-describedby="basic-addon2">
-                            <div class="input-group-append">
-                                <button class="btn btn-primary" type="button">
-                                    <i class="fas fa-search fa-sm"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </form>
+	                    <div class="mr-auto"></div>
 
                     <ul class="navbar-nav ml-auto">
 
-                        <!-- Nav Item - Alerts -->
-                        <li class="nav-item no-arrow mx-1">
-                            <span class="nav-link">
-                                <i class="fas fa-bell fa-fw"></i>
-                                <!-- Counter - Alerts -->
-                                <span class="badge badge-danger badge-counter">3+</span>
-                            </span>
-                        </li>
+	                        <!-- 員工模組最近異動通知 -->
+	                        <li class="nav-item dropdown no-arrow mx-1">
+	                            <button class="nav-link admin-topbar-icon" id="admin-notification-toggle" type="button"
+	                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+	                                    title="系統通知" aria-label="系統通知">
+	                                <i class="fas fa-bell fa-fw" aria-hidden="true"></i>
+	                            </button>
+	                            <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in admin-notification-menu"
+	                                 aria-labelledby="admin-notification-toggle">
+	                                <h6 class="dropdown-header">最近異動通知</h6>
+	                                <div id="admin-notification-list" class="admin-topbar-list">
+	                                    <div class="admin-topbar-empty">開啟後載入最新紀錄</div>
+	                                </div>
+	                                <a class="dropdown-item text-center small text-gray-600" th:href="@{/admin/employees/(tab='audit')}">查看全部更改紀錄</a>
+	                            </div>
+	                        </li>
 
-                        <!-- Nav Item - Messages -->
-                        <li class="nav-item no-arrow mx-1">
-                            <span class="nav-link">
-                                <i class="fas fa-envelope fa-fw"></i>
-                                <!-- Counter - Messages -->
-                                <span class="badge badge-danger badge-counter">7</span>
-                            </span>
-                        </li>
+	                        <!-- 客服功能由其他模組負責，這裡不顯示假的未讀數字。 -->
+	                        <li class="nav-item dropdown no-arrow mx-1">
+	                            <button class="nav-link admin-topbar-icon" id="admin-message-toggle" type="button"
+	                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+	                                    title="客服訊息" aria-label="客服訊息">
+	                                <i class="fas fa-envelope fa-fw" aria-hidden="true"></i>
+	                            </button>
+	                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in admin-message-menu"
+	                                 aria-labelledby="admin-message-toggle">
+	                                <div class="admin-topbar-empty"><i class="far fa-comment-dots" aria-hidden="true"></i><span>目前沒有新訊息</span></div>
+	                            </div>
+	                        </li>
 
                         <div class="topbar-divider d-none d-sm-block"></div>
 
-                        <!-- Nav Item - User Information -->
-                        <li class="nav-item no-arrow">
-                            <span class="nav-link">
-                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">Douglas McGee</span>
-                                <img class="img-profile rounded-circle"
-                                    th:src="@{/img/undraw_profile.svg}">
-                            </span>
-                        </li>
+	                        <!-- 登入員工資料與帳號操作 -->
+	                        <li class="nav-item dropdown no-arrow">
+	                            <button class="nav-link dropdown-toggle admin-user-toggle" id="admin-user-toggle" type="button"
+	                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+	                                <span class="admin-user-copy d-none d-sm-inline">
+	                                    <strong id="admin-user-name">尚未登入</strong>
+	                                    <small id="admin-user-position">後台帳號</small>
+	                                </span>
+	                                <span class="admin-user-avatar" id="admin-user-avatar" aria-hidden="true"><i class="fas fa-user"></i></span>
+	                            </button>
+	                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in admin-user-menu"
+	                                 aria-labelledby="admin-user-toggle">
+	                                <div class="admin-user-summary">
+	                                    <strong id="admin-menu-user-name">尚未登入</strong>
+	                                    <span id="admin-menu-user-account">請先登入員工帳號</span>
+	                                </div>
+	                                <div class="dropdown-divider"></div>
+	                                <button class="dropdown-item" id="admin-profile-button" type="button" disabled>
+	                                    <i class="fas fa-id-card fa-sm fa-fw mr-2 text-gray-400"></i>個人資料
+	                                </button>
+	                                <button class="dropdown-item" id="admin-password-button" type="button" disabled>
+	                                    <i class="fas fa-key fa-sm fa-fw mr-2 text-gray-400"></i>修改密碼
+	                                </button>
+	                                <div class="dropdown-divider"></div>
+	                                <a class="dropdown-item" id="admin-login-link" th:href="@{/admin/employees/login}">
+	                                    <i class="fas fa-sign-in-alt fa-sm fa-fw mr-2 text-gray-400"></i>員工登入
+	                                </a>
+	                                <button class="dropdown-item text-danger" id="admin-logout-button" type="button" hidden>
+	                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2"></i>登出
+	                                </button>
+	                            </div>
+	                        </li>
 
                     </ul>
 
-                </nav>
+	                    <!-- 個人資料與密碼視窗放在共用 topbar 內，所有後台頁面都能使用。 -->
+	                    <div class="modal fade" id="admin-profile-modal" tabindex="-1" role="dialog" aria-hidden="true">
+	                        <div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content admin-account-modal">
+	                            <form id="admin-profile-form">
+	                                <div class="modal-header"><h2 class="modal-title h5">我的資料</h2><button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button></div>
+	                                <div class="modal-body">
+	                                    <dl class="admin-profile-list" id="admin-profile-list"></dl>
+	                                    <div class="admin-profile-confirmation" id="admin-profile-confirmation" hidden>
+	                                        <strong><i class="fas fa-exclamation-circle mr-1" aria-hidden="true"></i>請確認聯絡資料變更</strong>
+	                                        <p id="admin-profile-confirmation-text"></p>
+	                                    </div>
+	                                    <p class="admin-account-feedback" id="admin-profile-feedback" aria-live="polite"></p>
+	                                </div>
+	                                <div class="modal-footer" id="admin-profile-edit-actions"><button type="button" class="btn btn-light" data-dismiss="modal">取消</button><button class="btn btn-primary" id="admin-profile-review" type="submit"><i class="fas fa-arrow-right mr-1"></i>下一步</button></div>
+	                                <div class="modal-footer" id="admin-profile-confirm-actions" hidden><button type="button" class="btn btn-light" id="admin-profile-back"><i class="fas fa-arrow-left mr-1"></i>返回修改</button><button class="btn btn-primary" id="admin-profile-save" type="button"><i class="fas fa-check mr-1"></i>確認修改</button></div>
+	                            </form>
+	                        </div></div>
+	                    </div>
+	                    <div class="modal fade" id="admin-password-modal" tabindex="-1" role="dialog" aria-hidden="true">
+	                        <div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content admin-account-modal">
+	                            <form id="admin-password-form">
+	                                <div class="modal-header"><h2 class="modal-title h5">修改密碼</h2><button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button></div>
+	                                <div class="modal-body">
+	                                    <div class="form-group"><label for="admin-current-password">目前密碼</label><input class="form-control" id="admin-current-password" type="password" autocomplete="current-password" required></div>
+	                                    <div class="form-group"><label for="admin-new-password">新密碼</label><input class="form-control" id="admin-new-password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required><small class="form-text text-muted">請輸入 8～72 個字元。</small></div>
+	                                    <div class="form-group mb-0"><label for="admin-confirm-password">確認新密碼</label><input class="form-control" id="admin-confirm-password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></div>
+	                                    <p class="admin-account-feedback" id="admin-password-feedback" aria-live="polite"></p>
+	                                </div>
+	                                <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">取消</button><button class="btn btn-primary" id="admin-password-save" type="submit"><i class="fas fa-save mr-1"></i>儲存密碼</button></div>
+	                            </form>
+	                        </div></div>
+	                    </div>
+	                </nav>
                 <!-- End of Topbar -->
 
                 <!-- Begin Page Content -->
@@ -261,7 +318,8 @@
         <script th:src="@{/vendor/jquery-easing/jquery.easing.min.js}"></script>
 
         <!-- Custom scripts for all pages-->
-        <script th:src="@{/js/sb-admin-2.min.js}"></script>
+	        <script th:src="@{/js/sb-admin-2.min.js}"></script>
+	        <script th:src="@{/js/admin-topbar.js?v=3}"></script>
     </th:block>
 
     <!-- Dashboard 首頁專屬的圖表套件，保留在原本位置，不放進共用片段 -->

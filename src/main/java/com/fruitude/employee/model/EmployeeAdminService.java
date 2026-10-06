@@ -1,5 +1,6 @@
 package com.fruitude.employee.model;
 
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
@@ -71,6 +72,59 @@ public class EmployeeAdminService {
 	public Employee findEmployee(Integer employeeId) {
 		return employeeRepository.findById(employeeId)
 				.orElseThrow(() -> new NoSuchElementException("找不到這位員工"));
+	}
+
+	/** 使用員工帳號與密碼登入，停用中的帳號不可進入後台。 */
+	@Transactional
+	public Employee login(String account, String password) {
+		String cleanAccount = requireText(account, "請輸入員工帳號", 50, "員工帳號最多 50 個字");
+		Employee employee = employeeRepository.findByEmployeeAccountIgnoreCase(cleanAccount)
+				.orElseThrow(() -> new IllegalArgumentException("帳號或密碼錯誤"));
+		if (employee.getEmployeeStatus() == null || employee.getEmployeeStatus() != STATUS_ACTIVE
+				|| !passwordsMatch(password, employee.getEmployeePassword())) {
+			throw new IllegalArgumentException("帳號或密碼錯誤，或此帳號已停用");
+		}
+		employee.setLastLoginAt(java.time.LocalDateTime.now());
+		return employeeRepository.save(employee);
+	}
+
+	/** 登入員工修改自己的密碼前，必須先驗證目前密碼。 */
+	@Transactional
+	public Employee changeOwnPassword(Integer employeeId, String currentPassword, String newPassword) {
+		Employee employee = findEmployee(employeeId);
+		if (!passwordsMatch(currentPassword, employee.getEmployeePassword())) {
+			throw new IllegalArgumentException("目前密碼不正確");
+		}
+		validatePassword(newPassword);
+		if (passwordsMatch(newPassword, employee.getEmployeePassword())) {
+			throw new IllegalArgumentException("新密碼不可與目前密碼相同");
+		}
+		employee.setEmployeePassword(hashPassword(newPassword));
+		return employeeRepository.save(employee);
+	}
+
+	/** 允許登入員工修改自己的聯絡電話與電子信箱，姓名、帳號及職位不在此功能變更。 */
+	@Transactional
+	public Employee updateOwnContact(Integer employeeId, String phone, String email) {
+		Employee employee = findEmployee(employeeId);
+		String cleanPhone = requireText(phone, "聯絡電話不可空白", 20, "聯絡電話最多 20 個字");
+		String cleanEmail = requireText(email, "電子信箱不可空白", 100, "電子信箱最多 100 個字")
+				.toLowerCase(Locale.ROOT);
+		if (!PHONE_PATTERN.matcher(cleanPhone).matches()) {
+			throw new IllegalArgumentException("聯絡電話格式不正確");
+		}
+		if (!EMAIL_PATTERN.matcher(cleanEmail).matches()) {
+			throw new IllegalArgumentException("電子信箱格式不正確");
+		}
+		if (employeeRepository.existsByEmployeePhoneAndEmployeeIdNot(cleanPhone, employeeId)) {
+			throw new IllegalArgumentException("聯絡電話【" + cleanPhone + "】已被其他員工使用");
+		}
+		if (employeeRepository.existsByEmployeeEmailIgnoreCaseAndEmployeeIdNot(cleanEmail, employeeId)) {
+			throw new IllegalArgumentException("電子信箱【" + cleanEmail + "】已被其他員工使用");
+		}
+		employee.setEmployeePhone(cleanPhone);
+		employee.setEmployeeEmail(cleanEmail);
+		return employeeRepository.save(employee);
 	}
 
 	/** 新增員工，系統會統一欄位格式並將密碼雜湊後保存。 */
@@ -259,12 +313,23 @@ public class EmployeeAdminService {
 		boolean duplicateAccount = currentEmployeeId == null
 				? employeeRepository.existsByEmployeeAccountIgnoreCase(cleanAccount)
 				: employeeRepository.existsByEmployeeAccountIgnoreCaseAndEmployeeIdNot(cleanAccount, currentEmployeeId);
-		if (duplicateAccount) throw new IllegalArgumentException("此員工帳號已被使用");
+		if (duplicateAccount) {
+			throw new IllegalArgumentException("員工帳號【" + cleanAccount + "】已被使用，請更換其他帳號");
+		}
 
 		boolean duplicateEmail = currentEmployeeId == null
 				? employeeRepository.existsByEmployeeEmailIgnoreCase(cleanEmail)
 				: employeeRepository.existsByEmployeeEmailIgnoreCaseAndEmployeeIdNot(cleanEmail, currentEmployeeId);
-		if (duplicateEmail) throw new IllegalArgumentException("此電子信箱已被使用");
+		if (duplicateEmail) {
+			throw new IllegalArgumentException("電子信箱【" + cleanEmail + "】已被使用，請更換其他信箱");
+		}
+
+		boolean duplicatePhone = currentEmployeeId == null
+				? employeeRepository.existsByEmployeePhone(cleanPhone)
+				: employeeRepository.existsByEmployeePhoneAndEmployeeIdNot(cleanPhone, currentEmployeeId);
+		if (duplicatePhone) {
+			throw new IllegalArgumentException("聯絡電話【" + cleanPhone + "】已被使用，請更換其他電話");
+		}
 
 		employee.setEmployeeName(cleanName);
 		employee.setEmployeeAccount(cleanAccount);
@@ -333,6 +398,33 @@ public class EmployeeAdminService {
 			throw new IllegalStateException("目前環境不支援 PBKDF2 密碼雜湊", error);
 		} finally {
 			specification.clearPassword();
+		}
+	}
+
+	/** 驗證 PBKDF2 密碼；舊資料若仍是明文，登入後仍可先使用再改成雜湊密碼。 */
+	private boolean passwordsMatch(String rawPassword, String storedPassword) {
+		if (rawPassword == null || storedPassword == null) return false;
+		if (!storedPassword.startsWith("pbkdf2$")) {
+			return MessageDigest.isEqual(rawPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+					storedPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		}
+		try {
+			String[] parts = storedPassword.split("\\$", -1);
+			if (parts.length != 4) return false;
+			int iterations = Integer.parseInt(parts[1]);
+			byte[] salt = Base64.getDecoder().decode(parts[2]);
+			byte[] expected = Base64.getDecoder().decode(parts[3]);
+			PBEKeySpec specification = new PBEKeySpec(rawPassword.toCharArray(), salt,
+					iterations, expected.length * 8);
+			try {
+				byte[] actual = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+						.generateSecret(specification).getEncoded();
+				return MessageDigest.isEqual(expected, actual);
+			} finally {
+				specification.clearPassword();
+			}
+		} catch (IllegalArgumentException | NoSuchAlgorithmException | InvalidKeySpecException error) {
+			return false;
 		}
 	}
 }

@@ -327,6 +327,64 @@
     font-size: .82rem;
 }
 
+.credit-history-wrap {
+    max-height: 430px;
+}
+
+.credit-history-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-top: 0;
+    background: #f4f6f8;
+    color: var(--member-muted);
+    font-size: .76rem;
+    white-space: nowrap;
+}
+
+.credit-history-table td {
+    color: var(--member-ink);
+    font-size: .84rem;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.credit-history-reason {
+    min-width: 180px;
+    white-space: normal !important;
+}
+
+.credit-history-amount {
+    font-weight: 800;
+}
+
+.credit-history-amount.is-positive {
+    color: var(--member-green);
+}
+
+.credit-history-amount.is-negative {
+    color: var(--member-red);
+}
+
+.credit-history-footer {
+    justify-content: space-between;
+    color: var(--member-muted);
+}
+
+.member-history-page {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--member-line);
+    border-radius: .25rem;
+    background: #fff;
+    color: var(--member-green);
+}
+
+.member-history-page:disabled {
+    background: #f5f6f8;
+    color: #b7bcc7;
+}
+
 @media (max-width: 767.98px) {
     .member-page-heading,
     .member-filter-row {
@@ -362,4 +420,189 @@
     .member-page-actions button {
         transition: none !important;
     }
+}
+
+/* 會員管理分頁標籤導航 */
+.member-tabs {
+    min-height: 68px;
+    padding: 0 1.5rem;
+    border-bottom: 1px solid var(--member-line);
+    align-items: stretch;
+    gap: 2rem;
+    display: flex;
+}
+
+.member-tab {
+    padding: 0 .15rem;
+    position: relative;
+    border: 0;
+    background: transparent;
+    color: var(--member-muted);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    align-items: center;
+    gap: .55rem;
+    display: flex;
+    transition: color .2s ease;
+}
+
+.member-tab::after {
+    content: "";
+    height: 3px;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: transparent;
+    transition: background-color .2s ease;
+}
+
+.member-tab:hover,
+.member-tab.is-active {
+    color: var(--member-blue);
+}
+
+.member-tab.is-active::after {
+    background: var(--member-blue);
+}
+
+.member-tab:focus-visible {
+    outline: 3px solid rgba(78, 115, 223, .25);
+    outline-offset: 2px;
+}
+
+.member-panel {
+    padding: 1.5rem;
+}
+
+.member-panel[hidden] {
+    display: none !important;
+}
+
+/* 購物金集中查詢篩選列全新設計 */
+.credit-toolbar {
+    margin-bottom: 1.25rem;
+}
+
+.credit-filter-row {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem;
+}
+
+.credit-search-control {
+    flex: 1 1 240px;
+    min-width: 200px;
+}
+
+.credit-select-control select {
+    min-width: 130px;
+    height: 42px;
+    padding: 0 .85rem;
+    border: 1px solid #cfd4df;
+    border-radius: .35rem;
+    background: #fff;
+    color: var(--member-ink);
+    font: inherit;
+    font-size: .9rem;
+    transition: border-color .2s ease;
+}
+
+.credit-select-control select:focus {
+    border-color: var(--member-blue);
+    outline: 0;
+}
+
+.credit-date-range {
+    display: inline-flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #cfd4df;
+    border-radius: .35rem;
+    padding: 0 .65rem;
+    height: 42px;
+    gap: .4rem;
+    color: var(--member-muted);
+}
+
+.credit-date-label {
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--member-muted);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+}
+
+.credit-date-range input[type="date"] {
+    border: 0;
+    background: transparent;
+    color: var(--member-ink);
+    font: inherit;
+    font-size: .88rem;
+    padding: 0 .25rem;
+    height: 100%;
+    outline: none;
+}
+
+.credit-date-range input[type="date"]:focus {
+    color: var(--member-blue);
+}
+
+.credit-date-separator {
+    color: var(--member-muted);
+    font-size: .85rem;
+    font-weight: 600;
+    padding: 0 .15rem;
+}
+
+.credit-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    margin-left: auto;
+}
+
+.credit-btn {
+    height: 42px;
+    padding: 0 1.1rem;
+    font-weight: 700;
+    font-size: .9rem;
+    display: inline-flex;
+    align-items: center;
+    border-radius: .35rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* 購物金流水表格樣式 */
+.credit-type-badge {
+    padding: .25rem .55rem;
+    border-radius: .35rem;
+    font-size: .78rem;
+    font-weight: 700;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.credit-type-badge.is-refund { background: #e0f2fe; color: #0369a1; }
+.credit-type-badge.is-use { background: #fef3c7; color: #b45309; }
+.credit-type-badge.is-add { background: #dcfce7; color: #15803d; }
+.credit-type-badge.is-deduct { background: #fee2e2; color: #b91c1c; }
+.credit-type-badge.is-return { background: #ede9fe; color: #6d28d9; }
+
+.credit-amount-num {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.credit-amount-num.is-positive { color: #15803d; }
+.credit-amount-num.is-negative { color: #b91c1c; }
+
+.credit-flow-text {
+    color: var(--member-muted);
+    font-size: .85rem;
+    font-variant-numeric: tabular-nums;
 }
