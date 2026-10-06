@@ -3,10 +3,28 @@ package com.fruitude.po.model;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.fruitude.employee.model.Employee;
 import com.fruitude.podetail.model.PoDetailVO;
 import com.fruitude.vendor.model.VendorVO;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 
 @Entity
@@ -15,7 +33,7 @@ public class PoVO implements java.io.Serializable{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) 
-    @Column(name = "id")
+    @Column(name = "id",updatable = false)
     private Integer poId;                       // 採購單系統編號
 
     @NotBlank(message = "採購單編號請勿空白")
@@ -30,10 +48,10 @@ public class PoVO implements java.io.Serializable{
 
     @NotNull(message = "採購員工編號請勿空白")
     @Column(name = "po_employee_id", nullable = false)
-    private Integer poEmployeeId;             // 採購員工編號
+//    private Employee poEmployeeId;             // 採購員工編號
 
     @NotNull(message = "採購日期請勿空白")
-    @Column(name = "order_date", nullable = false)
+//    @Column(name = "order_date", nullable = false)
     private LocalDateTime orderDate;          // 採購日期
 
     @NotNull(message = "採購單狀態，請勿空白")
@@ -47,8 +65,8 @@ public class PoVO implements java.io.Serializable{
     @Column(name = "total_amount", nullable = false)
     private Integer totalAmount;              // 總金額
 
-    @Column(name = "inbound_employee_id")     // 可為 null
-    private Integer inboundEmployeeId;        // 驗收員工編號
+//    @Column(name = "inbound_employee_id")     // 可為 null
+//    private Employee inboundEmployeeId;        // 驗收員工編號
 
     @Column(name = "inbound_date")            // 可為 null
     private LocalDateTime inboundDate;        // 驗收日期
@@ -82,9 +100,9 @@ public class PoVO implements java.io.Serializable{
 		return vendor;
 	}
 
-	public Integer getPoEmployeeId() {
-		return poEmployeeId;
-	}
+//	public Employee getPoEmployeeId() {
+//		return poEmployeeId;
+//	}
 
 	public LocalDateTime getOrderDate() {
 		return orderDate;
@@ -98,9 +116,9 @@ public class PoVO implements java.io.Serializable{
 		return totalAmount;
 	}
 
-	public Integer getInboundEmployeeId() {
-		return inboundEmployeeId;
-	}
+//	public Employee getInboundEmployeeId() {
+//		return inboundEmployeeId;
+//	}
 
 	public LocalDateTime getInboundDate() {
 		return inboundDate;
@@ -130,9 +148,9 @@ public class PoVO implements java.io.Serializable{
 		this.vendor = vendor;
 	}
 
-	public void setPoEmployeeId(Integer poEmployeeId) {
-		this.poEmployeeId = poEmployeeId;
-	}
+//	public void setPoEmployeeId(Employee poEmployeeId) {
+//		this.poEmployeeId = poEmployeeId;
+//	}
 
 	public void setOrderDate(LocalDateTime orderDate) {
 		this.orderDate = orderDate;
@@ -146,9 +164,9 @@ public class PoVO implements java.io.Serializable{
 		this.totalAmount = totalAmount;
 	}
 
-	public void setInboundEmployeeId(Integer inboundEmployeeId) {
-		this.inboundEmployeeId = inboundEmployeeId;
-	}
+//	public void setInboundEmployeeId(Employee inboundEmployeeId) {
+//		this.inboundEmployeeId = inboundEmployeeId;
+//	}
 
 	public void setInboundDate(LocalDateTime inboundDate) {
 		this.inboundDate = inboundDate;

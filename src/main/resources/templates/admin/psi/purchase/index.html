@@ -26,18 +26,87 @@
                 <nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
 
                 <!-- 這裡放頁面自己的內容 -->
-                <div class="container-fluid">
-                    <h1 class="h3 mb-4 text-gray-800">採購系統</h1>
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                </div>
+    			<div class="container-fluid">
 
+					<!-- 錯誤訊息 -->
+					<div class="alert alert-danger alert-dismissible fade show" role="alert"
+					     th:if="${errorMessage != null}">
+					    <span th:text="${errorMessage}" style="white-space: pre-line;"></span>
+					    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+					        <span aria-hidden="true">&times;</span>
+					    </button>
+					</div>
+
+					<!-- 條件查詢：依編號、名稱查單筆；依產地查多筆 -->
+					<div class="card shadow mb-4">
+						<div class="card-header py-3 d-flex justify-content-between align-items-center">
+							
+							<h6 class="m-0 font-weight-bold text-primary">條件查詢</h6>
+
+							 <a th:href="@{/admin/psi/po/addPo}"
+								class="btn btn-success btn-icon-split"> <span
+								class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
+								class="text">新增採購單</span>
+							</a>
+
+						</div>
+						<div class="card-body">
+						
+							<form th:action="@{/admin/psi/vendor/listAllPo}" method="post" class="form-inline mb-3">
+					            <label for="isActiveSelect" class="mr-3" style="width: 120px;">啟用狀態</label>
+					            <select id="isActiveSelect" name="isActive" class="custom-select mr-2">
+					                <option value="">查詢全部</option>
+					                <option value="1" selected>已啟用</option>
+					                <option value="0">尚未啟用</option>
+					                <option value="2">已停用</option>
+					            </select>
+					            <button type="submit" class="btn btn-primary">查詢</button>
+					        </form>
+
+							<form method="post"
+								th:action="@{/admin/psi/vendor/getOne_For_Display}"
+								class="form-inline mb-3">
+								<label for="vendorIdInput" class="mr-3" style="width: 120px;">輸入供應商編號</label>
+								<input type="text" id="vendorIdInput" name="vendorId"
+									class="form-control mr-2" placeholder="請輸入供應商編號"
+									th:value="${param.vendorId}">
+								<button type="submit" class="btn btn-primary">送出</button>
+							</form>
+
+							<form method="post"
+								th:action="@{/admin/psi/vendor/listVendors_ByOrigin}"
+								class="form-inline mb-3">
+								<label for="originInput" class="mr-3" style="width: 120px;">輸入產地</label>
+								<input type="text" id="originInput" name="origin"
+									class="form-control mr-2" placeholder="請輸入產地關鍵字" maxlength="20"
+									th:value="${param.origin}">
+								<button type="submit" class="btn btn-primary">送出</button>
+							</form>
+
+							<form method="post"
+								th:action="@{/admin/psi/vendor/listVendors_ByContactPerson}"
+								class="form-inline mb-3">
+								<label for="contactPersonInput" class="mr-3" style="width: 120px;">輸入聯絡人姓名</label>
+								<input type="text" id="contactPersonInput" name="contactPerson"
+									class="form-control mr-2" placeholder="請輸入聯絡人姓名關鍵字" maxlength="10"
+									th:value="${param.contactPerson}">
+								<button type="submit" class="btn btn-primary">送出</button>
+							</form>
+							
+							<form method="post"
+								th:action="@{/admin/psi/vendor/listVendors_ByTaxId}"
+								class="form-inline">
+								<label for="taxIdInput" class="mr-3" style="width: 120px;">輸入統一編號</label>
+								<input type="text" id="taxIdInput" name="taxId"
+									class="form-control mr-2" placeholder="請輸統一編號" maxlength="8"
+									th:value="${param.taxId}">
+								<button type="submit" class="btn btn-primary">送出</button>
+							</form>
+						</div>
+					</div>
+				</div>
+
+			 <!-- /.container-fluid -->
             </div>
 
             <!-- 引入Footer -->

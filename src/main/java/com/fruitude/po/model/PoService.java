@@ -47,5 +47,9 @@ public class PoService {
 	public List<PoVO> getAll() {
 		return repository.findAll();
 	}
+	
+	public List<PoVO> getByInboundStatus(Byte inboundStatus){
+		return repository.getByInboundStatus(inboundStatus);	
+	}
 
 }
