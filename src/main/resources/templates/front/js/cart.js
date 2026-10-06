@@ -50,7 +50,7 @@
   }
 
   function getSubtotal(items) {
-    return items.reduce(function (sum, item) {
+    return items.filter(function (item) { return !item.unavailable; }).reduce(function (sum, item) {
       return sum + item.qty * item.price;
     }, 0);
   }
@@ -59,7 +59,7 @@
   // them, so a missing field defaults to checked - existing cart contents
   // stay included in checkout rather than silently dropping out.
   function isChecked(item) {
-    return item.checked !== false;
+    return !item.unavailable && item.checked !== false;
   }
 
   function getCheckedItems(items) {
@@ -79,6 +79,11 @@
     }
     if (existing) {
       existing.qty += newItem.qty;
+      if (newItem.skuName) {
+        existing.skuName = newItem.skuName;
+        existing.name = newItem.name; existing.price = newItem.price; existing.image = newItem.image;
+        existing.stock = newItem.stock; existing.skuStatus = newItem.skuStatus; existing.unavailable = false;
+      }
     } else {
       newItem.checked = true;
       items.push(newItem);
@@ -138,6 +143,8 @@
     var pulsed = false;
     for (var i = 0; i < items.length; i++) {
       if (items[i].skuId === skuId) {
+        if (items[i].unavailable) return;
+        if (items[i].stock != null) qty = Math.min(qty, items[i].stock);
         pulsed = qty < items[i].qty;
         items[i].qty = qty;
         break;
@@ -198,6 +205,7 @@
     checkbox.type = "checkbox";
     checkbox.className = "cart-item-checkbox";
     checkbox.checked = isChecked(item);
+    checkbox.disabled = !!item.unavailable;
     checkbox.setAttribute("data-cart-action", "toggle-checked");
     checkbox.setAttribute("aria-label", "選取此商品加入結帳");
 
@@ -215,6 +223,11 @@
 
     var price = document.createElement("div");
     price.textContent = formatMoney(item.price);
+    if (item.unavailable) price.textContent = "已下架或無可訂購數量，無法購買";
+    var notice = quantityNotice(item.skuStatus, item.qty);
+    if (notice && !item.unavailable) {
+      var warning = document.createElement("p"); warning.textContent = notice; warning.style.cssText = "font-size:12px;color:#a65b00;margin:4px 0"; warning.setAttribute("role", "status"); info.appendChild(warning);
+    }
 
     var stepper = document.createElement("div");
     stepper.className = "cart-qty-stepper";
@@ -232,6 +245,8 @@
     qtyInput.className = "w-commerce-commercecartquantity form-input quantity-input cart-qty-input";
     qtyInput.setAttribute("aria-label", "Update quantity");
     qtyInput.value = String(item.qty);
+    qtyInput.disabled = !!item.unavailable;
+    if (item.stock != null) qtyInput.max = String(item.stock);
 
     var incBtn = document.createElement("button");
     incBtn.type = "button";
@@ -239,6 +254,8 @@
     incBtn.setAttribute("data-cart-action", "inc");
     incBtn.setAttribute("aria-label", "Increase quantity");
     incBtn.textContent = "+";
+    decBtn.disabled = !!item.unavailable;
+    incBtn.disabled = !!item.unavailable || (item.stock != null && item.qty >= item.stock);
 
     stepper.appendChild(decBtn);
     stepper.appendChild(qtyInput);
@@ -253,6 +270,12 @@
     removeLink.textContent = "移除";
 
     info.appendChild(name);
+    if (item.skuName) {
+      var skuLabel = document.createElement("div");
+      skuLabel.className = "cart-item-sku";
+      skuLabel.textContent = item.skuName;
+      info.appendChild(skuLabel);
+    }
     info.appendChild(price);
     info.appendChild(stepper);
     info.appendChild(removeLink);
@@ -390,7 +413,75 @@
 
   // ---- open / close sidebar --------------------------------------------
 
+  function showCartNotice(text) {
+    document.querySelectorAll(".w-commerce-commercecartcontainer").forEach(function (container) {
+      var notice = container.querySelector(".cart-live-notice");
+      if (!notice) {
+        notice = document.createElement("p"); notice.className = "cart-live-notice";
+        notice.setAttribute("role", "status"); notice.style.cssText = "margin:8px 24px;color:#8b3535;font-size:13px";
+        var header = container.querySelector(".w-commerce-commercecartheader");
+        if (header) header.after(notice); else container.prepend(notice);
+      }
+      notice.textContent = text; notice.hidden = !text;
+    });
+  }
+
+  function quantityNotice(status, quantity) {
+    if (Number(status) === 1 && quantity >= 10) return "若數量需求超過10箱，請電話聯繫。";
+    if (Number(status) === 2 && quantity > 2) return "此商品規格目前需較長備貨時間，敬請見諒！";
+    return "";
+  }
+
+  function fetchLiveSkus(ids) {
+    ids = ids.filter(function (id) { return /^\d+$/.test(String(id)) && Number(id) > 0 && Number(id) <= 2147483647; });
+    if (!ids.length) return Promise.resolve([]);
+    return fetch(getContextPath() + "/front/api/cart-products?skuIds=" + ids.map(encodeURIComponent).join(","), { cache: "no-store", credentials: "same-origin" })
+      .then(function (response) { if (!response.ok) throw new Error("無法確認商品資料，請稍後再試"); return response.json(); });
+  }
+
+  function verifyCart() {
+    var ids = readCart().map(function (item) { return String(item.skuId); });
+    return fetchLiveSkus(ids).then(function (skus) {
+      var byId = {}; skus.forEach(function (sku) { byId[String(sku.skuId)] = sku; });
+      var changed = false;
+      var items = readCart().map(function (item) {
+        if (ids.indexOf(String(item.skuId)) < 0) return item;
+        var sku = byId[String(item.skuId)];
+        if (!sku || !sku.available) {
+          item.unavailable = true; item.checked = false; changed = true;
+        } else {
+          if (item.price !== sku.price || item.qty > sku.stock || item.unavailable) changed = true;
+          item.unavailable = false; item.stock = sku.stock; item.skuStatus = sku.skuStatus;
+          item.price = sku.price; item.name = sku.name; item.skuName = sku.skuName;
+          item.qty = Math.min(item.qty, sku.stock);
+        }
+        return item;
+      });
+      writeCart(items); renderAll();
+      showCartNotice(changed ? "商品價格、庫存或上架狀態已更新，請確認購物車內容。" : "");
+      return items;
+    });
+  }
+
+  function addVerifiedProduct(product, quantity, button, message, checkoutUrl) {
+    button.disabled = true;
+    fetchLiveSkus([product.skuId]).then(function (skus) {
+      var sku = skus[0];
+      if (!sku || !sku.available) throw new Error("此商品已下架或已無可訂購數量，請選擇其他商品。");
+      var existing = readCart().find(function (item) { return String(item.skuId) === String(sku.skuId); });
+      if ((checkoutUrl ? 0 : (existing ? existing.qty : 0)) + quantity > sku.stock) throw new Error("此規格最多可訂購 " + sku.stock + " 箱（含購物車已有數量）。");
+      var item = { skuId: String(sku.skuId), skuName: sku.skuName, qty: quantity, name: sku.name, price: sku.price, image: product.image, stock: sku.stock, skuStatus: sku.skuStatus };
+      if (checkoutUrl) { buyNow(item); window.location.href = checkoutUrl; }
+      else { addToCart(item); openCart(); }
+    }).catch(function (error) {
+      if (message) { message.textContent = error.message; message.hidden = false; }
+      else window.alert(error.message);
+    }).finally(function () { button.disabled = false; });
+  }
+
   function openCart() {
+    showCartNotice("正在確認最新商品資料…");
+    verifyCart().catch(function () { showCartNotice("無法確認最新商品資料，請稍後重試；結帳時會再次檢查。"); });
     document.querySelectorAll(".w-commerce-commercecartcontainerwrapper").forEach(function (wrapper) {
       wrapper.style.display = "flex";
       void wrapper.offsetWidth; // force reflow so the transition plays
@@ -470,7 +561,7 @@
       imageUrl = new URL(imgEl.getAttribute("src"), window.location.href).href;
     }
 
-    var name = nameEl ? nameEl.textContent.trim() : "Product";
+    var name = nameEl ? (nameEl.getAttribute("title") || nameEl.textContent).trim() : "Product";
 
     // The card itself carries no CMS sku id, so its own name is used as a
     // stable, page-independent skuId instead. This is NOT the card's href:
@@ -485,6 +576,15 @@
     // cards (e.g. the same real product shown on the home page, a category
     // page and "all products") still correctly merge into one.
     var skuId = card.getAttribute("data-commerce-sku-id") || "card:" + name;
+    var select = card.querySelector(".home-card-sku");
+    var option = select && select.options[select.selectedIndex];
+    if (option) {
+      return {
+        skuId: String(option.value), name: name, skuName: option.getAttribute("data-sku-name") || option.textContent.trim(),
+        price: Number(option.getAttribute("data-price")),
+        image: new URL(option.getAttribute("data-image-url"), window.location.href).href
+      };
+    }
 
     return {
       skuId: skuId,
@@ -492,6 +592,161 @@
       price: priceNum,
       image: imageUrl
     };
+  }
+
+  function initHomePurchaseCards() {
+    document.querySelectorAll(".products-purchase-card").forEach(function (card) {
+      var select = card.querySelector(".home-card-sku");
+      var qty = card.querySelector(".home-card-quantity");
+      var button = card.querySelector(".home-card-add");
+      var message = card.querySelector(".home-card-message");
+      var dropdown = card.querySelector(".home-sku-dropdown");
+      var trigger = dropdown.querySelector(".home-sku-trigger");
+      var menu = dropdown.querySelector(".home-sku-menu");
+      var minus = card.querySelector(".home-qty-minus");
+      var plus = card.querySelector(".home-qty-plus");
+      select.hidden = true;
+      dropdown.hidden = false;
+      function setOpen(open) {
+        dropdown.classList.toggle("is-open", open);
+        trigger.setAttribute("aria-expanded", String(open));
+      }
+      function updateQuantityButtons() {
+        minus.disabled = qty.disabled || Number(qty.value) <= 1;
+        plus.disabled = qty.disabled || Number(qty.value) >= Number(qty.max);
+      }
+      function updateTotalPrice() {
+        var option = select.options[select.selectedIndex];
+        var price = card.querySelector(".home-card-price");
+        var total = Number(option ? option.getAttribute("data-price") : 0) * Math.max(1, Number(qty.value) || 1);
+        price.textContent = qty.validity.valid ? "NT$ " + total.toLocaleString("zh-TW") : "NT$ —";
+        price.title = price.textContent;
+      }
+      function showQuantityNotice() {
+        var option = select.options[select.selectedIndex];
+        message.textContent = quantityNotice(option && option.getAttribute("data-sku-status"), Number(qty.value));
+        message.hidden = !message.textContent;
+      }
+      function changeQuantity(amount) {
+        qty.value = String(Math.min(Math.max(1, Number(qty.max)), Math.max(1, Math.floor(Number(qty.value) || 1) + amount)));
+        updateQuantityButtons();
+        updateTotalPrice();
+        showQuantityNotice();
+      }
+      dropdown.addEventListener("mouseenter", function () { setOpen(true); });
+      dropdown.addEventListener("mouseleave", function () { setOpen(false); });
+      trigger.addEventListener("click", function () { setOpen(true); });
+      dropdown.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") { setOpen(false); trigger.focus(); }
+      });
+      document.addEventListener("click", function (event) {
+        if (!dropdown.contains(event.target)) setOpen(false);
+      });
+      menu.querySelectorAll("button").forEach(function (item) {
+        item.addEventListener("click", function () {
+          select.value = item.getAttribute("data-sku-value");
+          update();
+          setOpen(false);
+          trigger.focus();
+        });
+      });
+      minus.addEventListener("click", function () { changeQuantity(-1); });
+      plus.addEventListener("click", function () { changeQuantity(1); });
+      function update() {
+        var option = select.options[select.selectedIndex];
+        if (!option) { button.disabled = true; return; }
+        var stock = Math.max(0, Number(option.getAttribute("data-stock")) || 0);
+        card.setAttribute("data-commerce-sku-id", option.value);
+          card.querySelector(".products-item-image").src = option.getAttribute("data-image-url");
+          card.dispatchEvent(new Event("product-sku-change"));
+        qty.max = String(stock); qty.disabled = stock === 0;
+        qty.value = String(Math.min(Math.max(1, Math.floor(Number(qty.value) || 1)), Math.max(1, stock)));
+        button.disabled = stock === 0;
+        button.title = stock === 0 ? "目前缺貨" : "加入購物車";
+        button.setAttribute("aria-label", button.title);
+        dropdown.querySelector(".home-sku-caption").textContent = option.textContent;
+        trigger.title = option.textContent;
+        menu.querySelectorAll("button").forEach(function (item) { item.setAttribute("aria-pressed", String(item.getAttribute("data-sku-value") === option.value)); });
+        updateQuantityButtons();
+        updateTotalPrice();
+        showQuantityNotice();
+      }
+      select.addEventListener("change", update);
+      qty.addEventListener("input", function () { showQuantityNotice(); updateQuantityButtons(); updateTotalPrice(); });
+      qty.addEventListener("change", function () { changeQuantity(0); });
+      update();
+    });
+  }
+
+  function initProductImageCarousels() {
+    var slideshows = [];
+    document.querySelectorAll(".products-card-link").forEach(function (card) {
+      var sources = card.querySelectorAll("[data-carousel-url]");
+      var image = card.querySelector(".products-item-image");
+      if (!sources.length || !image) return;
+      var wrapper = image.parentElement;
+      wrapper.style.position = "relative";
+      wrapper.style.overflow = "hidden";
+      var state = { image: image, urls: [], index: 0, busy: false, generation: 0, next: null, due: Date.now() + 5000 };
+      function reset() {
+        state.generation++;
+        state.image.getAnimations().forEach(function (animation) { animation.cancel(); });
+        if (state.next) { state.next.remove(); state.next = null; }
+        state.busy = false;
+        var selected = card.querySelector(".home-card-sku");
+        state.urls = Array.from(sources).filter(function (source) {
+          return !selected || source.getAttribute("data-carousel-sku") === selected.value;
+        }).map(function (source) { return new URL(source.getAttribute("data-carousel-url"), window.location.href).href; });
+        state.index = Math.max(0, state.urls.indexOf(state.image.src));
+        state.due = Date.now() + 5000;
+      }
+      card.addEventListener("product-sku-change", reset);
+      reset();
+      slideshows.push(state);
+    });
+    if (!slideshows.length) return;
+    function advance() {
+      if (document.hidden) return;
+      slideshows.forEach(function (state) {
+        if (state.urls.length < 2 || state.busy || Date.now() < state.due) return;
+        var rect = state.image.getBoundingClientRect();
+        if (!rect.width || !rect.height || rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth) return;
+        state.busy = true;
+        var generation = state.generation;
+        var index = (state.index + 1) % state.urls.length;
+        var incoming = new Image();
+        state.next = incoming;
+        incoming.className = state.image.className;
+        incoming.alt = state.image.alt;
+        incoming.setAttribute("aria-hidden", "true");
+        incoming.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:" + getComputedStyle(state.image).objectFit;
+        incoming.onload = function () {
+          if (generation !== state.generation) return;
+          state.image.parentElement.appendChild(incoming);
+          var options = { duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 400, easing: "ease-in-out", fill: "forwards" };
+          var outgoingAnimation = state.image.animate([{ transform: "translateX(0)" }, { transform: "translateX(-100%)" }], options);
+          var incomingAnimation = incoming.animate([{ transform: "translateX(100%)" }, { transform: "translateX(0)" }], options);
+          incomingAnimation.finished.then(function () {
+            if (generation !== state.generation) return;
+            state.image.src = incoming.src;
+            outgoingAnimation.cancel();
+            incoming.remove();
+            state.next = null;
+            state.index = index;
+            state.busy = false;
+          }).catch(function () {});
+        };
+        incoming.onerror = function () {
+          if (generation !== state.generation) return;
+          incoming.remove(); state.next = null; state.busy = false;
+        };
+        state.due = Date.now() + 5000;
+        incoming.src = state.urls[index];
+      });
+    }
+    var timer = setInterval(advance, 500);
+    window.addEventListener("pagehide", function () { clearInterval(timer); });
+    window.addEventListener("pageshow", function (event) { if (event.persisted) timer = setInterval(advance, 500); });
   }
 
   // Small quick-add cart icon overlaid on the bottom-right corner of every
@@ -738,6 +993,7 @@
 
       var buyNowBtn = e.target.closest(".w-commerce-commercebuynowbutton");
       if (buyNowBtn) {
+        e.preventDefault();
         // No preventDefault: its href already points at checkout/ from the
         // right relative depth, so just stage the cart data first (this
         // runs synchronously before the browser follows the link) and let
@@ -749,13 +1005,8 @@
           var buyQty = Math.max(1, parseInt(buyQtyInput && buyQtyInput.value, 10) || 1);
           var buyProduct = readProductFromForm(buyForm);
 
-          buyNow({
-            skuId: buySkuId,
-            qty: buyQty,
-            name: buyProduct.name,
-            price: buyProduct.price,
-            image: buyProduct.image
-          });
+          buyProduct.skuId = buySkuId;
+          addVerifiedProduct(buyProduct, buyQty, buyNowBtn, null, buyNowBtn.href);
         }
         return;
       }
@@ -774,15 +1025,12 @@
         e.preventDefault(); // the button sits inside a <a class="products-card-link">
         var card = cardAddBtn.closest(".products-card-link");
         if (card) {
+          var qtyInput = card.querySelector(".home-card-quantity");
+          if (cardAddBtn.disabled) return;
+          if (qtyInput && !qtyInput.reportValidity()) return;
           var product = readProductFromCard(card);
-          addToCart({
-            skuId: product.skuId,
-            qty: 1,
-            name: product.name,
-            price: product.price,
-            image: product.image
-          });
-          openCart();
+          var quantity = qtyInput ? Number(qtyInput.value) : 1;
+          addVerifiedProduct(product, quantity, cardAddBtn, card.querySelector(".home-card-message"));
         }
         return;
       }
@@ -867,24 +1115,24 @@
       var qty = Math.max(1, parseInt(qtyInput && qtyInput.value, 10) || 1);
       var product = readProductFromForm(form);
 
-      addToCart({
-        skuId: skuId,
-        qty: qty,
-        name: product.name,
-        price: product.price,
-        image: product.image
-      });
-
-      openCart();
+      product.skuId = skuId;
+      addVerifiedProduct(product, qty, form.querySelector('[type="submit"]'), null);
     });
   }
 
   neutralizeWebflowCommerce();
   bindEvents();
   renderAll();
+  initHomePurchaseCards();
+  initProductImageCarousels();
   injectCardAddToCartButtons();
   injectClearCartButton();
   initMemberMenu();
+  if (window.location.pathname.indexOf("/front/checkout/") >= 0) {
+    verifyCart().catch(function () { window.alert("無法確認最新商品資料，請稍後再試。"); });
+    if (new URLSearchParams(window.location.search).get("error") === "products")
+      window.alert("商品價格、庫存或狀態已變更，請確認購物車後重新結帳。");
+  }
 
   // Small public surface so standalone pages (e.g. checkout/confirm/) that
   // don't need the full cart sidebar can still read/clear the same
@@ -898,6 +1146,8 @@
     // this script's own startup pass (e.g. product/view/'s related-items
     // grid) can request the quick-add icon for those new cards too.
     injectCardAddToCartButtons: injectCardAddToCartButtons,
+    verify: verifyCart,
+    quantityNotice: quantityNotice,
     clear: function () {
       writeCart([]);
       renderAll();

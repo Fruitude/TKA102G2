@@ -52,7 +52,10 @@
         .col-status { width: var(--col-status-width); }
         .col-actions { width: var(--col-actions-width); }
         .cell-name { display: block; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .stock-alerts { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 3px; padding: 3px 4px; box-sizing: border-box; height: 50px; overflow-y: auto; white-space: normal; }
+        .stock-alerts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; gap: 2px; padding: 2px; box-sizing: border-box; height: 50px; white-space: normal; }
+        .stock-alerts .stock-alert { min-width: 0; padding: 0; font-size: 8px; line-height: 13px; text-align: center; }
+        .stock-alerts .stock-alert:only-child { grid-column: 1 / -1; justify-self: center; padding: 0 3px; }
+        .stock-alerts .stock-alert:focus-visible { outline: 1px solid #287a4b; outline-offset: 1px; }
         .stock-alert { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; line-height: 16px; white-space: nowrap; }
         .stock-normal { color: #166534; background: #dcfce7; }
         .stock-danger { color: #991b1b; background: #fee2e2; }
@@ -88,7 +91,10 @@
         .list-controls select { width: 10em; flex: 0 0 10em; font: inherit; height: 36px; box-sizing: border-box; padding: 6px 10px; margin: 0; }
         #page-size { width: calc(3em + 36px); flex-basis: calc(3em + 36px); padding: 6px 4px; }
 
+        .filter-row-secondary .comment-range { padding-left: 1em; }
         .filter-row-secondary label[for="rating-filter"] { padding-left: 1em; }
+        .comment-range input[aria-invalid="true"] { border: 1px solid #e74a3b; }
+        #comment-range-error { margin: 0; color: #e74a3b; font-size: 12px; }
         .comment-range input { width: 4em; font: inherit; height: 36px; padding: 6px 4px; box-sizing: border-box; min-width: 0; }
         .category-filter { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
         .category-dropdown { position: relative; width: 10em; flex: 0 0 10em; }
@@ -258,8 +264,8 @@ tr.product-off td {
                             <button type="button" class="category-expand" aria-haspopup="menu" aria-expanded="false" th:attr="aria-label=${'展開' + parent.categoryName + '的小分類'},aria-controls=${'category-children-' + parent.productCategoryId}"><span aria-hidden="true">▸</span></button>
                         </div>
                         <div class="category-submenu" role="menu" th:id="${'category-children-' + parent.productCategoryId}" th:attr="aria-label=${parent.categoryName + '小分類'}" hidden>
-                            <th:block th:each="child : ${productCategoryListData}">
-                                <button th:if="${child.parentCategory != null and child.parentCategory.productCategoryId == parent.productCategoryId}" type="button" class="category-child" role="menuitem" th:attr="data-category-parent=${parent.productCategoryId},data-category-child=${child.productCategoryId}" th:text="${child.categoryName}"></button>
+                            <th:block th:each="child : ${categoryChildrenByParent[parent.productCategoryId]}">
+                                <button type="button" class="category-child" role="menuitem" th:attr="data-category-parent=${parent.productCategoryId},data-category-child=${child.productCategoryId}" th:text="${child.categoryName}"></button>
                             </th:block>
                         </div>
                     </div>
@@ -306,9 +312,9 @@ tr.product-off td {
             </select>
         </label>
         <label class="comment-range" for="min-comments">評論數
-            <input id="min-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="評論數下限" th:value="${minComments}" autocomplete="off">
+            <input id="min-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="評論數下限" aria-describedby="comment-range-error" th:value="${minComments}" autocomplete="off">
             <span>~</span>
-            <input id="max-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="評論數上限" th:value="${maxComments}" autocomplete="off">
+            <input id="max-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="評論數上限" aria-describedby="comment-range-error" th:value="${maxComments}" autocomplete="off">
         </label>
         <label for="rating-filter">平均評分
             <select id="rating-filter">
@@ -322,6 +328,7 @@ tr.product-off td {
             </select>
         </label>
         </div>
+        <p id="comment-range-error" role="status" aria-live="polite" hidden></p>
         <div class="filter-row-actions" aria-label="本頁商品狀態操作">
             <div class="page-status-buttons">
                 <button type="button" id="page-status-on" title="本頁全部上架" aria-label="本頁全部上架" th:disabled="${#lists.isEmpty(productListData)}" onclick="changePageProductStatus(1)">全部上架</button>
@@ -361,7 +368,7 @@ tr.product-off td {
     			<th:block th:if="${thumbnailId != null}">
 		        <span class="product-thumbnail"><span class="product-thumbnail-track">
 		        <img
-       			    th:attr="data-src=@{/product/image/{imageId}(imageId=${thumbnailId})},data-image-base=@{/product/image/},data-image-ids=${overviewImageIds != null and overviewImageIds[product.productId] != null ? #strings.listJoin(overviewImageIds[product.productId], ',') : ''}" loading="lazy" decoding="async" width="50px" height="50px"
+                th:attr="data-src=@{/product/image/{imageId}/thumbnail(imageId=${thumbnailId})},data-image-base=@{/product/image/},data-image-ids=${overviewImageIds != null and overviewImageIds[product.productId] != null ? #strings.listJoin(overviewImageIds[product.productId], ',') : ''}" loading="lazy" decoding="async" width="50px" height="50px"
             		th:alt="${product.productName}"
             		style="width: 50px; height: 50px; object-fit: cover;">
 		        </span></span>
@@ -384,7 +391,7 @@ tr.product-off td {
                 <div class="stock-alerts" th:if="${overviewStockStatuses != null and overviewStockStatuses[product.productId] != null}">
                     <span class="stock-alert" th:each="alert : ${overviewStockStatuses[product.productId]}"
                           th:classappend="${alert == '正常' ? 'stock-normal' : ((alert == '低於安全庫存' or alert == '庫存低於10') ? 'stock-danger' : 'stock-warning')}"
-                          th:text="${alert}"></span>
+                          th:attr="title=${alert},aria-label=${alert}" tabindex="0" th:text="${stockAlertLabels.get(alert)}"></span>
                 </div>
             </td>
             <td th:text="${product.allCommentAmount}"> </td>

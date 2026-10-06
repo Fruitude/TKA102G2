@@ -140,7 +140,13 @@ public class ProductService {
     }
 
     public static Integer normalizeCommentCount(String value) {
-        if (value == null || !value.matches("[0-9]+")) return null;
+        if (value == null) return null;
+        var normalized = new StringBuilder(value.length());
+        for (char digit : value.toCharArray()) {
+            normalized.append(digit >= '０' && digit <= '９' ? (char)(digit - '０' + '0') : digit);
+        }
+        value = normalized.toString();
+        if (!value.matches("[0-9]+")) return null;
         try { return Integer.valueOf(value); } catch (NumberFormatException e) { return null; }
     }
 

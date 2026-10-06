@@ -6,8 +6,9 @@
        th:attr="data-commerce-sku-id=${p.skuId},data-disable-quick-add=${#lists.size(p.skus) > 1 or p.stock == null or p.stock <= 0}">
       <div class="products-item-image-wrapper"><img class="products-item-image" loading="lazy"
         th:src="@{${p.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + p.imageId}}" th:alt="${p.name}"></div>
+      <div class="product-carousel-sources" hidden><th:block th:each="s : ${p.skus}"><span th:each="imageId : ${s.imageIds}" th:attr="data-carousel-sku=${s.skuId},data-carousel-url=@{'/product/image/' + ${imageId}}"></span></th:block></div>
       <div class="products-item-text-wrapper">
-        <h3 class="heading-h4 heading-h4-white" th:text="${p.name}"></h3>
+        <h3 class="heading-h4 heading-h4-white" th:title="${p.name}" th:text="${#strings.length(p.name) > 10 ? #strings.substring(p.name, 0, 10) + '...' : p.name}"></h3>
         <div class="products-item-description-wrapper">
           <p class="product-list-desciption product-list-desciption-white" th:text="${p.description}"></p>
           <p class="product-list-desciption product-list-desciption-white" data-wf-sku-bindings="f_price_"
@@ -18,4 +19,48 @@
   </div>
   <p class="paragraph-18" style="color:white;grid-column:1 / -1" th:if="${#lists.isEmpty(products)}">目前沒有已上架商品。</p>
 </th:block>
+<th:block th:fragment="purchaseCards(products)">
+  <div class="w-dyn-item" role="listitem" th:each="p : ${products}">
+    <article class="products-card-link products-purchase-card" data-disable-quick-add="true"
+             th:attr="data-commerce-sku-id=${p.skuId},data-product-id=${p.productId}">
+      <div class="product-carousel-sources" hidden><th:block th:each="s : ${p.skus}"><span th:each="imageId : ${s.imageIds}" th:attr="data-carousel-sku=${s.skuId},data-carousel-url=@{'/product/image/' + ${imageId}}"></span></th:block></div>
+      <a class="home-product-detail-link" th:href="@{/front/product/view/(productId=${p.productId})}">
+        <div class="products-item-image-wrapper"><img class="products-item-image" loading="lazy"
+          th:src="@{${p.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + p.imageId}}" th:alt="${p.name}"></div>
+      </a>
+      <div class="products-item-text-wrapper">
+        <a class="home-product-detail-link" th:href="@{/front/product/view/(productId=${p.productId})}">
+          <h3 class="heading-h4 heading-h4-white" th:title="${p.name}" th:text="${#strings.length(p.name) > 10 ? #strings.substring(p.name, 0, 10) + '...' : p.name}"></h3>
+        </a>
+        <div class="home-card-controls">
+
+          <select aria-label="商品規格" class="home-card-sku" th:id="${'home-sku-' + p.productId}">
+            <option th:each="s : ${p.skus}" th:value="${s.skuId}" th:selected="${s.skuId == p.skuId}"
+                    th:text="${s.name + (s.skuStatus == 2 ? '（缺貨）' : (s.skuStatus == 3 ? '（即將下架）' : ''))}"
+                    th:attr="data-sku-name=${s.name},data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId}}"></option>
+          </select>
+          <div class="home-sku-dropdown" hidden>
+            <button type="button" class="home-sku-trigger" aria-label="選擇商品規格" aria-expanded="false" th:attr="aria-controls=${'home-menu-' + p.productId}"><span class="home-sku-caption"></span><span class="home-sku-arrow" aria-hidden="true">▾</span></button>
+            <div class="home-sku-menu" th:id="${'home-menu-' + p.productId}">
+              <button type="button" th:each="s : ${p.skus}" th:attr="data-sku-value=${s.skuId}" th:text="${s.name + (s.skuStatus == 2 ? '（缺貨）' : (s.skuStatus == 3 ? '（即將下架）' : ''))}"></button>
+            </div>
+          </div>
+          <div class="home-card-purchase-row">
+            <div class="home-qty-stepper"><button type="button" class="home-qty-minus" aria-label="減少數量">−</button>
+            <input class="home-card-quantity" aria-label="數量" th:id="${'home-qty-' + p.productId}" type="number" min="1" step="1" value="1" required
+                   th:max="${p.stock == null ? 0 : p.stock}" th:disabled="${p.stock == null or p.stock <= 0}">
+            <button type="button" class="home-qty-plus" aria-label="增加數量">＋</button></div>
+          <p class="home-card-price" aria-live="polite" data-wf-sku-bindings="f_price_" th:text="${'NT$ ' + p.price}"></p>
+          <button type="button" class="card-add-to-cart-btn home-card-add" th:attr="aria-label=${p.stock == null or p.stock <= 0 ? '目前缺貨' : '加入購物車'},title=${p.stock == null or p.stock <= 0 ? '目前缺貨' : '加入購物車'}" th:disabled="${p.stock == null or p.stock <= 0}">
+            <svg aria-hidden="true" viewBox="0 0 17 17" width="15" height="15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.60592789,2 L0,2 L0,0 L4.39407211,0 L4.84288393,4 L16,4 L16,9.93844589 L3.76940945,12.3694378 L2.60592789,2 Z M15.5,17 C14.6715729,17 14,16.3284271 14,15.5 C14,14.6715729 14.6715729,14 15.5,14 C16.3284271,14 17,14.6715729 17,15.5 C17,16.3284271 16.3284271,17 15.5,17 Z M5.5,17 C4.67157288,17 4,16.3284271 4,15.5 C4,14.6715729 4.67157288,14 5.5,14 C6.32842712,14 7,14.6715729 7,15.5 C7,16.3284271 6.32842712,17 5.5,17 Z" fill="currentColor" fill-rule="evenodd"/></svg>
+          </button>
+          </div>
+          <p class="home-card-message" role="status" aria-live="polite" hidden></p>
+        </div>
+      </div>
+    </article>
+  </div>
+  <p class="paragraph-18" style="color:white;grid-column:1 / -1" th:if="${#lists.isEmpty(products)}">目前沒有已上架商品。</p>
+</th:block>
+
 </body></html>

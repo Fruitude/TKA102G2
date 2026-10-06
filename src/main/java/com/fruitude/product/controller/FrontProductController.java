@@ -50,11 +50,21 @@ public class FrontProductController {
     @GetMapping("/front/category/featured-gift-boxes")
     public String canonicalGifts() { return "redirect:/front/category/featured-gift-boxes/"; }
     @GetMapping({"/front/product/view/", "/front/product/view/index", "/front/product/view/index.html"})
-    public String detail(@RequestParam(required = false) Integer productId, @RequestParam(required = false) String name, Model model) {
+    public String detail(@RequestParam(required = false) Integer productId, @RequestParam(required = false) String name, Model model, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
         List<ProductView> products = catalog.getProducts();
-        ProductView selected = products.stream().filter(p -> productId != null ? productId.equals(p.productId()) : name != null && name.equals(p.name())).findFirst().orElse(null);
+        Integer id = productId != null ? productId : products.stream().filter(p -> name != null && name.equals(p.name())).map(ProductView::productId).findFirst().orElse(null);
+        ProductView selected = catalog.getLiveProduct(id);
         model.addAttribute("dbProduct", selected);
         model.addAttribute("relatedProducts", products.stream().filter(p -> selected != null && !p.productId().equals(selected.productId())).limit(6).toList());
         return "front/product/view/index";
+    }
+
+    @GetMapping("/front/api/cart-products")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<List<FrontCatalogService.LiveSku>> cartProducts(@RequestParam List<Integer> skuIds) {
+        if (skuIds.size() > 500 || skuIds.stream().anyMatch(id -> id == null || id <= 0))
+            return org.springframework.http.ResponseEntity.badRequest().cacheControl(org.springframework.http.CacheControl.noStore()).build();
+        return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(catalog.getLiveSkus(skuIds));
     }
 }

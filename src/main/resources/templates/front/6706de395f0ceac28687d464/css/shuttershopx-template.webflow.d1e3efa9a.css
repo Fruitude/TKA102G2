@@ -5588,11 +5588,13 @@ figure {
 }
 
 .products-item-image {
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
+  aspect-ratio: auto;
+  object-fit: contain;
+  object-position: center;
   width: 100%;
   height: 100%;
-  position: relative;
+  position: absolute;
+  background-color: transparent;
   inset: 0%;
 }
 
@@ -6280,6 +6282,12 @@ figure {
 }
 
 .products-item-image-wrapper {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  background-color: transparent;
   margin-bottom: 1rem;
 }
 

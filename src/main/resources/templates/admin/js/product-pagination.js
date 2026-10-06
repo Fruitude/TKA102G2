@@ -77,11 +77,30 @@
 
     function validReviewRange() {
         if (!minComments || !maxComments) return true;
-        const validCount = value => value === '' || (/^[0-9]+$/.test(value) && Number(value) <= 2147483647);
-        const valid = validCount(minComments.value) && validCount(maxComments.value);
-        const ordered = !minComments.value || !maxComments.value || Number(minComments.value) <= Number(maxComments.value);
-        maxComments.setCustomValidity(ordered ? '' : '上限不可小於下限');
-        return valid && ordered;
+        [minComments, maxComments].forEach(control => {
+            const normalized = control.value.replace(/[０-９]/g, digit => String.fromCharCode(digit.charCodeAt(0) - 0xFEE0));
+            if (normalized !== control.value) {
+                const start = control.selectionStart, end = control.selectionEnd;
+                control.value = normalized;
+                if (start !== null && end !== null) control.setSelectionRange(start, end);
+            }
+        });
+        const error = document.getElementById('comment-range-error');
+        const messageFor = value => value === '' ? '' : !/^[0-9]+$/.test(value)
+            ? '請輸入數字' : Number(value) > 2147483647 ? '評論數不可超過 2147483647' : '';
+        const minMessage = messageFor(minComments.value);
+        let maxMessage = messageFor(maxComments.value);
+        if (!minMessage && !maxMessage && minComments.value && maxComments.value
+                && Number(minComments.value) > Number(maxComments.value)) maxMessage = '上限不可小於下限';
+        [[minComments, minMessage], [maxComments, maxMessage]].forEach(([control, message]) => {
+            control.setCustomValidity(message);
+            control.setAttribute('aria-invalid', message ? 'true' : 'false');
+        });
+        if (error) {
+            error.textContent = minMessage || maxMessage;
+            error.hidden = !error.textContent;
+        }
+        return !minMessage && !maxMessage;
     }
 
     function navigate(target) {
@@ -114,7 +133,7 @@
                 if (imageIds.length > 1) {
                     const base = new URL(img.dataset.imageBase, location.href);
                     slideshows.push({img, track: img.closest('.product-thumbnail-track'),
-                        urls: imageIds.map(id => new URL(id, base).href), index: 0, busy: false});
+                        urls: imageIds.map(id => new URL(id + '/thumbnail', base).href), index: 0, busy: false});
                 }
             });
         });
@@ -159,14 +178,22 @@
     stockFilter?.addEventListener('change', () => navigate(1));
     ratingFilter?.addEventListener('change', () => navigate(1));
     let reviewTimer;
-    [minComments, maxComments].forEach(control => control?.addEventListener('input', () => {
+    function scheduleReviewSearch(control) {
         clearTimeout(reviewTimer);
         if (!validReviewRange()) return;
         reviewTimer = setTimeout(() => {
             try { sessionStorage.setItem(storageKey + ':focus', JSON.stringify({id: control.id, position: control.selectionStart})); } catch (_) {}
             navigate(1);
-        }, 350);
-    }));
+        }, 1500);
+    }
+    [minComments, maxComments].forEach(control => {
+        control?.addEventListener('compositionstart', () => clearTimeout(reviewTimer));
+        control?.addEventListener('input', event => {
+            clearTimeout(reviewTimer);
+            if (!event.isComposing) scheduleReviewSearch(control);
+        });
+        control?.addEventListener('compositionend', () => scheduleReviewSearch(control));
+    });
     const categoryDropdown = document.getElementById('category-dropdown');
     if (categoryDropdown) {
         const trigger = document.getElementById('category-trigger');
@@ -352,6 +379,17 @@
             if (document.hidden) return;
             slideshows.forEach(slideshow => {
                 if (!slideshow.img.complete || slideshow.busy || !slideshow.track) return;
+                const rect = slideshow.img.getBoundingClientRect();
+                // Avoid fetching carousel images for rows outside the visible viewport.
+                let visibleTop = 0, visibleBottom = window.innerHeight;
+                try {
+                    if (window.frameElement) {
+                        const frameRect = window.frameElement.getBoundingClientRect();
+                        visibleTop = Math.max(0, -frameRect.top);
+                        visibleBottom = Math.min(visibleBottom, window.parent.innerHeight - frameRect.top);
+                    }
+                } catch (_) { /* Standalone or cross-origin page: use this viewport. */ }
+                if (rect.bottom <= visibleTop || rect.top >= visibleBottom) return;
                 slideshow.busy = true;
                 const nextIndex = (slideshow.index + 1) % slideshow.urls.length;
                 const incoming = document.createElement('img');

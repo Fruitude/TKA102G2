@@ -33,6 +33,7 @@ public class CheckoutController {
 
     @Autowired
     private OrdersService ordersService;
+    @Autowired private com.fruitude.product.model.FrontCatalogService frontCatalogService;
 
     /**
      * checkout 頁送出 → 把 cartItemsJson 解析成 items → 存進 session → redirect 到 confirm
@@ -51,6 +52,11 @@ public class CheckoutController {
     		// 購物車是空的，或 JS 沒能把資料塞進 cartItemsJson，擋回 checkout 頁重填
     		return "redirect:/front/checkout/";
     	}
+        try { frontCatalogService.validateCheckoutItems(form.getItems()); }
+        catch (com.fruitude.product.model.ProductUnavailableException e) {
+            session.removeAttribute(SESSION_KEY);
+            return "redirect:/front/checkout/?error=products";
+        }
     	session.setAttribute(SESSION_KEY, form);
 		return "redirect:/front/checkout/confirm/";
     }
@@ -83,12 +89,12 @@ public class CheckoutController {
                     return ResponseEntity.status(HttpStatus.GONE).body("結帳資料已逾時，請重新填寫");
             }
 
-            // form.getItems() 裡的 skuId 目前是 1~3 的暫定值，之後接上真正的商品資料時
-            // 換成實際的 sku_id；OrdersService.toOrders()/toOrdersDetails() 裡也還沒有
-            // 拿 skuId 重新查詢資料庫目前的價格與庫存，一樣要等商品資料表接上後再補
+            // OrdersService 在建立訂單的交易中重新確認上架狀態、價格與庫存。
             Orders orders;
             try {
             	orders = ordersService.placeOrder(form, storeCredit);
+            } catch (com.fruitude.product.model.ProductUnavailableException e) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
             } catch (Exception e) {
             	e.printStackTrace();
             	return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("訂單建立失敗，請稍後再試");

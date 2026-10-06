@@ -8,6 +8,40 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface ProductRepository extends JpaRepository<Product, Integer> {
+    @Query(value = """
+        SELECT p.product_id AS productId, p.product_name AS name, p.product_desc AS description,
+               p.product_category_id AS categoryId, s.sku_id AS skuId, s.sku_name AS skuName,
+               s.status AS skuStatus, s.price AS price, CASE WHEN s.status = 3 THEN s.stock ELSE NULL END AS stock,
+               CASE WHEN s.status = 3 THEN s.inbound_qty ELSE NULL END AS inboundQty,
+               CASE WHEN s.status = 3 THEN s.outbound_qty ELSE NULL END AS outboundQty
+        FROM product p JOIN product_sku s ON s.product_id = p.product_id
+        WHERE p.status = 1 AND s.status IN (1,2,3) AND s.price > 0
+          AND (:productId IS NULL OR p.product_id = :productId)
+        ORDER BY p.product_id, s.sku_id
+        """, nativeQuery = true)
+    java.util.List<FrontCatalogRow> findFrontRows(@org.springframework.data.repository.query.Param("productId") Integer productId);
+
+    @Query(value = """
+        SELECT i.sku_id AS skuId, i.image_id AS imageId
+        FROM product_image i JOIN product_sku s ON s.sku_id = i.sku_id
+        WHERE s.product_id IN (:productIds) AND s.status IN (1,2,3) AND s.price > 0
+          AND OCTET_LENGTH(i.image_data) > 0
+        ORDER BY s.sku_id, COALESCE(i.sort_order,0), i.image_id
+        """, nativeQuery = true)
+    java.util.List<FrontImageRow> findFrontImages(@org.springframework.data.repository.query.Param("productIds") java.util.List<Integer> productIds);
+
+    @Query(value = "SELECT product_category_id AS categoryId, parent_category_id AS parentId, category_name AS name FROM product_category", nativeQuery = true)
+    java.util.List<FrontCategoryRow> findFrontCategories();
+
+    @Query(value = """
+        SELECT s.sku_id AS skuId, p.product_name AS name, s.sku_name AS skuName,
+               s.price AS price, CASE WHEN s.status = 3 THEN s.stock ELSE NULL END AS stock,
+               CASE WHEN s.status = 3 THEN s.inbound_qty ELSE NULL END AS inboundQty,
+               CASE WHEN s.status = 3 THEN s.outbound_qty ELSE NULL END AS outboundQty, p.status AS productStatus, s.status AS skuStatus
+        FROM product_sku s JOIN product p ON p.product_id = s.product_id
+        WHERE s.sku_id IN (:skuIds)
+        """, nativeQuery = true)
+    java.util.List<LiveSkuRow> findLiveSkus(@org.springframework.data.repository.query.Param("skuIds") java.util.List<Integer> skuIds);
 
     String STOCK_ABNORMAL = """
         ((COALESCE(s.safety_stock,0) = 0 AND COALESCE(s.stock,0) < 10) 

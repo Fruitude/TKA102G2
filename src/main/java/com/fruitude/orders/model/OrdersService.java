@@ -28,6 +28,8 @@ public class OrdersService {
 
 	@Autowired
 	private MemberRepository memberRepository;
+	@Autowired
+	private com.fruitude.product.model.FrontCatalogService frontCatalogService;
 
 	private static final String STATUS = "status";
 	private static final String PHONE = "phone";
@@ -239,8 +241,7 @@ public class OrdersService {
 		orders.setLogisticsNote(form.getLogisticsNote());
 		orders.setOrdersNote(form.getOrderNote());
 
-		// TODO 這裡先用前端傳來的 price 加總；之後有商品資料表時，
-		// 要改成用 skuId 查詢資料庫目前的價格，不能信任前端傳來的值
+		// placeOrder 已用資料庫即時價格驗證品項，再加總商品金額。
 		int productTotal = 0;
 		for (CheckoutItem item : form.getItems()) {
 			productTotal += item.getPrice() * item.getQty();
@@ -271,7 +272,7 @@ public class OrdersService {
 			detail.setSkuId(item.getSkuId());
 			detail.setProductName(item.getProductName());
 			detail.setOrdersQuantity(item.getQty());
-			// TODO 之後有商品資料表時，改成查詢資料庫目前的價格，不能信任前端傳來的值
+			// 品項價格已在 placeOrder 驗證，確認畫面與訂單金額一致。
 			detail.setUnitPrice(item.getPrice());
 			detail.setInvoiceCarrier(invoiceCarrier);
 			details.add(detail);
@@ -283,6 +284,7 @@ public class OrdersService {
 	// 不會留下沒有明細的訂單
 	@Transactional
 	public Orders placeOrder(CheckoutForm form, Integer storeCredit) {
+		frontCatalogService.validateCheckoutItems(form.getItems());
 		Orders orders = toOrders(form, storeCredit);
 		ordersRepository.save(orders); // 先存，拿到自動產生的 ordersId
 		List<OrdersDetail> details = toOrdersDetails(orders, form.getItems(), form.getInvoiceCarrier());
