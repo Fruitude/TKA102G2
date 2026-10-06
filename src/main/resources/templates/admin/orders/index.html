@@ -117,7 +117,7 @@
     <div id="wrapper">
 
         <!-- 引入側邊欄 -->
-        <ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='orders')}"></ul>
 
         <!-- Content Wrapper -->
         <div id="content-wrapper" class="d-flex flex-column">
@@ -196,7 +196,8 @@
                                             <td>
                                                 <button type="button" class="btn btn-primary btn-sm"
                                                     th:onclick="|location.href='@{/admin/orders/orderDetail(ordersId=${orders.ordersId})}'|">詳細</button>
-                                                <button type="button" class="btn btn-danger btn-sm">刪除</button>
+                                                <button type="button" class="btn btn-warning btn-sm btn-edit-status"
+                                                    th:attr="data-orders-id=${orders.ordersId}, data-status=${orders.ordersStatus}">修改</button>
                                             </td>
                                             <td th:text="${orders.ordersId}"></td>
                                             <td th:text="${member.memberName}"></td>
@@ -240,6 +241,69 @@
 
     <!-- 引入js資源 -->
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+    <!-- 修改訂單：按列上的「修改」跳出這個對話框，狀態選項來自 Utils.OrderStatus
+         （value = getCode()，顯示文字 = getDisplayStatus()） -->
+    <div class="modal fade" id="edit-status-modal" tabindex="-1" role="dialog"
+         aria-labelledby="edit-status-title" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="edit-status-title">修改訂單狀態</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="關閉">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">訂單編號：<strong id="edit-status-orders-id"></strong></p>
+                    <label for="edit-status-select">狀態</label>
+                    <select id="edit-status-select" class="form-control">
+                        <option th:each="s : ${T(com.fruitude.utils.Utils$OrderStatus).values()}"
+                                th:value="${s.code}" th:text="|${s.displayStatus} (${s.code})|"></option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="edit-status-confirm">確定</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script th:inline="javascript">
+    // 按「修改」：把這一列的訂單編號與目前狀態帶進對話框，再顯示對話框
+    // 按「確定」：POST 到 /admin/orders/updateStatus 更新這筆訂單的狀態，成功後重新載入頁面
+    // （重新載入會保留網址上的搜尋、排序、頁碼，畫面上的狀態文字也由伺服器重新產生）
+    $(function () {
+        var currentOrdersId = null;
+        var $confirm = $('#edit-status-confirm');
+
+        $('.btn-edit-status').on('click', function () {
+            currentOrdersId = $(this).data('orders-id');
+            $('#edit-status-orders-id').text(currentOrdersId);
+            $('#edit-status-select').val(String($(this).data('status')));
+            $('#edit-status-modal').modal('show');
+        });
+
+        $confirm.on('click', function () {
+            var status = $('#edit-status-select').val();
+            if (currentOrdersId === null || status === null || status === '') {
+                alert('請先選擇狀態');
+                return;
+            }
+            $confirm.prop('disabled', true);   // 送出中，避免連按重複送出
+            $.ajax({
+                url: /*[[@{/admin/orders/updateStatus}]]*/ '/admin/orders/updateStatus',
+                type: 'POST',
+                data: { ordersId: currentOrdersId, ordersStatus: status }
+            }).done(function () {
+                location.reload();
+            }).fail(function (xhr) {
+                alert('更新失敗：' + (xhr.responseText || '請稍後再試'));
+                $confirm.prop('disabled', false);
+            });
+        });
+    });
+    </script>
 
     <!-- 滑鼠在表格上時，才在視窗底部顯示水平捲軸，並與表格同步捲動 -->
     <div id="orders-hscroll"><div></div></div>
