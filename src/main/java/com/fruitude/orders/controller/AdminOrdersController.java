@@ -4,15 +4,19 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.fruitude.orders.model.OrdersPageSettings;
 import com.fruitude.orders.model.OrdersService;
+import com.fruitude.utils.Utils;
 
 import jakarta.persistence.Tuple;
 
@@ -61,6 +65,27 @@ public class AdminOrdersController {
 		return "admin/orders/index";
 	}
 	
+	// 訂單管理的「修改」對話框按「確定」時呼叫：只更新這筆訂單的狀態。
+	// 狀態碼必須是 Utils.OrderStatus 裡有的，不能信任瀏覽器送來的值
+	@PostMapping("/updateStatus")
+	@ResponseBody
+	public ResponseEntity<String> updateStatus(@RequestParam Integer ordersId, @RequestParam Integer ordersStatus) {
+		boolean validStatus = false;
+		for (Utils.OrderStatus s : Utils.OrderStatus.values()) {
+			if (s.getCode() == ordersStatus) {
+				validStatus = true;
+				break;
+			}
+		}
+		if (!validStatus) {
+			return ResponseEntity.badRequest().body("狀態不正確");
+		}
+		if (!ordersService.updateStatusByQuery(ordersId, ordersStatus)) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("找不到這筆訂單");
+		}
+		return ResponseEntity.ok("更新成功");
+	}
+
 	@GetMapping("/orderDetail")
 	public String getOrderDetail(@RequestParam Integer ordersId, Model model) {
 		List<Tuple> dataList = ordersService.getOrderDetailById(ordersId);
