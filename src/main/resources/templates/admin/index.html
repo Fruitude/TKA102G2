@@ -111,7 +111,7 @@
             </li>
 
             <!-- Nav Item - 商品管理 -->
-            <li class="nav-item">
+            <li class="nav-item" th:classappend="${activeMenu == 'product'} ? 'active'">
                 <a th:href="@{/admin/product}" class="nav-link">
                     <i class="fas fa-fw fa-box-open"></i>
                     <span>商品管理</span>
