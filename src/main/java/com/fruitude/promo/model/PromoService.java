@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PromoService {
@@ -127,6 +128,27 @@ public class PromoService {
 		fillFields(promo, title, context, start, end, promoType, benefitType, benefitValue, minOrderAmount, quota);
 		promo.setStatus(0);
 		return promoRepository.save(promo);
+	}
+
+	// 這個活動有幾筆購物金異動紀錄；有紀錄就不能刪除
+	public long countCreditTransactions(Integer id) {
+		return promoRepository.countCreditTransactions(id);
+	}
+
+	// 刪除活動，連同它底下的活動商品（promotion）一起刪；withCreditRecords 為 true 時，
+	// 也一併刪除這個活動的購物金異動紀錄（member_credit_transaction，那張表的外鍵指到活動，不先刪就刪不掉活動）。
+	// 全部在同一個交易，其中一個失敗就都不刪；找不到這筆活動回傳 false
+	@Transactional
+	public boolean delete(Integer id, boolean withCreditRecords) {
+		if (!promoRepository.existsById(id)) {
+			return false;
+		}
+		if (withCreditRecords) {
+			promoRepository.deleteCreditTransactions(id);
+		}
+		promotionRepository.deleteByPromoProjectId(id);
+		promoRepository.deleteById(id);
+		return true;
 	}
 
 	// 只切換啟用／停用狀態；找不到這筆活動回傳 false

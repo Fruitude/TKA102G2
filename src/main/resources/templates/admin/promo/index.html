@@ -160,6 +160,8 @@
                                                              data-benefit-value=${promo.benefitValue},
                                                              data-min-order=${promo.minOrderAmount},
                                                              data-quota=${promo.quota}">修改</button>
+                                                <button type="button" class="btn btn-danger btn-sm btn-delete-promo"
+                                                    th:attr="data-id=${promo.promoProjectId}, data-title=${promo.promoProjectTitle}">刪除</button>
                                             </td>
                                             <td>
                                                 <!-- 啟用／停用開關：切換時直接送出，不需要開修改對話框 -->
@@ -467,6 +469,42 @@
                 $confirm.prop('disabled', false);
             });
         });
+
+        // 按「刪除」：先確認，再 POST 到 /admin/promo/delete，成功後重新載入頁面（會保留網址上的搜尋條件）
+        $('.btn-delete-promo').on('click', function () {
+            var $btn = $(this);
+            var id = $btn.attr('data-id');
+            var title = $btn.attr('data-title') || '';
+            if (!confirm('確定要刪除活動 ' + id + '「' + title + '」嗎？\n此活動底下的活動商品也會一併刪除，且無法復原。')) {
+                return;
+            }
+            sendDelete($btn, id, false);
+        });
+
+        // 送出刪除。活動有購物金異動紀錄（帳務紀錄）時，伺服器會回 409「creditRecords:筆數」而不是直接刪，
+        // 這時再讓使用者確認一次，確認後帶 withCreditRecords=true 重送，才會連紀錄一起刪
+        function sendDelete($btn, id, withCreditRecords) {
+            $btn.prop('disabled', true);   // 送出中，避免連按
+            $.ajax({
+                url: /*[[@{/admin/promo/delete}]]*/ '/admin/promo/delete',
+                type: 'POST',
+                data: { promoProjectId: id, withCreditRecords: withCreditRecords }
+            }).done(function () {
+                location.reload();
+            }).fail(function (xhr) {
+                $btn.prop('disabled', false);
+                var m = /^creditRecords:(\d+)/.exec(xhr.responseText || '');
+                if (xhr.status === 409 && m) {
+                    if (confirm('此活動有 ' + m[1] + ' 筆購物金異動紀錄（會員購物金的帳務紀錄）。\n'
+                            + '要一併刪除這些紀錄嗎？\n'
+                            + '刪除後無法復原，而且不會調整會員目前的購物金餘額。')) {
+                        sendDelete($btn, id, true);
+                    }
+                    return;
+                }
+                alert('刪除失敗：' + (xhr.responseText || '請稍後再試'));
+            });
+        }
 
         // 列表上的啟用／停用開關：切換就送出；失敗（例如還沒設定類型）就把開關切回去並顯示原因
         $('.promo-status-switch').on('change', function () {

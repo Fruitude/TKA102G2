@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -107,6 +108,29 @@ public class AdminPromoController {
 		PromoProject created = promoService.create(in.title(), in.context(), in.start(), in.end(), in.promoType(),
 				in.benefitType(), in.benefitValue(), in.minOrderAmount(), in.quota());
 		return ResponseEntity.ok("新增成功，活動編號：" + created.getPromoProjectId() + "（預設為停用）");
+	}
+
+	// 列表的「刪除」按鈕（前端已經跳出確認視窗）：刪除這個活動、它底下的活動商品，
+	// 以及（使用者再次確認後）它的購物金異動紀錄
+	@PostMapping("/delete")
+	@ResponseBody
+	public ResponseEntity<String> delete(@RequestParam Integer promoProjectId,
+			@RequestParam(defaultValue = "false") boolean withCreditRecords) {
+		// 活動有購物金異動紀錄（帳務紀錄）時，不能默默跟著刪：先回 409「creditRecords:筆數」，
+		// 前端再讓使用者確認一次，確認後帶 withCreditRecords=true 重送，才會連紀錄一起刪
+		long creditRecords = promoService.countCreditTransactions(promoProjectId);
+		if (creditRecords > 0 && !withCreditRecords) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body("creditRecords:" + creditRecords);
+		}
+		try {
+			if (!promoService.delete(promoProjectId, withCreditRecords)) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("找不到這筆活動");
+			}
+		} catch (DataIntegrityViolationException e) {
+			// 還有其他資料表用外鍵指到這個活動（目前已知的只有購物金異動紀錄與活動商品，都已處理）
+			return ResponseEntity.status(HttpStatus.CONFLICT).body("此活動已被其他資料使用，無法刪除。請改用「狀態」開關停用。");
+		}
+		return ResponseEntity.ok("刪除成功");
 	}
 
 	// 列表上的開關：只切換啟用／停用。要啟用的活動必須已經設定類型與優惠方式，
