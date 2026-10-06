@@ -162,7 +162,7 @@ public class ProductService {
     }
 
     public static String normalizeOverviewSort(String value) {
-        return java.util.Set.of("comments", "rating").contains(value == null ? "" : value) ? value : "";
+        return java.util.Set.of("comments", "rating", "modified").contains(value == null ? "" : value) ? value : "";
     }
 
     public org.springframework.data.domain.Page<ProductOverview> getOverviewPage(int page, int size, String statusFilter,
