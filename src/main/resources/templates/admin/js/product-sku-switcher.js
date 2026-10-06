@@ -10,7 +10,8 @@
             const nextIndex = (index + 1) % names.length;
             const incoming = document.createElement('span');
             incoming.className = 'sku-name';
-            incoming.textContent = names[nextIndex];
+            const characters = Array.from(names[nextIndex]);
+            incoming.textContent = characters.length > 8 ? characters.slice(0, 8).join('') + '…' : names[nextIndex];
             incoming.title = names[nextIndex];
             incoming.setAttribute('aria-hidden', 'true');
             track.appendChild(incoming);

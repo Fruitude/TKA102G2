@@ -95,6 +95,8 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
         LEFT JOIN product_category c ON c.product_category_id = p.product_category_id
         """ + OVERVIEW_FILTER + """
         ORDER BY
+          CASE WHEN :sortBy = 'modified' AND :sortDirection = 'asc' THEN COALESCE(p.updated_at,p.created_at) END ASC,
+          CASE WHEN :sortBy = 'modified' AND :sortDirection = 'desc' THEN COALESCE(p.updated_at,p.created_at) END DESC,
           CASE WHEN :sortBy = 'comments' AND :sortDirection = 'asc' THEN COALESCE(p.all_comment_amount,0) END ASC,
           CASE WHEN :sortBy = 'comments' AND :sortDirection = 'desc' THEN COALESCE(p.all_comment_amount,0) END DESC,
           CASE WHEN :sortBy = 'rating' AND :sortDirection = 'asc'
