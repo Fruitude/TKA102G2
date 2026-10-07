@@ -164,7 +164,12 @@
 <span class="pv-sku-original" hidden th:each="s:${dbProduct.skus}" th:attr="data-sku-id=${s.skuId},data-original=${s.originalPrice}"></span>
 <form th:attr="data-commerce-sku-id=${dbProduct.skuId}" data-node-type="x-commerce-add-to-cart-form" id="pv-form">
 <label class="form_field-label" for="pv-sku">商品規格</label><select class="form-input" id="pv-sku"><option th:each="s:${dbProduct.skus}" th:value="${s.skuId}" th:text="${s.name}" th:selected="${s.skuId == dbProduct.skuId}" th:attr="data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId}}"></option></select><label class="form_field-label" for="pv-qty">數量</label>
-<input class="form-input quantity-input" id="pv-qty" min="1" name="commerce-add-to-cart-quantity-input" type="number" value="1"/>
+<div style="display:flex;align-items:center;gap:12px;">
+<input class="form-input quantity-input" id="pv-qty" min="1" name="commerce-add-to-cart-quantity-input" type="number" value="1" style="margin-bottom:0;"/>
+<button type="button" id="pv-favorite" aria-label="加入我的最愛" aria-pressed="false" th:attr="data-product-id=${dbProduct.productId}" style="background:none;border:0;padding:4px;cursor:pointer;line-height:0;color:#c0392b;">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+</button>
+</div>
 <p id="pv-quantity-notice" role="status" style="font-size:13px;color:#a65b00" hidden></p>
 <div class="product-page-buttom-wrapper">
 <input class="w-commerce-commerceaddtocartbutton primary-button" data-loading-text="Adding to cart..." type="submit" value="加入購物車"/>
@@ -221,6 +226,25 @@
   });
   select.addEventListener("change", function () { updateSku(); updateNotice(); });
   updateSku();
+
+  // 我的最愛愛心
+  var fav = document.getElementById("pv-favorite");
+  var favKey = "ssx-favorites";
+  function readFavs() {
+    try { return JSON.parse(localStorage.getItem(favKey)) || []; } catch (e) { return []; }
+  }
+  function renderFav(on) {
+    fav.setAttribute("aria-pressed", on ? "true" : "false");
+    fav.setAttribute("aria-label", on ? "移除我的最愛" : "加入我的最愛");
+    fav.querySelector("svg").setAttribute("fill", on ? "currentColor" : "none");
+  }
+  renderFav(readFavs().indexOf(fav.dataset.productId) >= 0);
+  fav.addEventListener("click", function () {
+    var list = readFavs(), id = fav.dataset.productId, i = list.indexOf(id);
+    if (i >= 0) list.splice(i, 1); else list.push(id);
+    try { localStorage.setItem(favKey, JSON.stringify(list)); } catch (e) {}
+    renderFav(i < 0);
+  });
 })();
 </script>
 </body>
