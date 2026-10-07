@@ -69,6 +69,7 @@
                                         <tr>
                                             <th th:if="${promo.promoType == 'SKU'}">操作</th>
                                             <th>規格編號</th>
+                                            <th>商品編號</th>
                                             <th>商品</th>
                                             <th>規格</th>
                                             <th>原價</th>
@@ -85,6 +86,7 @@
                                                     th:attr="data-id=${p.promotionId}">移除</button>
                                             </td>
                                             <td th:text="${p.skuId}"></td>
+                                            <td th:text="${p.productId}"></td>
                                             <td th:text="${p.productName}"></td>
                                             <td th:text="${p.skuName}"></td>
                                             <td class="num" th:text="${p.originalPrice}"></td>
@@ -96,7 +98,7 @@
                                                 class="text-danger">無效（需低於原價）</td>
                                         </tr>
                                         <tr th:if="${#lists.isEmpty(promotions)}">
-                                            <td th:colspan="${promo.promoType == 'SKU' ? 7 : 6}" class="text-center text-muted py-4">這個活動目前沒有活動商品</td>
+                                            <td th:colspan="${promo.promoType == 'SKU' ? 8 : 7}" class="text-center text-muted py-4">這個活動目前沒有活動商品</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -133,7 +135,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-inline mb-3">
-                        <input type="text" id="sku-keyword" class="form-control form-control-sm mr-2" placeholder="商品或規格名稱" />
+                        <input type="text" id="sku-keyword" class="form-control form-control-sm mr-2" placeholder="商品或規格名稱，或規格編號、商品編號" />
                         <button type="button" class="btn btn-primary btn-sm mr-4" id="btn-sku-search">搜尋</button>
                         <label for="bulk-rate" class="mr-2 small">統一折數</label>
                         <input type="number" id="bulk-rate" class="form-control form-control-sm mr-1" style="width:80px" min="1" max="99" placeholder="例如 50" />
@@ -145,6 +147,8 @@
                             <thead>
                                 <tr>
                                     <th style="width:40px"><input type="checkbox" id="sku-check-all" /></th>
+                                    <th>規格編號</th>
+                                    <th>商品編號</th>
                                     <th>商品</th>
                                     <th>規格</th>
                                     <th class="text-right">原價</th>
@@ -152,11 +156,11 @@
                                 </tr>
                             </thead>
                             <tbody id="sku-option-body">
-                                <tr><td colspan="5" class="text-center text-muted">載入中…</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted">載入中…</td></tr>
                             </tbody>
                         </table>
                     </div>
-                    <p class="small text-muted mt-2 mb-0">最多列出 100 筆，請用搜尋縮小範圍；已經在這個活動裡的規格不會出現。</p>
+                    <p class="small text-muted mt-2 mb-0">已經在這個活動裡的規格不會出現。</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" id="btn-items-save">儲存勾選的商品</button>
@@ -178,17 +182,19 @@
 
         // 載入可選規格。文字一律用 .text() 放進畫面，商品名稱不會被當成 HTML 解析
         function loadOptions() {
-            $body.html('<tr><td colspan="5" class="text-center text-muted">載入中…</td></tr>');
+            $body.html('<tr><td colspan="7" class="text-center text-muted">載入中…</td></tr>');
             $.get(urls.options, { promoProjectId: promoProjectId, keyword: $('#sku-keyword').val() })
                 .done(function (list) {
                     $body.empty();
                     if (!list.length) {
-                        $body.html('<tr><td colspan="5" class="text-center text-muted">沒有符合的商品</td></tr>');
+                        $body.html('<tr><td colspan="7" class="text-center text-muted">沒有符合的商品</td></tr>');
                         return;
                     }
                     $.each(list, function (i, s) {
                         var $tr = $('<tr>').attr('data-sku-id', s.skuId).attr('data-price', s.price);
                         $('<td>').append($('<input type="checkbox" class="sku-check">')).appendTo($tr);
+                        $('<td>').text(s.skuId).appendTo($tr);
+                        $('<td>').text(s.productId).appendTo($tr);
                         $('<td>').text(s.productName).appendTo($tr);
                         $('<td>').text(s.skuName).appendTo($tr);
                         $('<td class="text-right">').text(s.price).appendTo($tr);
@@ -198,7 +204,7 @@
                     });
                 })
                 .fail(function () {
-                    $body.html('<tr><td colspan="5" class="text-center text-danger">載入失敗，請稍後再試</td></tr>');
+                    $body.html('<tr><td colspan="7" class="text-center text-danger">載入失敗，請稍後再試</td></tr>');
                 });
         }
 
