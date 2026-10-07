@@ -82,6 +82,74 @@
 			cursor: wait;
 			opacity: .65;
 		}
+
+		.auth-panel[hidden] {
+			display: none;
+		}
+
+		.login-divider {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			color: #8a8a8a;
+			font-size: 14px;
+		}
+
+		.login-divider::before,
+		.login-divider::after {
+			content: "";
+			flex: 1;
+			height: 1px;
+			background: #dedede;
+		}
+
+		.google-login-button {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 10px;
+			width: 100%;
+			padding: 13px 18px;
+			border: 1px solid #cfcfcf;
+			background: #fff;
+			color: #303030;
+			font: inherit;
+			font-weight: 600;
+			cursor: pointer;
+		}
+
+		.google-login-button:hover {
+			border-color: #777;
+			background: #fafafa;
+		}
+
+		.google-mark {
+			display: inline-block;
+			width: 20px;
+			height: 20px;
+			flex: 0 0 20px;
+			object-fit: contain;
+		}
+
+		.google-mark path {
+			stroke: none;
+		}
+
+		.auth-panel-copy {
+			margin: 0 0 20px;
+			color: #676767;
+			line-height: 1.7;
+			text-align: center;
+		}
+
+		.auth-back-button {
+			border: 0;
+			background: transparent;
+			color: #5e6f42;
+			font: inherit;
+			text-decoration: underline;
+			cursor: pointer;
+		}
 	</style>
 </head>
 <body>
@@ -458,7 +526,7 @@
 		</div>
 		<div class="login-container">
 			<div class="sign-up-card w-form">
-				<form class="login-form" id="member-login-form" method="post">
+				<form class="login-form auth-panel" id="member-login-form" method="post">
 					<div>
 						<h1 class="heading-h3 margin-bottom-16 centered-text">會員登入</h1>
 						<div class="sign-up-elements-grid">
@@ -475,7 +543,7 @@
 									autocomplete="current-password" type="password" />
 								<div class="login-legal-text-wrapper">
 									<p class="paragraph-18">
-										<a class="login-link" href="../../contact/">忘記密碼？聯絡客服</a>
+										<a class="login-link" href="#" id="show-forgot-password">忘記密碼？</a>
 									</p>
 								</div>
 							</div>
@@ -485,9 +553,50 @@
 								<button class="primary-button w-button login-submit" id="login-submit"
 									type="submit">登入</button>
 							</div>
+							<div class="login-divider"><span>或</span></div>
+							<button class="google-login-button" id="google-login-button" type="button">
+								<img class="google-mark" src="../../../img/auth/google-g.svg" alt="" aria-hidden="true" />
+								<span>使用 Google 帳號登入</span>
+							</button>
 							<p class="paragraph-18 centered-text">
 								還沒有帳號？<a class="login-link" href="../sign-up/">註冊</a>
 							</p>
+						</div>
+					</div>
+				</form>
+				<form class="login-form auth-panel" id="forgot-password-form" hidden>
+					<h1 class="heading-h3 margin-bottom-16 centered-text">忘記密碼</h1>
+					<p class="auth-panel-copy">輸入註冊時使用的 Google 信箱，我們會寄送一次性密碼重設連結。</p>
+					<div class="sign-up-elements-grid">
+						<div class="_100-width">
+							<label class="field-label" for="forgot-email">電子郵件 *</label>
+							<input class="text-field w-input" id="forgot-email" maxlength="100"
+								autocomplete="email" type="email" required placeholder="name@gmail.com" />
+						</div>
+						<p class="login-feedback" id="forgot-feedback" role="status" aria-live="polite"></p>
+						<div class="login-button-wrapper">
+							<button class="primary-button w-button login-submit" id="forgot-submit" type="submit">寄送重設連結</button>
+						</div>
+						<p class="paragraph-18 centered-text"><button class="auth-back-button" id="back-to-login" type="button">返回會員登入</button></p>
+					</div>
+				</form>
+				<form class="login-form auth-panel" id="reset-password-form" hidden>
+					<h1 class="heading-h3 margin-bottom-16 centered-text">設定新密碼</h1>
+					<p class="auth-panel-copy">新密碼需為 8～72 個字，完成後原本的重設連結會立即失效。</p>
+					<div class="sign-up-elements-grid">
+						<div class="_100-width">
+							<label class="field-label" for="new-password">新密碼 *</label>
+							<input class="text-field w-input" id="new-password" minlength="8" maxlength="72"
+								autocomplete="new-password" type="password" required />
+						</div>
+						<div class="_100-width">
+							<label class="field-label" for="confirm-password">確認新密碼 *</label>
+							<input class="text-field w-input" id="confirm-password" minlength="8" maxlength="72"
+								autocomplete="new-password" type="password" required />
+						</div>
+						<p class="login-feedback" id="reset-feedback" role="status" aria-live="polite"></p>
+						<div class="login-button-wrapper">
+							<button class="primary-button w-button login-submit" id="reset-submit" type="submit">確認修改密碼</button>
 						</div>
 					</div>
 				</form>
@@ -618,37 +727,139 @@
 	<script>
 		(function() {
 			const form = document.getElementById('member-login-form');
+			const forgotForm = document.getElementById('forgot-password-form');
+			const resetForm = document.getElementById('reset-password-form');
 			const account = document.getElementById('member-account');
 			const password = document.getElementById('member-password');
 			const submit = document.getElementById('login-submit');
 			const feedback = document.getElementById('login-feedback');
 			const contextPath = window.location.pathname.split('/front/')[0];
+			const query = new URLSearchParams(window.location.search);
+			const resetToken = query.get('resetToken');
 
-			function showFeedback(text, type) {
-				feedback.textContent = text;
-				feedback.className = 'login-feedback' + (type ? ' is-' + type : '');
+			function showFeedback(element, text, type) {
+				element.textContent = text;
+				element.className = 'login-feedback' + (type ? ' is-' + type : '');
+			}
+
+			function showPanel(panel) {
+				[form, forgotForm, resetForm].forEach(function(item) {
+					item.hidden = item !== panel;
+				});
+			}
+
+			function requestJson(url, options) {
+				return fetch(url, options).then(function(response) {
+					return response.json().catch(function() { return {}; }).then(function(body) {
+						if (!response.ok) throw new Error(body.message || '操作失敗，請稍後再試');
+						return body;
+					});
+				});
 			}
 
 			function goToHome() {
 				// 從結帳頁被導來登入時，網址會帶 ?next=原本的頁面，登入後回去；
 					// next 只接受本站 /front/ 底下的路徑，避免被拿來導去別的網站
-					const next = new URLSearchParams(window.location.search).get('next');
+					const next = query.get('next');
 					const safeNext = next && next.indexOf(contextPath + '/front/') === 0
 							&& next.indexOf('//') === -1 && next.indexOf('\\') === -1;
 					window.location.assign(safeNext ? next : contextPath + '/front/');
 			}
 
-			fetch(contextPath + '/api/members/session', {
-				credentials: 'same-origin'
-			}).then(function(response) {
-				return response.ok ? response.json() : null;
-			}).then(function(status) {
-				if (status && status.loggedIn) {
-					goToHome();
-				}
-			}).catch(function() {
-				// 狀態檢查失敗不阻擋使用者操作登入表單。
+			const authError = query.get('authError');
+			if (authError) showFeedback(feedback, authError, 'error');
+
+			if (resetToken) {
+				showPanel(resetForm);
+				const resetFeedback = document.getElementById('reset-feedback');
+				showFeedback(resetFeedback, '正在確認密碼重設連結', '');
+				requestJson(contextPath + '/api/members/password/reset/validate?token='
+						+ encodeURIComponent(resetToken), {credentials: 'same-origin'})
+					.then(function(result) { showFeedback(resetFeedback, result.message, 'success'); })
+					.catch(function(error) {
+						showFeedback(resetFeedback, error.message, 'error');
+						document.getElementById('reset-submit').disabled = true;
+					});
+			} else {
+				fetch(contextPath + '/api/members/session', {credentials: 'same-origin'})
+					.then(function(response) { return response.ok ? response.json() : null; })
+					.then(function(status) { if (status && status.loggedIn) goToHome(); })
+					.catch(function() {
+						// 狀態檢查失敗不阻擋使用者操作登入表單。
+					});
+			}
+
+			document.getElementById('google-login-button').addEventListener('click', function() {
+				const next = query.get('next');
+				const authorizeUrl = new URL(contextPath + '/api/members/google/authorize', window.location.origin);
+				if (next) authorizeUrl.searchParams.set('next', next);
+				window.location.assign(authorizeUrl.toString());
 			});
+
+			document.getElementById('show-forgot-password').addEventListener('click', function(event) {
+				event.preventDefault();
+				showPanel(forgotForm);
+				document.getElementById('forgot-email').focus();
+			});
+
+			document.getElementById('back-to-login').addEventListener('click', function() {
+				showPanel(form);
+				account.focus();
+			});
+
+			forgotForm.addEventListener('submit', function(event) {
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				if (!forgotForm.reportValidity()) return;
+				const forgotSubmit = document.getElementById('forgot-submit');
+				const forgotFeedback = document.getElementById('forgot-feedback');
+				forgotSubmit.disabled = true;
+				forgotSubmit.textContent = '寄送中...';
+				showFeedback(forgotFeedback, '正在寄送驗證信', '');
+				requestJson(contextPath + '/api/members/password/forgot', {
+					method: 'POST', credentials: 'same-origin',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({email: document.getElementById('forgot-email').value.trim()})
+				}).then(function(result) {
+					showFeedback(forgotFeedback, result.message, 'success');
+				}).catch(function(error) {
+					showFeedback(forgotFeedback, error.message, 'error');
+				}).finally(function() {
+					forgotSubmit.disabled = false;
+					forgotSubmit.textContent = '寄送重設連結';
+				});
+			}, true);
+
+			resetForm.addEventListener('submit', function(event) {
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				if (!resetForm.reportValidity()) return;
+				const resetSubmit = document.getElementById('reset-submit');
+				const resetFeedback = document.getElementById('reset-feedback');
+				const newPassword = document.getElementById('new-password').value;
+				const confirmPassword = document.getElementById('confirm-password').value;
+				if (newPassword !== confirmPassword) {
+					showFeedback(resetFeedback, '新密碼與確認密碼不一致', 'error');
+					return;
+				}
+				resetSubmit.disabled = true;
+				resetSubmit.textContent = '修改中...';
+				requestJson(contextPath + '/api/members/password/reset', {
+					method: 'POST', credentials: 'same-origin',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({token: resetToken, newPassword: newPassword,
+						confirmPassword: confirmPassword})
+				}).then(function(result) {
+					showFeedback(resetFeedback, result.message, 'success');
+					window.setTimeout(function() {
+						window.location.assign(contextPath + '/front/about/login/');
+					}, 1200);
+				}).catch(function(error) {
+					showFeedback(resetFeedback, error.message, 'error');
+					resetSubmit.disabled = false;
+					resetSubmit.textContent = '確認修改密碼';
+				});
+			}, true);
 
 			form.addEventListener('submit', function(event) {
 				event.preventDefault();
@@ -660,7 +871,7 @@
 
 				submit.disabled = true;
 				submit.textContent = '登入中...';
-				showFeedback('正在確認會員資料', '');
+				showFeedback(feedback, '正在確認會員資料', '');
 
 				const data = new URLSearchParams();
 				data.set('account', account.value.trim());
@@ -683,7 +894,7 @@
 					}
 					goToHome();
 				}).catch(function(error) {
-					showFeedback(error.message || '目前無法登入，請稍後再試', 'error');
+					showFeedback(feedback, error.message || '目前無法登入，請稍後再試', 'error');
 					password.value = '';
 					password.focus();
 					submit.disabled = false;

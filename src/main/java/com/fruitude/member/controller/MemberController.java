@@ -38,13 +38,34 @@ public class MemberController {
 
 	/** 接收 JSON 會員資料並建立新會員。 */
 	@PostMapping("/register")
-	public ResponseEntity<?> register(@Valid @RequestBody MemberVO member) {
+	public ResponseEntity<?> register(@Valid @RequestBody MemberVO member, HttpServletRequest request) {
 		// 格式錯誤屬於請求內容問題；帳號或 Email 重複則由下方回傳 409 衝突。
 		if (!memberService.isRegistrationAccountValid(member.getMemberAccount())) {
 			return ResponseEntity.badRequest().body(message("會員帳號需為 6～20 個英文字母、數字或底線"));
 		}
 		try {
-			return ResponseEntity.status(HttpStatus.CREATED).body(memberService.register(member));
+			HttpSession session = request.getSession(false);
+			boolean googleRegistration = session != null
+					&& session.getAttribute("memberGoogleRegistrationEmail") instanceof String;
+			if (googleRegistration) {
+				String googleEmail = ((String) session.getAttribute("memberGoogleRegistrationEmail")).trim();
+				if (!googleEmail.equalsIgnoreCase(member.getMemberEmail())) {
+					return ResponseEntity.status(HttpStatus.CONFLICT).body(message("Google 驗證信箱不可更換"));
+				}
+				member.setMemberEmail(googleEmail);
+			}
+			MemberVO saved = memberService.register(member);
+			if (session != null) {
+				session.removeAttribute("memberGoogleRegistrationEmail");
+				session.removeAttribute("memberGoogleRegistrationName");
+				if (googleRegistration) {
+					// Google 註冊只有在會員必填資料成功保存後才建立登入狀態並回首頁。
+					request.changeSessionId();
+					session.setAttribute("loggedInMemberId", saved.getMemberId());
+					session.setAttribute("loggedInMemberName", saved.getMemberName());
+				}
+			}
+			return ResponseEntity.status(HttpStatus.CREATED).body(saved);
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.status(HttpStatus.CONFLICT).body(message(e.getMessage()));
 		}

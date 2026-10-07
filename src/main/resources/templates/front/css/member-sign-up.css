@@ -12,6 +12,38 @@
   max-width: 30rem;
 }
 
+.google-register-button {
+	width: 100%;
+	min-height: 48px;
+	border: 1px solid #d8d8d2;
+	background: #fff;
+	color: #2e302c;
+	font: inherit;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.google-register-button:hover {
+	background: #f6f6f2;
+}
+
+.google-register-button .google-mark {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	flex: 0 0 20px;
+	margin-right: 8px;
+	object-fit: contain;
+}
+
+.google-register-hint {
+	margin: 10px 0 18px;
+	color: #66685f;
+	font-size: 14px;
+	line-height: 1.5;
+	text-align: center;
+}
+
 /* 保留分隔線原本的 1px 高度及網格間距，只隱藏線條，避免按鈕往上移。 */
 .login-line {
   background-color: transparent;

@@ -129,6 +129,34 @@ public class MemberService {
 		return memberRepository.findById(memberId);
 	}
 
+	/** 判斷 Google 驗證信箱是否已經建立會員，避免註冊流程產生重複資料。 */
+	public boolean hasMemberWithEmail(String email) {
+		return memberRepository.findByMemberEmailIgnoreCase(normalizeEmail(email)).isPresent();
+	}
+
+	/** Google 驗證完成後，以已驗證的 Email 尋找可登入會員。 */
+	public MemberVO loginWithVerifiedEmail(String email) {
+		String normalizedEmail = normalizeEmail(email);
+		MemberVO member = memberRepository.findByMemberEmailIgnoreCase(normalizedEmail)
+				.orElseThrow(() -> new IllegalArgumentException("此 Google 信箱尚未註冊會員，請先完成註冊"));
+		if (!Integer.valueOf(STATUS_ACTIVE).equals(member.getMemberStatus())) {
+			throw new IllegalArgumentException("此會員帳號目前已停權，請聯絡客服協助處理");
+		}
+		return member;
+	}
+
+	/** 忘記密碼驗證成功後更新密碼；Controller 不可直接略過重設憑證呼叫此方法。 */
+	@Transactional
+	public void updatePasswordAfterVerification(Integer memberId, String newPassword) {
+		if (newPassword == null || newPassword.length() < 8 || newPassword.length() > 72) {
+			throw new IllegalArgumentException("新密碼需為 8～72 個字");
+		}
+		MemberVO member = memberRepository.findById(memberId)
+				.orElseThrow(() -> new IllegalArgumentException("找不到會員資料"));
+		member.setMemberPassword(hashPassword(newPassword));
+		memberRepository.save(member);
+	}
+
 	/**
 	 * 後台會員清單使用資料庫分頁，並可同時套用關鍵字與狀態條件。
 	 * 每頁上限設為 100，避免錯誤請求一次讀取過多資料。

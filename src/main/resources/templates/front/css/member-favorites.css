@@ -171,6 +171,7 @@
 }
 
 .favorite-card-body {
+	position: relative;
   padding: 20px;
 }
 
@@ -185,6 +186,26 @@
   margin: 0;
   color: var(--favorite-muted);
   font-size: 15px;
+}
+
+.favorite-card-remove {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	width: 32px;
+	height: 32px;
+	border: 1px solid var(--favorite-line);
+	border-radius: 50%;
+	background: var(--favorite-white);
+	color: var(--favorite-muted);
+	font-size: 20px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.favorite-card-remove:hover {
+	border-color: var(--favorite-orange);
+	color: var(--favorite-orange);
 }
 
 @media screen and (max-width: 991px) {
