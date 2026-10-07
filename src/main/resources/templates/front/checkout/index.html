@@ -457,11 +457,13 @@
 									<div class="checkout-option-text">信用卡</div>
 								</div></label>
 						</div>
-						<!-- 預留：之後在這裡查詢並顯示客戶已儲存的信用卡資訊 -->
+						<!-- 會員已儲存的信用卡：選「信用卡」時顯示下拉選單（預設選會員設定的預設卡）；
+							 會員沒有信用卡時，整個「信用卡」選項會被隱藏（見頁面最下方的 script） -->
 						<div
 							class="w-commerce-commercecheckoutblockcontent checkout-contents"
 							id="checkout-credit-card-info" style="display: none">
-							<div class="paragraph-18">信用卡資訊查詢功能尚未開放。</div>
+							<label class="form_field-label" for="checkout-credit-card">選擇信用卡</label>
+							<select class="form-input" id="checkout-credit-card" disabled></select>
 						</div>
 					</fieldset>
 				</div>
@@ -1013,7 +1015,6 @@
 			if (new URLSearchParams(location.search).get("error") === "zip") {
 				alert("郵遞區號不正確，請重新確認後再送出");
 			}
-
 			var formatChecks = [
 					zipCheck,
 					attachFormatCheck(document.getElementById("wf-ecom-email"),
@@ -1125,6 +1126,46 @@
 								document.getElementById("checkout-form")
 										.submit();
 							});
+		})();
+	</script>
+	<!-- 付款方式接會員的信用卡：有信用卡才顯示「信用卡」選項，選了之後出現下拉選單，預設選會員設定的預設卡 -->
+	<script>
+		(function() {
+			var radio = document.querySelector('input[name="paymentMethod"][value="CREDIT_CARD"]');
+			var option = radio && radio.closest("label");
+			var info = document.getElementById("checkout-credit-card-info");
+			var select = document.getElementById("checkout-credit-card");
+			if (!radio || !option || !info || !select) return;
+
+			// 先隱藏，確認會員有信用卡才顯示；查詢失敗（例如登入逾時）也維持隱藏，只能選貨到付款
+			option.style.display = "none";
+
+			// 只有選了「信用卡」才啟用下拉選單（選的卡片目前只是顯示，不會送出，也不會存進訂單）
+			function syncSelect() { select.disabled = !radio.checked; }
+			document.querySelectorAll('input[name="paymentMethod"]').forEach(function(r) {
+				r.addEventListener("change", syncSelect);
+			});
+
+			var contextPath = window.location.pathname.split("/front/")[0];
+			fetch(contextPath + "/api/members/me/credit-cards", { cache: "no-store", credentials: "same-origin" })
+				.then(function(res) { return res.ok ? res.json() : []; })
+				.then(function(cards) {
+					if (!Array.isArray(cards) || cards.length === 0) return;
+					var defaultId = null;
+					cards.forEach(function(card) {
+						var item = document.createElement("option");
+						item.value = String(card.creditCardId);
+						// textContent：卡片資料不當 HTML 解析。預設卡在項目後面加上「(預設)」
+						item.textContent = card.cardBrand + " 末四碼 " + card.cardLastFour
+							+ (Number(card.defaultValue) === 1 ? " (預設)" : "");
+						select.appendChild(item);
+						if (Number(card.defaultValue) === 1 && defaultId === null) defaultId = item.value;
+					});
+					select.value = defaultId !== null ? defaultId : select.options[0].value;
+					option.style.display = "";
+					syncSelect();
+				})
+				.catch(function() { /* 維持隱藏 */ });
 		})();
 	</script>
 </body>

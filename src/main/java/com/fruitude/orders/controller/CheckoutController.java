@@ -116,6 +116,14 @@ public class CheckoutController {
     	return result;
     }
 
+    /** 給確認頁顯示用：目前登入會員的購物金餘額（元）。會員編號一律取自登入 session，不接受前端傳 */
+    @GetMapping("/credit-balance")
+    @ResponseBody
+    public int creditBalance(HttpSession session) {
+    	Integer memberId = loggedInMemberId(session);
+    	return memberId == null ? 0 : ordersService.getShoppingCredit(memberId);
+    }
+
     /** 目前登入的會員編號，沒登入回傳 null。登入時由 MemberController 存進 session */
     private Integer loggedInMemberId(HttpSession session) {
     	Object id = session.getAttribute("loggedInMemberId");

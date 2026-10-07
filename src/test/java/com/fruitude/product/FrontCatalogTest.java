@@ -98,7 +98,7 @@ public class FrontCatalogTest {
     }
     @Test public void homeCardsExposeActiveSkuChoicesQuantityAndCartButtonWithoutDescription() throws Exception {
         Product p = product(5, "可選規格芒果");
-        ProductSku small = sku(p, 42, 345, 1); small.setSkuName("小盒"); small.setStock(0);
+        ProductSku small = sku(p, 42, 345, 1); small.setSkuName("小盒"); small.setStock(3);
         ProductSku large = sku(p, 43, 678, 1); large.setSkuName("大盒"); large.setStock(7); image(large, 99, 0);
         ProductSku offline = sku(p, 44, 999, 0); offline.setSkuName("已下架規格");
         String html = mvc(service(List.of(p))).perform(get("/shop/front/").contextPath("/shop"))
@@ -107,7 +107,7 @@ public class FrontCatalogTest {
         assertTrue(html.contains("id=\"home-sku-5\""));
         assertTrue(html.contains("value=\"42\"")); assertTrue(html.contains("value=\"43\""));
         assertTrue(html.contains("data-sku-name=\"大盒\""));
-        assertTrue(html.contains("data-price=\"678\"")); assertTrue(html.contains("data-stock=\"10\""));
+        assertTrue(html.contains("data-price=\"678\"")); assertTrue(html.contains("data-stock=\"7\"")); assertTrue(html.contains("data-stock=\"3\"")); // 狀態 1：可訂購數量 = min(10, stock)
         assertTrue(html.contains("/shop/product/image/99"));
         assertTrue(html.contains("id=\"home-qty-5\""));
         assertTrue(html.contains("home-card-add")); assertFalse(html.contains("目前缺貨"));

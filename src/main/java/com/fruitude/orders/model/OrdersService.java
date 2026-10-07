@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.fruitude.member.model.MemberVO;
 import com.fruitude.utils.PostalCodes;
@@ -30,6 +33,10 @@ public class OrdersService {
 
 	@Autowired
 	private MemberRepository memberRepository;
+
+	// 下單時鎖定規格、原子扣庫存（庫存夠才扣）
+	@Autowired
+	private SkuStockRepository skuStockRepository;
 	@Autowired
 	private com.fruitude.product.model.FrontCatalogService frontCatalogService;
 	@Autowired
@@ -229,30 +236,38 @@ public class OrdersService {
 		return updatedRows > 0;
 	}
 
-	// 給結帳頁與確認頁預覽用：依「規格編號 → 數量」用資料庫即時價格算商品折扣，不採用前端算的金額。
-	// 計算方式和下單時一樣：活動價的品項不算進折扣基準
-	public com.fruitude.promo.model.ProductDiscount previewProductDiscount(Integer memberId, Map<Integer, Integer> qtyBySku) {
-		int discountBase = 0;
-		for (com.fruitude.product.model.FrontCatalogService.LiveSku sku
-				: frontCatalogService.getLiveSkus(new ArrayList<>(qtyBySku.keySet()))) {
-			boolean onPromo = sku.originalPrice() != null && sku.price() != null && sku.price() < sku.originalPrice();
-			if (sku.available() && !onPromo) {
-				discountBase += sku.price() * qtyBySku.get(sku.skuId());
-			}
-		}
-		return findProductDiscount(memberId, discountBase);
+	// 會員目前的購物金餘額（元）；找不到會員或餘額是空的就是 0
+	public int getShoppingCredit(Integer memberId) {
+		MemberVO member = memberRepository.findById(memberId).orElse(null);
+		return member == null || member.getShoppingCredit() == null ? 0 : member.getShoppingCredit();
 	}
 
-	// 商品折扣金額（全館折扣、壽星月、新會員首購，只套用折扣最大的一個）。
+	// 給結帳頁與確認頁預覽用：依「規格編號 → 數量」用資料庫即時價格算商品折扣，不採用前端算的金額。
+	// 計算方式和下單時一樣：全館折扣、壽星月、新會員首購和指定商品活動價擇優
+	public com.fruitude.promo.model.ProductDiscount previewProductDiscount(Integer memberId, Map<Integer, Integer> qtyBySku) {
+		List<com.fruitude.promo.model.DiscountLine> lines = new ArrayList<>();
+		for (com.fruitude.product.model.FrontCatalogService.LiveSku sku
+				: frontCatalogService.getLiveSkus(new ArrayList<>(qtyBySku.keySet()))) {
+			if (sku.available()) {
+				int original = sku.originalPrice() != null ? sku.originalPrice() : sku.price();
+				lines.add(new com.fruitude.promo.model.DiscountLine(sku.price(), original, qtyBySku.get(sku.skuId())));
+			}
+		}
+		return findProductDiscount(memberId, lines);
+	}
+
+	// 商品折扣（全館折扣、壽星月、新會員首購，彼此只套用折扣最大的一個，並且和指定商品活動價擇優）。
+	// 回傳的折扣金額是相對於畫面上小計（已經是活動價）再多折的金額。
 	// 壽星月：會員生日的月份等於現在的月份；新會員首購：這個會員還沒有任何訂單
-	public com.fruitude.promo.model.ProductDiscount findProductDiscount(Integer memberId, int productTotal) {
+	public com.fruitude.promo.model.ProductDiscount findProductDiscount(Integer memberId,
+			List<com.fruitude.promo.model.DiscountLine> lines) {
 		boolean isFirstOrder = ordersRepository.countByMemberId(memberId) == 0;
 		boolean isBirthdayMonth = false;
 		MemberVO member = memberRepository.findById(memberId).orElse(null);
 		if (member != null && member.getMemberBirthday() != null) {
 			isBirthdayMonth = member.getMemberBirthday().getMonth() == LocalDate.now().getMonth();
 		}
-		return promoService.calcProductDiscount(isBirthdayMonth, isFirstOrder, productTotal);
+		return promoService.calcProductDiscount(isBirthdayMonth, isFirstOrder, lines);
 	}
 
 	// 把結帳頁送來的 CheckoutForm 轉成訂單主檔 Orders（還沒存檔）
@@ -270,23 +285,21 @@ public class OrdersService {
 		orders.setOrdersNote(form.getOrderNote());
 
 		// placeOrder 已用資料庫即時價格驗證品項，再加總商品金額。
-		// 指定商品促銷的品項已經是活動價，不再算進全館折扣、壽星月、新會員首購的折扣基準（discountBase）
+		// 指定商品促銷的品項已經是活動價；全館折扣、壽星月、新會員首購要和活動價擇優，所以每個品項都要帶原價
 		int productTotal = 0;
-		int discountBase = 0;
+		List<com.fruitude.promo.model.DiscountLine> discountLines = new ArrayList<>();
 		for (CheckoutItem item : form.getItems()) {
-			int line = item.getPrice() * item.getQty();
-			productTotal += line;
-			if (!item.isOnPromoPrice()) {
-				discountBase += line;
-			}
+			productTotal += item.getPrice() * item.getQty();
+			int original = item.getOriginalPrice() != null ? item.getOriginalPrice() : item.getPrice();
+			discountLines.add(new com.fruitude.promo.model.DiscountLine(item.getPrice(), original, item.getQty()));
 		}
 
 		// 滿額免運：有進行中的活動且商品金額達門檻，就把運費折抵掉（算進 discount，運費欄位仍記原本的運費）。
 		// 以伺服器重新計算為準，不信任前端畫面上顯示的金額
 		int freeShippingThreshold = promoService.findFreeShippingThreshold();
 		int discount = (freeShippingThreshold > 0 && productTotal >= freeShippingThreshold) ? SHIPPING_FEE : 0;
-		// 商品折扣：全館折扣、壽星月、新會員首購，同一筆訂單只套用折扣最大的一個
-		discount += findProductDiscount(memberId, discountBase).amount();
+		// 商品折扣：全館折扣、壽星月、新會員首購，同一筆訂單只套用折扣最大的一個，並且和指定商品活動價擇優
+		discount += findProductDiscount(memberId, discountLines).amount();
 		int beforeCredit = Math.max(0, productTotal + SHIPPING_FEE - discount);
 		// 不能讓購物金折抵超過應付金額，也不能是負數
 		int shoppingCredit = storeCredit == null ? 0 : Math.min(Math.max(storeCredit, 0), beforeCredit);
@@ -323,8 +336,30 @@ public class OrdersService {
 	// 不會留下沒有明細的訂單
 	@Transactional
 	public Orders placeOrder(CheckoutForm form, Integer storeCredit, Integer memberId) {
+		// 第一步：先鎖定這次要買的規格（依 sku_id 由小到大），鎖會一直持有到這個交易結束。
+		// 之後的驗證與扣庫存都在鎖裡面進行：別的訂單不能同時改這些規格的庫存，
+		// 前台讀庫存（getLiveSkus 等，用 FOR SHARE）也要等這個交易結束才讀得到，不會讀到做到一半的數字
+		Map<Integer, Integer> qtyBySku = new TreeMap<>();
+		if (form.getItems() != null) {
+			for (CheckoutItem item : form.getItems()) {
+				if (item != null && item.getSkuId() != null && item.getQty() != null && item.getQty() > 0) {
+					qtyBySku.merge(item.getSkuId(), item.getQty(), Integer::sum);
+				}
+			}
+		}
+		if (!qtyBySku.isEmpty()) {
+			skuStockRepository.lockSkus(qtyBySku.keySet());
+		}
 		frontCatalogService.validateCheckoutItems(form.getItems());
 		Orders orders = toOrders(form, storeCredit, memberId);
+		// 第二步：原子扣庫存。stock 扣掉訂購數量、outbound_qty 加上訂購數量，「庫存夠才扣」的檢查寫在同一個 UPDATE 裡；
+		// 任何一個規格扣不下去就丟例外，整筆交易回滾（先扣成功的規格、購物金都會還原，不會留下訂單）
+		for (Map.Entry<Integer, Integer> entry : qtyBySku.entrySet()) {
+			if (skuStockRepository.deductStock(entry.getKey(), entry.getValue()) == 0) {
+				throw new com.fruitude.product.model.ProductUnavailableException(
+						productNameOf(form.getItems(), entry.getKey()) + " 庫存不足，請返回購物車調整數量");
+			}
+		}
 		// 實際折抵的購物金要從會員餘額扣掉；餘額不足就丟例外，整筆交易回滾，不會留下訂單
 		int usedCredit = orders.getShoppingCredit();
 		if (usedCredit > 0 && memberRepository.deductShoppingCredit(orders.getMemberId(), usedCredit) == 0) {
@@ -333,9 +368,34 @@ public class OrdersService {
 		ordersRepository.save(orders); // 先存，拿到自動產生的 ordersId
 		List<OrdersDetail> details = toOrdersDetails(orders, form.getItems(), form.getInvoiceCarrier());
 		ordersDetailRepository.saveAll(details);
+		clearCatalogCacheAfterCommit(); // 庫存變了，等交易 commit 之後前台商品列表快取要重新載入
 		return orders;
 	}
 	
+	// 錯誤訊息用：找出這個規格在購物車品項裡的商品名稱（validateCheckoutItems 已依資料庫填好）
+	private String productNameOf(List<CheckoutItem> items, Integer skuId) {
+		for (CheckoutItem item : items) {
+			if (item != null && skuId.equals(item.getSkuId()) && item.getProductName() != null) {
+				return item.getProductName();
+			}
+		}
+		return "商品";
+	}
+
+	// 庫存變了，前台商品列表的快取要重新載入（等交易 commit 之後才清，沒清到就在 10 分鐘快取過期時更新）
+	private void clearCatalogCacheAfterCommit() {
+		if (TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					frontCatalogService.clearCache();
+				}
+			});
+		} else {
+			frontCatalogService.clearCache();
+		}
+	}
+
 	//####################  後台 ################################
 	public List<Tuple> getOrderDetailById(Integer orderId) {
 		return ordersDetailRepository.getDetail(orderId);

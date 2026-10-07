@@ -36,7 +36,8 @@ public class CheckoutLoginInterceptor implements HandlerInterceptor {
 		}
 
 		// 給 fetch 用的 API：不能導頁，回 401 讓前端處理
-		if (path.equals(CHECKOUT_PATH + "place-order") || path.equals(CHECKOUT_PATH + "product-discount")) {
+		if (path.equals(CHECKOUT_PATH + "place-order") || path.equals(CHECKOUT_PATH + "product-discount")
+				|| path.equals(CHECKOUT_PATH + "credit-balance")) {
 			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 			response.setContentType("text/plain;charset=UTF-8");
 			response.getWriter().write("請先登入會員");

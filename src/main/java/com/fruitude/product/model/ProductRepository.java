@@ -8,16 +8,20 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface ProductRepository extends JpaRepository<Product, Integer> {
+    // 前台讀取庫存的兩個查詢（findFrontRows、findLiveSkus）最後面都有 FOR SHARE OF s（鎖定讀取）：
+    // 如果有訂單的交易正在鎖定這些規格、扣庫存（見 OrdersService.placeOrder），這裡會等到那個交易結束才讀，
+    // 不會和扣庫存同時進行；沒有人在扣庫存時不會等待。
     @Query(value = """
         SELECT p.product_id AS productId, p.product_name AS name, p.product_desc AS description,
                p.product_category_id AS categoryId, s.sku_id AS skuId, s.sku_name AS skuName, s.another_name AS anotherName,
-               s.status AS skuStatus, s.price AS price, CASE WHEN s.status = 3 THEN s.stock ELSE NULL END AS stock,
+               s.status AS skuStatus, s.price AS price, CASE WHEN s.status IN (1, 3) THEN s.stock ELSE NULL END AS stock,
                CASE WHEN s.status = 3 THEN s.inbound_qty ELSE NULL END AS inboundQty,
                CASE WHEN s.status = 3 THEN s.outbound_qty ELSE NULL END AS outboundQty
         FROM product p JOIN product_sku s ON s.product_id = p.product_id
         WHERE p.status = 1 AND s.status IN (1,2,3) AND s.price > 0
           AND (:productId IS NULL OR p.product_id = :productId)
         ORDER BY p.product_id, s.sku_id
+        FOR SHARE OF s
         """, nativeQuery = true)
     java.util.List<FrontCatalogRow> findFrontRows(@org.springframework.data.repository.query.Param("productId") Integer productId);
 
@@ -35,11 +39,12 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     @Query(value = """
         SELECT s.sku_id AS skuId, p.product_name AS name, s.sku_name AS skuName, s.another_name AS anotherName,
-               s.price AS price, CASE WHEN s.status = 3 THEN s.stock ELSE NULL END AS stock,
+               s.price AS price, CASE WHEN s.status IN (1, 3) THEN s.stock ELSE NULL END AS stock,
                CASE WHEN s.status = 3 THEN s.inbound_qty ELSE NULL END AS inboundQty,
                CASE WHEN s.status = 3 THEN s.outbound_qty ELSE NULL END AS outboundQty, p.status AS productStatus, s.status AS skuStatus
         FROM product_sku s JOIN product p ON p.product_id = s.product_id
         WHERE s.sku_id IN (:skuIds)
+        FOR SHARE OF s
         """, nativeQuery = true)
     java.util.List<LiveSkuRow> findLiveSkus(@org.springframework.data.repository.query.Param("skuIds") java.util.List<Integer> skuIds);
 

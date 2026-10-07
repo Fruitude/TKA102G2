@@ -69,7 +69,12 @@
   // them, so a missing field defaults to checked - existing cart contents
   // stay included in checkout rather than silently dropping out.
   function isChecked(item) {
-    return !item.unavailable && item.checked !== false;
+    return !item.unavailable && item.checked !== false && !isStockShort(item);
+  }
+
+  // 購物車裡的數量超過這個規格目前可訂購的數量（stock 由即時查價時更新）。這樣的品項不能結帳
+  function isStockShort(item) {
+    return !item.unavailable && item.stock != null && item.qty > item.stock;
   }
 
   function getCheckedItems(items) {
@@ -154,7 +159,8 @@
     for (var i = 0; i < items.length; i++) {
       if (items[i].skuId === skuId) {
         if (items[i].unavailable) return;
-        if (items[i].stock != null) qty = Math.min(qty, items[i].stock);
+        // 數量不能增加到超過庫存；已經超過庫存的品項（庫存不足）仍然可以一步一步往下調
+        if (items[i].stock != null && qty > items[i].stock && qty > items[i].qty) qty = Math.max(items[i].qty, items[i].stock);
         pulsed = qty < items[i].qty;
         items[i].qty = qty;
         break;
@@ -215,7 +221,9 @@
     checkbox.type = "checkbox";
     checkbox.className = "cart-item-checkbox";
     checkbox.checked = isChecked(item);
-    checkbox.disabled = !!item.unavailable;
+    // 庫存不足的品項：勾選框停用（數量調到庫存足夠後才會恢復可勾選）
+    var stockShort = isStockShort(item);
+    checkbox.disabled = !!item.unavailable || stockShort;
     checkbox.setAttribute("data-cart-action", "toggle-checked");
     checkbox.setAttribute("aria-label", "選取此商品加入結帳");
 
@@ -271,6 +279,15 @@
     stepper.appendChild(decBtn);
     stepper.appendChild(qtyInput);
     stepper.appendChild(incBtn);
+    if (stockShort) {
+      // 庫存不足的說明，放在「+」按鈕的右邊；數量調到足夠後重新繪製就不會再出現
+      var stockNote = document.createElement("span");
+      stockNote.className = "cart-stock-warning";
+      stockNote.textContent = "庫存不足，剩下 " + item.stock + " 個";
+      stockNote.style.cssText = "font-size:12px;color:#c0392b;white-space:nowrap";
+      stepper.style.flexWrap = "wrap";
+      stepper.appendChild(stockNote);
+    }
 
     var removeLink = document.createElement("a");
     removeLink.href = "#";
@@ -525,7 +542,9 @@
           item.unavailable = false; item.stock = sku.stock; item.skuStatus = sku.skuStatus;
           item.price = sku.price; item.name = sku.name; item.skuName = sku.skuName;
           item.originalPrice = sku.originalPrice;
-          item.qty = Math.min(item.qty, sku.stock);
+          // 庫存不足時不再偷偷把數量改小：保留使用者的數量，自動取消勾選（勾選框會停用並顯示庫存不足），
+          // 讓使用者自己把數量調到庫存足夠；調整後要重新勾選才會結帳
+          if (item.qty > sku.stock) item.checked = false;
         }
         return item;
       });
@@ -535,19 +554,32 @@
     });
   }
 
+  // 庫存不足的錯誤：訊息是「庫存不足，剩下 N 個」（購物車裡已經有這個規格時，補充還能再加幾個）。
+  // 標記 stockShortage，讓呼叫端一律用對話框顯示，不是只放在卡片的小字訊息裡
+  function stockShortageError(stock, inCart) {
+    var text = "庫存不足，剩下 " + stock + " 個";
+    if (inCart > 0) text += "（購物車已有 " + inCart + " 個，還能再加 " + Math.max(0, stock - inCart) + " 個）";
+    var error = new Error(text);
+    error.stockShortage = true;
+    return error;
+  }
+
   function addVerifiedProduct(product, quantity, button, message, checkoutUrl) {
     button.disabled = true;
     fetchLiveSkus([product.skuId]).then(function (skus) {
       var sku = skus[0];
-      if (!sku || !sku.available) throw new Error("此商品已下架或已無可訂購數量，請選擇其他商品。");
+      if (!sku) throw new Error("此商品已下架或已無可訂購數量，請選擇其他商品。");
       var existing = readCart().find(function (item) { return String(item.skuId) === String(sku.skuId); });
-      if ((checkoutUrl ? 0 : (existing ? existing.qty : 0)) + quantity > sku.stock) throw new Error("此規格最多可訂購 " + sku.stock + " 箱（含購物車已有數量）。");
+      var inCart = checkoutUrl ? 0 : (existing ? existing.qty : 0);
+      if (sku.stock <= 0) throw stockShortageError(0, inCart);
+      if (!sku.available) throw new Error("此商品已下架或已無可訂購數量，請選擇其他商品。");
+      if (inCart + quantity > sku.stock) throw stockShortageError(sku.stock, inCart);
       var item = { skuId: String(sku.skuId), skuName: sku.skuName, qty: quantity, name: sku.name, price: sku.price, image: product.image, stock: sku.stock, skuStatus: sku.skuStatus };
       item.originalPrice = sku.originalPrice; // 規格原價，購物車與結帳頁用來顯示劃線原價
       if (checkoutUrl) { buyNow(item); window.location.href = checkoutUrl; }
       else { addToCart(item); openCart(); }
     }).catch(function (error) {
-      if (message) { message.textContent = error.message; message.hidden = false; }
+      if (message && !error.stockShortage) { message.textContent = error.message; message.hidden = false; }
       else window.alert(error.message);
     }).finally(function () { button.disabled = false; });
   }

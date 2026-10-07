@@ -49,10 +49,6 @@ public class CheckoutItem implements Serializable {
 	public void setOriginalPrice(Integer originalPrice) {
 		this.originalPrice = originalPrice;
 	}
-	// 這個品項是不是以活動價（指定商品促銷）計價；活動價的品項不再算進全館折扣、壽星月、新會員首購的折扣基準
-	public boolean isOnPromoPrice() {
-		return originalPrice != null && price != null && price < originalPrice;
-	}
 	public Integer getQty() {
 		return qty;
 	}

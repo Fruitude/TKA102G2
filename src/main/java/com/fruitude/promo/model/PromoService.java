@@ -128,54 +128,70 @@ public class PromoService {
 		return threshold;
 	}
 
-	// 商品折扣：全館折扣、壽星月、新會員首購這幾種「改商品價格」的活動，同一筆訂單只套用折扣金額最大的一個
-	// （不疊加），並回傳是哪個活動給的。壽星月要會員目前在生日月、新會員首購要是第一筆訂單，
-	// 這兩個條件由呼叫端判斷後傳進來。折扣不會超過商品金額；沒有符合的活動回傳 ProductDiscount.NONE
-	public ProductDiscount calcProductDiscount(boolean isBirthdayMonth, boolean isFirstOrder, int productTotal) {
+	// 商品折扣：全館折扣、壽星月、新會員首購，和指定商品活動價「擇優」，並回傳是哪個活動給的。
+	// 這三種折扣活動彼此只取折扣最大的一個（不疊加）；折扣金額是「相對於畫面上小計（已經是活動價）」再多折的金額。
+	// 壽星月要會員目前在生日月、新會員首購要是第一筆訂單，這兩個條件由呼叫端判斷後傳進來。沒有符合的活動回傳 ProductDiscount.NONE
+	public ProductDiscount calcProductDiscount(boolean isBirthdayMonth, boolean isFirstOrder, List<DiscountLine> lines) {
+		long displayedTotal = 0;
+		for (DiscountLine line : lines) {
+			displayedTotal += line.lineTotal();
+		}
 		LocalDateTime now = LocalDateTime.now();
-		ProductDiscount best = bestDiscount(promoRepository.findActiveByType(PromoType.STOREWIDE.name(), now),
-				productTotal);
+		List<PromoProject> candidates = new ArrayList<>(promoRepository.findActiveByType(PromoType.STOREWIDE.name(), now));
 		if (isBirthdayMonth) {
-			ProductDiscount d = bestDiscount(
-					promoRepository.findActiveByType(PromoType.BIRTHDAY_MONTH.name(), now), productTotal);
-			if (d.amount() > best.amount()) {
-				best = d;
-			}
+			candidates.addAll(promoRepository.findActiveByType(PromoType.BIRTHDAY_MONTH.name(), now));
 		}
 		if (isFirstOrder) {
-			ProductDiscount d = bestDiscount(
-					promoRepository.findActiveByType(PromoType.NEW_MEMBER_FIRST_ORDER.name(), now), productTotal);
-			if (d.amount() > best.amount()) {
-				best = d;
-			}
+			candidates.addAll(promoRepository.findActiveByType(PromoType.NEW_MEMBER_FIRST_ORDER.name(), now));
 		}
-		if (best.amount() > productTotal) {
-			return new ProductDiscount(productTotal, best.title());
+		ProductDiscount best = ProductDiscount.NONE;
+		for (PromoProject p : candidates) {
+			Integer min = p.getMinOrderAmount();
+			Integer value = p.getBenefitValue();
+			if ((min != null && displayedTotal < min) || value == null || value < 1) {
+				continue;
+			}
+			long extra = extraDiscount(p, value, lines);
+			if (extra > displayedTotal) {
+				extra = displayedTotal;
+			}
+			if (extra > best.amount()) {
+				String title = p.getPromoProjectTitle();
+				best = new ProductDiscount((int) extra, title == null ? "" : title);
+			}
 		}
 		return best;
 	}
 
-	// 一組活動裡，對這個商品金額折扣金額最大的一個（折扣率或折抵金額）及它的標題；沒達該活動最低消費的不算
-	private ProductDiscount bestDiscount(List<PromoProject> actives, int productTotal) {
-		ProductDiscount best = ProductDiscount.NONE;
-		for (PromoProject p : actives) {
-			Integer min = p.getMinOrderAmount();
-			Integer value = p.getBenefitValue();
-			if ((min != null && productTotal < min) || value == null || value < 1) {
-				continue;
+	// 套用某個折扣活動，比起「畫面上的小計（已經是活動價）」可以再多折多少：
+	// - 折扣率：每個品項各自比較「指定商品活動價」和「原價打折」，取比較便宜的；沒有活動價的品項就是原價打折
+	// - 折抵金額：是整筆訂單一個固定金額，沒辦法拆到每個品項，所以比較兩種整筆結果取較划算的：
+	//   (A) 有活動價的品項維持活動價，折抵金額只用在沒有活動價的品項；(B) 全部品項用原價，折抵整筆原價
+	private long extraDiscount(PromoProject p, int value, List<DiscountLine> lines) {
+		if (BenefitType.PERCENT_OFF.name().equals(p.getBenefitType())) {
+			long extra = 0;
+			for (DiscountLine line : lines) {
+				long memberSaving = line.originalLineTotal() * (100 - value) / 100;
+				extra += Math.max(0, memberSaving - line.promoSaving());
 			}
-			int discount = 0;
-			if (BenefitType.PERCENT_OFF.name().equals(p.getBenefitType())) {
-				discount = productTotal * (100 - value) / 100;
-			} else if (BenefitType.AMOUNT_OFF.name().equals(p.getBenefitType())) {
-				discount = value;
-			}
-			if (discount > best.amount()) {
-				String title = p.getPromoProjectTitle();
-				best = new ProductDiscount(discount, title == null ? "" : title);
-			}
+			return extra;
 		}
-		return best;
+		if (BenefitType.AMOUNT_OFF.name().equals(p.getBenefitType())) {
+			long nonPromoTotal = 0;
+			long originalTotal = 0;
+			long promoSavingTotal = 0;
+			for (DiscountLine line : lines) {
+				originalTotal += line.originalLineTotal();
+				promoSavingTotal += line.promoSaving();
+				if (line.promoSaving() == 0) {
+					nonPromoTotal += line.lineTotal();
+				}
+			}
+			long optionA = Math.min(value, nonPromoTotal);
+			long optionB = Math.max(0, Math.min(value, originalTotal) - promoSavingTotal);
+			return Math.max(optionA, optionB);
+		}
+		return 0;
 	}
 
 	// 查單筆活動；找不到回傳 null
