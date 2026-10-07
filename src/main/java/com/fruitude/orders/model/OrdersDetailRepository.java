@@ -13,7 +13,7 @@ public interface OrdersDetailRepository extends JpaRepository<OrdersDetail, Inte
 			+ "FROM OrdersDetail as D \r\n"
 			+ "JOIN Orders O on D.ordersId = O.ordersId\r\n"
 			+ "JOIN ProductSku S on D.skuId = S.skuId\r\n"
-			+ "JOIN Member M on O.memberId = M.memberId\r\n"
+			+ "JOIN MemberVO M on O.memberId = M.memberId\r\n"
 			+ " where D.ordersId = :orderId")
 	List<Tuple> getDetail(Integer orderId);
 

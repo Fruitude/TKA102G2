@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.http.CacheControl;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -55,11 +56,23 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 	}
 
 	@Override
+	public void addInterceptors(InterceptorRegistry registry) {
+		// 結帳流程要先登入會員（細節見 CheckoutLoginInterceptor）
+		registry.addInterceptor(new CheckoutLoginInterceptor()).addPathPatterns("/front/checkout/**");
+	}
+
+	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // Prevent an old client-side pagination script from being reused with server-side paging.
         registry.addResourceHandler("/admin/js/product-pagination.js", "/admin/js/product-tabs.js")
             .addResourceLocations("classpath:/templates/")
             .setCacheControl(CacheControl.noStore());
+		// 購物車與結帳金額的計算都在 front/js 底下的 cart.js 等檔案，改版後瀏覽器一定要拿到新的；
+		// noCache 是每次先向伺服器確認檔案有沒有更新，沒變就回 304（不重傳），有變就用新的。
+		// 要放在下面「整個資料夾」的規則之前才會生效
+		registry.addResourceHandler("/front/js/**")
+				.addResourceLocations("classpath:/templates/front/js/")
+				.setCacheControl(CacheControl.noCache());
 		for (String site : SITES) {
 			registry.addResourceHandler("/" + site + "/**")
 					.addResourceLocations("classpath:/templates/" + site + "/");

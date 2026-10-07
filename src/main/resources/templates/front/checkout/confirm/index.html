@@ -65,6 +65,14 @@
           <div class="paragraph-18">運費折抵</div>
           <div class="paragraph-18" id="confirm-shipping-discount"></div>
         </div>
+        <div class="w-commerce-commercecheckoutsummarylineitem" id="confirm-promo-discount-row" style="display:none">
+          <div class="paragraph-18">活動折扣</div>
+          <div class="paragraph-18" id="confirm-promo-discount"></div>
+        </div>
+        <div class="w-commerce-commercecheckoutsummarylineitem" id="confirm-promo-title-row" style="display:none">
+          <div class="paragraph-18">折抵活動</div>
+          <div class="paragraph-18" id="confirm-promo-title"></div>
+        </div>
         <div class="w-commerce-commercecheckoutsummarylineitem" id="confirm-credit-discount-row" style="display:none">
           <div class="paragraph-18">購物金折抵</div>
           <div class="paragraph-18" id="confirm-credit-discount"></div>
@@ -84,7 +92,9 @@
       <div class="confirm-bottom-bar-total-value heading-h4" id="confirm-bottom-total"></div>
     </div>
     <button class="primary-button buy-button" id="confirm-pay-button" type="button"
-            th:data-place-order-url="@{/front/checkout/place-order}">確認付款</button>
+            th:data-place-order-url="@{/front/checkout/place-order}"
+            th:data-free-shipping-url="@{/front/checkout/free-shipping}"
+            th:data-product-discount-url="@{/front/checkout/product-discount}">確認付款</button>
   </div>
 </div>
 
@@ -94,13 +104,17 @@
   "use strict";
 
   var SHIPPING_FEE = 45;
-  var SHIPPING_DISCOUNT = 0; // no shipping promotions are modelled yet
+  var PROMO_DISCOUNT = 0; // 全館折扣、壽星月、新會員首購等商品折扣，同樣只供畫面顯示
+  var PROMO_TITLE = "";   // 給折扣的活動名稱，顯示在「活動折扣」下一行
+  var SHIPPING_DISCOUNT = 0; // 滿額免運達標時才會是 SHIPPING_FEE（只供畫面顯示，實際金額以下單時伺服器重算為準）
 
   var itemListEl = document.getElementById("confirm-item-list");
   var creditInput = document.getElementById("store-credit-input");
   var itemsTotalEl = document.getElementById("confirm-items-total");
   var shippingFeeEl = document.getElementById("confirm-shipping-fee");
   var shippingDiscountEl = document.getElementById("confirm-shipping-discount");
+  var promoDiscountRow = document.getElementById("confirm-promo-discount-row");
+  var promoDiscountEl = document.getElementById("confirm-promo-discount");
   var creditDiscountRow = document.getElementById("confirm-credit-discount-row");
   var creditDiscountEl = document.getElementById("confirm-credit-discount");
   var totalEl = document.getElementById("confirm-total");
@@ -153,7 +167,7 @@
 
   function recalc() {
     var itemsTotal = window.SSXCart.getSubtotal(items);
-    var beforeCredit = Math.max(0, itemsTotal + SHIPPING_FEE - SHIPPING_DISCOUNT);
+    var beforeCredit = Math.max(0, itemsTotal + SHIPPING_FEE - SHIPPING_DISCOUNT - PROMO_DISCOUNT);
     var creditRequested = getCreditRequested();
     // never let store-credit redemption push the payable total below zero
     var creditApplied = Math.min(creditRequested, beforeCredit);
@@ -162,6 +176,18 @@
     itemsTotalEl.textContent = formatMoney(itemsTotal);
     shippingFeeEl.textContent = formatMoney(SHIPPING_FEE);
     shippingDiscountEl.textContent = formatMoney(-SHIPPING_DISCOUNT);
+
+    var promoTitleRow = document.getElementById("confirm-promo-title-row");
+    if (PROMO_DISCOUNT > 0) {
+      promoDiscountRow.style.display = "";
+      promoDiscountEl.textContent = formatMoney(-PROMO_DISCOUNT);
+      // textContent：活動名稱是後台輸入的，不能當 HTML 解析
+      document.getElementById("confirm-promo-title").textContent = PROMO_TITLE;
+      promoTitleRow.style.display = PROMO_TITLE ? "" : "none";
+    } else {
+      promoDiscountRow.style.display = "none";
+      promoTitleRow.style.display = "none";
+    }
 
     if (creditApplied > 0) {
       creditDiscountRow.style.display = "";
@@ -196,6 +222,27 @@
     renderItems();
     recalc();
     bottomBar.style.display = "flex";
+    // 取得目前「滿額免運」門檻（0 = 沒有活動），商品金額達標就折抵運費。失敗就維持原價，不影響結帳
+    fetch(payButton.dataset.freeShippingUrl)
+      .then(function (res) { return res.ok ? res.json() : 0; })
+      .then(function (threshold) {
+        if (threshold > 0 && window.SSXCart.getSubtotal(items) >= threshold) {
+          SHIPPING_DISCOUNT = SHIPPING_FEE;
+          recalc();
+        }
+      })
+      .catch(function () {});
+    // 商品折扣：全館折扣、壽星月、新會員首購（只取折扣最大的一個，沒有符合的活動回傳 0）
+    fetch(payButton.dataset.productDiscountUrl + "?itemsTotal=" + Math.floor(window.SSXCart.getSubtotal(items)))
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (discount) {
+        if (discount && discount.amount > 0) {
+          PROMO_DISCOUNT = discount.amount;
+          PROMO_TITLE = discount.title || "";
+          recalc();
+        }
+      })
+      .catch(function () {});
     creditInput.addEventListener("input", recalc);
     payButton.addEventListener("click", function () {
       payButton.disabled = true; // prevent double-clicks from placing the order twice
@@ -210,12 +257,25 @@
             window.location.href = "../";
             return;
           }
+          if (res.status === 401) { // 登入逾時：導去登入頁，登入後回到結帳頁
+            alert("登入已逾時，請重新登入");
+            window.location.href = "../../about/login/?next=" + encodeURIComponent(window.location.pathname.replace(/confirm\/?$/, ""));
+            return;
+          }
+          if (res.status === 409) { // 例如購物金餘額不足、商品已下架：顯示伺服器說明，讓使用者調整後重試
+            return res.text().then(function (msg) {
+              alert(msg || "訂單無法建立，請調整後再試");
+              payButton.disabled = false;
+              throw new Error("handled");
+            });
+          }
           if (!res.ok) throw new Error(res.status);
           // only clear the cart once the backend has accepted the order
           window.SSXCart.removeItems(items.map(function (item) { return item.skuId; }));
           showSuccess();
         })
-        .catch(function () {
+        .catch(function (err) {
+          if (err && err.message === "handled") return; // 上面已經提示過了
           alert("訂單送出失敗，請稍後再試");
           payButton.disabled = false;
         });

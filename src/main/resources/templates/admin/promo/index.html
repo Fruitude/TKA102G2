@@ -22,6 +22,10 @@
 			background-color: #f8f9fc;
 			text-align: center;
 		}
+		/* 數字欄靠右 */
+		.promo-table .num {
+			text-align: right;
+		}
 		/* 活動內容較長：限制寬度，超過用 ... 省略，滑鼠移上去可看完整內容（title） */
 		.promo-table .long {
 			max-width: 300px;
@@ -115,6 +119,7 @@
                                     <a th:if="${keyword != ''}" th:href="@{/admin/promo/}" class="btn btn-light btn-sm">清除</a>
                                 </form>
                                 <div class="toolbar-right">
+                                    <button type="button" class="btn btn-success btn-sm mr-3" id="btn-create-promo">新增活動</button>
                                     <span class="toolbar-info" th:text="|共 ${#lists.size(promoProjects)} 筆|">共 0 筆</span>
                                     <span class="pager-btn"><i class="fas fa-chevron-left"></i></span>
                                     <span class="pager-btn"><i class="fas fa-chevron-right"></i></span>
@@ -126,22 +131,52 @@
                                     <thead>
                                         <tr>
                                             <th>操作</th>
+                                            <th>狀態</th>
                                             <th>活動編號</th>
                                             <th>活動標題</th>
                                             <th>活動內容</th>
                                             <th>開始時間</th>
                                             <th>結束時間</th>
+                                            <th>活動類型</th>
+                                            <th>優惠方式</th>
+                                            <th>優惠內容</th>
+                                            <th>最低消費</th>
+                                            <th>名額</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr th:each="promo : ${promoProjects}">
                                             <td>
+                                                <!-- 只有「指定商品」類型有活動商品可看，其他類型不顯示；活動啟用中才能按（切換狀態開關時會即時更新） -->
+                                                <button type="button" class="btn btn-primary btn-sm btn-detail"
+                                                    th:if="${promo.promoType == 'SKU'}"
+                                                    th:disabled="${promo.status != 1}"
+                                                    th:onclick="|location.href='@{/admin/promo/detail(promoProjectId=${promo.promoProjectId})}'|">詳細</button>
                                                 <button type="button" class="btn btn-warning btn-sm btn-edit-promo"
                                                     th:attr="data-id=${promo.promoProjectId},
                                                              data-title=${promo.promoProjectTitle},
                                                              data-context=${promo.promoProjectContext},
                                                              data-start=${#temporals.format(promo.promoProjectStart, 'yyyy-MM-dd HH:mm')},
-                                                             data-end=${#temporals.format(promo.promoProjectEnd, 'yyyy-MM-dd HH:mm')}">修改</button>
+                                                             data-end=${#temporals.format(promo.promoProjectEnd, 'yyyy-MM-dd HH:mm')},
+                                                             data-promo-type=${promo.promoType},
+                                                             data-benefit-type=${promo.benefitType},
+                                                             data-benefit-value=${promo.benefitValue},
+                                                             data-min-order=${promo.minOrderAmount},
+                                                             data-quota=${promo.quota}">修改</button>
+                                                <button type="button" class="btn btn-danger btn-sm btn-delete-promo"
+                                                    th:attr="data-id=${promo.promoProjectId}, data-title=${promo.promoProjectTitle}">刪除</button>
+                                            </td>
+                                            <td>
+                                                <!-- 啟用／停用開關：切換時直接送出，不需要開修改對話框 -->
+                                                <div class="custom-control custom-switch">
+                                                    <input type="checkbox" class="custom-control-input promo-status-switch"
+                                                        th:id="|promo-switch-${promo.promoProjectId}|"
+                                                        th:attr="data-id=${promo.promoProjectId}"
+                                                        th:checked="${promo.status == 1}" />
+                                                    <label class="custom-control-label"
+                                                        th:for="|promo-switch-${promo.promoProjectId}|"
+                                                        th:text="${promo.status == null} ? '未設定' : (${promo.status == 1} ? '啟用' : '停用')"></label>
+                                                </div>
                                             </td>
                                             <td th:text="${promo.promoProjectId}"></td>
                                             <td th:text="${promo.promoProjectTitle}"></td>
@@ -149,9 +184,14 @@
                                                 th:title="${promo.promoProjectContext}"></td>
                                             <td th:text="${#temporals.format(promo.promoProjectStart, 'yyyy-MM-dd HH:mm')}"></td>
                                             <td th:text="${#temporals.format(promo.promoProjectEnd, 'yyyy-MM-dd HH:mm')}"></td>
+                                            <td th:text="${T(com.fruitude.promo.model.PromoType).labelOf(promo.promoType)}"></td>
+                                            <td th:text="${T(com.fruitude.promo.model.BenefitType).labelOf(promo.benefitType)}"></td>
+                                            <td th:text="${T(com.fruitude.promo.model.BenefitType).describe(promo.benefitType, promo.benefitValue)}"></td>
+                                            <td class="num" th:text="${promo.minOrderAmount}"></td>
+                                            <td class="num" th:text="${promo.quota}"></td>
                                         </tr>
                                         <tr th:if="${#lists.isEmpty(promoProjects)}">
-                                            <td colspan="6" class="text-center text-muted py-4">目前沒有資料</td>
+                                            <td colspan="12" class="text-center text-muted py-4">目前沒有資料</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -188,7 +228,7 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-3">活動編號：<strong id="edit-promo-id"></strong></p>
+                    <p class="mb-3" id="edit-promo-id-row">活動編號：<strong id="edit-promo-id"></strong></p>
                     <div class="form-group">
                         <label for="edit-promo-input-title">活動標題</label>
                         <input type="text" id="edit-promo-input-title" class="form-control" maxlength="50" />
@@ -201,9 +241,37 @@
                         <label for="edit-promo-input-start">開始時間</label>
                         <input type="datetime-local" id="edit-promo-input-start" class="form-control" />
                     </div>
-                    <div class="form-group mb-0">
+                    <div class="form-group">
                         <label for="edit-promo-input-end">結束時間</label>
                         <input type="datetime-local" id="edit-promo-input-end" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-promo-input-type">活動類型</label>
+                        <select id="edit-promo-input-type" class="form-control">
+                            <option value="">請選擇</option>
+                            <option th:each="t : ${T(com.fruitude.promo.model.PromoType).values()}"
+                                    th:value="${t.name()}" th:text="${t.label}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="edit-promo-group-benefit-type">
+                        <label for="edit-promo-input-benefit-type">優惠方式</label>
+                        <select id="edit-promo-input-benefit-type" class="form-control">
+                            <option value="">請選擇</option>
+                            <option th:each="b : ${T(com.fruitude.promo.model.BenefitType).values()}"
+                                    th:value="${b.name()}" th:text="${b.label}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="edit-promo-group-value">
+                        <label for="edit-promo-input-value" id="edit-promo-label-value">優惠內容</label>
+                        <input type="number" id="edit-promo-input-value" class="form-control" min="1" />
+                    </div>
+                    <div class="form-group" id="edit-promo-group-min">
+                        <label for="edit-promo-input-min" id="edit-promo-label-min">最低消費</label>
+                        <input type="number" id="edit-promo-input-min" class="form-control" min="0" />
+                    </div>
+                    <div class="form-group" id="edit-promo-group-quota">
+                        <label for="edit-promo-input-quota" id="edit-promo-label-quota">名額</label>
+                        <input type="number" id="edit-promo-input-quota" class="form-control" min="1" />
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -232,17 +300,99 @@
         var currentId = null;
         var $confirm = $('#edit-promo-confirm');
 
+        // 按「新增活動」：開同一個對話框，欄位清空（currentId 為 null 代表新增模式）
+        $('#btn-create-promo').on('click', function () {
+            currentId = null;
+            $('#edit-promo-title').text('新增活動');
+            $('#edit-promo-id-row').hide();
+            $('#edit-promo-modal input[type="text"], #edit-promo-modal input[type="number"], '
+                + '#edit-promo-modal input[type="datetime-local"], #edit-promo-modal textarea').val('');
+            $('#edit-promo-input-type').val('');
+            syncFields('');
+            $('#edit-promo-modal').modal('show');
+        });
+
         $('.btn-edit-promo').on('click', function () {
             var $btn = $(this);
             currentId = $btn.attr('data-id');
+            $('#edit-promo-title').text('修改活動');
+            $('#edit-promo-id-row').show();
             $('#edit-promo-id').text(currentId);
             $('#edit-promo-input-title').val($btn.attr('data-title') || '');
             $('#edit-promo-input-context').val($btn.attr('data-context') || '');
             // datetime-local 需要 yyyy-MM-ddTHH:mm
             $('#edit-promo-input-start').val(($btn.attr('data-start') || '').replace(' ', 'T'));
             $('#edit-promo-input-end').val(($btn.attr('data-end') || '').replace(' ', 'T'));
+            $('#edit-promo-input-type').val($btn.attr('data-promo-type') || '');
+            $('#edit-promo-input-value').val($btn.attr('data-benefit-value') || '');
+            $('#edit-promo-input-min').val($btn.attr('data-min-order') || '');
+            $('#edit-promo-input-quota').val($btn.attr('data-quota') || '');
+            syncFields($btn.attr('data-benefit-type') || '');
             $('#edit-promo-modal').modal('show');
         });
+
+        // 每個活動類型要填哪些欄位（來自 PromoType.rulesJson()，後台和伺服器檢查用同一份規則）
+        var RULES = JSON.parse(/*[[${T(com.fruitude.promo.model.PromoType).rulesJson()}]]*/ '{}');
+        // 優惠方式的全部選項先存起來，依活動類型只留下可選的
+        var $benefitSelect = $('#edit-promo-input-benefit-type');
+        var allBenefitOptions = $benefitSelect.find('option').clone();
+
+        // 依目前選的活動類型顯示或隱藏欄位，用不到的欄位同時清空。
+        // preferredBenefit：優惠方式想選哪個（修改時帶入原本的值；換類型時帶入目前的選擇），不在可選範圍就重選
+        function syncFields(preferredBenefit) {
+            var rule = RULES[$('#edit-promo-input-type').val()];
+
+            // 優惠方式：可選項目 > 1 才顯示下拉選單；只有一種就隱藏（伺服器自動帶入）
+            $benefitSelect.empty();
+            allBenefitOptions.each(function () {
+                var code = $(this).val();
+                if (code === '' || (rule && rule.benefitTypes.indexOf(code) !== -1)) {
+                    $benefitSelect.append($(this).clone());
+                }
+            });
+            var multiple = rule && rule.benefitTypes.length > 1;
+            $('#edit-promo-group-benefit-type').toggle(!!multiple);
+            $benefitSelect.val(multiple && rule.benefitTypes.indexOf(preferredBenefit) !== -1 ? preferredBenefit : '');
+
+            // 優惠值、最低消費、名額：類型有用到才顯示，標籤標明必填或可留空
+            var usesValue = !!(rule && rule.usesValue);
+            var usesMin = !!(rule && rule.usesMin);
+            var usesQuota = !!(rule && rule.usesQuota);
+            $('#edit-promo-group-value').toggle(usesValue);
+            $('#edit-promo-group-min').toggle(usesMin);
+            $('#edit-promo-group-quota').toggle(usesQuota);
+            if (!usesValue) { $('#edit-promo-input-value').val(''); }
+            if (!usesMin) { $('#edit-promo-input-min').val(''); }
+            if (!usesQuota) { $('#edit-promo-input-quota').val(''); }
+            syncValueLabel();
+            $('#edit-promo-label-min').text(rule && rule.minRequired
+                ? '最低消費（必填，商品金額達此金額才適用）'
+                : '最低消費（商品金額達此金額才適用，留空代表不限）');
+            $('#edit-promo-label-quota').text(rule && rule.quotaRequired
+                ? '名額（必填）'
+                : '名額（留空代表不限）');
+        }
+        $('#edit-promo-input-type').on('change', function () {
+            syncFields($benefitSelect.val());
+        });
+
+        // 優惠值的欄位名稱與提示，依優惠方式說明「這個數字代表什麼」
+        var VALUE_HINTS = {
+            PERCENT_OFF: { label: '折扣（填 90 代表 9 折、85 代表 8.5 折，可填 1～99）', placeholder: '例如 90' },
+            AMOUNT_OFF: { label: '折抵金額（元）', placeholder: '例如 100' },
+            WALLET_CREDIT: { label: '贈送購物金額（元）', placeholder: '例如 500' }
+        };
+        function syncValueLabel() {
+            var rule = RULES[$('#edit-promo-input-type').val()];
+            var benefit = '';
+            if (rule) {
+                benefit = rule.benefitTypes.length === 1 ? rule.benefitTypes[0] : $benefitSelect.val();
+            }
+            var hint = VALUE_HINTS[benefit];
+            $('#edit-promo-label-value').text(hint ? hint.label : '優惠內容（請先選擇優惠方式）');
+            $('#edit-promo-input-value').attr('placeholder', hint ? hint.placeholder : '');
+        }
+        $benefitSelect.on('change', syncValueLabel);
 
         $confirm.on('click', function () {
             var title = $.trim($('#edit-promo-input-title').val());
@@ -260,22 +410,123 @@
                 alert('結束時間必須晚於開始時間');
                 return;
             }
+            var promoType = $('#edit-promo-input-type').val();
+            var benefitType = $('#edit-promo-input-benefit-type').val();
+            var benefitValue = $('#edit-promo-input-value').val();
+            var minOrder = $('#edit-promo-input-min').val();
+            var quota = $('#edit-promo-input-quota').val();
+            var rule = RULES[promoType];
+            if (!rule) {
+                alert('請選擇活動類型');
+                return;
+            }
+            // 只有一種優惠方式的類型，下拉選單是隱藏的，直接用唯一的那個
+            if (rule.benefitTypes.length === 1) {
+                benefitType = rule.benefitTypes[0];
+            }
+            if (benefitType === '') {
+                alert('請選擇優惠方式');
+                return;
+            }
+            if (rule.usesValue && (benefitValue === '' || Number(benefitValue) < 1)) {
+                alert('請輸入大於 0 的優惠值');
+                return;
+            }
+            if (rule.usesValue && benefitType === 'PERCENT_OFF' && Number(benefitValue) > 99) {
+                alert('折扣率請填 1～99（90 = 9 折）');
+                return;
+            }
+            if (rule.usesMin && rule.minRequired && (minOrder === '' || Number(minOrder) < 1)) {
+                alert('請輸入最低消費');
+                return;
+            }
+            if (rule.usesQuota && rule.quotaRequired && (quota === '' || Number(quota) < 1)) {
+                alert('請輸入名額');
+                return;
+            }
             $confirm.prop('disabled', true);   // 送出中，避免連按重複送出
+            var isCreate = (currentId === null);
+            var data = {
+                promoProjectTitle: title,
+                promoProjectContext: $('#edit-promo-input-context').val(),
+                promoProjectStart: start,
+                promoProjectEnd: end,
+                promoType: promoType,
+                benefitType: benefitType,
+                benefitValue: benefitValue,
+                minOrderAmount: minOrder,
+                quota: quota
+            };
+            if (!isCreate) {
+                data.promoProjectId = currentId;
+            }
             $.ajax({
-                url: /*[[@{/admin/promo/update}]]*/ '/admin/promo/update',
+                url: isCreate ? /*[[@{/admin/promo/create}]]*/ '/admin/promo/create'
+                              : /*[[@{/admin/promo/update}]]*/ '/admin/promo/update',
                 type: 'POST',
-                data: {
-                    promoProjectId: currentId,
-                    promoProjectTitle: title,
-                    promoProjectContext: $('#edit-promo-input-context').val(),
-                    promoProjectStart: start,
-                    promoProjectEnd: end
-                }
+                data: data
             }).done(function () {
                 location.reload();
             }).fail(function (xhr) {
-                alert('更新失敗：' + (xhr.responseText || '請稍後再試'));
+                alert((isCreate ? '新增失敗：' : '更新失敗：') + (xhr.responseText || '請稍後再試'));
                 $confirm.prop('disabled', false);
+            });
+        });
+
+        // 按「刪除」：先確認，再 POST 到 /admin/promo/delete，成功後重新載入頁面（會保留網址上的搜尋條件）
+        $('.btn-delete-promo').on('click', function () {
+            var $btn = $(this);
+            var id = $btn.attr('data-id');
+            var title = $btn.attr('data-title') || '';
+            if (!confirm('確定要刪除活動 ' + id + '「' + title + '」嗎？\n此活動底下的活動商品也會一併刪除，且無法復原。')) {
+                return;
+            }
+            sendDelete($btn, id, false);
+        });
+
+        // 送出刪除。活動有購物金異動紀錄（帳務紀錄）時，伺服器會回 409「creditRecords:筆數」而不是直接刪，
+        // 這時再讓使用者確認一次，確認後帶 withCreditRecords=true 重送，才會連紀錄一起刪
+        function sendDelete($btn, id, withCreditRecords) {
+            $btn.prop('disabled', true);   // 送出中，避免連按
+            $.ajax({
+                url: /*[[@{/admin/promo/delete}]]*/ '/admin/promo/delete',
+                type: 'POST',
+                data: { promoProjectId: id, withCreditRecords: withCreditRecords }
+            }).done(function () {
+                location.reload();
+            }).fail(function (xhr) {
+                $btn.prop('disabled', false);
+                var m = /^creditRecords:(\d+)/.exec(xhr.responseText || '');
+                if (xhr.status === 409 && m) {
+                    if (confirm('此活動有 ' + m[1] + ' 筆購物金異動紀錄（會員購物金的帳務紀錄）。\n'
+                            + '要一併刪除這些紀錄嗎？\n'
+                            + '刪除後無法復原，而且不會調整會員目前的購物金餘額。')) {
+                        sendDelete($btn, id, true);
+                    }
+                    return;
+                }
+                alert('刪除失敗：' + (xhr.responseText || '請稍後再試'));
+            });
+        }
+
+        // 列表上的啟用／停用開關：切換就送出；失敗（例如還沒設定類型）就把開關切回去並顯示原因
+        $('.promo-status-switch').on('change', function () {
+            var $sw = $(this);
+            var enabled = $sw.is(':checked');
+            $sw.prop('disabled', true);   // 送出中，避免連按
+            $.ajax({
+                url: /*[[@{/admin/promo/toggle}]]*/ '/admin/promo/toggle',
+                type: 'POST',
+                data: { promoProjectId: $sw.attr('data-id'), status: enabled ? 1 : 0 }
+            }).done(function () {
+                $sw.next('label').text(enabled ? '啟用' : '停用');
+                // 「詳細」按鈕跟著活動狀態：啟用才能按
+                $sw.closest('tr').find('.btn-detail').prop('disabled', !enabled);
+            }).fail(function (xhr) {
+                $sw.prop('checked', !enabled);
+                alert('切換失敗：' + (xhr.responseText || '請稍後再試'));
+            }).always(function () {
+                $sw.prop('disabled', false);
             });
         });
     });

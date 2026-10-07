@@ -34,6 +34,7 @@ public class CheckoutController {
     @Autowired
     private OrdersService ordersService;
     @Autowired private com.fruitude.product.model.FrontCatalogService frontCatalogService;
+    @Autowired private com.fruitude.promo.model.PromoService promoService;
 
     /**
      * checkout 頁送出 → 把 cartItemsJson 解析成 items → 存進 session → redirect 到 confirm
@@ -68,6 +69,32 @@ public class CheckoutController {
     	return PostalCodes.areaCodes();
     }
 
+    /** 給確認頁顯示用：目前「滿額免運」的最低消費門檻，0 代表目前沒有活動。實際折抵以下單時伺服器重算為準 */
+    @GetMapping("/free-shipping")
+    @ResponseBody
+    public int freeShippingThreshold() {
+    	return promoService.findFreeShippingThreshold();
+    }
+
+    /** 給結帳頁與確認頁顯示用：目前會員的商品折扣（全館折扣、壽星月、新會員首購，只取折扣最大的一個），
+     *  回傳 {"amount": 折扣金額, "title": 給折扣的活動標題}，沒有折扣時金額是 0、標題是空字串。
+     *  itemsTotal 是前端算的商品金額，只用來預覽；實際折扣以下單時伺服器重算為準 */
+    @GetMapping("/product-discount")
+    @ResponseBody
+    public com.fruitude.promo.model.ProductDiscount productDiscount(@RequestParam int itemsTotal, HttpSession session) {
+    	Integer memberId = loggedInMemberId(session);
+    	if (memberId == null) { // 正常不會發生（結帳頁要先登入），保險起見回傳沒有折扣
+    		return com.fruitude.promo.model.ProductDiscount.NONE;
+    	}
+    	return ordersService.findProductDiscount(memberId, Math.max(itemsTotal, 0));
+    }
+
+    /** 目前登入的會員編號，沒登入回傳 null。登入時由 MemberController 存進 session */
+    private Integer loggedInMemberId(HttpSession session) {
+    	Object id = session.getAttribute("loggedInMemberId");
+    	return id instanceof Integer ? (Integer) id : null;
+    }
+
     /** 把前端送來的 JSON 字串解析成品項清單，格式不對就當作空清單，不要讓下單流程整個炸掉 */
     private List<CheckoutItem> parseItems(String cartItemsJson) {
     	if (cartItemsJson == null || cartItemsJson.isBlank()) {
@@ -84,6 +111,11 @@ public class CheckoutController {
     @PostMapping("/place-order")
     public ResponseEntity<String> placeOrder(@RequestParam(value = "storeCredit", defaultValue = "0") Integer storeCredit,
                     HttpSession session) {
+            // 訂單屬於哪個會員、扣誰的購物金，一律以登入 session 為準，不接受前端傳
+            Integer memberId = loggedInMemberId(session);
+            if (memberId == null) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("請先登入會員");
+            }
             CheckoutForm form = (CheckoutForm) session.getAttribute(SESSION_KEY);
             if (form == null) { // 逾時、伺服器重啟，或沒經過 checkout 頁直接進 confirm
                     return ResponseEntity.status(HttpStatus.GONE).body("結帳資料已逾時，請重新填寫");
@@ -92,8 +124,10 @@ public class CheckoutController {
             // OrdersService 在建立訂單的交易中重新確認上架狀態、價格與庫存。
             Orders orders;
             try {
-            	orders = ordersService.placeOrder(form, storeCredit);
+            	orders = ordersService.placeOrder(form, storeCredit, memberId);
             } catch (com.fruitude.product.model.ProductUnavailableException e) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+            } catch (com.fruitude.orders.model.InsufficientCreditException e) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
             } catch (Exception e) {
             	e.printStackTrace();

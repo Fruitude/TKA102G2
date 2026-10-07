@@ -382,9 +382,50 @@
   // 固定運費，跟「配送方式」的宅配選項、confirm 頁的運費一致
   var CHECKOUT_SHIPPING_FEE = 45;
 
+  // 「滿額免運」的門檻，0 = 目前沒有活動。只用來顯示，實際折抵以下單時伺服器重算為準；
+  // 跟 confirm 頁共用同一個 /front/checkout/free-shipping，兩頁的運費折抵才會一致
+  var freeShippingThreshold = 0;
+  var freeShippingRequested = false;
+
+  function loadFreeShippingThreshold() {
+    if (freeShippingRequested) return;
+    freeShippingRequested = true;
+    fetch(getContextPath() + "/front/checkout/free-shipping", { cache: "no-store", credentials: "same-origin" })
+      .then(function (response) { return response.ok ? response.json() : 0; })
+      .then(function (threshold) {
+        freeShippingThreshold = Number(threshold) || 0;
+        if (freeShippingThreshold > 0) renderCheckoutSummary(readCart());
+      })
+      .catch(function () { /* 取不到就維持原價，不影響結帳 */ });
+  }
+
+  // 商品折扣（全館折扣、壽星月、新會員首購，只取折扣最大的一個）。折扣金額跟商品金額有關，
+  // 所以記住「是用哪個商品金額問的」，金額沒變就不重複問；金額變了（例如取消勾選商品）才重新問伺服器。
+  // 跟 confirm 頁共用同一個 /front/checkout/product-discount，兩頁才會一致；只用來顯示，實際折扣以下單時伺服器重算為準
+  var productDiscount = 0;
+  var productDiscountTitle = ""; // 給折扣的活動名稱，顯示在「活動折扣」下一行
+  var productDiscountSubtotal = null;
+
+  function loadProductDiscount(subtotal) {
+    if (productDiscountSubtotal === subtotal) return;
+    productDiscountSubtotal = subtotal;
+    var asked = subtotal;
+    fetch(getContextPath() + "/front/checkout/product-discount?itemsTotal=" + Math.floor(subtotal),
+        { cache: "no-store", credentials: "same-origin" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (discount) {
+        if (productDiscountSubtotal !== asked) return; // 回來時商品金額已經又變了，這份答案作廢
+        productDiscount = discount ? Number(discount.amount) || 0 : 0;
+        productDiscountTitle = productDiscount > 0 && discount.title ? String(discount.title) : "";
+        renderCheckoutSummary(readCart());
+      })
+      .catch(function () { /* 取不到就維持原價，不影響結帳 */ });
+  }
+
   function renderCheckoutSummary(items) {
     var list = document.querySelector(".w-commerce-commercecheckoutorderitemslist");
     if (!list) return; // not on the checkout page
+    loadFreeShippingThreshold();
 
     var checkedItems = getCheckedItems(items);
 
@@ -397,11 +438,27 @@
     var shippingFee = checkedItems.length > 0 ? CHECKOUT_SHIPPING_FEE : 0;
     var subtotalEl = document.querySelector('[data-wf-bindings*="commerceOrder.subtotal"]');
     var shippingFeeEl = document.getElementById("checkout-summary-shipping-fee");
+    var shippingDiscountEl = document.getElementById("checkout-summary-shipping-discount");
+    var promoDiscountEl = document.getElementById("checkout-summary-promo-discount");
     var totalEl = document.querySelector(".w-commerce-commercecheckoutsummarytotal");
-    // No tax modelled in this static cart, so total == subtotal + shipping fee.
+    // 滿額免運：商品金額達門檻就把運費折抵掉
+    var shippingDiscount = (shippingFee > 0 && freeShippingThreshold > 0 && subtotal >= freeShippingThreshold)
+      ? shippingFee : 0;
+    // 商品折扣只在有商品時才問；折扣不會超過商品金額
+    if (checkedItems.length > 0) loadProductDiscount(subtotal); else { productDiscount = 0; productDiscountTitle = ""; }
+    var promoDiscount = Math.min(productDiscount, subtotal);
+    var promoTitleRow = document.getElementById("checkout-summary-promo-title-row");
+    var promoTitleEl = document.getElementById("checkout-summary-promo-title");
+    if (promoTitleRow && promoTitleEl) {
+      promoTitleEl.textContent = productDiscountTitle; // textContent：活動名稱是後台輸入的，不能當 HTML 解析
+      promoTitleRow.style.display = (promoDiscount > 0 && productDiscountTitle) ? "" : "none";
+    }
+    // No tax modelled in this static cart, so total == subtotal + shipping fee - shipping discount - promo discount.
     if (subtotalEl) subtotalEl.textContent = formatMoney(subtotal);
     if (shippingFeeEl) shippingFeeEl.textContent = formatMoney(shippingFee);
-    if (totalEl) totalEl.textContent = formatMoney(subtotal + shippingFee);
+    if (shippingDiscountEl) shippingDiscountEl.textContent = formatMoney(-shippingDiscount);
+    if (promoDiscountEl) promoDiscountEl.textContent = formatMoney(-promoDiscount);
+    if (totalEl) totalEl.textContent = formatMoney(Math.max(0, subtotal + shippingFee - shippingDiscount - promoDiscount));
   }
 
   function renderAll(opts) {

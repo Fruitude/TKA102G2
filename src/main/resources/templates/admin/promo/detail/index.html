@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Promo Detail</title>
+
+	<!-- 引入css資源 -->
+	<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+
+	<!-- 只作用在這頁的活動明細表格（class="promo-table"），不影響其他頁面的 table -->
+	<style>
+		.promo-table {
+			width: 100%;
+			white-space: nowrap;        /* 欄位內容不換行，不會被擠成直的 */
+		}
+		.promo-table th,
+		.promo-table td {
+			vertical-align: middle;
+			padding: .5rem .75rem;
+		}
+		.promo-table thead th {
+			background-color: #f8f9fc;
+			text-align: center;
+		}
+		/* 數字欄靠右 */
+		.promo-table .num {
+			text-align: right;
+		}
+	</style>
+</head>
+<body id="page-top">
+
+    <!-- Page Wrapper -->
+    <div id="wrapper">
+
+        <!-- 引入側邊欄，activeMenu='promo' 讓左邊選單的「活動管理」反白 -->
+        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='promo')}"></ul>
+
+        <!-- Content Wrapper -->
+        <div id="content-wrapper" class="d-flex flex-column">
+
+            <!-- Main Content -->
+            <div id="content">
+
+                <!-- 引入Topbar -->
+                <nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+                <!-- 這裡放頁面自己的內容 -->
+                <div class="container-fluid">
+                    <h1 class="h3 mb-4 text-gray-800">活動明細</h1>
+                    <p class="text-gray-800" th:text="|活動 ${promo.promoProjectId}：${promo.promoProjectTitle}|"></p>
+
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <!-- 只有「指定商品」類型（或還沒設定類型的舊資料）才有 promotion 明細；其他類型不指定商品 -->
+                            <p th:if="${promo.promoType != null and promo.promoType != 'SKU'}" class="text-muted mb-0"
+                               th:text="|此活動類型為「${T(com.fruitude.promo.model.PromoType).labelOf(promo.promoType)}」，不需要指定商品。|"></p>
+                            <div th:unless="${promo.promoType != null and promo.promoType != 'SKU'}">
+                                <!-- 還沒設定類型的舊活動只能看，要先到列表按「修改」把活動類型設成「指定商品」才能新增、修改商品 -->
+                                <p class="text-warning" th:if="${promo.promoType == null}">
+                                    此活動還沒有設定活動類型，請先回列表按「修改」，把活動類型設為「指定商品」，才能新增或修改活動商品。</p>
+                                <div class="mb-3" th:if="${promo.promoType == 'SKU'}">
+                                    <button type="button" class="btn btn-success btn-sm" id="btn-add-items">新增商品</button>
+                                    <span class="text-muted ml-2 small">可一次選多個商品，每個商品各自設定活動價（必須低於原價）</span>
+                                </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover promo-table" cellspacing="0">
+                                    <thead>
+                                        <tr>
+                                            <th th:if="${promo.promoType == 'SKU'}">操作</th>
+                                            <th>規格編號</th>
+                                            <th>商品</th>
+                                            <th>規格</th>
+                                            <th>原價</th>
+                                            <th>活動價</th>
+                                            <th>折扣</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="p : ${promotions}">
+                                            <td th:if="${promo.promoType == 'SKU'}">
+                                                <button type="button" class="btn btn-warning btn-sm btn-edit-item"
+                                                    th:attr="data-id=${p.promotionId}, data-price=${p.promoPrice}, data-original=${p.originalPrice}">修改價格</button>
+                                                <button type="button" class="btn btn-danger btn-sm btn-delete-item"
+                                                    th:attr="data-id=${p.promotionId}">移除</button>
+                                            </td>
+                                            <td th:text="${p.skuId}"></td>
+                                            <td th:text="${p.productName}"></td>
+                                            <td th:text="${p.skuName}"></td>
+                                            <td class="num" th:text="${p.originalPrice}"></td>
+                                            <td class="num" th:text="${p.promoPrice}"></td>
+                                            <!-- 活動價高於或等於原價時，前台不會採用，這裡標示出來提醒 -->
+                                            <td th:if="${p.originalPrice != null and p.promoPrice < p.originalPrice}"
+                                                th:text="|${#numbers.formatDecimal(p.promoPrice * 10.0 / p.originalPrice, 1, 1)} 折|"></td>
+                                            <td th:unless="${p.originalPrice != null and p.promoPrice < p.originalPrice}"
+                                                class="text-danger">無效（需低於原價）</td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(promotions)}">
+                                            <td th:colspan="${promo.promoType == 'SKU' ? 7 : 6}" class="text-center text-muted py-4">這個活動目前沒有活動商品</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            </div>
+                            <a th:href="@{/admin/promo/}" class="btn btn-light btn-sm mt-3">返回列表</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 引入Footer -->
+            <footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+
+        </div>
+    </div>
+
+    <!-- Scroll to Top Button-->
+    <span class="scroll-to-top rounded">
+        <i class="fas fa-angle-up"></i>
+    </span>
+
+    <!-- 引入js資源 -->
+    <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+    <!-- 新增商品：搜尋並勾選多個規格，可用「統一折數」一次算出活動價，再逐一微調 -->
+    <div class="modal fade" id="add-items-modal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">新增活動商品</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-inline mb-3">
+                        <input type="text" id="sku-keyword" class="form-control form-control-sm mr-2" placeholder="商品或規格名稱" />
+                        <button type="button" class="btn btn-primary btn-sm mr-4" id="btn-sku-search">搜尋</button>
+                        <label for="bulk-rate" class="mr-2 small">統一折數</label>
+                        <input type="number" id="bulk-rate" class="form-control form-control-sm mr-1" style="width:80px" min="1" max="99" placeholder="例如 50" />
+                        <span class="small mr-2">（50 = 5 折）</span>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-bulk-apply">套用到已勾選</button>
+                    </div>
+                    <div style="max-height:360px; overflow:auto">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px"><input type="checkbox" id="sku-check-all" /></th>
+                                    <th>商品</th>
+                                    <th>規格</th>
+                                    <th class="text-right">原價</th>
+                                    <th style="width:140px">活動價</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sku-option-body">
+                                <tr><td colspan="5" class="text-center text-muted">載入中…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted mt-2 mb-0">最多列出 100 筆，請用搜尋縮小範圍；已經在這個活動裡的規格不會出現。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="btn-items-save">儲存勾選的商品</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script th:inline="javascript">
+    $(function () {
+        var promoProjectId = /*[[${promo.promoProjectId}]]*/ 0;
+        var urls = {
+            options: /*[[@{/admin/promo/sku-options}]]*/ '/admin/promo/sku-options',
+            save: /*[[@{/admin/promo/items/save}]]*/ '/admin/promo/items/save',
+            update: /*[[@{/admin/promo/items/update}]]*/ '/admin/promo/items/update',
+            remove: /*[[@{/admin/promo/items/delete}]]*/ '/admin/promo/items/delete'
+        };
+        var $body = $('#sku-option-body');
+
+        // 載入可選規格。文字一律用 .text() 放進畫面，商品名稱不會被當成 HTML 解析
+        function loadOptions() {
+            $body.html('<tr><td colspan="5" class="text-center text-muted">載入中…</td></tr>');
+            $.get(urls.options, { promoProjectId: promoProjectId, keyword: $('#sku-keyword').val() })
+                .done(function (list) {
+                    $body.empty();
+                    if (!list.length) {
+                        $body.html('<tr><td colspan="5" class="text-center text-muted">沒有符合的商品</td></tr>');
+                        return;
+                    }
+                    $.each(list, function (i, s) {
+                        var $tr = $('<tr>').attr('data-sku-id', s.skuId).attr('data-price', s.price);
+                        $('<td>').append($('<input type="checkbox" class="sku-check">')).appendTo($tr);
+                        $('<td>').text(s.productName).appendTo($tr);
+                        $('<td>').text(s.skuName).appendTo($tr);
+                        $('<td class="text-right">').text(s.price).appendTo($tr);
+                        $('<td>').append($('<input type="number" class="form-control form-control-sm sku-promo-price" min="1">')
+                            .attr('max', s.price - 1)).appendTo($tr);
+                        $body.append($tr);
+                    });
+                })
+                .fail(function () {
+                    $body.html('<tr><td colspan="5" class="text-center text-danger">載入失敗，請稍後再試</td></tr>');
+                });
+        }
+
+        $('#btn-add-items').on('click', function () {
+            $('#sku-keyword').val('');
+            $('#bulk-rate').val('');
+            $('#sku-check-all').prop('checked', false);
+            loadOptions();
+            $('#add-items-modal').modal('show');
+        });
+        $('#btn-sku-search').on('click', loadOptions);
+        $('#sku-keyword').on('keydown', function (e) { if (e.which === 13) { e.preventDefault(); loadOptions(); } });
+        $('#sku-check-all').on('change', function () { $body.find('.sku-check').prop('checked', this.checked); });
+
+        // 統一折數：把已勾選的規格活動價設成 原價 × 折數（四捨五入，至少 1 元、一定低於原價），之後還能逐一修改
+        $('#btn-bulk-apply').on('click', function () {
+            var rate = Number($('#bulk-rate').val());
+            if (!(rate >= 1 && rate <= 99)) { alert('折數請填 1～99（50 代表 5 折）'); return; }
+            $body.find('tr').each(function () {
+                var $tr = $(this);
+                if (!$tr.find('.sku-check').is(':checked')) { return; }
+                var price = Number($tr.attr('data-price'));
+                var promo = Math.min(Math.max(Math.round(price * rate / 100), 1), price - 1);
+                $tr.find('.sku-promo-price').val(promo);
+            });
+        });
+
+        $('#btn-items-save').on('click', function () {
+            var skuIds = [], prices = [], ok = true;
+            $body.find('tr').each(function () {
+                var $tr = $(this);
+                if (!$tr.find('.sku-check').is(':checked')) { return; }
+                var price = Number($tr.attr('data-price'));
+                var promo = $tr.find('.sku-promo-price').val();
+                if (promo === '' || Number(promo) < 1 || Number(promo) >= price) { ok = false; }
+                skuIds.push($tr.attr('data-sku-id'));
+                prices.push(promo);
+            });
+            if (!skuIds.length) { alert('請至少勾選一個商品'); return; }
+            if (!ok) { alert('每個勾選的商品都要填活動價，而且必須大於 0、低於原價'); return; }
+            var $btn = $(this).prop('disabled', true);
+            $.ajax({ url: urls.save, type: 'POST', traditional: true,
+                     data: { promoProjectId: promoProjectId, skuIds: skuIds, promoPrices: prices } })
+                .done(function () { location.reload(); })
+                .fail(function (xhr) { alert('儲存失敗：' + (xhr.responseText || '請稍後再試')); $btn.prop('disabled', false); });
+        });
+
+        // 修改單一商品的活動價
+        $('.btn-edit-item').on('click', function () {
+            var $btn = $(this);
+            var original = Number($btn.attr('data-original'));
+            var input = prompt('新的活動價（必須大於 0 且低於原價 ' + original + '）', $btn.attr('data-price'));
+            if (input === null) { return; }
+            var price = Number(input);
+            if (!Number.isInteger(price) || price < 1 || price >= original) {
+                alert('活動價必須是大於 0、低於原價 ' + original + ' 的整數');
+                return;
+            }
+            $.post(urls.update, { promotionId: $btn.attr('data-id'), promoPrice: price })
+                .done(function () { location.reload(); })
+                .fail(function (xhr) { alert('更新失敗：' + (xhr.responseText || '請稍後再試')); });
+        });
+
+        // 移除單一商品（只移除這個活動的活動價，商品本身不受影響）
+        $('.btn-delete-item').on('click', function () {
+            if (!confirm('確定要把這個商品從活動中移除嗎？（只移除活動價，商品本身不受影響）')) { return; }
+            $.post(urls.remove, { promotionId: $(this).attr('data-id') })
+                .done(function () { location.reload(); })
+                .fail(function (xhr) { alert('移除失敗：' + (xhr.responseText || '請稍後再試')); });
+        });
+    });
+    </script>
+
+</body>
+</html>

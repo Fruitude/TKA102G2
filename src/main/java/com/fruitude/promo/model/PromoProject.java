@@ -31,6 +31,78 @@ public class PromoProject {
     @Column(name = "promo_project_context", length = 255)
     private String promoProjectContext;
 
+    // 活動類型：STOREWIDE、SKU、BIRTHDAY_MONTH、NEW_MEMBER_FIRST_ORDER、FREE_SHIPPING、WALLET_GRAB、REVIEW_REWARD
+    @Column(name = "promo_type", length = 30)
+    private String promoType;
+
+    // 優惠方式：PERCENT_OFF、AMOUNT_OFF、FIXED_PRICE、WALLET_CREDIT、FREE_SHIPPING
+    @Column(name = "benefit_type", length = 30)
+    private String benefitType;
+
+    // 優惠值：90 = 9 折、500 = 500 元，免運用 0
+    @Column(name = "benefit_value")
+    private Integer benefitValue;
+
+    // 最低消費（滿額免運用），null 代表不限
+    @Column(name = "min_order_amount")
+    private Integer minOrderAmount;
+
+    // 名額上限（搶購物金用），null 代表不限
+    @Column(name = "quota")
+    private Integer quota;
+
+    // 狀態：1 = 啟用、0 = 停用
+    @Column(name = "status")
+    private Integer status;
+
+	public String getPromoType() {
+		return promoType;
+	}
+
+	public void setPromoType(String promoType) {
+		this.promoType = promoType;
+	}
+
+	public String getBenefitType() {
+		return benefitType;
+	}
+
+	public void setBenefitType(String benefitType) {
+		this.benefitType = benefitType;
+	}
+
+	public Integer getBenefitValue() {
+		return benefitValue;
+	}
+
+	public void setBenefitValue(Integer benefitValue) {
+		this.benefitValue = benefitValue;
+	}
+
+	public Integer getMinOrderAmount() {
+		return minOrderAmount;
+	}
+
+	public void setMinOrderAmount(Integer minOrderAmount) {
+		this.minOrderAmount = minOrderAmount;
+	}
+
+	public Integer getQuota() {
+		return quota;
+	}
+
+	public void setQuota(Integer quota) {
+		this.quota = quota;
+	}
+
+	public Integer getStatus() {
+		return status;
+	}
+
+	public void setStatus(Integer status) {
+		this.status = status;
+	}
+
 	public Integer getPromoProjectId() {
 		return promoProjectId;
 	}
