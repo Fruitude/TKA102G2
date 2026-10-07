@@ -188,6 +188,38 @@
   font-size: 15px;
 }
 
+.favorite-card-add {
+  min-height: 38px;
+  margin-top: 18px;
+  padding: 8px 14px;
+  border: 1px solid var(--favorite-ink);
+  background: var(--favorite-ink);
+  color: var(--favorite-white);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color .2s ease, color .2s ease;
+}
+
+.favorite-card-add:hover:not(:disabled),
+.favorite-card-add:focus-visible {
+  background: var(--favorite-orange);
+  border-color: var(--favorite-orange);
+}
+
+.favorite-card-add:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.favorite-card-message {
+  display: block;
+  margin-top: 8px;
+  color: var(--favorite-orange);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .favorite-card-remove {
 	position: absolute;
 	top: 16px;

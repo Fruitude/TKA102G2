@@ -65,11 +65,22 @@ public class EmployeeAdminApiController {
 	@PostMapping
 	public ResponseEntity<Map<String, Object>> createEmployee(@RequestBody EmployeeForm form,
 			HttpServletRequest request) {
+		// 操作紀錄的 employee_id 必須對應目前登入者，先擋下未登入請求，避免資料庫只回傳模糊的 NULL 錯誤。
+		if (auditService.resolveEmployeeId(request) == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+					.body(messageObject("請先登入後台員工帳號，再新增員工"));
+		}
 		Employee employee = employeeAdminService.createEmployee(form.getEmployeeName(), form.getEmployeeAccount(),
 				form.getEmployeePassword(), form.getEmployeePhone(), form.getEmployeeEmail(), form.getPositionId());
 		auditService.record(request, "EMPLOYEE", "CREATE", employee.getEmployeeId(), employee.getEmployeeName(),
 				"建立員工帳號 " + employee.getEmployeeAccount());
 		return ResponseEntity.status(HttpStatus.CREATED).body(employeeResponse(employee));
+	}
+
+	private Map<String, Object> messageObject(String text) {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("message", text);
+		return body;
 	}
 
 	/** 修改員工姓名、帳號、電話與 Email。 */

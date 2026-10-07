@@ -1249,6 +1249,11 @@
     injectCardAddToCartButtons: injectCardAddToCartButtons,
     verify: verifyCart,
     quantityNotice: quantityNotice,
+    // 讓會員最愛等其他前台頁面，也能沿用商品頁相同的庫存與價格驗證。
+    addProduct: function (product, quantity, button, message) {
+      var trigger = button || document.createElement("button");
+      addVerifiedProduct(product, Math.max(1, Number(quantity) || 1), trigger, message || null);
+    },
     clear: function () {
       writeCart([]);
       renderAll();
