@@ -938,9 +938,17 @@
     var profile = document.createElement("div");
     profile.className = "member-menu-profile";
 
+    var nameRow = document.createElement("div");
+    nameRow.className = "member-menu-name-row";
     var name = document.createElement("div");
     name.className = "member-menu-name";
     name.textContent = member.memberName || "鮮果鋪會員";
+
+    var credit = document.createElement("div");
+    credit.className = "member-menu-credit";
+    credit.textContent = "購物金 NT$ " + Number(member.shoppingCredit || 0).toLocaleString("zh-TW");
+    nameRow.appendChild(name);
+    nameRow.appendChild(credit);
 
     var number = document.createElement("div");
     number.className = "member-menu-number";
@@ -993,7 +1001,7 @@
       '<path d="M10 17l5-5-5-5M15 12H3M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
       "</svg><span>登出</span>";
 
-    profile.appendChild(name);
+    profile.appendChild(nameRow);
     profile.appendChild(number);
     dropdown.appendChild(profile);
     dropdown.appendChild(profileLink);

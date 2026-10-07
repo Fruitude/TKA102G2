@@ -49,6 +49,19 @@ public class Employee {
 	@Column(name = "employee_status", nullable = false, columnDefinition = "TINYINT")
 	private Byte employeeStatus;
 
+	// 審核狀態與登入狀態分開：待審核帳號先保存資料，但不可登入。
+	@Column(name = "employee_review_status", nullable = false, columnDefinition = "TINYINT")
+	private Byte employeeReviewStatus;
+
+	@Column(name = "reviewed_by_employee_id")
+	private Integer reviewedByEmployeeId;
+
+	@Column(name = "reviewed_at")
+	private LocalDateTime reviewedAt;
+
+	@Column(name = "rejection_reason", length = 255)
+	private String rejectionReason;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
@@ -60,6 +73,7 @@ public class Employee {
 	public void applyDefaults() {
 		if (createdAt == null) createdAt = LocalDateTime.now();
 		if (employeeStatus == null) employeeStatus = (byte) 1;
+		if (employeeReviewStatus == null) employeeReviewStatus = (byte) 1;
 	}
 
 	public Integer getEmployeeId() { return employeeId; }
@@ -78,6 +92,14 @@ public class Employee {
 	public void setPositionId(Integer positionId) { this.positionId = positionId; }
 	public Byte getEmployeeStatus() { return employeeStatus; }
 	public void setEmployeeStatus(Byte employeeStatus) { this.employeeStatus = employeeStatus; }
+	public Byte getEmployeeReviewStatus() { return employeeReviewStatus; }
+	public void setEmployeeReviewStatus(Byte employeeReviewStatus) { this.employeeReviewStatus = employeeReviewStatus; }
+	public Integer getReviewedByEmployeeId() { return reviewedByEmployeeId; }
+	public void setReviewedByEmployeeId(Integer reviewedByEmployeeId) { this.reviewedByEmployeeId = reviewedByEmployeeId; }
+	public LocalDateTime getReviewedAt() { return reviewedAt; }
+	public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
+	public String getRejectionReason() { return rejectionReason; }
+	public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 	public LocalDateTime getCreatedAt() { return createdAt; }
 	public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 	public LocalDateTime getLastLoginAt() { return lastLoginAt; }
