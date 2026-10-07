@@ -33,6 +33,9 @@
                         <button class="employee-tab is-active" data-tab="accounts" type="button">
                             <i class="fas fa-users" aria-hidden="true"></i><span>員工帳號</span>
                         </button>
+                        <button class="employee-tab" data-tab="applications" type="button">
+                            <i class="fas fa-user-clock" aria-hidden="true"></i><span>帳號申請</span><span class="employee-tab-count" id="employee-application-count">0</span>
+                        </button>
                         <button class="employee-tab" data-tab="assignments" type="button">
                             <i class="fas fa-user-shield" aria-hidden="true"></i><span>權限配置</span>
                         </button>
@@ -86,6 +89,23 @@
                         <div class="employee-empty" id="employee-empty" hidden>找不到符合條件的員工。</div>
                     </div>
 
+                    <div class="employee-panel" data-panel="applications" hidden>
+                        <div class="employee-toolbar">
+                            <div>
+                                <h2 class="h5 mb-1">待審核員工申請</h2>
+                                <p class="text-muted mb-0">核准後會直接成為正式員工，退回的申請會保留原因。</p>
+                            </div>
+                            <button class="btn btn-outline-primary employee-command" id="employee-application-refresh" type="button" title="重新載入申請"><i class="fas fa-sync-alt" aria-hidden="true"></i><span>重新整理</span></button>
+                        </div>
+                        <div class="table-responsive employee-table-wrap">
+                            <table class="table employee-table mb-0">
+                                <thead><tr><th>申請人</th><th>聯絡資料</th><th>申請職位</th><th>申請時間</th><th class="text-right">審核</th></tr></thead>
+                                <tbody id="employee-application-table-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="employee-empty" id="employee-application-empty" hidden>目前沒有待審核申請。</div>
+                    </div>
+
                     <div class="employee-panel" data-panel="positions" hidden>
                         <div class="employee-toolbar">
                             <div class="employee-filter-row">
@@ -112,6 +132,7 @@
                                         <th>職位代碼</th>
                                         <th>職位名稱</th>
                                         <th>職位說明</th>
+                                        <th>基本權限</th>
                                         <th>狀態</th>
                                         <th>最後修改時間</th>
                                         <th class="text-right">操作</th>
@@ -224,6 +245,8 @@
                                         <option value="CREATE">新增</option>
                                         <option value="UPDATE">修改</option>
                                         <option value="STATUS">狀態變更</option>
+                                        <option value="APPROVE">核准申請</option>
+                                        <option value="REJECT">退回申請</option>
                                         <option value="PASSWORD">重設密碼</option>
                                         <option value="ASSIGN">權限配置</option>
                                     </select>
@@ -341,6 +364,31 @@
     </div>
 </div>
 
+<!-- 設定職位基本權限 -->
+<div class="modal fade" id="position-permission-modal" tabindex="-1" role="dialog" aria-labelledby="position-permission-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5 mb-1" id="position-permission-modal-title">設定職位基本權限</h2>
+                    <div class="employee-modal-target mb-0" id="position-permission-name"></div>
+                </div>
+                <button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <p class="position-permission-note"><i class="fas fa-info-circle mr-1" aria-hidden="true"></i>這裡設定的是職位範本；新建、核准或換職位時會自動套用，不會覆蓋既有員工的個別權限。</p>
+                <div class="position-permission-summary"><span id="position-permission-selection-count">0 項已選</span></div>
+                <div class="permission-groups position-permission-groups" id="position-permission-groups"></div>
+                <p class="employee-modal-feedback" data-modal-feedback aria-live="polite"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-dismiss="modal">取消</button>
+                <button class="btn btn-primary" id="position-permission-save-button" type="button"><i class="fas fa-save mr-1"></i>儲存職位權限</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 啟用或停用職位確認 -->
 <div class="modal fade" id="position-status-modal" tabindex="-1" role="dialog" aria-labelledby="position-status-modal-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
@@ -385,6 +433,25 @@
     </div>
 </div>
 
+<!-- 退回員工申請 -->
+<div class="modal fade" id="employee-application-reject-modal" tabindex="-1" role="dialog" aria-labelledby="employee-application-reject-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content">
+            <form id="employee-application-reject-form" novalidate>
+                <div class="modal-header"><h2 class="modal-title h5" id="employee-application-reject-title">退回員工申請</h2><button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button></div>
+                <div class="modal-body">
+                    <input id="employee-application-reject-id" type="hidden">
+                    <p class="mb-2" id="employee-application-reject-name"></p>
+                    <label for="employee-application-reject-reason">退回原因 *</label>
+                    <textarea class="form-control" id="employee-application-reject-reason" maxlength="255" required rows="4" placeholder="請說明需要補充或修改的資料"></textarea>
+                    <p class="employee-modal-feedback" data-modal-feedback aria-live="polite"></p>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">取消</button><button class="btn btn-danger" type="submit">退回申請</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- 編輯權限功能顯示資料 -->
 <div class="modal fade" id="function-modal" tabindex="-1" role="dialog" aria-labelledby="function-modal-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
@@ -406,6 +473,6 @@
 </div>
 
 <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-<script th:src="@{/js/employee-admin.js?v=12}"></script>
+<script th:src="@{/js/employee-admin.js?v=17}"></script>
 </body>
 </html>

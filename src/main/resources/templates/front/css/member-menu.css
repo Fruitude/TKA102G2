@@ -59,11 +59,28 @@
 }
 
 .member-menu-name {
-  margin-bottom: 3px;
+  min-width: 0;
   font-size: 17px;
   font-weight: 600;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.member-menu-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.member-menu-credit {
+  flex: 0 0 auto;
+  color: #ed5b2a;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .member-menu-number {

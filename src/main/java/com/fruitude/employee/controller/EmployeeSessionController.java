@@ -60,6 +60,22 @@ public class EmployeeSessionController {
 		}
 	}
 
+	/** 公開員工申請：資料先保存為待審核，未經系統管理員核准不可登入。 */
+	@PostMapping("/applications")
+	public ResponseEntity<?> apply(@RequestBody ApplicationRequest form) {
+		try {
+			Employee employee = employeeAdminService.submitEmployeeApplication(form.getEmployeeName(),
+					form.getEmployeeAccount(), form.getEmployeePassword(), form.getEmployeePhone(),
+					form.getEmployeeEmail(), form.getPositionId());
+			Map<String, Object> body = new LinkedHashMap<>();
+			body.put("message", "申請已送出，請等待系統管理員審核");
+			body.put("employeeId", employee.getEmployeeId());
+			return ResponseEntity.status(HttpStatus.CREATED).body(body);
+		} catch (IllegalArgumentException error) {
+			return ResponseEntity.badRequest().body(message(error.getMessage()));
+		}
+	}
+
 	/** 清除後台員工 Session；未登入時重複登出也視為成功。 */
 	@PostMapping("/logout")
 	public ResponseEntity<Void> logout(HttpServletRequest request) {
@@ -178,5 +194,27 @@ public class EmployeeSessionController {
 		public void setEmployeePhone(String employeePhone) { this.employeePhone = employeePhone; }
 		public String getEmployeeEmail() { return employeeEmail; }
 		public void setEmployeeEmail(String employeeEmail) { this.employeeEmail = employeeEmail; }
+	}
+
+	/** 員工申請表單；密碼只會在後端雜湊後保存。 */
+	public static class ApplicationRequest {
+		private String employeeName;
+		private String employeeAccount;
+		private String employeePassword;
+		private String employeePhone;
+		private String employeeEmail;
+		private Integer positionId;
+		public String getEmployeeName() { return employeeName; }
+		public void setEmployeeName(String employeeName) { this.employeeName = employeeName; }
+		public String getEmployeeAccount() { return employeeAccount; }
+		public void setEmployeeAccount(String employeeAccount) { this.employeeAccount = employeeAccount; }
+		public String getEmployeePassword() { return employeePassword; }
+		public void setEmployeePassword(String employeePassword) { this.employeePassword = employeePassword; }
+		public String getEmployeePhone() { return employeePhone; }
+		public void setEmployeePhone(String employeePhone) { this.employeePhone = employeePhone; }
+		public String getEmployeeEmail() { return employeeEmail; }
+		public void setEmployeeEmail(String employeeEmail) { this.employeeEmail = employeeEmail; }
+		public Integer getPositionId() { return positionId; }
+		public void setPositionId(Integer positionId) { this.positionId = positionId; }
 	}
 }

@@ -116,6 +116,22 @@
     background: var(--employee-blue);
 }
 
+.employee-tab-count {
+    min-width: 1.35rem;
+    padding: .1rem .35rem;
+    border-radius: 999px;
+    background: #edf2ff;
+    color: var(--employee-blue);
+    font-size: .72rem;
+    text-align: center;
+}
+
+.employee-application-actions {
+    display: inline-flex;
+    justify-content: flex-end;
+    gap: .4rem;
+}
+
 .employee-tab:focus-visible,
 .employee-command:focus-visible,
 .employee-action:focus-visible {
@@ -776,6 +792,30 @@
     font-weight: 800;
 }
 
+.permission-group-collapse {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--employee-ink);
+    text-align: left;
+    align-items: center;
+    gap: .55rem;
+    cursor: pointer;
+    display: inline-flex;
+}
+
+.permission-group-collapse i {
+    width: .85rem;
+    color: var(--employee-blue);
+    font-size: .72rem;
+    text-align: center;
+}
+
+.permission-group-collapse:focus-visible {
+    outline: 2px solid var(--employee-blue);
+    outline-offset: 3px;
+}
+
 .permission-group-toggle {
     padding: 0;
     border: 0;
@@ -796,6 +836,10 @@
     display: flex;
 }
 
+.permission-group-options.is-collapsed {
+    display: none;
+}
+
 .permission-option:last-child {
     border-bottom: 0;
 }
@@ -814,6 +858,30 @@
 .permission-option strong,
 .permission-option small {
     display: block;
+}
+
+.position-permission-note {
+    margin: 0 0 1rem;
+    padding: .7rem .85rem;
+    border-left: 3px solid var(--employee-blue);
+    background: #f4f6fd;
+    color: var(--employee-muted);
+    font-size: .84rem;
+    line-height: 1.55;
+}
+
+.position-permission-summary {
+    margin-bottom: .75rem;
+    color: var(--employee-blue-dark);
+    font-size: .82rem;
+    font-weight: 800;
+    text-align: right;
+}
+
+.position-permission-groups {
+    max-height: 55vh;
+    overflow-y: auto;
+    padding-right: .25rem;
 }
 
 .permission-option strong {

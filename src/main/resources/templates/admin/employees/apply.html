@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>申請員工帳號</title>
+    <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+    <link th:href="@{/css/admin-topbar.css?v=3}" rel="stylesheet">
+    <style>
+        .employee-application-page { min-height: 100vh; padding: 3rem 1rem; background: #f4f6fb; }
+        .employee-application-panel { max-width: 720px; margin: 0 auto; background: #fff; border: 1px solid #dfe3ec; box-shadow: 0 .2rem 1.2rem rgba(58,59,69,.1); }
+        .employee-application-heading { padding: 2rem 2.25rem 1.5rem; border-bottom: 1px solid #e5e7ed; }
+        .employee-application-heading h1 { color: #343846; }
+        .employee-application-heading p { color: #747988; }
+        .employee-application-form { padding: 2rem 2.25rem; }
+        .employee-application-feedback { margin-bottom: 1rem; color: #9c2937; }
+        .employee-application-success { color: #176b46; }
+        @media (max-width: 576px) { .employee-application-heading, .employee-application-form { padding: 1.5rem; } }
+    </style>
+</head>
+<body>
+<main class="employee-application-page">
+    <section class="employee-application-panel" aria-labelledby="employee-application-title">
+        <header class="employee-application-heading">
+            <h1 class="h3 mb-2" id="employee-application-title"><i class="fas fa-user-plus mr-2" aria-hidden="true"></i>申請員工帳號</h1>
+            <p class="mb-0">填寫資料後，待系統管理員審核通過即可登入後台。</p>
+        </header>
+        <form class="employee-application-form" id="employee-application-form" novalidate>
+            <div class="form-group"><label for="application-name">員工姓名 *</label><input class="form-control" id="application-name" maxlength="50" minlength="2" required type="text" autocomplete="name"><small class="form-text text-muted">2～50 個字元。</small></div>
+            <div class="form-group"><label for="application-account">登入帳號 *</label><input class="form-control" id="application-account" maxlength="50" pattern="[A-Za-z0-9_]{4,50}" required type="text" autocomplete="username"><small class="form-text text-muted">4～50 碼半形英數字或底線。</small></div>
+            <div class="form-row">
+                <div class="form-group col-md-6"><label for="application-password">登入密碼 *</label><input class="form-control" id="application-password" maxlength="72" minlength="8" required type="password" autocomplete="new-password"></div>
+                <div class="form-group col-md-6"><label for="application-password-confirm">確認密碼 *</label><input class="form-control" id="application-password-confirm" maxlength="72" minlength="8" required type="password" autocomplete="new-password"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-6"><label for="application-phone">聯絡電話 *</label><input class="form-control" id="application-phone" maxlength="20" required type="tel" autocomplete="tel"></div>
+                <div class="form-group col-md-6"><label for="application-email">電子信箱 *</label><input class="form-control" id="application-email" maxlength="100" required type="email" autocomplete="email"></div>
+            </div>
+            <div class="form-group"><label for="application-position">申請職位 *</label><select class="form-control" id="application-position" required><option value="">載入職位中…</option></select></div>
+            <p class="employee-application-feedback" id="employee-application-feedback" role="status" aria-live="polite"></p>
+            <button class="btn btn-primary btn-block" id="employee-application-submit" type="submit"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>送出申請</button>
+            <a class="btn btn-link btn-block mt-2" th:href="@{/admin/employees/login}">返回員工登入</a>
+        </form>
+    </section>
+</main>
+<script th:src="@{/js/employee-application.js?v=1}"></script>
+</body>
+</html>

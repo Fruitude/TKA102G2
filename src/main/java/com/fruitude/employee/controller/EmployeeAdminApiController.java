@@ -31,6 +31,7 @@ import com.fruitude.employee.model.OperationAuditLog;
 import com.fruitude.employee.model.OperationAuditService;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 /**
  * 後台員工管理 API：提供員工帳號、權限配置與權限功能資料的讀寫介面。
@@ -75,6 +76,53 @@ public class EmployeeAdminApiController {
 		auditService.record(request, "EMPLOYEE", "CREATE", employee.getEmployeeId(), employee.getEmployeeName(),
 				"建立員工帳號 " + employee.getEmployeeAccount());
 		return ResponseEntity.status(HttpStatus.CREATED).body(employeeResponse(employee));
+	}
+
+	/** 取得待審核員工申請，申請資料與正式員工共用 employee Table。 */
+	@GetMapping("/applications")
+	public List<Map<String, Object>> findApplications() {
+		List<Map<String, Object>> result = new ArrayList<>();
+		for (Employee employee : employeeAdminService.findPendingApplications()) {
+			result.add(employeeResponse(employee));
+		}
+		return result;
+	}
+
+	/** 系統管理員核准申請，原資料直接轉為正常員工帳號。 */
+	@Transactional
+	@PutMapping("/{employeeId}/application/approve")
+	public Map<String, Object> approveApplication(@PathVariable("employeeId") Integer employeeId,
+			HttpServletRequest request) {
+		Integer reviewerId = requireSystemAdministrator(request);
+		Employee employee = employeeAdminService.approveApplication(employeeId, reviewerId);
+		auditService.record(request, "EMPLOYEE", "APPROVE", employeeId, employee.getEmployeeName(),
+				"核准員工帳號申請 " + employee.getEmployeeAccount());
+		return employeeResponse(employee);
+	}
+
+	/** 系統管理員退回申請，保留退回原因並禁止登入。 */
+	@Transactional
+	@PutMapping("/{employeeId}/application/reject")
+	public Map<String, Object> rejectApplication(@PathVariable("employeeId") Integer employeeId,
+			@RequestBody ApplicationRejectForm form, HttpServletRequest request) {
+		Integer reviewerId = requireSystemAdministrator(request);
+		Employee employee = employeeAdminService.rejectApplication(employeeId, reviewerId, form.getReason());
+		auditService.record(request, "EMPLOYEE", "REJECT", employeeId, employee.getEmployeeName(),
+				"退回員工帳號申請：" + employee.getRejectionReason());
+		return employeeResponse(employee);
+	}
+
+	private Integer requireSystemAdministrator(HttpServletRequest request) {
+		HttpSession session = request.getSession(false);
+		Object value = session == null ? null : session.getAttribute("loggedInEmployeeId");
+		if (!(value instanceof Number)) throw new IllegalArgumentException("請先登入後台員工帳號");
+		Integer employeeId = ((Number) value).intValue();
+		Employee reviewer = employeeAdminService.findEmployee(employeeId);
+		EmployeePosition position = employeeAdminService.findPosition(reviewer.getPositionId());
+		if (!"ADMIN".equalsIgnoreCase(position.getPositionCode())) {
+			throw new IllegalArgumentException("只有系統管理員可以審核員工申請");
+		}
+		return employeeId;
 	}
 
 	private Map<String, Object> messageObject(String text) {
@@ -125,8 +173,21 @@ public class EmployeeAdminApiController {
 
 	/** 取得所有員工職位，供職位管理與員工表單使用。 */
 	@GetMapping("/positions")
-	public List<EmployeePosition> findPositions() {
-		return employeeAdminService.findPositions();
+	public List<Map<String, Object>> findPositions() {
+		List<Map<String, Object>> result = new ArrayList<>();
+		for (EmployeePosition position : employeeAdminService.findPositions()) {
+			Map<String, Object> item = new LinkedHashMap<>();
+			item.put("positionId", position.getPositionId());
+			item.put("positionCode", position.getPositionCode());
+			item.put("positionName", position.getPositionName());
+			item.put("positionDescription", position.getPositionDescription());
+			item.put("positionStatus", position.getPositionStatus());
+			item.put("createdAt", position.getCreatedAt());
+			item.put("updatedAt", position.getUpdatedAt());
+			item.put("permissionCount", employeeAdminService.countPositionPermissions(position.getPositionId()));
+			result.add(item);
+		}
+		return result;
 	}
 
 	/** 新增員工職位。 */
@@ -162,6 +223,36 @@ public class EmployeeAdminApiController {
 		auditService.record(request, "POSITION", "STATUS", positionId, position.getPositionName(),
 				"職位狀態變更為" + (form.getPositionStatus() == 1 ? "啟用" : "停用"));
 		return position;
+	}
+
+	/** 取得指定職位目前保存的基本權限。 */
+	@GetMapping("/positions/{positionId}/permissions")
+	public Map<String, Object> findPositionPermissions(@PathVariable("positionId") Integer positionId) {
+		EmployeePosition position = employeeAdminService.findPosition(positionId);
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("positionId", positionId);
+		body.put("positionName", position.getPositionName());
+		body.put("permissionIds", employeeAdminService.findPositionPermissionIds(positionId));
+		return body;
+	}
+
+	/** 儲存職位基本權限範本；既有員工的個別權限不會被覆蓋。 */
+	@Transactional
+	@PutMapping("/positions/{positionId}/permissions")
+	public Map<String, Object> replacePositionPermissions(@PathVariable("positionId") Integer positionId,
+			@RequestBody PermissionAssignmentForm form, HttpServletRequest request) {
+		if (auditService.resolveEmployeeId(request) == null) {
+			throw new IllegalArgumentException("請先登入後台員工帳號，再設定職位基本權限");
+		}
+		EmployeePosition position = employeeAdminService.findPosition(positionId);
+		List<Integer> permissionIds = employeeAdminService.replacePositionPermissions(positionId,
+				form.getPermissionIds());
+		auditService.record(request, "POSITION", "PERMISSION", positionId, position.getPositionName(),
+				"儲存職位基本權限，共 " + permissionIds.size() + " 項");
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("positionId", positionId);
+		body.put("permissionIds", permissionIds);
+		return body;
 	}
 
 	/** 修改權限功能的顯示資料，權限代碼不接受變更。 */
@@ -280,6 +371,10 @@ public class EmployeeAdminApiController {
 		body.put("positionCode", position.getPositionCode());
 		body.put("positionName", position.getPositionName());
 		body.put("employeeStatus", employee.getEmployeeStatus());
+		body.put("employeeReviewStatus", employee.getEmployeeReviewStatus());
+		body.put("reviewedByEmployeeId", employee.getReviewedByEmployeeId());
+		body.put("reviewedAt", employee.getReviewedAt());
+		body.put("rejectionReason", employee.getRejectionReason());
 		body.put("createdAt", employee.getCreatedAt());
 		body.put("lastLoginAt", employee.getLastLoginAt());
 		body.put("permissionCount", employeeAdminService.countPermissions(employee.getEmployeeId()));
@@ -346,6 +441,13 @@ public class EmployeeAdminApiController {
 		private String employeePassword;
 		public String getEmployeePassword() { return employeePassword; }
 		public void setEmployeePassword(String employeePassword) { this.employeePassword = employeePassword; }
+	}
+
+	/** 退回申請時使用的原因。 */
+	public static class ApplicationRejectForm {
+		private String reason;
+		public String getReason() { return reason; }
+		public void setReason(String reason) { this.reason = reason; }
 	}
 
 	/** 權限分配表單，完整清單代表儲存後員工應擁有的權限。 */

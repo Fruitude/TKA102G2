@@ -31,6 +31,9 @@ public class EmployeeAdminService {
 
 	public static final byte STATUS_DISABLED = 0;
 	public static final byte STATUS_ACTIVE = 1;
+	public static final byte REVIEW_PENDING = 0;
+	public static final byte REVIEW_APPROVED = 1;
+	public static final byte REVIEW_REJECTED = 2;
 	private static final int PASSWORD_ITERATIONS = 120000;
 	private static final int PASSWORD_KEY_LENGTH = 256;
 	private static final int PASSWORD_SALT_LENGTH = 16;
@@ -42,16 +45,19 @@ public class EmployeeAdminService {
 	private final EmployeePermissionRepository employeePermissionRepository;
 	private final EmployeePermissionFunctionRepository permissionFunctionRepository;
 	private final EmployeePositionRepository positionRepository;
+	private final EmployeePositionPermissionRepository positionPermissionRepository;
 
 	/** 建構子注入三個 Repository，確保服務建立時依賴完整。 */
 	public EmployeeAdminService(EmployeeRepository employeeRepository,
 			EmployeePermissionRepository employeePermissionRepository,
 			EmployeePermissionFunctionRepository permissionFunctionRepository,
-			EmployeePositionRepository positionRepository) {
+			EmployeePositionRepository positionRepository,
+			EmployeePositionPermissionRepository positionPermissionRepository) {
 		this.employeeRepository = employeeRepository;
 		this.employeePermissionRepository = employeePermissionRepository;
 		this.permissionFunctionRepository = permissionFunctionRepository;
 		this.positionRepository = positionRepository;
+		this.positionPermissionRepository = positionPermissionRepository;
 	}
 
 	/** 依關鍵字與狀態篩選員工，並固定依員工編號排序。 */
@@ -59,6 +65,8 @@ public class EmployeeAdminService {
 		if (status != null) validateStatus(status);
 		String searchText = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
 		return employeeRepository.findAll().stream()
+				.filter(employee -> employee.getEmployeeReviewStatus() == null
+						|| employee.getEmployeeReviewStatus() == REVIEW_APPROVED)
 				.filter(employee -> status == null || employee.getEmployeeStatus().intValue() == status)
 				.filter(employee -> searchText.isEmpty()
 						|| contains(employee.getEmployeeName(), searchText)
@@ -81,6 +89,7 @@ public class EmployeeAdminService {
 		Employee employee = employeeRepository.findByEmployeeAccountIgnoreCase(cleanAccount)
 				.orElseThrow(() -> new IllegalArgumentException("帳號或密碼錯誤"));
 		if (employee.getEmployeeStatus() == null || employee.getEmployeeStatus() != STATUS_ACTIVE
+				|| employee.getEmployeeReviewStatus() != null && employee.getEmployeeReviewStatus() != REVIEW_APPROVED
 				|| !passwordsMatch(password, employee.getEmployeePassword())) {
 			throw new IllegalArgumentException("帳號或密碼錯誤，或此帳號已停用");
 		}
@@ -136,7 +145,66 @@ public class EmployeeAdminService {
 		validatePassword(password);
 		employee.setEmployeePassword(hashPassword(password));
 		employee.setEmployeeStatus(STATUS_ACTIVE);
+		employee.setEmployeeReviewStatus(REVIEW_APPROVED);
+		employee = employeeRepository.save(employee);
+		applyPositionDefaultPermissions(employee.getEmployeeId(), positionId);
+		return employee;
+	}
+
+	/** 公開申請流程：先建立不可登入的待審核員工資料，核准後沿用同一筆資料啟用。 */
+	@Transactional
+	public Employee submitEmployeeApplication(String name, String account, String password, String phone,
+			String email, Integer positionId) {
+		Employee employee = new Employee();
+		applyProfile(employee, name, account, phone, email, positionId, null);
+		validatePassword(password);
+		employee.setEmployeePassword(hashPassword(password));
+		employee.setEmployeeStatus(STATUS_DISABLED);
+		employee.setEmployeeReviewStatus(REVIEW_PENDING);
+		employee.setReviewedByEmployeeId(null);
+		employee.setReviewedAt(null);
+		employee.setRejectionReason(null);
 		return employeeRepository.save(employee);
+	}
+
+	/** 取得待審核申請；申請與正式員工共用 employee Table。 */
+	public List<Employee> findPendingApplications() {
+		return employeeRepository.findByEmployeeReviewStatusOrderByCreatedAtAsc(REVIEW_PENDING);
+	}
+
+	/** 核准申請，將同一筆員工資料轉成可登入的正式帳號。 */
+	@Transactional
+	public Employee approveApplication(Integer employeeId, Integer reviewerId) {
+		Employee employee = findEmployee(employeeId);
+		ensurePending(employee);
+		employee.setEmployeeReviewStatus(REVIEW_APPROVED);
+		employee.setEmployeeStatus(STATUS_ACTIVE);
+		employee.setReviewedByEmployeeId(reviewerId);
+		employee.setReviewedAt(java.time.LocalDateTime.now());
+		employee.setRejectionReason(null);
+		employee = employeeRepository.save(employee);
+		applyPositionDefaultPermissions(employee.getEmployeeId(), employee.getPositionId());
+		return employee;
+	}
+
+	/** 退回申請並留下原因；退回資料不可登入，仍保留供後續追蹤。 */
+	@Transactional
+	public Employee rejectApplication(Integer employeeId, Integer reviewerId, String reason) {
+		Employee employee = findEmployee(employeeId);
+		ensurePending(employee);
+		String cleanReason = requireText(reason, "請填寫退回原因", 255, "退回原因最多 255 個字");
+		employee.setEmployeeReviewStatus(REVIEW_REJECTED);
+		employee.setEmployeeStatus(STATUS_DISABLED);
+		employee.setReviewedByEmployeeId(reviewerId);
+		employee.setReviewedAt(java.time.LocalDateTime.now());
+		employee.setRejectionReason(cleanReason);
+		return employeeRepository.save(employee);
+	}
+
+	private void ensurePending(Employee employee) {
+		if (employee.getEmployeeReviewStatus() == null || employee.getEmployeeReviewStatus() != REVIEW_PENDING) {
+			throw new IllegalArgumentException("這筆員工申請已經審核完成");
+		}
 	}
 
 	/** 修改員工基本資料；密碼與狀態由各自獨立的操作處理。 */
@@ -144,8 +212,13 @@ public class EmployeeAdminService {
 	public Employee updateEmployee(Integer employeeId, String name, String account, String phone, String email,
 			Integer positionId) {
 		Employee employee = findEmployee(employeeId);
+		Integer previousPositionId = employee.getPositionId();
 		applyProfile(employee, name, account, phone, email, positionId, employeeId);
-		return employeeRepository.save(employee);
+		employee = employeeRepository.save(employee);
+		if (!java.util.Objects.equals(previousPositionId, positionId)) {
+			applyPositionDefaultPermissions(employee.getEmployeeId(), positionId);
+		}
+		return employee;
 	}
 
 	/** 啟用或停用員工帳號，不刪除被其他業務資料引用的員工。 */
@@ -238,6 +311,76 @@ public class EmployeeAdminService {
 	/** 回傳員工目前的權限數量，供帳號清單快速顯示。 */
 	public long countPermissions(Integer employeeId) {
 		return employeePermissionRepository.countByEmployeeId(employeeId);
+	}
+
+	/**
+	 * 依職位設定補入基本權限。只新增目前沒有的項目，不移除管理者後續手動增加的個別權限。
+	 */
+	@Transactional
+	public int applyPositionDefaultPermissions(Integer employeeId, Integer positionId) {
+		findEmployee(employeeId);
+		findPosition(positionId);
+		Set<Integer> defaultIds = positionPermissionRepository.findByPositionIdOrderByPermissionIdAsc(positionId)
+				.stream().map(EmployeePositionPermission::getPermissionId).collect(Collectors.toSet());
+		if (defaultIds.isEmpty()) return 0;
+		Set<Integer> currentIds = employeePermissionRepository.findByEmployeeIdOrderByPermissionIdAsc(employeeId)
+				.stream().map(EmployeePermission::getPermissionId).collect(Collectors.toSet());
+		List<EmployeePermission> additions = new ArrayList<>();
+		for (Integer permissionId : defaultIds) {
+			if (!currentIds.contains(permissionId)) {
+				EmployeePermission item = new EmployeePermission();
+				item.setEmployeeId(employeeId);
+				item.setPermissionId(permissionId);
+				additions.add(item);
+			}
+		}
+		if (!additions.isEmpty()) employeePermissionRepository.saveAll(additions);
+		return additions.size();
+	}
+
+	/** 取得職位目前保存的基本權限編號，供職位管理視窗顯示勾選狀態。 */
+	public List<Integer> findPositionPermissionIds(Integer positionId) {
+		findPosition(positionId);
+		return positionPermissionRepository.findByPositionIdOrderByPermissionIdAsc(positionId).stream()
+				.map(EmployeePositionPermission::getPermissionId).collect(Collectors.toList());
+	}
+
+	/** 回傳職位目前保存的基本權限數量，供職位清單顯示。 */
+	public long countPositionPermissions(Integer positionId) {
+		return positionPermissionRepository.countByPositionId(positionId);
+	}
+
+	/**
+	 * 儲存職位基本權限範本；只修改職位範本，不覆蓋既有員工的個別權限。
+	 */
+	@Transactional
+	public List<Integer> replacePositionPermissions(Integer positionId, List<Integer> requestedIds) {
+		findPosition(positionId);
+		Set<Integer> targetIds = requestedIds == null ? new LinkedHashSet<>()
+				: requestedIds.stream().filter(id -> id != null)
+						.collect(Collectors.toCollection(LinkedHashSet::new));
+		if (permissionFunctionRepository.findAllById(targetIds).size() != targetIds.size()) {
+			throw new IllegalArgumentException("包含不存在的權限功能，請重新整理後再試");
+		}
+
+		List<EmployeePositionPermission> current = positionPermissionRepository
+				.findByPositionIdOrderByPermissionIdAsc(positionId);
+		Set<Integer> currentIds = current.stream().map(EmployeePositionPermission::getPermissionId)
+				.collect(Collectors.toSet());
+		List<EmployeePositionPermission> removed = current.stream()
+				.filter(item -> !targetIds.contains(item.getPermissionId())).collect(Collectors.toList());
+		List<EmployeePositionPermission> added = new ArrayList<>();
+		for (Integer permissionId : targetIds) {
+			if (!currentIds.contains(permissionId)) {
+				EmployeePositionPermission item = new EmployeePositionPermission();
+				item.setPositionId(positionId);
+				item.setPermissionId(permissionId);
+				added.add(item);
+			}
+		}
+		positionPermissionRepository.deleteAll(removed);
+		positionPermissionRepository.saveAll(added);
+		return targetIds.stream().sorted().collect(Collectors.toList());
 	}
 
 	/**

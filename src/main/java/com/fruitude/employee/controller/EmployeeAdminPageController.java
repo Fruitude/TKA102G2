@@ -19,4 +19,10 @@ public class EmployeeAdminPageController {
 	public String loginPage() {
 		return "admin/employees/login";
 	}
+
+	/** 公開員工申請頁；送出後需由系統管理員審核。 */
+	@GetMapping("/apply")
+	public String applicationPage() {
+		return "admin/employees/apply";
+	}
 }

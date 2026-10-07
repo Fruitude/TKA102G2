@@ -5,6 +5,7 @@
     const apiBase = contextPath + '/api/admin/employees';
     const state = {
         employees: [],
+        applications: [],
         positions: [],
         functions: [],
         auditLogs: [],
@@ -12,6 +13,7 @@
         auditTotalPages: 0,
         auditTotalElements: 0,
         selectedEmployeeId: null,
+        selectedPositionId: null,
         permissionPositionFilter: "",
         permissionSearchKeyword: '',
         pendingStatus: null,
@@ -180,6 +182,39 @@
         byId('employee-total-count').textContent = String(state.employees.length);
     }
 
+    // 顯示待審核申請；核准後同一筆 employee 資料會出現在員工帳號頁。
+    function renderApplications() {
+        const body = byId('employee-application-table-body');
+        body.replaceChildren();
+        state.applications.forEach((application) => {
+            const row = document.createElement('tr');
+            const personCell = document.createElement('td');
+            const person = createElement('div', 'employee-person');
+            person.appendChild(createElement('span', 'employee-avatar', employeeInitial(application.employeeName)));
+            const identity = document.createElement('div');
+            identity.appendChild(createElement('div', 'employee-primary', application.employeeName));
+            identity.appendChild(createElement('div', 'employee-secondary', application.employeeAccount));
+            person.appendChild(identity);
+            personCell.appendChild(person);
+            const contactCell = document.createElement('td');
+            contactCell.appendChild(createElement('div', 'employee-primary', application.employeeEmail));
+            contactCell.appendChild(createElement('div', 'employee-secondary', application.employeePhone));
+            const positionCell = document.createElement('td');
+            positionCell.appendChild(createElement('div', 'employee-primary', application.positionName));
+            positionCell.appendChild(createElement('div', 'employee-secondary', application.positionCode));
+            const createdCell = createElement('td', '', formatDate(application.createdAt));
+            const actionCell = createElement('td', 'text-right');
+            const actions = createElement('div', 'employee-application-actions');
+            actions.appendChild(makeAction('fas fa-check', '核准申請', 'application-approve', application.employeeId));
+            actions.appendChild(makeAction('fas fa-times', '退回申請', 'application-reject', application.employeeId, true));
+            actionCell.appendChild(actions);
+            [personCell, contactCell, positionCell, createdCell, actionCell].forEach((cell) => row.appendChild(cell));
+            body.appendChild(row);
+        });
+        byId('employee-application-empty').hidden = state.applications.length !== 0;
+        byId('employee-application-count').textContent = String(state.applications.length);
+    }
+
     // 職位主檔獨立管理，員工表單只顯示目前啟用的職位。
     function renderPositions() {
         const keyword = byId('position-search').value.trim().toLowerCase();
@@ -199,6 +234,9 @@
             codeCell.appendChild(createElement('code', 'permission-code', position.positionCode));
             const nameCell = createElement('td', 'employee-primary', position.positionName);
             const descriptionCell = createElement('td', '', position.positionDescription || '—');
+            const permissionCell = document.createElement('td');
+            permissionCell.appendChild(createElement('span', 'employee-permission-count',
+                String(position.permissionCount || 0) + ' 項'));
             const active = Number(position.positionStatus) === 1;
             const statusCell = document.createElement('td');
             statusCell.appendChild(createElement('span', 'employee-badge ' + (active ? 'is-active' : 'is-disabled'),
@@ -206,11 +244,12 @@
             const updatedCell = createElement('td', '', formatDate(position.updatedAt));
             const actionCell = createElement('td', 'text-right');
             const actions = createElement('div', 'employee-actions');
+            actions.appendChild(makePositionAction('fas fa-key', '設定職位基本權限', 'permissions', position.positionId));
             actions.appendChild(makePositionAction('fas fa-pen', '編輯職位', 'edit', position.positionId));
             actions.appendChild(makePositionAction(active ? 'fas fa-ban' : 'fas fa-check',
                 active ? '停用職位' : '啟用職位', 'status', position.positionId, active));
             actionCell.appendChild(actions);
-            [codeCell, nameCell, descriptionCell, statusCell, updatedCell, actionCell]
+            [codeCell, nameCell, descriptionCell, permissionCell, statusCell, updatedCell, actionCell]
                 .forEach((cell) => row.appendChild(cell));
             body.appendChild(row);
         });
@@ -374,13 +413,16 @@
         if (saveBtn) saveBtn.disabled = false;
     }
 
-    function updatePermissionCount() {
-        const checked = document.querySelectorAll('#permission-groups input[type="checkbox"]:checked').length;
-        byId('permission-selection-count').textContent = checked + ' 項已選';
+    function updatePermissionCount(containerId, countId) {
+        const checked = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]:checked').length;
+        byId(countId).textContent = checked + ' 項已選';
     }
 
     // 權限依資料庫群組呈現，同一群組可用「全選／清除」快速操作。
-    function renderPermissionGroups(selectedIds) {
+    function renderPermissionGroups(selectedIds, containerId, countId, collapsed) {
+        containerId = containerId || 'permission-groups';
+        countId = countId || 'permission-selection-count';
+        collapsed = collapsed !== false;
         const selected = new Set((selectedIds || []).map(Number));
         const groups = new Map();
         state.functions.forEach((permission) => {
@@ -389,18 +431,31 @@
             groups.get(groupName).push(permission);
         });
 
-        const container = byId('permission-groups');
+        const container = byId(containerId);
         container.replaceChildren();
         groups.forEach((permissions, groupName) => {
+            const hasSelectedPermission = permissions.some((permission) =>
+                selected.has(Number(permission.permissionId)));
+            const groupCollapsed = collapsed && !hasSelectedPermission;
             const group = createElement('section', 'permission-group');
             const heading = createElement('div', 'permission-group-heading');
-            heading.appendChild(createElement('h3', '', groupName));
+            const headingButton = createElement('button', 'permission-group-collapse');
+            headingButton.type = 'button';
+            headingButton.dataset.groupCollapse = groupName;
+            headingButton.setAttribute('aria-expanded', groupCollapsed ? 'false' : 'true');
+            headingButton.setAttribute('aria-label', (groupCollapsed ? '展開' : '收合') + groupName);
+            const headingIcon = createElement('i', 'fas ' + (groupCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'));
+            headingIcon.setAttribute('aria-hidden', 'true');
+            headingButton.appendChild(headingIcon);
+            headingButton.appendChild(createElement('h3', '', groupName));
+            heading.appendChild(headingButton);
             const toggle = createElement('button', 'permission-group-toggle', '全選／清除');
             toggle.type = 'button';
             toggle.dataset.groupToggle = groupName;
             heading.appendChild(toggle);
             group.appendChild(heading);
 
+            const options = createElement('div', 'permission-group-options' + (groupCollapsed ? ' is-collapsed' : ''));
             permissions.forEach((permission) => {
                 const label = createElement('label', 'permission-option');
                 const checkbox = document.createElement('input');
@@ -412,12 +467,17 @@
                 text.appendChild(createElement('small', '', permission.permissionDescription || permission.permissionCode));
                 label.appendChild(checkbox);
                 label.appendChild(text);
-                group.appendChild(label);
+                options.appendChild(label);
             });
+            group.appendChild(options);
             container.appendChild(group);
         });
         if (!state.functions.length) container.textContent = '目前沒有可分配的權限功能。';
-        updatePermissionCount();
+        updatePermissionCount(containerId, countId);
+    }
+
+    function renderPositionPermissionGroups(selectedIds) {
+        renderPermissionGroups(selectedIds, 'position-permission-groups', 'position-permission-selection-count', true);
     }
 
     function renderFunctionGroupOptions() {
@@ -552,6 +612,11 @@
         renderEmployeeOptions();
     }
 
+    async function loadApplications() {
+        state.applications = await request('/applications');
+        renderApplications();
+    }
+
     async function loadPositions() {
         state.positions = await request('/positions');
         renderPositions();
@@ -576,6 +641,20 @@
         } catch (error) {
             renderPermissionGroups([]);
             setFeedback(error.message, 'error');
+        }
+    }
+
+    async function openPositionPermissions(position) {
+        state.selectedPositionId = position.positionId;
+        byId('position-permission-name').textContent = position.positionName + '（' + position.positionCode + '）';
+        setModalFeedback('position-permission-modal', '');
+        renderPositionPermissionGroups([]);
+        showModal('position-permission-modal');
+        try {
+            const result = await request('/positions/' + position.positionId + '/permissions');
+            renderPositionPermissionGroups(result.permissionIds);
+        } catch (error) {
+            setModalFeedback('position-permission-modal', error.message);
         }
     }
 
@@ -669,6 +748,7 @@
                 tab.classList.add('is-active');
                 if (tab.dataset.tab === 'assignments') loadSelectedPermissions();
                 if (tab.dataset.tab === 'audit') loadAuditLogs();
+                if (tab.dataset.tab === 'applications') loadApplications().catch((error) => setFeedback(error.message, 'error'));
             });
         });
 
@@ -707,6 +787,16 @@
         });
         byId('employee-add-button').addEventListener('click', () => openEmployeeForm(null));
         byId('position-add-button').addEventListener('click', () => openPositionForm(null));
+        byId('employee-application-refresh').addEventListener('click', () => loadApplications().catch((error) => setFeedback(error.message, 'error')));
+
+        byId('employee-application-table-body').addEventListener('click', (event) => {
+            const button = event.target.closest('[data-action]');
+            if (!button) return;
+            const application = state.applications.find((item) => item.employeeId === Number(button.dataset.employeeId));
+            if (!application) return;
+            if (button.dataset.action === 'application-approve') approveApplication(application);
+            if (button.dataset.action === 'application-reject') openRejectApplication(application);
+        });
 
         byId('employee-table-body').addEventListener('click', (event) => {
             const button = event.target.closest('[data-action]');
@@ -730,6 +820,7 @@
             if (!button) return;
             const position = state.positions.find((item) => item.positionId === Number(button.dataset.positionId));
             if (!position) return;
+            if (button.dataset.positionAction === 'permissions') openPositionPermissions(position);
             if (button.dataset.positionAction === 'edit') openPositionForm(position);
             if (button.dataset.positionAction === 'status') openPositionStatusForm(position);
         });
@@ -774,18 +865,33 @@
             loadSelectedPermissions();
         });
 
-        byId('permission-groups').addEventListener('change', (event) => {
-            if (event.target.matches('input[type="checkbox"]')) updatePermissionCount();
-        });
-
-        byId('permission-groups').addEventListener('click', (event) => {
-            const toggle = event.target.closest('[data-group-toggle]');
-            if (!toggle) return;
-            const group = toggle.closest('.permission-group');
-            const checkboxes = Array.from(group.querySelectorAll('input[type="checkbox"]'));
-            const shouldCheck = checkboxes.some((checkbox) => !checkbox.checked);
-            checkboxes.forEach((checkbox) => { checkbox.checked = shouldCheck; });
-            updatePermissionCount();
+        ['permission-groups', 'position-permission-groups'].forEach((containerId) => {
+            const container = byId(containerId);
+            const countId = containerId === 'permission-groups'
+                ? 'permission-selection-count' : 'position-permission-selection-count';
+            container.addEventListener('change', (event) => {
+                if (event.target.matches('input[type="checkbox"]')) updatePermissionCount(containerId, countId);
+            });
+            container.addEventListener('click', (event) => {
+                const collapse = event.target.closest('[data-group-collapse]');
+                if (collapse) {
+                    const group = collapse.closest('.permission-group');
+                    const options = group.querySelector('.permission-group-options');
+                    const expanded = collapse.getAttribute('aria-expanded') === 'true';
+                    collapse.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                    collapse.setAttribute('aria-label', (expanded ? '展開' : '收合') + collapse.dataset.groupCollapse);
+                    collapse.querySelector('i').className = 'fas ' + (expanded ? 'fa-chevron-right' : 'fa-chevron-down');
+                    options.classList.toggle('is-collapsed', expanded);
+                    return;
+                }
+                const toggle = event.target.closest('[data-group-toggle]');
+                if (!toggle) return;
+                const group = toggle.closest('.permission-group');
+                const checkboxes = Array.from(group.querySelectorAll('input[type="checkbox"]'));
+                const shouldCheck = checkboxes.some((checkbox) => !checkbox.checked);
+                checkboxes.forEach((checkbox) => { checkbox.checked = shouldCheck; });
+                updatePermissionCount(containerId, countId);
+            });
         });
 
         byId('employee-form').addEventListener('submit', saveEmployee);
@@ -800,7 +906,47 @@
         byId('status-confirm-button').addEventListener('click', saveStatus);
         byId('position-status-confirm-button').addEventListener('click', savePositionStatus);
         byId('permission-save-button').addEventListener('click', savePermissions);
+        byId('position-permission-save-button').addEventListener('click', savePositionPermissions);
         byId('function-form').addEventListener('submit', saveFunction);
+        byId('employee-application-reject-form').addEventListener('submit', rejectApplication);
+    }
+
+    async function approveApplication(application) {
+        try {
+            await request('/' + application.employeeId + '/application/approve', { method: 'PUT' });
+            await Promise.all([loadApplications(), loadEmployees(true)]);
+            setFeedback('員工申請已核准，帳號現在可以登入。', 'success');
+        } catch (error) {
+            setFeedback(error.message, 'error');
+        }
+    }
+
+    function openRejectApplication(application) {
+        byId('employee-application-reject-id').value = application.employeeId;
+        byId('employee-application-reject-name').textContent = application.employeeName + '（' + application.employeeAccount + '）';
+        byId('employee-application-reject-reason').value = '';
+        setModalFeedback('employee-application-reject-modal', '');
+        showModal('employee-application-reject-modal');
+    }
+
+    async function rejectApplication(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!form.reportValidity()) return;
+        const button = form.querySelector('button[type="submit"]');
+        withBusy(button, true, '處理中…');
+        try {
+            await request('/' + byId('employee-application-reject-id').value + '/application/reject', {
+                method: 'PUT', body: JSON.stringify({ reason: byId('employee-application-reject-reason').value.trim() })
+            });
+            hideModal('employee-application-reject-modal');
+            await loadApplications();
+            setFeedback('員工申請已退回。', 'success');
+        } catch (error) {
+            setModalFeedback('employee-application-reject-modal', error.message);
+        } finally {
+            withBusy(button, false);
+        }
     }
 
     async function saveEmployee(event) {
@@ -963,6 +1109,29 @@
         }
     }
 
+    async function savePositionPermissions() {
+        if (state.selectedPositionId === null) return;
+        const permissionIds = Array.from(document.querySelectorAll('#position-permission-groups input:checked'))
+            .map((checkbox) => Number(checkbox.value));
+        const button = byId('position-permission-save-button');
+        withBusy(button, true, '儲存中…');
+        setModalFeedback('position-permission-modal', '');
+        try {
+            const result = await request('/positions/' + state.selectedPositionId + '/permissions', {
+                method: 'PUT', body: JSON.stringify({ permissionIds: permissionIds })
+            });
+            const position = state.positions.find((item) => item.positionId === state.selectedPositionId);
+            if (position) position.permissionCount = result.permissionIds.length;
+            renderPositions();
+            hideModal('position-permission-modal');
+            setFeedback('職位基本權限已儲存。新建、核准或換職位時會自動套用。', 'success');
+        } catch (error) {
+            setModalFeedback('position-permission-modal', error.message);
+        } finally {
+            withBusy(button, false);
+        }
+    }
+
     async function saveFunction(event) {
         event.preventDefault();
         const form = event.currentTarget;
@@ -998,7 +1167,7 @@
 		if (requestedButton) requestedButton.click();
         try {
             await loadPositions();
-            await Promise.all([loadEmployees(false), loadFunctions()]);
+            await Promise.all([loadEmployees(false), loadFunctions(), loadApplications()]);
             renderPermissionGroups([]);
         } catch (error) {
             setFeedback(error.message, 'error');

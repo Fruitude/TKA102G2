@@ -119,6 +119,9 @@ public class MemberController {
 		if (loggedIn) {
 			body.put("memberId", session.getAttribute("loggedInMemberId"));
 			body.put("memberName", session.getAttribute("loggedInMemberName"));
+			Integer memberId = (Integer) session.getAttribute("loggedInMemberId");
+			memberService.findById(memberId).ifPresent(member -> body.put("shoppingCredit",
+					member.getShoppingCredit() == null ? 0 : member.getShoppingCredit()));
 		}
 		return ResponseEntity.ok(body);
 	}

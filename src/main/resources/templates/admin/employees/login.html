@@ -27,6 +27,9 @@
             <button class="btn btn-primary btn-block" id="employee-login-submit" type="submit">
                 <i class="fas fa-sign-in-alt mr-1" aria-hidden="true"></i>登入
             </button>
+            <a class="btn btn-link btn-block mt-3" th:href="@{/admin/employees/apply}">
+                <i class="fas fa-user-plus mr-1" aria-hidden="true"></i>申請員工帳號
+            </a>
         </form>
     </main>
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
