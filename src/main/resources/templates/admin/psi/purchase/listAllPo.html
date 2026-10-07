@@ -101,15 +101,15 @@
 									<tbody>
 										<tr th:each="poVO : ${poListData}">
 											<td>
-												<a th:href="@{/admin/psi/vendor/listOnePo(vendorId=${poVO.poId})}" class="btn btn-primary btn-sm mb-1">詳細</a><br>
+												<a th:href="@{/admin/psi/po/listOnePo(poId=${poVO.poId})}" class="btn btn-primary btn-sm mb-1">詳細</a><br>
 												<form method="post" th:action="@{/admin/psi/po/getOne_For_Update}" class="d-inline">
-													<input type="hidden" name="vendorId" th:value="${poVO.poId}">
+													<input type="hidden" name="poId" th:value="${poVO.poId}">
 													<button type="submit" class="btn btn-danger btn-sm">修改</button>
 												</form>
 											</td>
 											<td th:text="${poVO.poNo}" style="text-align: center"></td>
 											<td th:text="${poVO.vendor.vendorName}"></td>
-										 	<td th:text="${poVO.poEmployeeId.employeeName}"></td>										</td>
+										 	<td th:text="${poVO.poEmployeeId.employeeName}"></td>										
 											<td th:text="${{poVO.orderDate}}"></td>
 											<td th:text="${poVO.poStatus}"></td>
 											<td th:text="${poVO.totalAmount}"></td>

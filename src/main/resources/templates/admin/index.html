@@ -42,27 +42,17 @@
         <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" 
         	th:fragment="adminIndex-sidebar" id="accordionSidebar">
 
-            <!-- Sidebar - Brand -->
-            <div class="sidebar-brand d-flex align-items-center justify-content-center">
-                <div class="sidebar-brand-icon rotate-n-15">
-                    <i class="fas fa-laugh-wink"></i>
-                </div>
-                <div class="sidebar-brand-text mx-3">後台管理首頁<sup></sup></div>
-            </div>
+		 <!-- Sidebar - Brand：點擊回首頁 -->
+		<a class="sidebar-brand d-flex align-items-center justify-content-start" th:href="@{/admin}">
+		    <div class="sidebar-brand-icon">
+		        <i class="fas fa-store"></i>
+		    </div>
+		    <div class="sidebar-brand-text mx-3">首頁</div>
+		</a>
+		
+		<!-- Divider -->
+		<hr class="sidebar-divider">
 
-            <!-- Divider -->
-            <hr class="sidebar-divider my-0">
-
-            <!-- Nav Item - Dashboard -->
-            <li class="nav-item" th:classappend="${activeMenu == null or activeMenu == 'dashboard'} ? 'active'">
-               <a th:href="@{/admin}" class="nav-link">
-	              <i class="fas fa-fw fa-tachometer-alt"></i>
-	              <span>首頁</span>
-               </a>
-            </li>
-
-            <!-- Divider -->
-            <hr class="sidebar-divider">
 
             <!-- Heading -->
             <div class="sidebar-heading">

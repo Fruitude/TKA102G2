@@ -5,6 +5,8 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -36,6 +38,34 @@ public class PoController {
 	    return "admin/psi/purchase/listAllPo";
 	}
 	
+	// 新增、修改成功後 redirect 過來，依 vendorId 顯示單筆資料
+	@GetMapping("/listOnePo")
+	public String listOneVendor(@RequestParam("poId") Integer poId, Model model) {
+		PoVO poVO = poSvc.getOnePo(poId);
+
+		// 資料已被刪除時回到列表
+		if (poVO == null) {
+			return "redirect:/admin/psi/po/listAllPo";
+		}
+
+		model.addAttribute("poVO", poVO);
+
+		return "admin/psi/purchase/listOnePo"; //view
+	}
+	
+	@PostMapping("/getOne_For_Update")
+	public String getOne_For_Update(@RequestParam("poId") Integer poId, Model model) {
+		PoVO poVO = poSvc.getOnePo(poId);
+
+		// 資料已被刪除時回到列表
+		if (poVO == null) {
+			return "redirect:/admin/psi/po/listAllPo";
+		}
+
+		model.addAttribute("poVO", poVO);
+
+		return "admin/psi/purchase/updatePo"; //view
+	}
 	
 
 }
