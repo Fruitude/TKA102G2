@@ -81,12 +81,39 @@ public class CheckoutController {
      *  itemsTotal 是前端算的商品金額，只用來預覽；實際折扣以下單時伺服器重算為準 */
     @GetMapping("/product-discount")
     @ResponseBody
-    public com.fruitude.promo.model.ProductDiscount productDiscount(@RequestParam int itemsTotal, HttpSession session) {
+    public com.fruitude.promo.model.ProductDiscount productDiscount(@RequestParam String items, HttpSession session) {
     	Integer memberId = loggedInMemberId(session);
     	if (memberId == null) { // 正常不會發生（結帳頁要先登入），保險起見回傳沒有折扣
     		return com.fruitude.promo.model.ProductDiscount.NONE;
     	}
-    	return ordersService.findProductDiscount(memberId, Math.max(itemsTotal, 0));
+    	return ordersService.previewProductDiscount(memberId, parseSkuQty(items));
+    }
+
+    /** 把 "規格編號:數量,規格編號:數量" 解析成 Map；格式不對或數量不是正整數的項目直接略過，最多取 200 項 */
+    private java.util.Map<Integer, Integer> parseSkuQty(String text) {
+    	java.util.Map<Integer, Integer> result = new java.util.LinkedHashMap<>();
+    	if (text == null) {
+    		return result;
+    	}
+    	for (String part : text.split(",")) {
+    		if (result.size() >= 200) {
+    			break;
+    		}
+    		String[] pair = part.trim().split(":");
+    		if (pair.length != 2) {
+    			continue;
+    		}
+    		try {
+    			int skuId = Integer.parseInt(pair[0].trim());
+    			int qty = Integer.parseInt(pair[1].trim());
+    			if (skuId > 0 && qty > 0) {
+    				result.merge(skuId, qty, Integer::sum);
+    			}
+    		} catch (NumberFormatException e) {
+    			// 略過格式不對的項目
+    		}
+    	}
+    	return result;
     }
 
     /** 目前登入的會員編號，沒登入回傳 null。登入時由 MemberController 存進 session */

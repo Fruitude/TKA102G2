@@ -18,6 +18,10 @@ public class PromoService {
 	@Autowired
 	private PromotionRepository promotionRepository;
 
+	// 活動或活動商品異動時，要讓商品列表的快取重新載入，前台價格才會馬上跟著變
+	@Autowired
+	private com.fruitude.product.model.FrontCatalogService frontCatalogService;
+
 	public List<PromoProject> findAllByStartDateDesc() {
 		return promoRepository.findAllByStartDateDesc();
 	}
@@ -66,6 +70,7 @@ public class PromoService {
 			item.setPromoPrice(promoPrices.get(i));
 			promotionRepository.save(item);
 		}
+		frontCatalogService.clearCache(); // 活動價改變，商品列表快取要重新載入
 	}
 
 	// 修改一筆活動商品的促銷價
@@ -78,6 +83,7 @@ public class PromoService {
 		checkPromoPrice(item.getSkuId(), promoPrice);
 		item.setPromoPrice(promoPrice);
 		promotionRepository.save(item);
+		frontCatalogService.clearCache();
 	}
 
 	// 刪除一筆活動商品；找不到回傳 false
@@ -87,6 +93,7 @@ public class PromoService {
 			return false;
 		}
 		promotionRepository.deleteById(promotionId);
+		frontCatalogService.clearCache();
 		return true;
 	}
 
@@ -223,6 +230,7 @@ public class PromoService {
 		}
 		fillFields(promo, title, context, start, end, promoType, benefitType, benefitValue, minOrderAmount, quota);
 		promoRepository.save(promo);
+		frontCatalogService.clearCache(); // 活動期間、類型改變會影響前台價格
 		return true;
 	}
 
@@ -253,6 +261,7 @@ public class PromoService {
 		}
 		promotionRepository.deleteByPromoProjectId(id);
 		promoRepository.deleteById(id);
+		frontCatalogService.clearCache();
 		return true;
 	}
 
@@ -264,6 +273,7 @@ public class PromoService {
 		}
 		promo.setStatus(status);
 		promoRepository.save(promo);
+		frontCatalogService.clearCache(); // 狀態改變會影響前台價格
 		return true;
 	}
 

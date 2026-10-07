@@ -229,6 +229,20 @@ public class OrdersService {
 		return updatedRows > 0;
 	}
 
+	// 給結帳頁與確認頁預覽用：依「規格編號 → 數量」用資料庫即時價格算商品折扣，不採用前端算的金額。
+	// 計算方式和下單時一樣：活動價的品項不算進折扣基準
+	public com.fruitude.promo.model.ProductDiscount previewProductDiscount(Integer memberId, Map<Integer, Integer> qtyBySku) {
+		int discountBase = 0;
+		for (com.fruitude.product.model.FrontCatalogService.LiveSku sku
+				: frontCatalogService.getLiveSkus(new ArrayList<>(qtyBySku.keySet()))) {
+			boolean onPromo = sku.originalPrice() != null && sku.price() != null && sku.price() < sku.originalPrice();
+			if (sku.available() && !onPromo) {
+				discountBase += sku.price() * qtyBySku.get(sku.skuId());
+			}
+		}
+		return findProductDiscount(memberId, discountBase);
+	}
+
 	// 商品折扣金額（全館折扣、壽星月、新會員首購，只套用折扣最大的一個）。
 	// 壽星月：會員生日的月份等於現在的月份；新會員首購：這個會員還沒有任何訂單
 	public com.fruitude.promo.model.ProductDiscount findProductDiscount(Integer memberId, int productTotal) {
@@ -256,9 +270,15 @@ public class OrdersService {
 		orders.setOrdersNote(form.getOrderNote());
 
 		// placeOrder 已用資料庫即時價格驗證品項，再加總商品金額。
+		// 指定商品促銷的品項已經是活動價，不再算進全館折扣、壽星月、新會員首購的折扣基準（discountBase）
 		int productTotal = 0;
+		int discountBase = 0;
 		for (CheckoutItem item : form.getItems()) {
-			productTotal += item.getPrice() * item.getQty();
+			int line = item.getPrice() * item.getQty();
+			productTotal += line;
+			if (!item.isOnPromoPrice()) {
+				discountBase += line;
+			}
 		}
 
 		// 滿額免運：有進行中的活動且商品金額達門檻，就把運費折抵掉（算進 discount，運費欄位仍記原本的運費）。
@@ -266,7 +286,7 @@ public class OrdersService {
 		int freeShippingThreshold = promoService.findFreeShippingThreshold();
 		int discount = (freeShippingThreshold > 0 && productTotal >= freeShippingThreshold) ? SHIPPING_FEE : 0;
 		// 商品折扣：全館折扣、壽星月、新會員首購，同一筆訂單只套用折扣最大的一個
-		discount += findProductDiscount(memberId, productTotal).amount();
+		discount += findProductDiscount(memberId, discountBase).amount();
 		int beforeCredit = Math.max(0, productTotal + SHIPPING_FEE - discount);
 		// 不能讓購物金折抵超過應付金額，也不能是負數
 		int shoppingCredit = storeCredit == null ? 0 : Math.min(Math.max(storeCredit, 0), beforeCredit);

@@ -160,6 +160,8 @@
 <h1 class="heading-h3-product heading-h3" id="pv-name" th:text="${dbProduct.name}"></h1>
 <p class="paragraph-18" id="pv-description" th:text="${dbProduct.description}" style="margin-top:1rem;"></p>
 <div class="paragraph-18" data-wf-sku-bindings="f_price_" id="pv-price" th:text="${'NT$ ' + dbProduct.price}" style="font-size:1.5rem; margin:1.5rem 0;"></div>
+<div class="paragraph-18" id="pv-original-price" th:text="${dbProduct.originalPrice != null and dbProduct.originalPrice > dbProduct.price ? 'NT$ ' + dbProduct.originalPrice : ''}" th:style="${dbProduct.originalPrice != null and dbProduct.originalPrice > dbProduct.price ? '' : 'display:none;'} + 'text-decoration:line-through; opacity:.6; margin:-1.25rem 0 1.5rem;'"></div>
+<span class="pv-sku-original" hidden th:each="s:${dbProduct.skus}" th:attr="data-sku-id=${s.skuId},data-original=${s.originalPrice}"></span>
 <form th:attr="data-commerce-sku-id=${dbProduct.skuId}" data-node-type="x-commerce-add-to-cart-form" id="pv-form">
 <label class="form_field-label" for="pv-sku">商品規格</label><select class="form-input" id="pv-sku"><option th:each="s:${dbProduct.skus}" th:value="${s.skuId}" th:text="${s.name}" th:selected="${s.skuId == dbProduct.skuId}" th:attr="data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId}}"></option></select><label class="form_field-label" for="pv-qty">數量</label>
 <input class="form-input quantity-input" id="pv-qty" min="1" name="commerce-add-to-cart-quantity-input" type="number" value="1"/>
@@ -187,6 +189,17 @@
     var option = select.options[select.selectedIndex];
     form.setAttribute("data-commerce-sku-id", option.value);
     document.getElementById("pv-price").textContent = window.SSXCart.formatMoney(Number(option.dataset.price));
+    // 促銷中：在活動價下方顯示劃線的原價；沒有促銷就隱藏（各規格的原價放在上方隱藏的 .pv-sku-original）
+    var originalEl = document.getElementById("pv-original-price");
+    var originalHolder = document.querySelector(".pv-sku-original[data-sku-id=\"" + option.value + "\"]");
+    var originalValue = originalHolder ? Number(originalHolder.dataset.original) : 0;
+    if (originalValue > Number(option.dataset.price)) {
+      originalEl.textContent = window.SSXCart.formatMoney(originalValue);
+      originalEl.style.display = "";
+    } else {
+      originalEl.textContent = "";
+      originalEl.style.display = "none";
+    }
     document.getElementById("pv-image").src = option.dataset.imageUrl;
     var stock = Math.max(0, Number(option.dataset.stock) || 0);
     var qty = document.getElementById("pv-qty");

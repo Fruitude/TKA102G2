@@ -13,10 +13,15 @@ public class FrontCatalogService {
     private final FrontCatalogCache cache = new FrontCatalogCache(Clock.systemUTC(), Duration.ofMinutes(10));
     public FrontCatalogService(ProductRepository repository) { this.repository = repository; }
 
-    public record SkuView(Integer skuId, String name, Integer price, Integer stock, Integer imageId, List<Integer> imageIds, Integer skuStatus) {}
-    public record ProductView(Integer productId, String name, String description, Integer price,
+    // 指定商品促銷的活動價查詢（promo 套件）。用選擇性欄位注入，沒有它（例如單元測試）就不套用活動價
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.fruitude.promo.model.PromoPriceService promoPriceService;
+
+    // price 是前台實際價格（有活動價就是活動價），originalPrice 是規格原價
+    public record SkuView(Integer skuId, String name, Integer price, Integer originalPrice, Integer stock, Integer imageId, List<Integer> imageIds, Integer skuStatus) {}
+    public record ProductView(Integer productId, String name, String description, Integer price, Integer originalPrice,
         Integer skuId, Integer imageId, boolean giftBox, List<SkuView> skus, Integer stock) {}
-    public record LiveSku(Integer skuId, String name, String skuName, Integer price, int stock, boolean available, Integer skuStatus) {}
+    public record LiveSku(Integer skuId, String name, String skuName, Integer price, Integer originalPrice, int stock, boolean available, Integer skuStatus) {}
 
     public List<ProductView> getProducts() { return cache.get(() -> loadProducts(null)); }
 
@@ -28,6 +33,7 @@ public class FrontCatalogService {
     private List<ProductView> loadProducts(Integer productId) {
         List<FrontCatalogRow> rows = repository.findFrontRows(productId);
         if (rows.isEmpty()) return List.of();
+        Map<Integer, Integer> promoPrices = activePromoPrices(rows.stream().map(FrontCatalogRow::getSkuId).toList());
         Map<Integer, List<FrontCatalogRow>> groups = new LinkedHashMap<>();
         for (FrontCatalogRow row : rows) groups.computeIfAbsent(row.getProductId(), key -> new ArrayList<>()).add(row);
         Map<Integer, List<Integer>> images = new HashMap<>();
@@ -40,7 +46,7 @@ public class FrontCatalogService {
             FrontCatalogRow product = group.get(0);
             List<SkuView> skus = group.stream().map(row -> {
                 List<Integer> ids = List.copyOf(images.getOrDefault(row.getSkuId(), List.of()));
-                return new SkuView(row.getSkuId(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty()),
+           return new SkuView(row.getSkuId(), row.getSkuName(), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty()),
                     ids.isEmpty() ? null : ids.get(0), ids, row.getSkuStatus());
             }).toList();
             SkuView cheapest = skus.stream().min(Comparator.comparing(SkuView::price).thenComparing(SkuView::skuId)).orElseThrow();
@@ -55,7 +61,7 @@ public class FrontCatalogService {
             }
             Integer imageId = cheapest.imageId();
             if (imageId == null) imageId = skus.stream().map(SkuView::imageId).filter(Objects::nonNull).findFirst().orElse(null);
-            result.add(new ProductView(product.getProductId(), product.getName(), product.getDescription(), cheapest.price(),
+            result.add(new ProductView(product.getProductId(), product.getName(), product.getDescription(), cheapest.price(), cheapest.originalPrice(),
                 cheapest.skuId(), imageId, giftBox, skus, cheapest.stock()));
         }
         return List.copyOf(result);
@@ -79,11 +85,12 @@ public class FrontCatalogService {
     public List<LiveSku> getLiveSkus(List<Integer> ids) {
         List<Integer> requested = ids.stream().filter(Objects::nonNull).distinct().toList();
         if (requested.isEmpty()) return List.of();
+        Map<Integer, Integer> promoPrices = activePromoPrices(requested);
         return repository.findLiveSkus(requested).stream().map(row -> {
             int stock = quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty());
             boolean available = Integer.valueOf(1).equals(row.getProductStatus()) && row.getSkuStatus() != null && Set.of(1,2,3).contains(row.getSkuStatus())
                 && row.getPrice() != null && row.getPrice() > 0 && stock > 0;
-            return new LiveSku(row.getSkuId(), row.getName(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()), row.getPrice(), stock, available, row.getSkuStatus());
+            return new LiveSku(row.getSkuId(), row.getName(), row.getSkuName(), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), stock, available, row.getSkuStatus());
         }).toList();
     }
 
@@ -104,6 +111,16 @@ public class FrontCatalogService {
             if (!Objects.equals(item.getPrice(), sku.price())) throw new ProductUnavailableException(sku.name() + " 價格已更新，請返回購物車重新確認");
             item.setProductName(sku.name());
             item.setPrice(sku.price());
+            item.setOriginalPrice(sku.originalPrice());
         }
     }
+
+    // 目前有效的指定商品活動價（規格編號 → 活動價）；沒有 PromoPriceService 或沒有活動就是空的
+    private Map<Integer, Integer> activePromoPrices(Collection<Integer> skuIds) {
+        if (promoPriceService == null) return Map.of();
+        return promoPriceService.findActivePrices(skuIds);
+    }
+
+    /** 活動或活動商品有異動時呼叫，讓商品列表的快取馬上重新載入，不用等 10 分鐘快取過期。 */
+    public void clearCache() { cache.clear(); }
 }

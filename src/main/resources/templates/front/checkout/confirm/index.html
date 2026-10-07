@@ -152,6 +152,7 @@
       var right = document.createElement("div");
       right.className = "paragraph-18";
       right.textContent = formatMoney(item.qty * item.price);
+      window.SSXCart.appendOriginalPrice(right, item.originalPrice * item.qty, item.qty * item.price);
 
       row.appendChild(left);
       row.appendChild(right);
@@ -233,7 +234,9 @@
       })
       .catch(function () {});
     // 商品折扣：全館折扣、壽星月、新會員首購（只取折扣最大的一個，沒有符合的活動回傳 0）
-    fetch(payButton.dataset.productDiscountUrl + "?itemsTotal=" + Math.floor(window.SSXCart.getSubtotal(items)))
+    // 折扣由伺服器依「規格:數量」用資料庫價格算（活動價的品項不算進折扣基準）
+    fetch(payButton.dataset.productDiscountUrl + "?items="
+        + encodeURIComponent(items.map(function (item) { return item.skuId + ":" + item.qty; }).join(",")))
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (discount) {
         if (discount && discount.amount > 0) {

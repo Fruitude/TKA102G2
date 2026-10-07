@@ -43,6 +43,16 @@
     return CURRENCY.symbol + "\u00A0" + joined + "\u00A0" + CURRENCY.currencyCode;
   }
 
+  // 促銷中（原價高於目前價格）時，在元素後面補上劃線的原價。文字一律用 textContent 放進畫面，不當 HTML 解析
+  function appendOriginalPrice(el, originalAmount, currentAmount) {
+    if (!(originalAmount > currentAmount)) return;
+    var s = document.createElement("s");
+    s.textContent = formatMoney(originalAmount);
+    s.style.opacity = ".6";
+    s.style.marginLeft = ".5rem";
+    el.appendChild(s);
+  }
+
   function getCount(items) {
     return items.reduce(function (sum, item) {
       return sum + item.qty;
@@ -223,6 +233,7 @@
 
     var price = document.createElement("div");
     price.textContent = formatMoney(item.price);
+    if (!item.unavailable) appendOriginalPrice(price, item.originalPrice, item.price);
     if (item.unavailable) price.textContent = "已下架或無可訂購數量，無法購買";
     var notice = quantityNotice(item.skuStatus, item.qty);
     if (notice && !item.unavailable) {
@@ -366,6 +377,7 @@
     var subtotalValue = document.createElement("div");
     subtotalValue.className = "paragraph-18";
     subtotalValue.textContent = formatMoney(item.price * item.qty);
+    appendOriginalPrice(subtotalValue, item.originalPrice * item.qty, item.price * item.qty);
 
     subtotalWrapper.appendChild(subtotalLabel);
     subtotalWrapper.appendChild(subtotalValue);
@@ -406,11 +418,13 @@
   var productDiscountTitle = ""; // 給折扣的活動名稱，顯示在「活動折扣」下一行
   var productDiscountSubtotal = null;
 
-  function loadProductDiscount(subtotal) {
-    if (productDiscountSubtotal === subtotal) return;
-    productDiscountSubtotal = subtotal;
-    var asked = subtotal;
-    fetch(getContextPath() + "/front/checkout/product-discount?itemsTotal=" + Math.floor(subtotal),
+  // 折扣由伺服器依「規格:數量」用資料庫價格算（活動價的品項不算進折扣基準），不能用前端的金額
+  function loadProductDiscount(checkedItems) {
+    var key = checkedItems.map(function (item) { return item.skuId + ":" + item.qty; }).join(",");
+    if (productDiscountSubtotal === key) return;
+    productDiscountSubtotal = key;
+    var asked = key;
+    fetch(getContextPath() + "/front/checkout/product-discount?items=" + encodeURIComponent(key),
         { cache: "no-store", credentials: "same-origin" })
       .then(function (response) { return response.ok ? response.json() : null; })
       .then(function (discount) {
@@ -445,7 +459,7 @@
     var shippingDiscount = (shippingFee > 0 && freeShippingThreshold > 0 && subtotal >= freeShippingThreshold)
       ? shippingFee : 0;
     // 商品折扣只在有商品時才問；折扣不會超過商品金額
-    if (checkedItems.length > 0) loadProductDiscount(subtotal); else { productDiscount = 0; productDiscountTitle = ""; }
+    if (checkedItems.length > 0) loadProductDiscount(checkedItems); else { productDiscount = 0; productDiscountTitle = ""; }
     var promoDiscount = Math.min(productDiscount, subtotal);
     var promoTitleRow = document.getElementById("checkout-summary-promo-title-row");
     var promoTitleEl = document.getElementById("checkout-summary-promo-title");
@@ -510,6 +524,7 @@
           if (item.price !== sku.price || item.qty > sku.stock || item.unavailable) changed = true;
           item.unavailable = false; item.stock = sku.stock; item.skuStatus = sku.skuStatus;
           item.price = sku.price; item.name = sku.name; item.skuName = sku.skuName;
+          item.originalPrice = sku.originalPrice;
           item.qty = Math.min(item.qty, sku.stock);
         }
         return item;
@@ -528,6 +543,7 @@
       var existing = readCart().find(function (item) { return String(item.skuId) === String(sku.skuId); });
       if ((checkoutUrl ? 0 : (existing ? existing.qty : 0)) + quantity > sku.stock) throw new Error("此規格最多可訂購 " + sku.stock + " 箱（含購物車已有數量）。");
       var item = { skuId: String(sku.skuId), skuName: sku.skuName, qty: quantity, name: sku.name, price: sku.price, image: product.image, stock: sku.stock, skuStatus: sku.skuStatus };
+      item.originalPrice = sku.originalPrice; // 規格原價，購物車與結帳頁用來顯示劃線原價
       if (checkoutUrl) { buyNow(item); window.location.href = checkoutUrl; }
       else { addToCart(item); openCart(); }
     }).catch(function (error) {
@@ -678,6 +694,16 @@
         var total = Number(option ? option.getAttribute("data-price") : 0) * Math.max(1, Number(qty.value) || 1);
         price.textContent = qty.validity.valid ? "NT$ " + total.toLocaleString("zh-TW") : "NT$ —";
         price.title = price.textContent;
+        // 促銷中：「原價」那行跟著規格與數量變成「原價 × 數量」（各規格原價放在卡片裡隱藏的 .home-sku-original）
+        var originalBox = card.querySelector(".home-card-original");
+        if (originalBox) {
+          var originalHolder = option ? card.querySelector(".home-sku-original[data-sku-id=\"" + option.value + "\"]") : null;
+          var originalUnit = originalHolder ? Number(originalHolder.getAttribute("data-original")) : 0;
+          var unitPrice = Number(option ? option.getAttribute("data-price") : 0);
+          var showOriginal = qty.validity.valid && originalUnit > unitPrice;
+          originalBox.style.display = showOriginal ? "" : "none";
+          if (showOriginal) originalBox.querySelector("s").textContent = "NT$ " + (originalUnit * Math.max(1, Number(qty.value) || 1)).toLocaleString("zh-TW");
+        }
       }
       function showQuantityNotice() {
         var option = select.options[select.selectedIndex];
@@ -1216,6 +1242,7 @@
     getSubtotal: getSubtotal,
     getCheckedItems: getCheckedItems,
     formatMoney: formatMoney,
+    appendOriginalPrice: appendOriginalPrice,
     // Exposed so pages that build extra .products-card-link cards after
     // this script's own startup pass (e.g. product/view/'s related-items
     // grid) can request the quick-add icon for those new cards too.
