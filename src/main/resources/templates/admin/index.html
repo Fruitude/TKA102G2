@@ -27,6 +27,14 @@
 	    <style>
 		.sidebar-dark .nav-item.active .nav-link { 
 			background: rgba(255, 255, 255, .15); }
+		.sidebar.toggled .sidebar-brand {
+			justify-content: center !important;
+		}
+		@media (max-width: 767.98px) {
+			.sidebar .sidebar-brand {
+				justify-content: center !important;
+			}
+		}
 		</style>
 	</th:block>
 	
@@ -42,6 +50,18 @@
         <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" 
         	th:fragment="adminIndex-sidebar" id="accordionSidebar">
 
+		<script>
+			(function() {
+				try {
+					if (window.localStorage.getItem('fruitudeAdminSidebarCollapsed') === 'true') {
+						document.getElementById('accordionSidebar').classList.add('toggled');
+						document.body.classList.add('sidebar-toggled');
+					}
+				} catch (error) {
+				}
+			})();
+		</script>
+
 		 <!-- Sidebar - Brand：點擊回首頁 -->
 		<a class="sidebar-brand d-flex align-items-center justify-content-start" th:href="@{/admin}">
 		    <div class="sidebar-brand-icon">
@@ -51,13 +71,7 @@
 		</a>
 		
 		<!-- Divider -->
-		<hr class="sidebar-divider">
-
-
-            <!-- Heading -->
-            <div class="sidebar-heading">
-                後台功能
-            </div>
+		<hr class="sidebar-divider mb-2">
 
             <!-- Nav Item - 後台帳號管理 -->
             <li class="nav-item" id="employee-admin-nav-item">
