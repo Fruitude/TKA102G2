@@ -69,7 +69,8 @@ public class FrontCatalogService {
 
     // The stock view field is the order quantity limit, not physical stock.
     static int quantityLimit(Integer status, Integer stock, Integer inbound, Integer outbound) {
-        if (Integer.valueOf(1).equals(status)) return 10;
+        // 狀態 1：一次最多 10 箱，而且不能超過 stock 欄位（查不到 stock 時只套用 10 箱上限）
+        if (Integer.valueOf(1).equals(status)) return stock == null ? 10 : Math.min(10, Math.max(0, stock));
         if (Integer.valueOf(2).equals(status)) return 10;
         if (Integer.valueOf(3).equals(status)) {
             long expected = (stock == null ? 0L : stock.longValue())
