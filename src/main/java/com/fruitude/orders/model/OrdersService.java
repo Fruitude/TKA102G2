@@ -230,29 +230,31 @@ public class OrdersService {
 	}
 
 	// 給結帳頁與確認頁預覽用：依「規格編號 → 數量」用資料庫即時價格算商品折扣，不採用前端算的金額。
-	// 計算方式和下單時一樣：活動價的品項不算進折扣基準
+	// 計算方式和下單時一樣：全館折扣、壽星月、新會員首購和指定商品活動價擇優
 	public com.fruitude.promo.model.ProductDiscount previewProductDiscount(Integer memberId, Map<Integer, Integer> qtyBySku) {
-		int discountBase = 0;
+		List<com.fruitude.promo.model.DiscountLine> lines = new ArrayList<>();
 		for (com.fruitude.product.model.FrontCatalogService.LiveSku sku
 				: frontCatalogService.getLiveSkus(new ArrayList<>(qtyBySku.keySet()))) {
-			boolean onPromo = sku.originalPrice() != null && sku.price() != null && sku.price() < sku.originalPrice();
-			if (sku.available() && !onPromo) {
-				discountBase += sku.price() * qtyBySku.get(sku.skuId());
+			if (sku.available()) {
+				int original = sku.originalPrice() != null ? sku.originalPrice() : sku.price();
+				lines.add(new com.fruitude.promo.model.DiscountLine(sku.price(), original, qtyBySku.get(sku.skuId())));
 			}
 		}
-		return findProductDiscount(memberId, discountBase);
+		return findProductDiscount(memberId, lines);
 	}
 
-	// 商品折扣金額（全館折扣、壽星月、新會員首購，只套用折扣最大的一個）。
+	// 商品折扣（全館折扣、壽星月、新會員首購，彼此只套用折扣最大的一個，並且和指定商品活動價擇優）。
+	// 回傳的折扣金額是相對於畫面上小計（已經是活動價）再多折的金額。
 	// 壽星月：會員生日的月份等於現在的月份；新會員首購：這個會員還沒有任何訂單
-	public com.fruitude.promo.model.ProductDiscount findProductDiscount(Integer memberId, int productTotal) {
+	public com.fruitude.promo.model.ProductDiscount findProductDiscount(Integer memberId,
+			List<com.fruitude.promo.model.DiscountLine> lines) {
 		boolean isFirstOrder = ordersRepository.countByMemberId(memberId) == 0;
 		boolean isBirthdayMonth = false;
 		MemberVO member = memberRepository.findById(memberId).orElse(null);
 		if (member != null && member.getMemberBirthday() != null) {
 			isBirthdayMonth = member.getMemberBirthday().getMonth() == LocalDate.now().getMonth();
 		}
-		return promoService.calcProductDiscount(isBirthdayMonth, isFirstOrder, productTotal);
+		return promoService.calcProductDiscount(isBirthdayMonth, isFirstOrder, lines);
 	}
 
 	// 把結帳頁送來的 CheckoutForm 轉成訂單主檔 Orders（還沒存檔）
@@ -270,23 +272,21 @@ public class OrdersService {
 		orders.setOrdersNote(form.getOrderNote());
 
 		// placeOrder 已用資料庫即時價格驗證品項，再加總商品金額。
-		// 指定商品促銷的品項已經是活動價，不再算進全館折扣、壽星月、新會員首購的折扣基準（discountBase）
+		// 指定商品促銷的品項已經是活動價；全館折扣、壽星月、新會員首購要和活動價擇優，所以每個品項都要帶原價
 		int productTotal = 0;
-		int discountBase = 0;
+		List<com.fruitude.promo.model.DiscountLine> discountLines = new ArrayList<>();
 		for (CheckoutItem item : form.getItems()) {
-			int line = item.getPrice() * item.getQty();
-			productTotal += line;
-			if (!item.isOnPromoPrice()) {
-				discountBase += line;
-			}
+			productTotal += item.getPrice() * item.getQty();
+			int original = item.getOriginalPrice() != null ? item.getOriginalPrice() : item.getPrice();
+			discountLines.add(new com.fruitude.promo.model.DiscountLine(item.getPrice(), original, item.getQty()));
 		}
 
 		// 滿額免運：有進行中的活動且商品金額達門檻，就把運費折抵掉（算進 discount，運費欄位仍記原本的運費）。
 		// 以伺服器重新計算為準，不信任前端畫面上顯示的金額
 		int freeShippingThreshold = promoService.findFreeShippingThreshold();
 		int discount = (freeShippingThreshold > 0 && productTotal >= freeShippingThreshold) ? SHIPPING_FEE : 0;
-		// 商品折扣：全館折扣、壽星月、新會員首購，同一筆訂單只套用折扣最大的一個
-		discount += findProductDiscount(memberId, discountBase).amount();
+		// 商品折扣：全館折扣、壽星月、新會員首購，同一筆訂單只套用折扣最大的一個，並且和指定商品活動價擇優
+		discount += findProductDiscount(memberId, discountLines).amount();
 		int beforeCredit = Math.max(0, productTotal + SHIPPING_FEE - discount);
 		// 不能讓購物金折抵超過應付金額，也不能是負數
 		int shoppingCredit = storeCredit == null ? 0 : Math.min(Math.max(storeCredit, 0), beforeCredit);
