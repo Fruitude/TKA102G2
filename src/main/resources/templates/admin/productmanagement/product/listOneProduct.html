@@ -479,12 +479,12 @@
         <section class="product-info">
 
             <div class="product-meta">
-                <div class="item"><span class="name">商品分類</span><span class="value" th:text="${product.productCategory != null ? product.productCategory.categoryName : '—'}"></span></div>
-                <div class="item"><span class="name">供應廠商</span><span class="value" th:text="${product.vendor != null ? product.vendor.vendorName : '—'}"></span></div>
-                <div class="item"><span class="name">建立時間</span><span class="value" th:text="${product.createdAt != null ? #temporals.format(product.createdAt, 'yyyy-MM-dd HH:mm:ss') : '—'}"></span></div>
-                <div class="item"><span class="name">修改時間</span><span class="value" th:text="${product.updatedAt != null ? #temporals.format(product.updatedAt, 'yyyy-MM-dd HH:mm:ss') : '—'}"></span></div>
+                <div class="item"><span class="name">　 分類</span><span class="value" th:text="${product.productCategory != null ? product.productCategory.categoryName : '—'}"></span></div>
+                <div class="item"><span class="name">　 廠商</span><span class="value" th:text="${product.vendor != null ? product.vendor.vendorName : '—'}"></span></div>
+                <div class="item"><span class="name">　 建立</span><span class="value" th:text="${product.createdAt != null ? #temporals.format(product.createdAt, 'yyyy-MM-dd HH:mm:ss') : '—'}"></span></div>
+                <div class="item"><span class="name">　 修改</span><span class="value" th:text="${product.updatedAt != null ? #temporals.format(product.updatedAt, 'yyyy-MM-dd HH:mm:ss') : '—'}"></span></div>
                 <div class="item" th:with="rating=${product.allCommentAmount != null and product.allCommentAmount > 0 and product.allCommentStar != null ? product.allCommentStar * 1.0 / product.allCommentAmount : 0.0}">
-                    <span class="name">平均評分</span><span class="value rating-value">
+                    <span class="name">　總均分</span><span class="value rating-value">
                         <span class="rating-stars" role="img" th:attr="aria-label=${#numbers.formatDecimal(rating, 1, 1) + '顆星，共5顆星'}">
                             <span class="rating-star" th:each="star : ${#numbers.sequence(1,5)}">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01Z"/></svg>
@@ -493,16 +493,16 @@
                         </span><span th:text="${product.allCommentAmount != null and product.allCommentAmount > 0 ? #numbers.formatDecimal(rating, 1, 1) : '尚未評分'}"></span>
                     </span>
                 </div>
-                <div class="item"><span class="name">評論總數</span><span class="value" th:text="${product.allCommentAmount != null ? product.allCommentAmount : 0}"></span></div>
-                <div class="item meta-wide status-item"><span class="name">商品狀態</span><span class="value status-value">
+                <div class="item"><span class="name">　總評論</span><span class="value" th:text="${product.allCommentAmount != null ? product.allCommentAmount : 0}"></span></div>
+                <div class="item meta-wide status-item"><span class="name">　 狀態</span><span class="value status-value">
                     <label class="switch" th:attr="aria-label=${product.status == 1 ? '上架' : '下架'}"><input id="detail-product-status" type="checkbox" th:checked="${product.status == 1}" th:attr="data-product-id=${product.productId},data-update-url=@{/product/updateStatus}" onchange="changeDetailProductStatus(this)"><span class="slider"><span class="switch-text on">上架</span><span class="switch-text off">下架</span></span></label><span id="detail-status-error" class="status-error" role="status" hidden></span>
                 </span></div>
-                <div class="item meta-wide description-item"><span class="name">商品描述</span><span class="value" th:text="${product.productDesc}"></span></div>
+                <div class="item meta-wide description-item"><span class="name">　 描述</span><span class="value" th:text="${product.productDesc}"></span></div>
             </div>
 
             <!-- 規格按鈕 -->
             <div class="sku-section">
-                <div class="sku-title">規格選項</div>
+                <div class="sku-title">　 規格</div>
 
                 <div class="sku-options"
                      th:if="${productSkuList != null and !#lists.isEmpty(productSkuList)}">
