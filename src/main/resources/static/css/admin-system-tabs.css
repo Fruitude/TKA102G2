@@ -1,0 +1,50 @@
+/* Match the employee/member console tabs; scrolling belongs to the outer card. */
+.management-tabs.nav-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    min-height: 68px;
+    padding: 0 1.5rem;
+    gap: 2rem;
+    border-bottom: 1px solid #dde2eb;
+}
+.management-tabs.nav-tabs .nav-link {
+    display: flex;
+    flex: 0 0 100px;
+    justify-content: center;
+    align-items: center;
+    gap: .55rem;
+    position: relative;
+    width: 100px;
+    padding: 0 .15rem;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #737a8d;
+    font: inherit;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .2s ease;
+}
+.management-tabs.nav-tabs .nav-link::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: transparent;
+    transition: background-color .2s ease;
+}
+.management-tabs.nav-tabs .nav-link:hover,
+.management-tabs.nav-tabs .nav-link.active { color: #4e73df; }
+.management-tabs.nav-tabs .nav-link.active::after { background: #4e73df; }
+.management-tabs.nav-tabs .nav-link:focus-visible {
+    outline: 3px solid rgba(78,115,223,.25);
+    outline-offset: 2px;
+}
+
+.psi-tabs.management-tabs #tab-vendor { gap: 2px; padding: 0; }
+.psi-tabs.management-tabs #tab-vendor i { font-size: 14px; }

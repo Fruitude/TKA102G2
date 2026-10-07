@@ -6,12 +6,11 @@
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<link th:href="@{/css/admin-system-tabs.css}" rel="stylesheet">
 <style>
-.product-tabs-header { overflow-x: auto; }
-.product-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); width: var(--product-tabs-width, 1168px); margin-left: var(--product-tabs-left, 25px); padding: .75rem 0 0; gap: .25rem; }
-.product-tabs .nav-link { width: 100%; height: 58px; box-sizing: border-box; border-top: 3px solid transparent; white-space: nowrap; background: transparent; color: #5a5c69; font-weight: 700; padding: .9rem 1.25rem; }
-.product-tabs .nav-link.active { color: #4e73df; border-top: 3px solid #4e73df; }
-.product-tabs .nav-link:focus-visible { outline: 2px solid #4e73df; outline-offset: -4px; }
+.product-scroll-viewport { overflow-x: auto; }
+.product-scroll-content { width: 100%; min-width: var(--product-content-min-width, 935px); }
+.product-tabs-header { overflow: hidden; border-bottom: 0; }
 #product-frame { display: block; width: 100%; min-height: 520px; height: 520px; border: 0; background: white; }
 #product-panel[aria-busy="true"] #product-frame { visibility: hidden; }
 </style>
@@ -35,29 +34,31 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
-					<div class="card shadow mb-4">
+					<div class="card shadow mb-4 product-scroll-viewport">
+                        <div class="product-scroll-content">
                         <div class="card-header bg-white p-0 product-tabs-header">
-                            <div class="nav nav-tabs product-tabs" role="tablist" aria-label="商品管理功能">
+                            <div class="nav nav-tabs product-tabs management-tabs" role="tablist" aria-label="商品管理功能">
                                 <button class="nav-link active" type="button" role="tab" id="tab-overview" aria-selected="true" aria-controls="product-panel" data-product-tab th:attr="data-url=@{/product/listAllProduct}">
-                                    <i class="fas fa-box-open mr-2" aria-hidden="true"></i>商品總覽
+                                    <i class="fas fa-box-open" aria-hidden="true"></i>商品總覽
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-add" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-product-tab th:attr="data-url=@{/product/addProduct}">
-                                    <i class="fas fa-plus-circle mr-2" aria-hidden="true"></i>新增商品
+                                    <i class="fas fa-plus-circle" aria-hidden="true"></i>新增商品
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-search" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-product-tab th:attr="data-url=@{/admin/product/search}">
-                                    <i class="fas fa-search mr-2" aria-hidden="true"></i>規格查詢
+                                    <i class="fas fa-search" aria-hidden="true"></i>規格查詢
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-stock" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-product-tab th:attr="data-url=@{/admin/product/stock}">
-                                    <i class="fas fa-boxes mr-2" aria-hidden="true"></i>庫存查詢
+                                    <i class="fas fa-boxes" aria-hidden="true"></i>庫存查詢
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-category" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-product-tab th:attr="data-url=@{/productcategory/list}">
-                                    <i class="fas fa-sitemap mr-2" aria-hidden="true"></i>分類管理
+                                    <i class="fas fa-sitemap" aria-hidden="true"></i>分類管理
                                 </button>
                             </div>
                         </div>
                         <div class="card-body p-0" id="product-panel" role="tabpanel" aria-labelledby="tab-overview" aria-busy="true">
                             <p id="product-load-status" class="m-3 text-muted" role="status">正在載入商品總覽…</p>
                             <iframe id="product-frame" name="product-content" title="商品總覽"></iframe>
+                        </div>
                         </div>
                     </div>
                 </div>

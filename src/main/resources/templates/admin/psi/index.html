@@ -6,12 +6,11 @@
 
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<link th:href="@{/css/admin-system-tabs.css}" rel="stylesheet">
  <style>
-    .psi-tabs-header { overflow-x: auto; border-bottom: 0; }
-    .psi-tabs { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); padding: .75rem 1.5rem 0; gap: .25rem; }
-    .psi-tabs .nav-link { width: 100%; height: 58px; box-sizing: border-box; border-top: 3px solid transparent; white-space: nowrap; background: transparent; color: #5a5c69; font-weight: 700; padding: .9rem 1.25rem; }
-    .psi-tabs .nav-link.active { color: #4e73df; border-top: 3px solid #4e73df; }
-    .psi-tabs .nav-link:focus-visible { outline: 2px solid #4e73df; outline-offset: -4px; }
+    .psi-scroll-viewport { overflow-x: auto; }
+    .psi-scroll-content { width: 100%; min-width: var(--psi-content-min-width, 700px); }
+    .psi-tabs-header { overflow: hidden; border-bottom: 0; }
     #psi-frame { display: block; width: 100%; min-height: 400px; height: 400px; border: 0; background: white; }
     #psi-panel[aria-busy="true"] #psi-frame { visibility: hidden; }
 </style>
@@ -37,29 +36,31 @@
                 <!-- 這裡放頁面自己的內容 -->
                 <div class="container-fluid">
                               	
-                    <div class="card shadow mb-4">
+                    <div class="card shadow mb-4 psi-scroll-viewport">
+                        <div class="psi-scroll-content">
                         <div class="card-header bg-white p-0 psi-tabs-header">
-                            <div class="nav nav-tabs psi-tabs" role="tablist" aria-label="進銷存管理功能">
+                            <div class="nav nav-tabs psi-tabs management-tabs" role="tablist" aria-label="進銷存管理功能">
                                 <button class="nav-link active" type="button" role="tab" id="tab-shipping" aria-selected="true" aria-controls="psi-panel" data-psi-tab data-key="shipping" th:attr="data-url=@{/admin/psi/shipping}">
-                                    <i class="fas fa-truck mr-2" aria-hidden="true"></i>出貨系統
+                                    <i class="fas fa-truck" aria-hidden="true"></i>出貨系統
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-receiving" aria-selected="false" aria-controls="psi-panel" tabindex="-1" data-psi-tab data-key="receiving" th:attr="data-url=@{/admin/psi/receiving}">
-                                    <i class="fas fa-dolly mr-2" aria-hidden="true"></i>進貨系統
+                                    <i class="fas fa-dolly" aria-hidden="true"></i>進貨系統
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-purchase" aria-selected="false" aria-controls="psi-panel" tabindex="-1" data-psi-tab data-key="purchase" th:attr="data-url=@{/admin/psi/purchase}">
-                                    <i class="fas fa-shopping-cart mr-2" aria-hidden="true"></i>採購系統
+                                    <i class="fas fa-shopping-cart" aria-hidden="true"></i>採購系統
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-stock" aria-selected="false" aria-controls="psi-panel" tabindex="-1" data-psi-tab data-key="stock" th:attr="data-url=@{/admin/psi/stock}">
-                                    <i class="fas fa-boxes mr-2" aria-hidden="true"></i>庫存查詢
+                                    <i class="fas fa-boxes" aria-hidden="true"></i>庫存查詢
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-vendor" aria-selected="false" aria-controls="psi-panel" tabindex="-1" data-psi-tab data-key="vendor" th:attr="data-url=@{/admin/psi/vendor}">
-                                    <i class="fas fa-handshake mr-2" aria-hidden="true"></i>供應商管理
+                                    <i class="fas fa-handshake" aria-hidden="true"></i>供應商管理
                                 </button>
                             </div>
                         </div>
                         <div class="card-body p-0" id="psi-panel" role="tabpanel" aria-labelledby="tab-shipping" aria-busy="true">
                             <p id="psi-load-status" class="m-3 text-muted" role="status">正在載入出貨系統…</p>
                             <iframe id="psi-frame" name="psi-content" title="出貨系統"></iframe>
+                        </div>
                         </div>
                     </div>
 
@@ -94,7 +95,8 @@
             var embeddedCss = '#accordionSidebar, .topbar, .sticky-footer, .scroll-to-top { display: none !important; }'
                     + ' html, body { height: auto !important; min-height: 0 !important; overflow-y: hidden !important; background: #fff !important; }'
                     + ' #wrapper #content-wrapper { min-height: 0 !important; background: #fff !important; }'
-                    + ' #content { padding-top: 1.5rem; }';
+                    + ' #content { padding-top: 1.5rem; }'
+                    + ' html, body { overflow-x: hidden !important; } .table-responsive { overflow-x: visible !important; }';
 
             function selectTab(tab) {
                 var tabName = $.trim(tab.text());
@@ -131,6 +133,17 @@
 
                     // iframe 高度跟著內容走（換頁、切換每頁筆數時也會更新）
                     var fitHeight = function() {
+                        var tabBar = document.querySelector('.psi-tabs');
+                        var tabStyle = getComputedStyle(tabBar);
+                        var minimumWidth = Array.from(tabBar.children).reduce(function(sum, tab) { return sum + tab.getBoundingClientRect().width; }, 0)
+                            + (parseFloat(tabStyle.columnGap) || 0) * (tabBar.children.length - 1)
+                            + (parseFloat(tabStyle.paddingLeft) || 0) + (parseFloat(tabStyle.paddingRight) || 0);
+                        frameDoc.querySelectorAll('table').forEach(function(table) {
+                            if (!table.getClientRects().length) return;
+                            var rect = table.getBoundingClientRect();
+                            minimumWidth = Math.max(minimumWidth, rect.right + Math.max(0, table.scrollWidth - table.clientWidth) + 24);
+                        });
+                        document.querySelector('.psi-scroll-content').style.setProperty('--psi-content-min-width', Math.ceil(minimumWidth) + 'px');
                         frame.style.height = frameDoc.body.offsetHeight + 'px';
                     };
                     fitHeight();

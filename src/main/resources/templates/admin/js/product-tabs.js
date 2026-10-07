@@ -104,7 +104,7 @@
             'body>.container,body>main{width:100%!important;max-width:none!important;min-width:0!important;margin:0!important;padding:0!important}' +
             'body>main>nav{display:none!important}[hidden]{display:none!important}';
         if (doc.querySelector('#product-table')) {
-            style.textContent += 'html{padding:0!important}body{padding-top:15px!important}.list-controls{margin-top:0!important}';
+            style.textContent += 'html{padding:0!important}html,body{overflow-x:hidden!important}body{padding-top:15px!important}.container{overflow-x:visible!important}.list-controls{margin-top:0!important}';
         }
         doc.head.appendChild(style);
 
@@ -131,9 +131,16 @@
             const tabBar = document.querySelector('.product-tabs');
             if (overviewTable && tabBar) {
                 const tableRect = overviewTable.getBoundingClientRect();
-                const left = frame.getBoundingClientRect().left - tabBar.parentElement.getBoundingClientRect().left + tableRect.left;
-                tabBar.style.setProperty('--product-tabs-width', tableRect.width + 'px');
-                tabBar.style.setProperty('--product-tabs-left', left + 'px');
+                const tabStyle = getComputedStyle(tabBar);
+                const tabWidth = Array.from(tabBar.children).reduce((sum, tab) => sum + tab.getBoundingClientRect().width, 0)
+                    + (parseFloat(tabStyle.columnGap) || 0) * (tabBar.children.length - 1)
+                    + (parseFloat(tabStyle.paddingLeft) || 0) + (parseFloat(tabStyle.paddingRight) || 0);
+                const scrollContent = document.querySelector('.product-scroll-content');
+                if (scrollContent) {
+                    const rightPadding = parseFloat(frame.contentWindow.getComputedStyle(doc.body).paddingRight) || 0;
+                    scrollContent.style.setProperty('--product-content-min-width',
+                        Math.ceil(Math.max(tableRect.right + rightPadding, tabWidth)) + 'px');
+                }
             }
             let bottom = 0;
             Array.from(doc.body.children).forEach(child => {
