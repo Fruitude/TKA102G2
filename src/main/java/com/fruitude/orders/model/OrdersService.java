@@ -229,6 +229,12 @@ public class OrdersService {
 		return updatedRows > 0;
 	}
 
+	// 會員目前的購物金餘額（元）；找不到會員或餘額是空的就是 0
+	public int getShoppingCredit(Integer memberId) {
+		MemberVO member = memberRepository.findById(memberId).orElse(null);
+		return member == null || member.getShoppingCredit() == null ? 0 : member.getShoppingCredit();
+	}
+
 	// 給結帳頁與確認頁預覽用：依「規格編號 → 數量」用資料庫即時價格算商品折扣，不採用前端算的金額。
 	// 計算方式和下單時一樣：全館折扣、壽星月、新會員首購和指定商品活動價擇優
 	public com.fruitude.promo.model.ProductDiscount previewProductDiscount(Integer memberId, Map<Integer, Integer> qtyBySku) {

@@ -43,10 +43,12 @@
         <h2 class="heading-h4">購物金折抵</h2>
       </div>
       <div class="checkout-contents">
+        <p class="paragraph-18" id="confirm-credit-balance">目前購物金：載入中…</p>
         <div class="confirm-credit-input-row">
           <label class="form_field-label" for="store-credit-input">輸入要折抵的購物金</label>
           <input class="form-input" id="store-credit-input" inputmode="numeric" min="0" placeholder="0" type="number"/>
         </div>
+        <p class="paragraph-18" id="confirm-credit-hint" style="display:none"></p>
       </div>
 
       <div class="checkout-header confirm-block-header">
@@ -94,7 +96,8 @@
     <button class="primary-button buy-button" id="confirm-pay-button" type="button"
             th:data-place-order-url="@{/front/checkout/place-order}"
             th:data-free-shipping-url="@{/front/checkout/free-shipping}"
-            th:data-product-discount-url="@{/front/checkout/product-discount}">確認付款</button>
+            th:data-product-discount-url="@{/front/checkout/product-discount}"
+            th:data-credit-balance-url="@{/front/checkout/credit-balance}">確認付款</button>
   </div>
 </div>
 
@@ -110,6 +113,10 @@
 
   var itemListEl = document.getElementById("confirm-item-list");
   var creditInput = document.getElementById("store-credit-input");
+  var creditBalanceEl = document.getElementById("confirm-credit-balance");
+  var creditHintEl = document.getElementById("confirm-credit-hint");
+  var CREDIT_BALANCE = null;    // 目前會員的購物金餘額；null = 還沒取得或取不到（結帳時伺服器會再確認一次）
+  var lastCreditApplied = 0;    // 最近一次畫面上實際折抵的購物金，按「確認付款」時就送這個金額
   var itemsTotalEl = document.getElementById("confirm-items-total");
   var shippingFeeEl = document.getElementById("confirm-shipping-fee");
   var shippingDiscountEl = document.getElementById("confirm-shipping-discount");
@@ -171,8 +178,21 @@
     var beforeCredit = Math.max(0, itemsTotal + SHIPPING_FEE - SHIPPING_DISCOUNT - PROMO_DISCOUNT);
     var creditRequested = getCreditRequested();
     // never let store-credit redemption push the payable total below zero
-    var creditApplied = Math.min(creditRequested, beforeCredit);
+    // 折抵金額不能超過「應付金額」，也不能超過會員目前的購物金餘額（餘額取得後才限制）
+    var creditLimit = CREDIT_BALANCE === null ? beforeCredit : Math.min(beforeCredit, CREDIT_BALANCE);
+    var creditApplied = Math.min(creditRequested, creditLimit);
+    lastCreditApplied = creditApplied;
     var total = beforeCredit - creditApplied;
+
+    // 輸入框上限與提示：輸入的比能折抵的多時，說明實際會折抵多少
+    creditInput.max = String(Math.floor(creditLimit));
+    if (creditRequested > creditApplied) {
+      creditHintEl.style.display = "";
+      creditHintEl.textContent = (CREDIT_BALANCE !== null && creditRequested > CREDIT_BALANCE
+        ? "超過目前購物金，" : "超過應付金額，") + "最多可折抵 " + formatMoney(Math.floor(creditLimit));
+    } else {
+      creditHintEl.style.display = "none";
+    }
 
     itemsTotalEl.textContent = formatMoney(itemsTotal);
     shippingFeeEl.textContent = formatMoney(SHIPPING_FEE);
@@ -246,12 +266,30 @@
         }
       })
       .catch(function () {});
+    // 取得目前會員的購物金餘額並顯示；沒有餘額就停用輸入框。取不到就不限制輸入，結帳時伺服器仍會檢查餘額
+    fetch(payButton.dataset.creditBalanceUrl, { cache: "no-store", credentials: "same-origin" })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (balance) {
+        if (typeof balance !== "number") {
+          creditBalanceEl.textContent = "目前購物金：無法取得，結帳時會再次確認";
+          return;
+        }
+        CREDIT_BALANCE = balance;
+        creditBalanceEl.textContent = "目前購物金：" + formatMoney(balance);
+        if (balance <= 0) {
+          creditInput.value = "";
+          creditInput.disabled = true;
+        }
+        recalc();
+      })
+      .catch(function () { creditBalanceEl.textContent = "目前購物金：無法取得，結帳時會再次確認"; });
     creditInput.addEventListener("input", recalc);
     payButton.addEventListener("click", function () {
       payButton.disabled = true; // prevent double-clicks from placing the order twice
       var body = new URLSearchParams();
       // backend takes an Integer; a decimal like 12.5 would be rejected with 400
-      body.append("storeCredit", String(Math.floor(getCreditRequested())));
+      // 送的是畫面上實際折抵的金額（已經限制在餘額與應付金額以內）
+      body.append("storeCredit", String(Math.floor(lastCreditApplied)));
 
       fetch(payButton.dataset.placeOrderUrl, { method: "POST", body: body })
         .then(function (res) {
