@@ -63,8 +63,12 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Revalidate overview styles so unchanged files can return 304 without becoming stale.
+        registry.addResourceHandler("/css/product-overview.css")
+            .addResourceLocations("classpath:/static/")
+            .setCacheControl(CacheControl.noCache());
         // Prevent an old client-side pagination script from being reused with server-side paging.
-        registry.addResourceHandler("/admin/js/product-pagination.js", "/admin/js/product-tabs.js")
+        registry.addResourceHandler("/admin/js/product-pagination.js", "/admin/js/product-tabs.js", "/admin/js/product-action-confirm.js")
             .addResourceLocations("classpath:/templates/")
             .setCacheControl(CacheControl.noStore());
 		// 購物車與結帳金額的計算都在 front/js 底下的 cart.js 等檔案，改版後瀏覽器一定要拿到新的；

@@ -58,12 +58,32 @@ public class ProductOverviewPagingTest {
         assertEquals(10, last.getNumberOfElements());
         assertEquals(140, requests.get(requests.size()-1).getOffset());
     }
+    @Test public void searchScopeAndEscapedTextSurvivePageClamping() {
+        List<List<Object>> searches = new ArrayList<>();
+        ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),
+            new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
+                searches.add(Arrays.asList(args[10], args[11], args[12]));
+                Pageable requested = (Pageable) args[args.length - 1];
+                return new PageImpl<ProductOverview>(List.of(), requested, 25);
+            });
+        var service = new ProductService(); ReflectionTestUtils.setField(service, "repository", repo);
+        service.getOverviewPage(99, 10, "all", null, null, null, "all", null, null, "", "", "asc",
+            "  APPLE%_!  ", false, true);
+        assertEquals(List.of(List.of("apple!%!_!!", false, true), List.of("apple!%!_!!", false, true)), searches);
+        service.getOverviewPage(1, 10, "all", null, null, null, "all", null, null, "", "", "asc",
+            "   ", true, true);
+        assertEquals(List.of("", true, true), searches.get(2));
+        service.getOverviewPage(1, 10, "all", null, null, null, "all", null, null, "", "", "asc",
+            "芒果", false, false);
+        assertEquals(List.of("芒果", true, false), searches.get(3));
+    }
+
     @Test public void sortSurvivesPageClampingAndInvalidSortIsSanitized() {
         List<List<String>> sorts = new ArrayList<>();
         ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),
             new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
                 sorts.add(List.of((String) args[8], (String) args[9]));
-                Pageable requested = (Pageable) args[10];
+                Pageable requested = (Pageable) args[args.length - 1];
                 return new PageImpl<ProductOverview>(List.of(), requested, 25);
             });
         var service = new ProductService(); ReflectionTestUtils.setField(service, "repository", repo);

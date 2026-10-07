@@ -161,7 +161,7 @@ public class AdminProductNavigationTest {
         assertTrue(html.contains("data-src=\"/shop/product/image/9/thumbnail\""));
         assertTrue(html.contains("data-image-ids=\"9,10,11\""));
         assertTrue(html.contains("data-image-base=\"/shop/product/image/\""));
-        assertTrue(html.contains("庫存狀態"));
+        assertTrue(html.contains("id=\"stock-filter\""));
         assertTrue(html.contains("待進貨超過100"));
         assertTrue(html.contains("未設安全庫存"));
         assertTrue(html.contains(">低安全</span>"));
