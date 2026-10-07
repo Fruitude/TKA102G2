@@ -108,17 +108,17 @@
 												</form>
 											</td>
 											<td th:text="${poVO.poNo}" style="text-align: center"></td>
-											<td th:text="${poVO.vendor}"></td>
-											<td th:text="${poVO.poEmployeeId}"></td>										</td>
-											<td th:text="${poVO.orderDate}"></td>
+											<td th:text="${poVO.vendor.vendorName}"></td>
+										 	<td th:text="${poVO.poEmployeeId.employeeName}"></td>										</td>
+											<td th:text="${{poVO.orderDate}}"></td>
 											<td th:text="${poVO.poStatus}"></td>
 											<td th:text="${poVO.totalAmount}"></td>
-											<td th:text="${poVO.inboundEmployeeId}"></td>
-											<td th:text="${poVO.inboundDate}"></td>
+											<td th:text="${poVO.inboundEmployeeId?.employeeName}"></td>
+											<td th:text="${{poVO.inboundDate}}"></td>
 											<td>
 												<span th:if="${poVO.inboundStatus == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">尚未驗收</span>
 												<span th:if="${poVO.inboundStatus == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">驗收成功</span>
-												<span th:if="${poVO.inboundStatuse == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">驗收失敗</span>
+												<span th:if="${poVO.inboundStatus == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">驗收失敗</span>
 											</td>
 											<td th:text="${poVO.inboundAmount}"></td>
 										</tr>

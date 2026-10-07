@@ -33,7 +33,7 @@ public class PoController {
 	    }
 	    model.addAttribute("inboundStatus", inboundStatus);
 	    model.addAttribute("poListData", pos);
-	    return "admin/psi/purchase/listAllVendor";
+	    return "admin/psi/purchase/listAllPo";
 	}
 	
 	

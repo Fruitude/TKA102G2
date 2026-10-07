@@ -47,19 +47,20 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
-					<h4 class="h4 mb-4 text-gray-800" th:switch="${isActive}">
-					    <span th:case="0">尚未啟用的供應商</span>
-					    <span th:case="1">已啟用的供應商</span>
-					    <span th:case="2">已停用的供應商</span>
-					    <span th:case="*">全部供應商</span>
-					</h4>
 
 					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary btn-icon-split mb-3"> 
 						<span class="icon text-white-50">
 						<i class="fas fa-arrow-left"></i></span> 
 						<span class="text">回供應商管理</span>
 					</a>
-
+					
+					<h4 class="h4 mb-4 text-gray-800" th:switch="${isActive}">
+					    <span th:case="0">尚未啟用的供應商</span>
+					    <span th:case="1">已啟用的供應商</span>
+					    <span th:case="2">已停用的供應商</span>
+					    <span th:case="*">全部供應商</span>
+					</h4>
+					
 					<!-- 供應商查詢全部，樣式參考 tables.html -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
