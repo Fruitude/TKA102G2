@@ -5,8 +5,35 @@
   var emptyState = document.getElementById("favorite-empty");
   var grid = document.getElementById("favorite-grid");
   var count = document.getElementById("favorite-count");
+  var memberId = null;
+  var storageKey = null;
 
   // 我的最愛屬於會員功能，沒有登入時直接回登入頁，不顯示其他會員的資料。
+  function getStoredFavorites() {
+    if (!storageKey) return [];
+    try {
+      var saved = JSON.parse(window.localStorage.getItem(storageKey) || "[]");
+      return Array.isArray(saved) ? saved.filter(function(product) {
+        return product && product.productId != null;
+      }) : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveFavorites(products) {
+    if (!storageKey) return;
+    window.localStorage.setItem(storageKey, JSON.stringify(products));
+  }
+
+  function removeFavorite(productId) {
+    var products = getStoredFavorites().filter(function(product) {
+      return String(product.productId) !== String(productId);
+    });
+    saveFavorites(products);
+    window.renderMemberFavorites(products);
+  }
+
   fetch(contextPath + "/api/members/session", {
     credentials: "same-origin",
     headers: { "Accept": "application/json" }
@@ -16,7 +43,31 @@
   }).then(function(session) {
     if (!session.loggedIn) {
       window.location.replace(contextPath + "/front/about/login/");
+      return;
     }
+    memberId = session.memberId;
+    storageKey = "fruitude:member-favorites:" + memberId;
+    window.FavoriteStore = {
+      add: function(product) {
+        if (!product || product.productId == null) return;
+        var products = getStoredFavorites().filter(function(item) {
+          return String(item.productId) !== String(product.productId);
+        });
+        products.unshift(product);
+        saveFavorites(products);
+        window.renderMemberFavorites(products);
+      },
+      remove: removeFavorite,
+      all: getStoredFavorites,
+      clear: function() { saveFavorites([]); window.renderMemberFavorites([]); }
+    };
+    window.addEventListener("favorite:add", function(event) {
+      window.FavoriteStore.add(event.detail);
+    });
+    window.addEventListener("storage", function(event) {
+      if (event.key === storageKey) window.renderMemberFavorites(getStoredFavorites());
+    });
+    window.renderMemberFavorites(getStoredFavorites());
   }).catch(function() {
     window.location.replace(contextPath + "/front/about/login/");
   });
@@ -51,8 +102,17 @@
     price.className = "favorite-card-price";
     price.textContent = "NT$ " + Number(product.price || 0).toLocaleString("zh-TW");
 
+    var remove = document.createElement("button");
+    remove.className = "favorite-card-remove";
+    remove.type = "button";
+    remove.title = "移除收藏";
+    remove.setAttribute("aria-label", "移除「" + (product.productName || "收藏商品") + "」");
+    remove.textContent = "×";
+    remove.addEventListener("click", function() { removeFavorite(product.productId); });
+
     body.appendChild(title);
     body.appendChild(price);
+    body.appendChild(remove);
     article.appendChild(imageLink);
     article.appendChild(body);
     return article;

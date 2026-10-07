@@ -19,6 +19,9 @@ public interface MemberRepository extends JpaRepository<MemberVO, Integer> {
 	// 登入時允許使用帳號或 Email，並明確以不分大小寫的方式尋找會員。
 	Optional<MemberVO> findByMemberAccountIgnoreCaseOrMemberEmailIgnoreCase(String memberAccount, String memberEmail);
 
+	// Google 登入與忘記密碼都以已驗證的 Email 尋找既有會員。
+	Optional<MemberVO> findByMemberEmailIgnoreCase(String memberEmail);
+
 	// 註冊及修改資料前，用不分大小寫的方式檢查帳號或 Email 是否已被使用。
 	boolean existsByMemberAccountIgnoreCase(String memberAccount);
 

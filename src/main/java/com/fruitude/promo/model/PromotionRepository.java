@@ -14,6 +14,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 	// 後台活動詳細頁用：某個活動底下的活動商品，連同商品名稱、規格名稱與原價
 	interface PromotionRow {
 		Integer getPromotionId();
+		Integer getProductId();
 		Integer getSkuId();
 		String getProductName();
 		String getSkuName();
@@ -23,6 +24,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
 	// 後台「新增商品」挑選規格用：規格、所屬商品名稱與原價
 	interface SkuOption {
+		Integer getProductId();
 		Integer getSkuId();
 		String getProductName();
 		String getSkuName();
@@ -33,7 +35,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 	List<Promotion> findByPromoProjectIdOrderByPromotionId(Integer promoProjectId);
 
 	@Query(value = """
-			SELECT pm.promotion_id AS promotionId, pm.sku_id AS skuId, p.product_name AS productName,
+			SELECT pm.promotion_id AS promotionId, p.product_id AS productId, pm.sku_id AS skuId, p.product_name AS productName,
 			       s.sku_name AS skuName, s.price AS originalPrice, pm.promo_price AS promoPrice
 			FROM promotion pm
 			JOIN product_sku s ON s.sku_id = pm.sku_id
@@ -43,16 +45,21 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 			""", nativeQuery = true)
 	List<PromotionRow> findRowsByProject(@Param("promoProjectId") Integer promoProjectId);
 
-	// 可以加入這個活動的規格：原價大於 0、還沒在這個活動裡，可用商品名稱或規格名稱搜尋（空字串代表不限），最多 100 筆
+	// 可以加入這個活動的規格：原價大於 0、還沒在這個活動裡。
+	// 「已經在活動裡」的判斷是 sku_id 與 product_id 都相同；規格名稱、商品名稱相同不代表重複（不同商品可以有同名的規格）。
+	// 用 NOT EXISTS 而不是 NOT IN：NOT IN 遇到 NULL 會讓整個清單變空。
+	// 可用商品名稱、規格名稱，或規格編號、商品編號（完全相符）搜尋，空字串代表不限
 	@Query(value = """
-			SELECT s.sku_id AS skuId, p.product_name AS productName, s.sku_name AS skuName, s.price AS price
+			SELECT p.product_id AS productId, s.sku_id AS skuId, p.product_name AS productName, s.sku_name AS skuName, s.price AS price
 			FROM product_sku s JOIN product p ON p.product_id = s.product_id
 			WHERE s.price > 0
-			  AND s.sku_id NOT IN (SELECT pm.sku_id FROM promotion pm WHERE pm.promo_project_id = :promoProjectId)
+			  AND NOT EXISTS (SELECT 1 FROM promotion pm JOIN product_sku s2 ON s2.sku_id = pm.sku_id
+			                   WHERE pm.promo_project_id = :promoProjectId
+			                     AND s2.sku_id = s.sku_id AND s2.product_id = s.product_id)
 			  AND (:keyword = '' OR p.product_name LIKE CONCAT('%', :keyword, '%')
+			       OR CAST(p.product_id AS CHAR) = :keyword OR CAST(s.sku_id AS CHAR) = :keyword
 			       OR s.sku_name LIKE CONCAT('%', :keyword, '%'))
 			ORDER BY p.product_id, s.sku_id
-			LIMIT 100
 			""", nativeQuery = true)
 	List<SkuOption> findSkuOptions(@Param("promoProjectId") Integer promoProjectId, @Param("keyword") String keyword);
 
