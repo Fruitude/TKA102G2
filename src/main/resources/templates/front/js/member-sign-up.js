@@ -17,9 +17,41 @@
   const accountPattern = /^[A-Za-z0-9_]{6,20}$/;
   const checkedValues = { account: "", email: "" };
   const availableValues = { account: false, email: false };
+	const googleRegisterButton = document.getElementById("google-register-button");
+	const googleRegisterHint = document.getElementById("google-register-hint");
+	const isGoogleRegistration = new URLSearchParams(window.location.search).get("googleRegister") === "1";
 
   // 生日不能晚於今天，先在瀏覽器端阻止明顯不合法的日期。
   birthday.max = new Date().toISOString().slice(0, 10);
+
+	if (googleRegisterButton) {
+		googleRegisterButton.addEventListener("click", function () {
+			const authorizeUrl = new URL(contextPath + "/api/members/google/authorize", window.location.origin);
+			authorizeUrl.searchParams.set("mode", "register");
+			window.location.assign(authorizeUrl.toString());
+		});
+	}
+
+	// Google 回呼後預填已驗證的姓名與 Email，Email 只能使用 Google 驗證結果。
+	if (isGoogleRegistration) {
+		fetch(contextPath + "/api/members/google/registration-profile", { credentials: "same-origin" })
+			.then(function (response) {
+				if (!response.ok) throw new Error("Google 註冊資料已逾時，請重新操作");
+				return response.json();
+			})
+			.then(function (profile) {
+				if (profile.name) document.getElementById("member-name").value = profile.name;
+				if (profile.email) {
+					email.value = profile.email.toLowerCase();
+					email.readOnly = true;
+					checkedValues.email = email.value;
+					availableValues.email = true;
+					showFieldStatus(email, emailStatus, "Google 信箱已驗證", "success");
+				}
+				if (googleRegisterHint) googleRegisterHint.textContent = "Google 信箱已驗證，請補齊帳號、生日與密碼。";
+			})
+			.catch(function (error) { showFeedback(error.message, "error"); });
+	}
 
   function showFeedback(message, type) {
     feedback.textContent = message;
@@ -196,8 +228,13 @@
               if (!result.response.ok) {
                 throw new Error(readErrorMessage(result.response, result.body));
               }
-              showFeedback("註冊成功，正在前往登入頁...", "success");
-              window.location.assign(contextPath + "/front/about/login/");
+			  showFeedback(
+				isGoogleRegistration ? "會員資料完成，正在前往首頁..." : "註冊成功，正在前往登入頁...",
+				"success",
+			  );
+			  window.location.assign(
+				contextPath + (isGoogleRegistration ? "/front/" : "/front/about/login/"),
+			  );
             })
             .catch(function (error) {
               showFeedback(
