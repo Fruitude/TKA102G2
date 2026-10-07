@@ -414,6 +414,9 @@ public class ProductController {
      */
     @GetMapping("listAllProduct")
     public String listAllProduct(
+            @RequestParam(defaultValue = "") String keyword,
+            @RequestParam(defaultValue = "true") boolean searchProductName,
+            @RequestParam(defaultValue = "true") boolean searchSkuName,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String statusFilter,
@@ -468,7 +471,7 @@ public class ProductController {
         sortBy = ProductService.normalizeOverviewSort(sortBy);
         sortDirection = "desc".equals(sortDirection) ? "desc" : "asc";
         var result = productSvc.getOverviewPage(page, size == null ? savedSize : size, status,
-              parentCategoryId, categoryId, vendorId, stock, minCount, maxCount, rating, sortBy, sortDirection);
+              parentCategoryId, categoryId, vendorId, stock, minCount, maxCount, rating, sortBy, sortDirection, keyword, searchProductName, searchSkuName);
 
         model.addAttribute("categoryChildrenByParent", categories.stream()
             .filter(c -> c.getParentCategory() != null)
@@ -483,6 +486,9 @@ public class ProductController {
         model.addAttribute("selectedCategoryId", categoryId);
         model.addAttribute("selectedVendorId", vendorId);
 
+        model.addAttribute("keyword", keyword.strip());
+        model.addAttribute("searchProductName", searchProductName);
+        model.addAttribute("searchSkuName", searchSkuName);
         model.addAttribute("productListData", result.getContent());
         var overviewProductIds = result.getContent().stream().map(com.fruitude.product.model.ProductOverview::getProductId).toList();
         model.addAttribute("overviewSkuNames", productSvc.getOverviewSkuNames(overviewProductIds));

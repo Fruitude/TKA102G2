@@ -15,13 +15,39 @@
     const primaryFilters = document.querySelector('.filter-row-primary');
     const secondaryFilters = document.querySelector('.filter-row-secondary');
     function alignFilterColumns() {
-        if (!primaryFilters || !secondaryFilters) return;
+        if (!primaryFilters || !secondaryFilters || document.getElementById('product-search-drawer')?.dataset.collapsed === 'true') return;
         const upper = Array.from(primaryFilters.children);
         const lower = Array.from(secondaryFilters.children);
+        const controls = primaryFilters.parentElement;
+        const commentInputs = document.getElementById('min-comments');
+        const commentEnd = document.getElementById('max-comments');
+        if (commentInputs && commentEnd) controls.style.setProperty('--comment-inputs-width',
+            (commentEnd.getBoundingClientRect().right - commentInputs.getBoundingClientRect().left) + 'px');
         const widths = upper.slice(0, 3).map((control, index) =>
             Math.max(control.getBoundingClientRect().width, lower[index].getBoundingClientRect().width) + 'px');
         primaryFilters.parentElement.style.setProperty('--filter-columns', widths.join(' ') + ' max-content');
+        const categoryDropdown = document.getElementById('category-dropdown');
+        if (categoryDropdown) primaryFilters.parentElement.style.setProperty('--search-width',
+            (categoryDropdown.getBoundingClientRect().right - primaryFilters.getBoundingClientRect().left) + 'px');
+        const rating = document.getElementById('rating-filter');
+        if (rating && upper[3]) controls.style.setProperty('--rating-control-width',
+            Math.max(60, upper[3].getBoundingClientRect().right - rating.getBoundingClientRect().left) + 'px');
+        alignActionButtons();
     }
+    function alignActionButtons() {
+        const controls = document.querySelector('.list-controls');
+        const deleteButton = table.querySelector('.product-actions button.delete');
+        if (controls && secondaryFilters) {
+            const right = deleteButton ? deleteButton.getBoundingClientRect().right : table.getBoundingClientRect().right - 9;
+            controls.style.setProperty('--actions-right-inset', (controls.getBoundingClientRect().right - right) + 'px');
+            const on = document.getElementById('page-status-on')?.getBoundingClientRect();
+            const off = document.getElementById('page-status-off')?.getBoundingClientRect();
+            const center = on && off ? (on.right + off.left) / 2 : right - 57;
+            controls.style.setProperty('--reset-center-position',
+                (center - secondaryFilters.getBoundingClientRect().left) + 'px');
+        }
+    }
+    window.addEventListener('resize', alignFilterColumns);
     alignFilterColumns();
     if (primaryFilters && typeof ResizeObserver !== 'undefined') {
         const filterObserver = new ResizeObserver(alignFilterColumns);
@@ -29,6 +55,25 @@
         window.addEventListener('pagehide', () => filterObserver.disconnect(), { once: true });
     }
     if (document.fonts) document.fonts.ready.then(alignFilterColumns);
+    const searchForm = document.getElementById('product-search-form');
+    const searchInput = document.getElementById('product-search-input');
+    const searchProductName = document.getElementById('search-product-name');
+    const searchSkuName = document.getElementById('search-sku-name');
+    let searchTimer;
+    let searchComposing = false;
+    function scheduleSearch() {
+        clearTimeout(searchTimer);
+        if (!searchComposing) searchTimer = setTimeout(() => navigate(1), 1500);
+    }
+    searchInput?.addEventListener('input', scheduleSearch);
+    searchInput?.addEventListener('compositionstart', () => { searchComposing = true; clearTimeout(searchTimer); });
+    searchInput?.addEventListener('compositionend', () => { searchComposing = false; scheduleSearch(); });
+    [searchProductName, searchSkuName].forEach(control => control?.addEventListener('change', scheduleSearch));
+    window.addEventListener('pagehide', () => clearTimeout(searchTimer), { once: true });
+    searchForm?.addEventListener('submit', event => {
+        event.preventDefault();
+        navigate(1);
+    });
     const sizeSelect = document.getElementById('page-size');
     const statusFilter = document.getElementById('status-filter');
     const stockFilter = document.getElementById('stock-filter');
@@ -77,6 +122,21 @@
         });
     }
     const totalProducts = Number(table.dataset.totalProducts) || 0;
+    document.getElementById('reset-product-filters')?.addEventListener('click', () => {
+        clearTimeout(searchTimer);
+        clearTimeout(reviewTimer);
+        searchInput.value = '';
+        searchProductName.checked = true;
+        searchSkuName.checked = true;
+        sizeSelect.value = '10';
+        statusFilter.value = 'all';
+        stockFilter.value = 'all';
+        [parentCategory, childCategory, vendor, minComments, maxComments, ratingFilter]
+            .forEach(control => { if (control) control.value = ''; });
+        sortBy = '';
+        sortDirection = 'asc';
+        navigate(1);
+    });
 
     function savePreferences() {
         try {
@@ -117,11 +177,12 @@
     function validReviewRange() {
         if (!minComments || !maxComments) return true;
         [minComments, maxComments].forEach(control => {
-            const normalized = control.value.replace(/[０-９]/g, digit => String.fromCharCode(digit.charCodeAt(0) - 0xFEE0));
+            const leadingSpaces = control.value.match(/^\s*/)[0].length;
+            const normalized = control.value.replace(/[０-９]/g, digit => String.fromCharCode(digit.charCodeAt(0) - 0xFEE0)).trim();
             if (normalized !== control.value) {
                 const start = control.selectionStart, end = control.selectionEnd;
                 control.value = normalized;
-                if (start !== null && end !== null) control.setSelectionRange(start, end);
+                if (start !== null && end !== null) control.setSelectionRange(Math.max(0, start - leadingSpaces), Math.max(0, end - leadingSpaces));
             }
         });
         const error = document.getElementById('comment-range-error');
@@ -145,9 +206,13 @@
     function navigate(target) {
         if (!validReviewRange()) return;
         clearTimeout(reviewTimer);
+        clearTimeout(searchTimer);
         savePreferences();
         const url = new URL(location.href);
         url.searchParams.set('page', String(target));
+        url.searchParams.set('keyword', searchInput?.value.trim() || '');
+        url.searchParams.set('searchProductName', String(!!searchProductName?.checked));
+        url.searchParams.set('searchSkuName', String(!!searchSkuName?.checked));
         url.searchParams.set('sortBy', sortBy);
         url.searchParams.set('sortDirection', sortDirection);
         url.searchParams.set('size', sizeSelect.value);
@@ -177,7 +242,7 @@
             });
         });
         empty.hidden = rows.length > 0;
-        empty.cells[0].textContent = statusFilter.value !== 'all' || (stockFilter && stockFilter.value !== 'all') || parentCategory?.value || vendor?.value || minComments?.value || maxComments?.value || ratingFilter?.value ? '沒有符合條件的商品' : '目前沒有商品資料';
+        empty.cells[0].textContent = searchInput?.value.trim() || statusFilter.value !== 'all' || (stockFilter && stockFilter.value !== 'all') || parentCategory?.value || vendor?.value || minComments?.value || maxComments?.value || ratingFilter?.value ? '沒有符合條件的商品' : '目前沒有商品資料';
         summary.textContent = totalProducts ? '' : '共 0 個商品';
         pager.replaceChildren();
         if (!totalPages) return;
@@ -262,9 +327,12 @@
         }
         function positionMenu() {
             const rect = trigger.getBoundingClientRect();
-            menu.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 4)) + 'px';
-            menu.style.top = Math.max(4, rect.bottom + 4 + menu.offsetHeight > window.innerHeight
-                ? rect.top - menu.offsetHeight - 4 : rect.bottom + 4) + 'px';
+            // Keep the search input over the trigger; only the choices extend downward.
+            menu.style.width = (rect.width + 12) + 'px';
+            menu.style.left = (rect.left - 6) + 'px';
+            menu.style.top = (rect.top - 6) + 'px';
+            menu.style.setProperty('--category-options-height',
+                Math.max(72, Math.min(240, window.innerHeight - rect.bottom - 16)) + 'px');
         }
         function openMenu() {
             menu.hidden = false;
@@ -275,8 +343,11 @@
             closeChildren();
             const submenu = group.querySelector('.category-submenu');
             submenu.hidden = false;
-            submenu.classList.remove('open-left');
-            if (submenu.getBoundingClientRect().right > window.innerWidth - 4) submenu.classList.add('open-left');
+            const row = group.getBoundingClientRect();
+            const width = submenu.getBoundingClientRect().width;
+            submenu.style.left = (row.right + width > window.innerWidth - 4 ? row.left - width : row.right) + 'px';
+            submenu.style.right = 'auto';
+            submenu.style.top = Math.max(4, Math.min(row.top, window.innerHeight - submenu.offsetHeight - 4)) + 'px';
             group.querySelector('.category-expand').setAttribute('aria-expanded', 'true');
         }
         function filterCategories() {
@@ -347,7 +418,10 @@
         document.addEventListener('click', event => { if (!categoryDropdown.contains(event.target)) closeMenu(); });
         document.addEventListener('focusin', event => { if (!categoryDropdown.contains(event.target)) closeMenu(); });
         window.addEventListener('resize', () => closeMenu());
-        document.addEventListener('scroll', event => { if (!menu.contains(event.target)) closeMenu(); }, true);
+        document.addEventListener('scroll', event => {
+            if (!menu.contains(event.target)) closeMenu();
+            else if (event.target.classList?.contains('category-options')) closeChildren();
+        }, true);
     }
     const vendorDropdown = document.getElementById('vendor-dropdown');
     if (vendorDropdown && vendor) {
@@ -416,18 +490,19 @@
     if (slideshows.length) {
         const advance = () => {
             if (document.hidden) return;
+            let visibleTop = 0, visibleBottom = window.innerHeight;
+            try {
+                if (window.frameElement) {
+                    const frameRect = window.frameElement.getBoundingClientRect();
+                    visibleTop = Math.max(0, -frameRect.top);
+                    visibleBottom = Math.min(visibleBottom, window.parent.innerHeight - frameRect.top);
+                }
+            } catch (_) { /* Standalone or cross-origin page: use this viewport. */ }
+            if (visibleBottom <= visibleTop) return;
             slideshows.forEach(slideshow => {
                 if (!slideshow.img.complete || slideshow.busy || !slideshow.track) return;
                 const rect = slideshow.img.getBoundingClientRect();
                 // Avoid fetching carousel images for rows outside the visible viewport.
-                let visibleTop = 0, visibleBottom = window.innerHeight;
-                try {
-                    if (window.frameElement) {
-                        const frameRect = window.frameElement.getBoundingClientRect();
-                        visibleTop = Math.max(0, -frameRect.top);
-                        visibleBottom = Math.min(visibleBottom, window.parent.innerHeight - frameRect.top);
-                    }
-                } catch (_) { /* Standalone or cross-origin page: use this viewport. */ }
                 if (rect.bottom <= visibleTop || rect.top >= visibleBottom) return;
                 slideshow.busy = true;
                 const nextIndex = (slideshow.index + 1) % slideshow.urls.length;
@@ -471,6 +546,79 @@
             if (event.persisted) timer = setInterval(advance, 5000);
         });
     }
+    if (window.frameElement) document.body.classList.add('product-search-embedded');
+    const searchDrawer = document.getElementById('product-search-drawer');
+    const searchContent = document.getElementById('product-search-content');
+    const searchToggle = document.getElementById('toggle-product-search');
+    const collapseKey = storageKey + ':search-collapsed';
+    let collapseAnimationFrame;
+    let collapseAnimationTimer;
+    function alignSearchHandle() {
+        try {
+            const overviewTab = window.parent !== window && window.parent.document.getElementById('tab-overview');
+            if (overviewTab && window.frameElement && searchDrawer) {
+                const tabRect = overviewTab.getBoundingClientRect();
+                const frameRect = window.frameElement.getBoundingClientRect();
+                searchDrawer.style.setProperty('--search-reopen-left',
+                    (tabRect.left + tabRect.width / 2 - frameRect.left - searchDrawer.getBoundingClientRect().left) + 'px');
+            }
+        } catch (_) { /* Standalone pages use the first-tab width as their fallback. */ }
+    }
+    function finishSearchAnimation() {
+        if (!searchDrawer || !searchContent) return;
+        searchDrawer.classList.remove('is-animating');
+        searchContent.style.height = searchDrawer.dataset.collapsed === 'true' ? '0px' : 'auto';
+    }
+    function setSearchCollapsed(collapsed, animate = true) {
+        if (!searchDrawer || !searchContent || !searchToggle) return;
+        cancelAnimationFrame(collapseAnimationFrame);
+        clearTimeout(collapseAnimationTimer);
+        const startHeight = searchContent.getBoundingClientRect().height;
+        searchContent.style.height = startHeight + 'px';
+        searchDrawer.dataset.collapsed = String(collapsed);
+        searchContent.inert = collapsed;
+        searchContent.setAttribute('aria-hidden', String(collapsed));
+        searchToggle.setAttribute('aria-expanded', String(!collapsed));
+        searchToggle.setAttribute('aria-label', collapsed ? '展開搜尋功能' : '收起搜尋功能');
+        searchToggle.title = collapsed ? '展開搜尋功能' : '收起搜尋功能';
+        try { sessionStorage.setItem(collapseKey, String(collapsed)); } catch (_) {}
+        if (!collapsed) alignFilterColumns();
+        alignSearchHandle();
+        const targetHeight = collapsed ? 0 : searchContent.scrollHeight;
+        if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            finishSearchAnimation();
+            return;
+        }
+        searchDrawer.classList.add('is-animating');
+        searchContent.getBoundingClientRect();
+        collapseAnimationFrame = requestAnimationFrame(() => { searchContent.style.height = targetHeight + 'px'; });
+        collapseAnimationTimer = setTimeout(finishSearchAnimation, 400);
+    }
+    searchToggle?.addEventListener('click', () => {
+        clearTimeout(searchTimer);
+        clearTimeout(reviewTimer);
+        setSearchCollapsed(searchDrawer.dataset.collapsed !== 'true');
+    });
+    searchContent?.addEventListener('transitionend', event => {
+        if (event.target === searchContent && event.propertyName === 'height') finishSearchAnimation();
+    });
+    window.addEventListener('resize', alignSearchHandle);
+    window.addEventListener('load', alignSearchHandle);
+    window.addEventListener('pagehide', () => {
+        clearTimeout(collapseAnimationTimer);
+        cancelAnimationFrame(collapseAnimationFrame);
+    });
+    try {
+        const overviewTab = window.parent !== window && window.parent.document.getElementById('tab-overview');
+        if (overviewTab && typeof ResizeObserver !== 'undefined') {
+            const handleObserver = new ResizeObserver(alignSearchHandle);
+            handleObserver.observe(overviewTab);
+            window.addEventListener('pagehide', () => handleObserver.disconnect(), {once: true});
+        }
+    } catch (_) {}
+    if (document.fonts) document.fonts.ready.then(alignSearchHandle);
+    try { setSearchCollapsed(sessionStorage.getItem(collapseKey) === 'true', false); } catch (_) {}
+
     document.body.classList.remove('products-loading');
     document.documentElement.dataset.productListReady = 'true';
     document.dispatchEvent(new Event('product-list-ready'));

@@ -1,10 +1,28 @@
 (function($) {
   "use strict"; // Start of use strict
 
+  var sidebarPreferenceKey = 'fruitudeAdminSidebarCollapsed';
+  try {
+    var sidebarPreference = window.localStorage.getItem(sidebarPreferenceKey);
+    if (sidebarPreference !== null) {
+      var sidebarCollapsed = sidebarPreference === 'true';
+      $('body').toggleClass('sidebar-toggled', sidebarCollapsed);
+      $('.sidebar').toggleClass('toggled', sidebarCollapsed);
+      if (sidebarCollapsed) $('.sidebar .collapse').collapse('hide');
+    }
+  } catch (error) {
+    // The sidebar remains usable when browser storage is unavailable.
+  }
+
   // Toggle the side navigation
   $("#sidebarToggle, #sidebarToggleTop").on('click', function(e) {
     $("body").toggleClass("sidebar-toggled");
     $(".sidebar").toggleClass("toggled");
+    try {
+      window.localStorage.setItem(sidebarPreferenceKey, String($('.sidebar').hasClass('toggled')));
+    } catch (error) {
+      // Storage restrictions must not interrupt the toggle.
+    }
     if ($(".sidebar").hasClass("toggled")) {
       $('.sidebar .collapse').collapse('hide');
     };

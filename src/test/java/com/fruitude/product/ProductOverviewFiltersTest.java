@@ -17,6 +17,7 @@ public class ProductOverviewFiltersTest {
         ProductCategory other = category(3, null), otherChild = category(4, other);
         List<List<Integer>> calls = new ArrayList<>();
         List<String> stockFilters = new ArrayList<>();
+        List<List<Object>> searchCalls = new ArrayList<>();
         List<List<Object>> reviews = new ArrayList<>();
         var controller = new ProductController();
         ReflectionTestUtils.setField(controller, "productCategorySvc", new ProductCategoryService() {
@@ -31,8 +32,10 @@ public class ProductOverviewFiltersTest {
         ReflectionTestUtils.setField(controller, "productSvc", new ProductService() {
             @Override public Page<ProductOverview> getOverviewPage(int page, int size, String status,
                     Integer parentId, Integer categoryId, Integer vendorId, String stockFilter,
-                    Integer minComments, Integer maxComments, String ratingFilter, String sortBy, String sortDirection) {
+                    Integer minComments, Integer maxComments, String ratingFilter, String sortBy, String sortDirection,
+                    String keyword, boolean searchProductName, boolean searchSkuName) {
                 stockFilters.add(stockFilter);
+                searchCalls.add(Arrays.asList(keyword, searchProductName, searchSkuName));
                 reviews.add(Arrays.asList(minComments, maxComments, ratingFilter));
                 calls.add(Arrays.asList(page, size, parentId, categoryId, vendorId));
                 assertEquals("on", status);
@@ -44,6 +47,14 @@ public class ProductOverviewFiltersTest {
             .param("statusFilter", "on").param("parentCategoryId", "1")
             .param("categoryId", "2").param("vendorId", "9")).andReturn().getModelAndView();
         assertNotNull(result);
+        assertEquals(List.of("", true, true), searchCalls.get(0));
+        var searched = mvc.perform(get("/product/listAllProduct").param("statusFilter", "on")
+            .param("keyword", "草莓").param("searchProductName", "false").param("searchSkuName", "true"))
+            .andReturn().getModelAndView();
+        assertEquals(List.of("草莓", false, true), searchCalls.get(1));
+        assertEquals("草莓", searched.getModel().get("keyword"));
+        assertEquals(false, searched.getModel().get("searchProductName"));
+        calls.remove(1); stockFilters.remove(1); reviews.remove(1); searchCalls.remove(1);
         assertEquals(List.of(parent, other), result.getModel().get("parentCategoryListData"));
         assertEquals(List.of(child), result.getModel().get("childCategoryListData"));
         assertEquals(2, result.getModel().get("selectedCategoryId"));

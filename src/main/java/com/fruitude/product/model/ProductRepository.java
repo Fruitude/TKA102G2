@@ -54,6 +54,12 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     String OVERVIEW_FILTER = """
         WHERE (:productStatus IS NULL OR p.status = :productStatus)
+          AND (:keyword = ''
+            OR (:searchProductName = true AND LOWER(p.product_name) LIKE CONCAT('%', :keyword, '%') ESCAPE '!')
+            OR (:searchSkuName = true AND EXISTS (SELECT 1 FROM product_sku search_sku
+                WHERE search_sku.product_id = p.product_id AND
+                  (LOWER(search_sku.sku_name) LIKE CONCAT('%', :keyword, '%') ESCAPE '!'
+                   OR LOWER(search_sku.another_name) LIKE CONCAT('%', :keyword, '%') ESCAPE '!'))))
           AND (:parentCategoryId IS NULL OR c.product_category_id = :parentCategoryId OR c.parent_category_id = :parentCategoryId)
           AND (:categoryId IS NULL OR p.product_category_id = :categoryId)
           AND (:vendorId IS NULL OR p.vendor_id = :vendorId)
@@ -117,6 +123,9 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
         @org.springframework.data.repository.query.Param("ratingBucket") Integer ratingBucket,
         @org.springframework.data.repository.query.Param("sortBy") String sortBy,
         @org.springframework.data.repository.query.Param("sortDirection") String sortDirection,
+        @org.springframework.data.repository.query.Param("keyword") String keyword,
+        @org.springframework.data.repository.query.Param("searchProductName") boolean searchProductName,
+        @org.springframework.data.repository.query.Param("searchSkuName") boolean searchSkuName,
         org.springframework.data.domain.Pageable pageable);
 
     @Query(value = "SELECT product_id AS productId, sku_name AS skuName, another_name AS anotherName FROM product_sku WHERE product_id IN (:productIds) ORDER BY product_id, sku_id", nativeQuery = true)

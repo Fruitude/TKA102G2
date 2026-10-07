@@ -4,255 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>商品總覽</title>
+    <link th:href="@{/vendor/fontawesome-free/css/all.min.css}" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Huninn&amp;display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Huninn', sans-serif; margin: 30px; background: #f5f7f4; }
-        button, input, select, textarea { font-family: 'Huninn', sans-serif; }
-        .container { width: 100%; max-width: none; min-width: 0; box-sizing: border-box; margin: auto; background: white; padding: 20px; border-radius: 10px; overflow-x: auto; }
-        /* Change these pixel values to resize columns; the table width follows automatically. */
-        .container {
-            --col-number-width: 35px;
-            --col-image-width: 55px;
-            --col-name-width: 140px;
-            --col-sku-width: 190px;
-            --col-vendor-width: 140px;
-            --col-stock-width: 60px;
-            --col-count-width: 60px;
-            --col-score-width: 60px;
-            --col-status-width: 60px;
-            --col-actions-width: 130px;
-            --product-table-width: calc(var(--col-number-width) + var(--col-image-width) + var(--col-name-width) + var(--col-sku-width) + var(--col-vendor-width) + var(--col-stock-width) + var(--col-count-width) + var(--col-score-width) + var(--col-status-width) + var(--col-actions-width));
-        }
-        #product-table { width: var(--product-table-width); table-layout: fixed; border-collapse: separate; border-spacing: 0; outline: 1px solid #ddd; margin: 10px 0 0 5px; font-size: 14px; }
-        #product-table th { height: 35px; box-sizing: border-box; border: 0; box-shadow: inset -1px -1px 0 #ddd; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; font-size: 12px;}
-        #product-table td { height: 55px; box-sizing: border-box; border: 0; box-shadow: inset -1px -1px 0 #ddd; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; }
-        .review-sort { display: inline-flex; align-items: center; justify-content: center; gap: 3px; padding: 0; height: 35px; width: 100%; border-radius: 0; background: transparent; color: inherit; font: inherit; }
-        .review-sort:focus-visible { outline: 2px solid #287a4b; outline-offset: -2px; }
-        .sort-arrows { display: flex; flex-direction: column; font-size: 9px; line-height: 10px; color: #9ca3af; }
-        .sort-arrows .active { color: #166534; }
-        .col-number { width: var(--col-number-width); }
-        .col-image { width: var(--col-image-width); }
-        .col-name { width: var(--col-name-width); }
-        .col-sku { width: var(--col-sku-width); }
-        .sku-switcher { display: flex; align-items: center; justify-content: center; gap: 0.5em; padding: 0 8px; min-width: 0; }
-        .sku-counter { flex: 0 0 auto; min-width: 36px; height: 20px; box-sizing: border-box; border: 0; background: #D8D4F2; color: #625e72; }
-        .sku-counter:disabled { cursor: default; }
-        .sku-counter:focus-visible { outline: 2px solid #166534; outline-offset: 2px; }
-        .sku-name-viewport { flex: 0 1 auto; min-width: 0; height: 30px; overflow: hidden; text-align: center; }
-        .sku-name-track { display: flex; flex-direction: column; transform: translateY(0); }
-        .sku-name { display: block; flex: 0 0 30px; height: 30px; line-height: 30px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-        .sku-name-track.is-sliding-up { transform: translateY(-30px); transition: transform 250ms ease-in-out; }
-        @media (prefers-reduced-motion: reduce) { .sku-name-track.is-sliding-up { transition: none; } }
-        .col-vendor { width: var(--col-vendor-width); }
-        .col-stock { width: var(--col-stock-width); }
-        .col-count { width: var(--col-count-width); }
-        .col-score { width: var(--col-score-width); }
-        .col-status { width: var(--col-status-width); }
-        .col-actions { width: var(--col-actions-width); }
-        .cell-name { display: block; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .stock-alerts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; gap: 2px; padding: 2px; box-sizing: border-box; height: 50px; white-space: normal; }
-        .stock-alerts .stock-alert { min-width: 0; padding: 0; font-size: 8px; line-height: 13px; text-align: center; }
-        .stock-alerts .stock-alert:only-child { grid-column: 1 / -1; justify-self: center; padding: 0 3px; }
-        .stock-alerts .stock-alert:focus-visible { outline: 1px solid #287a4b; outline-offset: 1px; }
-        .stock-alert { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; line-height: 16px; white-space: nowrap; }
-        .stock-normal { color: #166534; background: #dcfce7; }
-        .stock-danger { color: #991b1b; background: #fee2e2; }
-        .stock-warning { color: #854d0e; background: #fef3c7; }
-        .product-table-toolbar { position: relative; height: 22px; width: var(--product-table-width); margin: 0 0 0 5px; box-sizing: border-box; }
-        .product-table-toolbar .page-status-buttons { position: absolute; right: calc(var(--col-actions-width) + var(--col-status-width) / 2); transform: translateX(50%); display: flex; gap: 4px; width: max-content; }
-        .product-table-toolbar .page-status-buttons button { width: 48px; height: 22px; padding: 2px 4px; font-size: 10px; line-height: 16px; }
-        .modified-sort-control button { height: 36px; min-width: 4em; padding: 6px 10px; font: inherit; background: white; color: #333; border: 1px solid #767676; }
-        .modified-sort-control button[aria-pressed="true"][data-order="desc"] { background: #FFFBB4; }
-        .modified-sort-control button[aria-pressed="true"][data-order="asc"] { background: #BFA084; }
-        .time-sort-icon { display: inline-block; vertical-align: middle; width: 18px; height: 18px; }
-        .page-status-buttons { display: flex; gap: 8px; }
-        .page-status-buttons button { padding: 4px 8px; height: 26px; font-size: 12px; line-height: 18px; box-sizing: border-box; }
-        .product-actions button { background: rgb(0, 128, 192); }
-		.page-status-buttons button { background: rgb(0, 128, 192); }
-        .product-actions button:hover, .page-status-buttons button:hover { background: rgb(0, 128, 255); }
-        .product-actions button.delete, .page-status-buttons .page-status-off { background: #e74a3b; }
-        .product-actions button.delete:hover, .page-status-buttons .page-status-off:hover { background: #e02d1b; }
-        #product-table td.score-unrated { font-size: 11px; }
-        .page-status-buttons button:disabled { opacity: .5; cursor: wait; }
-        .status-toggle:disabled + .slider { opacity: .6; cursor: wait; }
-        #page-status-message { margin: 0 0 8px 5px; color: #166534; }
-        #page-status-message.status-error { color: #b42318; }
-        .product-actions { display: flex; justify-content: center; align-items: center; gap: 4px; }
-        .product-actions form { margin: 0; }
-        .product-actions button { width: 36px; height: 24px; box-sizing: border-box; padding: 3px 0; font-size: 12px; line-height: 18px; }
-        th { background: #e9f2eb; }
-        form { display: inline; }
-        button, .link { padding: 7px 10px; border: 0; border-radius: 4px; background: #287a4b; color: white; cursor: pointer; text-decoration: none; }
-        .delete { background: #b42318; }
-        .toplink { display: inline-block; margin-right: 12px; }
-        .products-loading .container { visibility: hidden; }
-        .empty { padding: 18px; text-align: center; }
-        [hidden] { display: none !important; }
-        .list-controls { font-size: 14px; display: flex; flex-direction: column; gap: 12px; width: var(--product-table-width); margin: 12px 0 12px 5px; }
-        .filter-row-primary { display: grid; grid-template-columns: var(--filter-columns, repeat(4, max-content)); gap: 40px; width: max-content; }
-        .filter-row-primary > *, .filter-row-secondary > * { width: max-content; }
-        .filter-row-secondary { display: grid; grid-template-columns: var(--filter-columns, repeat(4, max-content)); gap: 40px; width: max-content; }
-        .filter-row-primary label, .filter-row-secondary label { display: flex; align-items: center; gap: 6px; margin: 0; }
-        .list-controls label { white-space: nowrap; }
-        .list-controls select { width: 10em; flex: 0 0 10em; font: inherit; height: 36px; box-sizing: border-box; padding: 6px 10px; margin: 0; }
-        #page-size { width: calc(3em + 36px); flex-basis: calc(3em + 36px); padding: 6px 4px; }
-
-        .filter-row-secondary .comment-range { padding-left: 1em; }
-        .filter-row-secondary label[for="rating-filter"] { padding-left: 0; }
-        .comment-range input[aria-invalid="true"] { border: 1px solid #e74a3b; }
-        #comment-range-error { margin: 0; color: #e74a3b; font-size: 12px; }
-        .comment-range input { width: 4em; font: inherit; height: 36px; padding: 6px 4px; box-sizing: border-box; min-width: 0; }
-        .category-filter { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-        .category-dropdown { position: relative; width: 10em; flex: 0 0 10em; }
-        .category-trigger { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; height: 36px; box-sizing: border-box; padding: 6px 10px; font: inherit; text-align: left; color: #222; background: white; border: 1px solid #767676; border-radius: 3px; }
-        #category-caption, #vendor-caption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .category-menu { position: fixed; z-index: 100; width: 12em; padding: 5px; box-sizing: border-box; border: 1px solid #cbd5cb; border-radius: 6px; background: white; box-shadow: 0 6px 18px #0002; }
-        .category-menu button { color: #333; background: transparent; font: inherit; text-align: left; min-height: 36px; border-radius: 4px; }
-        .category-menu button:hover, .category-menu button:focus-visible { background: #e9f2eb; outline: 2px solid #287a4b; outline-offset: -2px; }
-        .category-menu button[aria-current="true"] { color: #166534; background: #dcfce7; }
-        .category-all, .category-child { display: block; width: 100%; }
-        .category-group { position: relative; }
-        .category-parent-row { display: flex; }
-        .category-parent { flex: 1; min-width: 0; }
-        .category-expand { flex: 0 0 32px; padding: 0; text-align: center !important; }
-        .category-submenu { position: absolute; left: 100%; top: 0; z-index: 101; width: 12em; padding: 5px; border: 1px solid #cbd5cb; border-radius: 6px; background: white; box-shadow: 0 6px 18px #0002; max-height: 240px; overflow-y: auto; }
-        .category-submenu.open-left { left: auto; right: 100%; }
-        .dropdown-search { display: block; width: 100%; height: 36px; box-sizing: border-box; margin: 0 0 5px; padding: 6px 8px; font: inherit; border: 1px solid #767676; border-radius: 3px; }
-        .dropdown-empty { padding: 10px; color: #777; }
-        .vendor-options { max-height: 240px; overflow-y: auto; }
-        .category-no-children { padding: 10px; color: #777; }
-        .list-controls input { vertical-align: middle; }
-        .page-footer { display: flex; flex-direction: column; align-items: center; gap: 12px; width: var(--product-table-width); margin: 20px 0 0 5px; }
-        .pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; width: 100%; }
-        .pagination button { width: 40px; height: 36px; flex: 0 0 40px; box-sizing: border-box; padding: 0; background: white; color: #287a4b; border: 1px solid #cbd5cb; }
-        .pagination button:first-child, .pagination button:last-child { width: 76px; flex-basis: 76px; }
-        .pagination > span { width: 24px; text-align: center; }
-        .pagination button[aria-current="page"] { background: #287a4b; color: white; }
-        .pagination button:disabled { color: #999; cursor: default; background: #f5f5f5; }
-        .pagination button:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
-        .product-thumbnail { display: inline-block; width: 50px; height: 50px; overflow: hidden; vertical-align: middle; }
-        .product-thumbnail-track { display: flex; width: 140px; height: 50px; transform: translateX(0); }
-        .product-thumbnail-track img { flex: 0 0 50px; width: 50px; height: 50px; object-fit: cover; }
-        .product-thumbnail-track.is-sliding { transform: translateX(-50px); transition: transform 450ms ease-in-out; }
-        
-        /* 開關外層 */
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 50px;
-    height: 22px;
-    vertical-align: middle;
-}
-
-/* 隱藏原生 checkbox */
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-/* 開關軌道 */
-.slider {
-    position: absolute;
-    inset: 0;
-    cursor: pointer;
-    background-color: #e74a3b;
-    border-radius: 20px;
-    transition: .25s;
-    box-sizing: border-box;
-}
-
-/* 滑動圓鈕 */
-.slider::before {
-    content: "";
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    left: 3px;
-    top: 3px;
-    background-color: white;
-    border-radius: 50%;
-    transition: 0.25s;
-    z-index: 1;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-}
-
-/* 開關上的文字 */
-.switch-text {
-    position: absolute;
-    top: 50%;
-    width: 50%;
-    transform: translateY(-50%);
-    text-align: center;
-    font-size: 10px;
-    font-weight: bold;
-    color: white;
-    z-index: 2;
-    pointer-events: none;
-}
-
-/* 預設關閉：顯示下架 */
-.switch-text.on {
-    left: 0;
-    display: none;
-}
-
-.switch-text.off {
-    right: 0;
-    display: inline;
-}
-
-/* 開啟：綠色軌道，圓鈕移到右側 */
-.switch input:checked + .slider {
-    background-color: #287A47;
-}
-
-.switch input:checked + .slider::before {
-    transform: translateX(28px);
-}
-
-/* 開啟時顯示上架 */
-.switch input:checked + .slider .on {
-    display: inline;
-}
-
-.switch input:checked + .slider .off {
-    display: none;
-}
-
-/* 鍵盤操作焦點 */
-.switch input:focus-visible + .slider {
-    outline: 2px solid #1d4ed8;
-    outline-offset: 2px;
-}
-
-/* 每列背景色漸變 */
-tbody tr td {
-    transition: background-color 0.4s ease;
-}
-
-/* 下架商品整列背景 */
-tr.product-off td {
-    background-color: #B7B7B7;
-}
-
-	
-    </style>
+    <link th:href="@{/css/product-overview.css}" rel="stylesheet">
 </head>
 <body class="products-loading">
 <div class="container">
 
     <p style="color:#b42318" th:if="${errorMessage}" th:text="${errorMessage}"></p><p th:if="${success}" th:text="${success}"></p>
 
-    <div class="list-controls">
+    <section class="product-search-drawer" id="product-search-drawer" data-collapsed="false" aria-label="商品搜尋篩選">
+    <div class="product-search-content" id="product-search-content">
+    <div class="list-controls" id="product-list-controls">
+        <div class="product-search-toolbar">
+        <form class="product-search-row" id="product-search-form" role="search" aria-label="商品模糊搜尋">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+            <input id="product-search-input" type="search" maxlength="200" th:value="${keyword}" placeholder="輸入搜尋文字" aria-label="模糊搜尋文字" autocomplete="off">
+            <label><input id="search-product-name" type="checkbox" th:checked="${searchProductName}">商品</label>
+            <label><input id="search-sku-name" type="checkbox" th:checked="${searchSkuName}">規格</label>
+        </form>
+            <div class="page-status-buttons">
+                <button type="button" id="page-status-on" title="整頁上架" aria-label="整頁上架" th:disabled="${#lists.isEmpty(productListData)}" onclick="changePageProductStatus(1)">整頁上架</button>
+                <button type="button" id="page-status-off" class="page-status-off" title="整頁下架" aria-label="整頁下架" th:disabled="${#lists.isEmpty(productListData)}" onclick="changePageProductStatus(0)">整頁下架</button>
+            </div>
+        </div>
         <div class="filter-row-primary">
-        <label for="page-size">每頁顯示
+        <label for="page-size">每頁
             <select id="page-size">
                 <option value="10" th:selected="${pageSize == 10}">10</option><option value="20" th:selected="${pageSize == 20}">20</option>
                 <option value="50" th:selected="${pageSize == 50}">50</option><option value="100" th:selected="${pageSize == 100}">100</option>
-            </select>個商品
+            </select>個
         </label>
         <div class="category-filter">
             <span id="category-label">分類</span>
@@ -260,12 +43,13 @@ tr.product-off td {
             <input id="child-category" type="hidden" th:value="${selectedCategoryId}">
             <div class="category-dropdown" id="category-dropdown">
                 <button type="button" class="category-trigger" id="category-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="category-menu" aria-labelledby="category-label category-caption">
-                    <span id="category-caption">全部分類</span><span aria-hidden="true">▾</span>
+                    <span id="category-caption">全部</span><span aria-hidden="true">▾</span>
                 </button>
                 <div class="category-menu" id="category-menu" role="menu" aria-label="分類" hidden>
                     <input id="category-search" class="dropdown-search" type="search" placeholder="輸入分類名稱" aria-label="搜尋分類" autocomplete="off">
                     <p id="category-no-results" class="dropdown-empty" role="status" hidden>沒有符合的分類</p>
-                    <button type="button" class="category-all" role="menuitem" data-category-parent="" data-category-child="">全部分類</button>
+                    <div class="category-options">
+                    <button type="button" class="category-all" role="menuitem" data-category-parent="" data-category-child="">全部</button>
                     <div class="category-group" th:each="parent : ${parentCategoryListData}">
                         <div class="category-parent-row">
                             <button type="button" class="category-parent" role="menuitem" th:attr="data-category-parent=${parent.productCategoryId},data-category-child=''" th:text="${parent.categoryName}"></button>
@@ -277,19 +61,20 @@ tr.product-off td {
                             </th:block>
                         </div>
                     </div>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="category-filter">
-            <span id="vendor-label">供應廠商</span>
+            <span id="vendor-label">廠商</span>
             <select id="filter-vendor" hidden aria-hidden="true" tabindex="-1">
-                <option value="">全部供應廠商</option>
+                <option value="">全部</option>
                 <option th:each="vendor : ${vendorListData}" th:value="${vendor.vendorId}"
                         th:text="${vendor.vendorName}" th:selected="${selectedVendorId == vendor.vendorId}"></option>
             </select>
             <div class="category-dropdown" id="vendor-dropdown">
                 <button type="button" class="category-trigger" id="vendor-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="vendor-menu" aria-labelledby="vendor-label vendor-caption">
-                    <span id="vendor-caption">全部供應廠商</span><span aria-hidden="true">▾</span>
+                    <span id="vendor-caption">全部</span><span aria-hidden="true">▾</span>
                 </button>
                 <div class="category-menu" id="vendor-menu" role="menu" aria-label="供應廠商" hidden>
                     <input id="vendor-search" class="dropdown-search" type="search" placeholder="輸入供應商名稱" aria-label="搜尋供應廠商" autocomplete="off">
@@ -298,14 +83,14 @@ tr.product-off td {
                 </div>
             </div>
         </div>
-        <label class="modified-sort-control" for="modified-sort">修改時間
+        <label class="modified-sort-control" for="modified-sort">修改
             <button type="button" id="modified-sort" aria-label="修改時間排序" th:attr="aria-pressed=${sortBy == 'modified'},data-order=${sortBy == 'modified' and sortDirection == 'asc' ? 'asc' : 'desc'}"><svg class="time-sort-icon" th:if="${sortBy != 'modified'}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span th:if="${sortBy == 'modified'}" th:text="${sortDirection == 'asc' ? '最舊' : '最新'}">最新</span></button><span>排序</span>
         </label>
         </div>
         <div class="filter-row-secondary">
-        <label for="stock-filter">庫存狀態
+        <label for="stock-filter">庫存
             <select id="stock-filter">
-                <option value="all" th:selected="${stockFilter == 'all'}">全部庫存狀態</option>
+                <option value="all" th:selected="${stockFilter == 'all'}">全部</option>
                 <option value="normal" th:selected="${stockFilter == 'normal'}">正常</option>
                 <option value="abnormal" th:selected="${stockFilter == 'abnormal'}">異常</option>
                 <option value="below-safety" th:selected="${stockFilter == 'below-safety'}">低於安全庫存</option>
@@ -317,20 +102,21 @@ tr.product-off td {
         </label>
         <label for="status-filter">狀態
             <select id="status-filter">
-                <option value="all" th:selected="${statusFilter == 'all'}">顯示上下架商品</option>
-                <option value="on" th:selected="${statusFilter == 'on'}">僅顯示上架商品</option>
-                <option value="off" th:selected="${statusFilter == 'off'}">僅顯示下架商品</option>
+                <option value="all" th:selected="${statusFilter == 'all'}">全部</option>
+                <option value="on" th:selected="${statusFilter == 'on'}">僅顯示上架</option>
+                <option value="off" th:selected="${statusFilter == 'off'}">僅顯示下架</option>
             </select>
         </label>
-        <label class="comment-range" for="min-comments">評論數
+        <label class="comment-range" for="min-comments">評論
             <input id="min-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="評論數下限" aria-describedby="comment-range-error" th:value="${minComments}" autocomplete="off">
             <span>~</span>
             <input id="max-comments" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="評論數上限" aria-describedby="comment-range-error" th:value="${maxComments}" autocomplete="off">
         </label>
-        <label for="rating-filter">平均評分
+        <div class="rating-filter-control">
+        <label for="rating-filter">評分
             <select id="rating-filter">
                 <option value="" th:selected="${ratingFilter == ''}">全部</option>
-                <option value="unrated" th:selected="${ratingFilter == 'unrated'}">尚未評分</option>
+                <option value="unrated" th:selected="${ratingFilter == 'unrated'}">未評分</option>
                 <option value="0-1" th:selected="${ratingFilter == '0-1'}">0~1</option>
                 <option value="1-2" th:selected="${ratingFilter == '1-2'}">1~2</option>
                 <option value="2-3" th:selected="${ratingFilter == '2-3'}">2~3</option>
@@ -338,16 +124,17 @@ tr.product-off td {
                 <option value="4-5" th:selected="${ratingFilter == '4-5'}">4~5</option>
             </select>
         </label>
+        <button type="button" id="reset-product-filters">恢復預設</button>
+        </div>
         </div>
         <p id="comment-range-error" role="status" aria-live="polite" hidden></p>
     </div>
-        <div class="product-table-toolbar" aria-label="本頁商品狀態操作">
-            <div class="page-status-buttons">
-                <button type="button" id="page-status-on" title="本頁全部上架" aria-label="本頁全部上架" th:disabled="${#lists.isEmpty(productListData)}" onclick="changePageProductStatus(1)">全部上架</button>
-                <button type="button" id="page-status-off" class="page-status-off" title="本頁全部下架" aria-label="本頁全部下架" th:disabled="${#lists.isEmpty(productListData)}" onclick="changePageProductStatus(0)">全部下架</button>
-            </div>
-        </div>
-    <p id="page-status-message" role="status" aria-live="polite" hidden></p>
+    </div>
+    <div class="search-drawer-footer">
+        <button type="button" id="toggle-product-search" aria-label="收起搜尋功能" aria-controls="product-search-content" aria-expanded="true" title="收起搜尋功能"><svg viewBox="0 0 24 18" aria-hidden="true"><path d="M3 12 12 5 21 12" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <p id="page-status-message" role="status" aria-live="polite" hidden></p>
+    </div>
+    </section>
     <table id="product-table" th:attr="data-page=${currentPage},data-total-pages=${totalPages},data-total-products=${totalProducts},data-sort-by=${sortBy},data-sort-direction=${sortDirection}">
         <colgroup>
             <col class="col-number"><col class="col-image"><col class="col-name"><col class="col-sku"><col class="col-vendor"><col class="col-stock">
@@ -356,16 +143,16 @@ tr.product-off td {
         <thead>
         <tr>
             <th> </th>
-            <th>商品圖片</th>
-            <th>商品名稱</th>
-            <th>規格名稱</th>
-            <th>供應廠商</th>
-            <th>庫存狀態</th>
+            <th>圖片</th>
+            <th>名稱</th>
+            <th>規格</th>
+            <th>廠商</th>
+            <th>庫存</th>
             <th scope="col" th:attr="aria-sort=${sortBy == 'comments' ? (sortDirection == 'desc' ? 'descending' : 'ascending') : 'none'}">
-                <button type="button" class="review-sort" data-sort="comments" aria-label="評論數排序"><span>評論數</span><span class="sort-arrows" aria-hidden="true"><span data-direction="asc">▲</span><span data-direction="desc">▼</span></span></button>
+                <button type="button" class="review-sort" data-sort="comments" aria-label="評論排序"><span>評論</span><span class="sort-arrows" aria-hidden="true"><span data-direction="asc">▲</span><span data-direction="desc">▼</span></span></button>
             </th>
             <th scope="col" th:attr="aria-sort=${sortBy == 'rating' ? (sortDirection == 'desc' ? 'descending' : 'ascending') : 'none'}">
-                <button type="button" class="review-sort" data-sort="rating" aria-label="平均評分排序"><span>平均評分</span><span class="sort-arrows" aria-hidden="true"><span data-direction="asc">▲</span><span data-direction="desc">▼</span></span></button>
+                <button type="button" class="review-sort" data-sort="rating" aria-label="評分排序"><span>評分</span><span class="sort-arrows" aria-hidden="true"><span data-direction="asc">▲</span><span data-direction="desc">▼</span></span></button>
             </th>
             <th>狀態</th>
             <th>操作</th>
@@ -405,8 +192,8 @@ tr.product-off td {
                           th:attr="title=${alert},aria-label=${alert}" tabindex="0" th:text="${stockAlertLabels.get(alert)}"></span>
                 </div>
             </td>
-            <td th:text="${product.allCommentAmount}"> </td>
-            <td class="score" th:classappend="${product.allCommentAmount == null or product.allCommentAmount == 0 ? 'score-unrated' : ''}" th:text="${product.allCommentAmount != null and product.allCommentAmount > 0 ? #numbers.formatDecimal((product.allCommentStar == null ? 0 : product.allCommentStar) * 1.0 / product.allCommentAmount, 1, 1) : '尚未評分'}"> </td>
+            <td class="comment-count" th:text="${product.allCommentAmount}"> </td>
+            <td class="score" th:classappend="${product.allCommentAmount == null or product.allCommentAmount == 0 ? 'score-unrated' : ''}" th:text="${product.allCommentAmount != null and product.allCommentAmount > 0 ? #numbers.formatDecimal((product.allCommentStar == null ? 0 : product.allCommentStar) * 1.0 / product.allCommentAmount, 1, 1) : '未評分'}"> </td>
 			<td>
     			<label class="switch">
        		 	<input
@@ -424,17 +211,16 @@ tr.product-off td {
 			</td>
             <td>
                 <div class="product-actions">
-                <button type="button" data-product-detail th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)},data-detail-name=${product.productName}">查看</button>
+                <button type="button" data-product-detail title="查看" aria-label="查看" th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)},data-detail-name=${product.productName}"><i class="fas fa-eye" aria-hidden="true"></i></button>
 
                 <form th:action="@{/product/getOne_For_Update}" method="post">
                     <input type="hidden" name="productId" th:value="${product.productId}">
-                    <button type="submit">修改</button>
+                    <button type="submit" title="修改" aria-label="修改"><i class="fas fa-cog" aria-hidden="true"></i></button>
                 </form>
 
-<form th:action="@{/product/delete}" method="post"
-onsubmit="return confirm('刪除有可能造成客戶歷史訂單顯示錯誤，或客戶未完成訂單顯示錯誤，您確定要刪除這筆商品嗎？　　　　　　　　　　　　　　　　　　　【建議使用下架功能】');">
+<form th:action="@{/product/delete}" method="post" data-product-delete>
 <input type="hidden" name="productId" th:value="${product.productId}">
-<button class="delete" type="submit">刪除</button>
+<button class="delete" type="submit" title="刪除" aria-label="刪除"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
 </form>
                 </div>
             </td>
@@ -462,10 +248,11 @@ function lockProductStatus(busy) {
     });
 }
 
-function showProductStatusMessage(text, error = false) {
+function showProductStatusMessage(text, error = false, offline = false) {
     const message = document.getElementById('page-status-message');
     message.textContent = text;
     message.classList.toggle('status-error', error);
+    message.classList.toggle('status-off', offline);
     message.hidden = false;
 }
 
@@ -493,6 +280,10 @@ async function changePageProductStatus(status) {
     if (productStatusBusy) return;
     const toggles = Array.from(document.querySelectorAll('#product-table tbody [data-product-row] .status-toggle'));
     if (!toggles.length) return;
+    const actionName = status === 1 ? '上架' : '下架';
+    if (!await window.confirmProductAction(status === 1 ? 'page-on' : 'page-off',
+        '本功能將讓本頁面商品全數' + actionName + '，您確定要執行此動作？')) return;
+    if (productStatusBusy) return;
     const body = new URLSearchParams({status});
     toggles.forEach(toggle => body.append('productIds', toggle.dataset.productId));
     lockProductStatus(true);
@@ -507,13 +298,14 @@ async function changePageProductStatus(status) {
             toggle.checked = status === 1;
             toggle.closest('tr').classList.toggle('product-off', status === 0);
         });
-        showProductStatusMessage('本頁 ' + result.updated + ' 個商品已全部' + (status === 1 ? '上架' : '下架') + '。');
+        showProductStatusMessage('本頁 ' + result.updated + ' 個商品已全部' + (status === 1 ? '上架' : '下架') + '。', false, status === 0);
     } catch (error) {
         showProductStatusMessage('本頁商品更新失敗：' + error.message, true);
     } finally { lockProductStatus(false); }
 }
 
 </script>
+<script th:src="@{/admin/js/product-action-confirm.js}" defer></script>
 <script th:src="@{/admin/js/product-pagination.js}" defer></script>
 <script th:src="@{/admin/js/product-detail-modal.js}" defer></script>
 <script th:src="@{/admin/js/product-sku-switcher.js}" defer></script>
