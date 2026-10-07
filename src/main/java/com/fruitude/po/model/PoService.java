@@ -33,19 +33,23 @@ public class PoService {
 		repository.save(poVO);
 	}
 
-	public void deletePo(Integer id) {
-		if (repository.existsById(id))
-			repository.deleteById(id);
+	public void deletePo(Integer PoId) {
+		if (repository.existsById(PoId))
+			repository.deleteById(PoId);
 	}
 
 
-	public PoVO getPo(Integer id) {
-		Optional<PoVO> optional = repository.findById(id);
+	public PoVO getOnePo(Integer PoId) {
+		Optional<PoVO> optional = repository.findById(PoId);
 		return optional.orElse(null); // public T orElse(T other) : 如果值存在就回傳其值，否則回傳other的值
 	}
 
 	public List<PoVO> getAll() {
 		return repository.findAll();
+	}
+	
+	public List<PoVO> getByInboundStatus(Byte inboundStatus){
+		return repository.getByInboundStatus(inboundStatus);	
 	}
 
 }

@@ -2,7 +2,7 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>供應商列表</title>
+<title>採購單列表</title>
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
@@ -47,24 +47,23 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
+					<h4 class="h4 mb-4 text-gray-800" th:switch="${inboundStatus}">
+					    <span th:case="0">尚未驗收</span>
+					    <span th:case="1">驗收成功</span>
+					    <span th:case="2">驗收失敗</span>
+					    <span th:case="*">顯示全部採購單</span>
+					</h4>
 
 					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary btn-icon-split mb-3"> 
 						<span class="icon text-white-50">
 						<i class="fas fa-arrow-left"></i></span> 
-						<span class="text">回供應商管理</span>
+						<span class="text">回採購單管理</span>
 					</a>
-					
-					<h4 class="h4 mb-4 text-gray-800" th:switch="${isActive}">
-					    <span th:case="0">尚未啟用的供應商</span>
-					    <span th:case="1">已啟用的供應商</span>
-					    <span th:case="2">已停用的供應商</span>
-					    <span th:case="*">全部供應商</span>
-					</h4>
-					
+
 					<!-- 供應商查詢全部，樣式參考 tables.html -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
-							<h6 class="m-0 font-weight-bold text-primary">供應商列表</h6>
+							<h6 class="m-0 font-weight-bold text-primary">採購單列表</h6>
 						</div>
 						<div class="card-body">
 							<div class="table-responsive">
@@ -72,59 +71,56 @@
 									<thead>
 										<tr>
 											<th>操作</th>
-											<th style="text-align: center">編號</th>
-											<th>品牌名稱</th>
-											<th>供應商介紹</th>
-											<th>產地</th>
-											<th>品牌標誌</th>
-											<th style="text-align: center">聯絡人</th>
-											<th>統一編號</th>
-											<th>連絡電話</th>
-											<th>電子郵件</th>
-											<th>啟用狀態</th>
+											<th>編號</th>
+											<th>供應商</th>
+											<th>採購員工</th>
+											<th>採購日期</th>
+											<th>採購單狀態</th>
+											<th>總金額</th>
+											<th>驗收員工</th>
+											<th>驗收日期</th>
+											<th>驗收狀態</th>
+											<th>驗收實付金額</th>
 										</tr>
 									</thead>
 									<tfoot>
 										<tr>
 											<th>操作</th>
-											<th style="text-align: center">編號</th>
-											<th>品牌名稱</th>
-											<th>供應商介紹</th>
-											<th>產地</th>
-											<th>品牌標誌</th>
-											<th style="text-align: center">聯絡人</th>
-											<th>統一編號</th>
-											<th>連絡電話</th>
-											<th>電子郵件</th>
-											<th>啟用狀態</th>
+											<th>編號</th>
+											<th>供應商</th>
+											<th>採購員工</th>
+											<th>採購日期</th>
+											<th>採購單狀態</th>
+											<th>總金額</th>
+											<th>驗收員工</th>
+											<th>驗收日期</th>
+											<th>驗收狀態</th>
+											<th>驗收實付金額</th>
 										</tr>
 									</tfoot>
 									<tbody>
-										<tr th:each="vendorVO : ${vendorListData}">
+										<tr th:each="poVO : ${poListData}">
 											<td>
-												<a th:href="@{/admin/psi/vendor/listOneVendor(vendorId=${vendorVO.vendorId})}" class="btn btn-primary btn-sm mb-1">詳細</a><br>
-												<form method="post" th:action="@{/admin/psi/vendor/getOne_For_Update}" class="d-inline">
-													<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
+												<a th:href="@{/admin/psi/po/listOnePo(poId=${poVO.poId})}" class="btn btn-primary btn-sm mb-1">詳細</a><br>
+												<form method="post" th:action="@{/admin/psi/po/getOne_For_Update}" class="d-inline">
+													<input type="hidden" name="poId" th:value="${poVO.poId}">
 													<button type="submit" class="btn btn-danger btn-sm">修改</button>
 												</form>
 											</td>
-											<td th:text="${vendorVO.vendorId}" style="text-align: center"></td>
-											<td th:text="${vendorVO.vendorName}"></td>
+											<td th:text="${poVO.poNo}" style="text-align: center"></td>
+											<td th:text="${poVO.vendor.vendorName}"></td>
+										 	<td th:text="${poVO.poEmployeeId.employeeName}"></td>										
+											<td th:text="${{poVO.orderDate}}"></td>
+											<td th:text="${poVO.poStatus}"></td>
+											<td th:text="${poVO.totalAmount}"></td>
+											<td th:text="${poVO.inboundEmployeeId?.employeeName}"></td>
+											<td th:text="${{poVO.inboundDate}}"></td>
 											<td>
-												<div class="intro-text" th:text="${vendorVO.vendorIntroduction}"
-													th:title="${vendorVO.vendorIntroduction}"></div>
+												<span th:if="${poVO.inboundStatus == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">尚未驗收</span>
+												<span th:if="${poVO.inboundStatus == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">驗收成功</span>
+												<span th:if="${poVO.inboundStatus == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">驗收失敗</span>
 											</td>
-											<td th:text="${vendorVO.origin}"></td>
-											<td><img th:src="@{/vendor/DBGifReader(vendorId=${vendorVO.vendorId})}" width="80px"></td>
-											<td th:text="${vendorVO.contactPerson}"></td>
-											<td th:text="${vendorVO.taxId}"></td>
-											<td th:text="${vendorVO.phone}"></td>
-											<td th:text="${vendorVO.email}"></td>
-											<td>
-												<span th:if="${vendorVO.isActive == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">尚未啟用</span>
-												<span th:if="${vendorVO.isActive == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">已啟用</span>
-												<span th:if="${vendorVO.isActive == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">已停用</span>
-											</td>
+											<td th:text="${poVO.inboundAmount}"></td>
 										</tr>
 									</tbody>
 								</table>

@@ -41,6 +41,34 @@ public class Utils {
 	    public PaymentStatus getExpectedPaymentStatus() { return expectedPaymentStatus; }
 	}
 	
+	public enum Vendorstatus{
+		
+		UNACTIVE(0,"尚未啟用"),
+		ACTIVE(1,"已啟用"),
+		STOP(2,"已停用");
+		
+		private final int code;
+	    private final String description;
+
+	    Vendorstatus(int code, String description) {
+	        this.code = code;
+	        this.description = description;
+	    }
+
+	    public int getCode() { return code; }
+
+	    public String getDescription() { return description; }
+
+	    public static Vendorstatus fromCode(int code) {
+	        for (Vendorstatus status : values()) {
+	            if (status.code == code) {
+	                return status;
+	            }
+	        }
+	        throw new IllegalArgumentException("Unknown vendor status code: " + code);
+	    }
+	}
+	
 	public enum PaymentStatus {
 
 	    PAID(0, "已付款"),

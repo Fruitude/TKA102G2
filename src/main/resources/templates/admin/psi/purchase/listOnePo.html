@@ -27,7 +27,7 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
-					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary btn-icon-split mb-3"> <span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> <span class="text">回供應商管理</span></a>
+					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3"> <span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> <span class="text">回採購單管理</span></a>
 
 					<!-- 新增、修改成功的提示（VendorController 的 insert、update） -->
 					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
@@ -35,62 +35,58 @@
 					<!-- 供應商單筆資料：vendorVO 由 VendorNoController 的 getOne_For_Display，或 VendorController 的 listOneVendor 放入 model -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
-							<h6 class="m-0 font-weight-bold text-primary">供應商資料</h6>
+							<h6 class="m-0 font-weight-bold text-primary">採購單資料</h6>
 						</div>
 						<div class="card-body">
 							<div class="table-responsive">
 								<table class="table table-bordered" width="100%" cellspacing="0">
 									<tbody>
 										<tr>
-											<th class="bg-light" style="width: 150px;">供應商編號</th>
-											<td th:text="${vendorVO.vendorId}"></td>
+											<th class="bg-light" style="width: 150px;">編號</th>
+											<td th:text="${poVO.poNo}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">品牌名稱</th>
-											<td th:text="${vendorVO.vendorName}"></td>
+											<th class="bg-light">供應商</th>
+											<td th:text="${poVO.vendor.vendorName}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">供應商介紹</th>
-											<td th:text="${vendorVO.vendorIntroduction}"></td>
+											<th class="bg-light">採購員工</th>
+											<td th:text="${poVO.poEmployeeId.employeeName}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">產地</th>
-											<td th:text="${vendorVO.origin}"></td>
+											<th class="bg-light">採購日期</th>
+											<td th:text="${poVO.orderDate}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">品牌標誌</th>
-											<td><img th:src="@{/vendor/DBGifReader(vendorId=${vendorVO.vendorId})}" width="120px"></td>
+											<th class="bg-light">採購單狀態</th>
+											<td th:text="${poVO.poStatus}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">聯絡人姓名</th>
-											<td th:text="${vendorVO.contactPerson}"></td>
+											<th class="bg-light">總金額</th>
+											<td th:text="${poVO.totalAmount}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">統一編號</th>
-											<td th:text="${vendorVO.taxId}"></td>
+											<th class="bg-light">驗收員工</th>
+											<td th:text="${poVO.inboundEmployeeId?.employeeName}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">連絡電話</th>
-											<td th:text="${vendorVO.phone}"></td>
+											<th class="bg-light">驗收日期</th>
+											<td th:text="${poVO.inboundDate}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">電子郵件</th>
-											<td th:text="${vendorVO.email}"></td>
+											<th class="bg-light">驗收狀態</th>
+											<td th:text="${poVO.inboundStatus}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">啟用狀態</th>
-											<td>
-												<span th:if="${vendorVO.isActive == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">尚未啟用</span>
-												<span th:if="${vendorVO.isActive == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">已啟用</span>
-												<span th:if="${vendorVO.isActive == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">已停用</span>
-											</td>
+											<th class="bg-light">驗收實付金額</th>
+											<td th:text="${poVO.inboundAmount}"></td>
 										</tr>
 										<tr>
 											<th class="bg-light">操作</th>
 											<td>
-												<form method="post" th:action="@{/admin/psi/vendor/getOne_For_Update}">
-													<input type="hidden" name="vendorId" th:value="${vendorVO.vendorId}">
-													<button type="submit" class="btn btn-primary btn-sm">修改</button>
+												<form method="post" th:action="@{/admin/psi/po/getOne_For_Update}">
+													<input type="hidden" name="poId" th:value="${poVO.poId}">
+													<button type="submit" class="btn btn-primary btn-sm">更新</button>
 												</form>
 											</td>
 										</tr>

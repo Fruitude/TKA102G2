@@ -25,7 +25,7 @@ public class PoDetailVO implements java.io.Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
+    @Column(name = "id",updatable=false)
     private Integer poDetailId;                          // 採購明細編號
 
     @NotNull(message = "採購單系統編號，請勿空白")
