@@ -12,6 +12,7 @@ final class FrontCatalogCache {
     private List<FrontCatalogService.ProductView> value;
     private long expiresAt;
     FrontCatalogCache(Clock clock, Duration ttl) { this.clock = clock; this.ttl = ttl.toMillis(); }
+    synchronized void clear() { value = null; }
     synchronized List<FrontCatalogService.ProductView> get(Supplier<List<FrontCatalogService.ProductView>> loader) {
         if (value == null || clock.millis() >= expiresAt) {
             List<FrontCatalogService.ProductView> loaded = List.copyOf(loader.get());

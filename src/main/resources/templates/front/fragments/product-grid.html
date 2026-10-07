@@ -13,6 +13,7 @@
           <p class="product-list-desciption product-list-desciption-white" th:text="${p.description}"></p>
           <p class="product-list-desciption product-list-desciption-white" data-wf-sku-bindings="f_price_"
              th:text="${'NT$ ' + p.price + (#lists.size(p.skus) > 1 ? ' 起' : '')}"></p>
+          <p class="product-list-desciption" style="text-decoration:line-through;opacity:.6" th:if="${p.originalPrice != null and p.originalPrice > p.price}" th:text="${'NT$ ' + p.originalPrice}"></p>
         </div>
       </div>
     </a>
@@ -45,6 +46,8 @@
               <button type="button" th:each="s : ${p.skus}" th:attr="data-sku-value=${s.skuId}" th:text="${s.name + (s.skuStatus == 2 ? '（缺貨）' : (s.skuStatus == 3 ? '（即將下架）' : ''))}"></button>
             </div>
           </div>
+          <p class="home-card-original" th:style="${p.originalPrice != null and p.originalPrice > p.price ? '' : 'display:none;'} + 'font-size:.85rem;opacity:.6;margin:0 0 .25rem;'">原價 <s th:text="${'NT$ ' + p.originalPrice}"></s></p>
+          <span hidden class="home-sku-original" th:each="s : ${p.skus}" th:attr="data-sku-id=${s.skuId},data-original=${s.originalPrice}"></span>
           <div class="home-card-purchase-row">
             <div class="home-qty-stepper"><button type="button" class="home-qty-minus" aria-label="減少數量">−</button>
             <input class="home-card-quantity" aria-label="數量" th:id="${'home-qty-' + p.productId}" type="number" min="1" step="1" value="1" required

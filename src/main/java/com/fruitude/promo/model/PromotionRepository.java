@@ -56,6 +56,27 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 			""", nativeQuery = true)
 	List<SkuOption> findSkuOptions(@Param("promoProjectId") Integer promoProjectId, @Param("keyword") String keyword);
 
+	// 前台採用的活動價：規格目前有效的最低活動價（活動類型「指定商品」、已啟用、現在在活動期間內，
+	// 且活動價必須大於 0、低於規格原價，否則不採用）
+	interface ActivePrice {
+		Integer getSkuId();
+		Integer getPromoPrice();
+	}
+
+	@Query(value = """
+			SELECT pm.sku_id AS skuId, MIN(pm.promo_price) AS promoPrice
+			FROM promotion pm
+			JOIN promo_project pj ON pj.promo_project_id = pm.promo_project_id
+			JOIN product_sku s ON s.sku_id = pm.sku_id
+			WHERE pm.sku_id IN (:skuIds)
+			  AND pj.promo_type = 'SKU' AND pj.status = 1
+			  AND pj.promo_project_start <= :now AND pj.promo_project_end >= :now
+			  AND pm.promo_price > 0 AND pm.promo_price < s.price
+			GROUP BY pm.sku_id
+			""", nativeQuery = true)
+	List<ActivePrice> findActivePrices(@Param("skuIds") java.util.Collection<Integer> skuIds,
+			@Param("now") java.time.LocalDateTime now);
+
 	// 這個活動裡是不是已經有這個規格（同一活動同一規格只能一筆）
 	Optional<Promotion> findByPromoProjectIdAndSkuId(Integer promoProjectId, Integer skuId);
 
