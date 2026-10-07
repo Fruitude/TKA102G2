@@ -147,7 +147,10 @@
                                     <tbody>
                                         <tr th:each="promo : ${promoProjects}">
                                             <td>
-                                                <button type="button" class="btn btn-primary btn-sm"
+                                                <!-- 只有「指定商品」類型有活動商品可看，其他類型不顯示；活動啟用中才能按（切換狀態開關時會即時更新） -->
+                                                <button type="button" class="btn btn-primary btn-sm btn-detail"
+                                                    th:if="${promo.promoType == 'SKU'}"
+                                                    th:disabled="${promo.status != 1}"
                                                     th:onclick="|location.href='@{/admin/promo/detail(promoProjectId=${promo.promoProjectId})}'|">詳細</button>
                                                 <button type="button" class="btn btn-warning btn-sm btn-edit-promo"
                                                     th:attr="data-id=${promo.promoProjectId},
@@ -517,6 +520,8 @@
                 data: { promoProjectId: $sw.attr('data-id'), status: enabled ? 1 : 0 }
             }).done(function () {
                 $sw.next('label').text(enabled ? '啟用' : '停用');
+                // 「詳細」按鈕跟著活動狀態：啟用才能按
+                $sw.closest('tr').find('.btn-detail').prop('disabled', !enabled);
             }).fail(function (xhr) {
                 $sw.prop('checked', !enabled);
                 alert('切換失敗：' + (xhr.responseText || '請稍後再試'));

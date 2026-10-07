@@ -21,6 +21,7 @@ import com.fruitude.promo.model.BenefitType;
 import com.fruitude.promo.model.PromoProject;
 import com.fruitude.promo.model.PromoService;
 import com.fruitude.promo.model.PromoType;
+import com.fruitude.promo.model.PromotionRepository;
 
 /**
  * 後台「活動管理」：列表（搜尋）、詳細、新增、修改、啟用／停用。
@@ -55,8 +56,51 @@ public class AdminPromoController {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "找不到這筆活動");
 		}
 		model.addAttribute("promo", promo);
-		model.addAttribute("promotions", promoService.findPromotionsByProjectId(promoProjectId));
+		model.addAttribute("promotions", promoService.findPromotionRows(promoProjectId));
 		return "admin/promo/detail/index";
+	}
+
+	// 詳細頁「新增商品」對話框：可以加入這個活動的規格清單（含商品名稱與原價），可用關鍵字搜尋
+	@GetMapping("/sku-options")
+	@ResponseBody
+	public List<PromotionRepository.SkuOption> skuOptions(@RequestParam Integer promoProjectId,
+			@RequestParam(defaultValue = "") String keyword) {
+		return promoService.findSkuOptions(promoProjectId, keyword);
+	}
+
+	// 一次幫多個規格設定活動價：skuIds 與 promoPrices 一一對應；已經在活動裡的規格就更新價格
+	@PostMapping("/items/save")
+	@ResponseBody
+	public ResponseEntity<String> saveItems(@RequestParam Integer promoProjectId,
+			@RequestParam List<Integer> skuIds, @RequestParam List<Integer> promoPrices) {
+		try {
+			promoService.saveItems(promoProjectId, skuIds, promoPrices);
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
+		}
+		return ResponseEntity.ok("已儲存 " + skuIds.size() + " 個商品的活動價");
+	}
+
+	// 修改一筆活動商品的活動價
+	@PostMapping("/items/update")
+	@ResponseBody
+	public ResponseEntity<String> updateItem(@RequestParam Integer promotionId, @RequestParam Integer promoPrice) {
+		try {
+			promoService.updateItemPrice(promotionId, promoPrice);
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(e.getMessage());
+		}
+		return ResponseEntity.ok("更新成功");
+	}
+
+	// 移除一筆活動商品（只刪這個規格的活動價，不影響商品本身）
+	@PostMapping("/items/delete")
+	@ResponseBody
+	public ResponseEntity<String> deleteItem(@RequestParam Integer promotionId) {
+		if (!promoService.deleteItem(promotionId)) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("找不到這筆活動商品");
+		}
+		return ResponseEntity.ok("已移除");
 	}
 
 	// 對話框按「確定」時呼叫：更新這筆活動。欄位檢查在伺服器端做，不能信任瀏覽器送來的值

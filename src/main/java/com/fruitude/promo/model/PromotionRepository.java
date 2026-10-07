@@ -1,16 +1,68 @@
 package com.fruitude.promo.model;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
+	// 後台活動詳細頁用：某個活動底下的活動商品，連同商品名稱、規格名稱與原價
+	interface PromotionRow {
+		Integer getPromotionId();
+		Integer getSkuId();
+		String getProductName();
+		String getSkuName();
+		Integer getOriginalPrice();
+		Integer getPromoPrice();
+	}
+
+	// 後台「新增商品」挑選規格用：規格、所屬商品名稱與原價
+	interface SkuOption {
+		Integer getSkuId();
+		String getProductName();
+		String getSkuName();
+		Integer getPrice();
+	}
+
 	// 某個活動底下的所有活動商品
 	List<Promotion> findByPromoProjectIdOrderByPromotionId(Integer promoProjectId);
 
+	@Query(value = """
+			SELECT pm.promotion_id AS promotionId, pm.sku_id AS skuId, p.product_name AS productName,
+			       s.sku_name AS skuName, s.price AS originalPrice, pm.promo_price AS promoPrice
+			FROM promotion pm
+			JOIN product_sku s ON s.sku_id = pm.sku_id
+			JOIN product p ON p.product_id = s.product_id
+			WHERE pm.promo_project_id = :promoProjectId
+			ORDER BY pm.promotion_id
+			""", nativeQuery = true)
+	List<PromotionRow> findRowsByProject(@Param("promoProjectId") Integer promoProjectId);
+
+	// 可以加入這個活動的規格：原價大於 0、還沒在這個活動裡，可用商品名稱或規格名稱搜尋（空字串代表不限），最多 100 筆
+	@Query(value = """
+			SELECT s.sku_id AS skuId, p.product_name AS productName, s.sku_name AS skuName, s.price AS price
+			FROM product_sku s JOIN product p ON p.product_id = s.product_id
+			WHERE s.price > 0
+			  AND s.sku_id NOT IN (SELECT pm.sku_id FROM promotion pm WHERE pm.promo_project_id = :promoProjectId)
+			  AND (:keyword = '' OR p.product_name LIKE CONCAT('%', :keyword, '%')
+			       OR s.sku_name LIKE CONCAT('%', :keyword, '%'))
+			ORDER BY p.product_id, s.sku_id
+			LIMIT 100
+			""", nativeQuery = true)
+	List<SkuOption> findSkuOptions(@Param("promoProjectId") Integer promoProjectId, @Param("keyword") String keyword);
+
+	// 這個活動裡是不是已經有這個規格（同一活動同一規格只能一筆）
+	Optional<Promotion> findByPromoProjectIdAndSkuId(Integer promoProjectId, Integer skuId);
+
 	// 刪除某個活動底下的所有活動商品（刪活動前要先刪，需要在交易中呼叫）
 	long deleteByPromoProjectId(Integer promoProjectId);
+
+	// 某個規格的原價（驗證促銷價必須低於原價用）
+	@Query(value = "SELECT price FROM product_sku WHERE sku_id = :skuId", nativeQuery = true)
+	Integer findSkuPrice(@Param("skuId") Integer skuId);
 }
