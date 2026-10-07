@@ -4,4 +4,5 @@ package com.fruitude.product.model;
 public interface ProductOverviewSku {
     Integer getProductId();
     String getSkuName();
+    String getAnotherName();
 }

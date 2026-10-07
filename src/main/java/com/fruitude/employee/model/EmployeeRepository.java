@@ -1,5 +1,7 @@
 package com.fruitude.employee.model;
 
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -7,9 +9,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
 
+	Optional<Employee> findByEmployeeAccountIgnoreCase(String employeeAccount);
 	boolean existsByEmployeeAccountIgnoreCase(String employeeAccount);
 	boolean existsByEmployeeEmailIgnoreCase(String employeeEmail);
+	boolean existsByEmployeePhone(String employeePhone);
 	boolean existsByEmployeeAccountIgnoreCaseAndEmployeeIdNot(String employeeAccount, Integer employeeId);
 	boolean existsByEmployeeEmailIgnoreCaseAndEmployeeIdNot(String employeeEmail, Integer employeeId);
+	boolean existsByEmployeePhoneAndEmployeeIdNot(String employeePhone, Integer employeeId);
 	boolean existsByPositionId(Integer positionId);
 }

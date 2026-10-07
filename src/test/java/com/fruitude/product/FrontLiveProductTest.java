@@ -12,9 +12,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 public class FrontLiveProductTest {
     private final int[] stock = {10}, price = {199}, status = {1}, inbound = {0}, outbound = {0};
+    private final String[] alias = {null};
     private FrontCatalogService service() {
         LiveSkuRow row = (LiveSkuRow) Proxy.newProxyInstance(LiveSkuRow.class.getClassLoader(), new Class<?>[]{LiveSkuRow.class}, (p,m,a) -> switch(m.getName()) {
-            case "getSkuId" -> 6; case "getName" -> "草莓"; case "getSkuName" -> "小盒";
+            case "getSkuId" -> 6; case "getName" -> "草莓"; case "getSkuName" -> "小盒"; case "getAnotherName" -> alias[0];
             case "getInboundQty" -> inbound[0]; case "getOutboundQty" -> outbound[0]; case "getPrice" -> price[0]; case "getStock" -> stock[0]; case "getProductStatus" -> 1; case "getSkuStatus" -> status[0]; default -> null;
         });
         ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(), new Class<?>[]{ProductRepository.class}, (p,m,a) -> {
@@ -61,6 +62,12 @@ public class FrontLiveProductTest {
         outbound[0] = 20; assertFalse(service.getLiveSkus(List.of(6)).get(0).available());
         status[0] = 1; assertEquals(10, service.getLiveSkus(List.of(6)).get(0).stock());
         status[0] = 2; assertTrue(service.getLiveSkus(List.of(6)).get(0).available());
+    }
+    @Test public void liveCartReturnsCurrentAliasAndFallsBackWhenCleared() {
+        FrontCatalogService service = service();
+        alias[0] = "  草莓分享盒  ";
+        assertEquals("草莓分享盒", service.getLiveSkus(List.of(6)).get(0).skuName());
+        alias[0] = " "; assertEquals("小盒", service.getLiveSkus(List.of(6)).get(0).skuName());
     }
     private void rejects(FrontCatalogService service, List<CheckoutItem> items) {
         try { service.validateCheckoutItems(items); fail("should reject checkout"); } catch (ProductUnavailableException expected) {}

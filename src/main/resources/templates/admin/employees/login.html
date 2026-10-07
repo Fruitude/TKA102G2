@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>後台員工登入</title>
+    <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+</head>
+<body class="admin-login-page">
+    <main class="admin-login-panel" aria-labelledby="employee-login-title">
+        <header class="admin-login-heading">
+            <h1 class="h4 text-gray-800 mb-1" id="employee-login-title"><i class="fas fa-user-shield mr-2" aria-hidden="true"></i>後台員工登入</h1>
+            <p class="small text-muted mb-0">請使用員工帳號進入管理系統</p>
+        </header>
+        <form class="admin-login-form" id="employee-login-form">
+            <div class="form-group">
+                <label for="employee-login-account">員工帳號</label>
+                <input class="form-control" id="employee-login-account" type="text" maxlength="50"
+                       autocomplete="username" autofocus required>
+            </div>
+            <div class="form-group">
+                <label for="employee-login-password">密碼</label>
+                <input class="form-control" id="employee-login-password" type="password"
+                       autocomplete="current-password" required>
+            </div>
+            <p class="admin-login-feedback" id="employee-login-feedback" aria-live="polite"></p>
+            <button class="btn btn-primary btn-block" id="employee-login-submit" type="submit">
+                <i class="fas fa-sign-in-alt mr-1" aria-hidden="true"></i>登入
+            </button>
+        </form>
+    </main>
+    <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+    <script th:src="@{/js/employee-login.js?v=1}"></script>
+</body>
+</html>

@@ -46,11 +46,11 @@ public class FrontCatalogService {
             FrontCatalogRow product = group.get(0);
             List<SkuView> skus = group.stream().map(row -> {
                 List<Integer> ids = List.copyOf(images.getOrDefault(row.getSkuId(), List.of()));
-                return new SkuView(row.getSkuId(), row.getSkuName(), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty()),
+           return new SkuView(row.getSkuId(), row.getSkuName(), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty()),
                     ids.isEmpty() ? null : ids.get(0), ids, row.getSkuStatus());
             }).toList();
             SkuView cheapest = skus.stream().min(Comparator.comparing(SkuView::price).thenComparing(SkuView::skuId)).orElseThrow();
-            boolean giftBox = containsGift(product.getName()) || skus.stream().anyMatch(s -> containsGift(s.name()));
+            boolean giftBox = containsGift(product.getName()) || skus.stream().anyMatch(s -> containsGift(s.name())) || group.stream().anyMatch(row -> containsGift(row.getSkuName()));
             Set<Integer> visited = new HashSet<>();
             Integer categoryId = product.getCategoryId();
             while (categoryId != null && visited.add(categoryId)) {

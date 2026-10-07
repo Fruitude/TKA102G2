@@ -13,4 +13,10 @@ public class EmployeeAdminPageController {
 	public String employeeManagementPage() {
 		return "admin/employees/index";
 	}
+
+	/** 顯示後台員工登入頁，不影響既有會員前台登入頁。 */
+	@GetMapping("/login")
+	public String loginPage() {
+		return "admin/employees/login";
+	}
 }

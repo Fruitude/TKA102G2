@@ -2,6 +2,33 @@
     const table = document.getElementById('product-table');
     if (!table) return;
     const rows = Array.from(table.querySelectorAll('[data-product-row]'));
+    document.addEventListener('product-status-updated', event => {
+        const update = event.detail;
+        if (!update || ![0,1].includes(update.status)) return;
+        const toggle = Array.from(table.querySelectorAll('.status-toggle'))
+            .find(control => Number(control.dataset.productId) === Number(update.productId));
+        if (toggle) {
+            toggle.checked = update.status === 1;
+            toggle.closest('tr').classList.toggle('product-off', update.status === 0);
+        }
+    });
+    const primaryFilters = document.querySelector('.filter-row-primary');
+    const secondaryFilters = document.querySelector('.filter-row-secondary');
+    function alignFilterColumns() {
+        if (!primaryFilters || !secondaryFilters) return;
+        const upper = Array.from(primaryFilters.children);
+        const lower = Array.from(secondaryFilters.children);
+        const widths = upper.slice(0, 3).map((control, index) =>
+            Math.max(control.getBoundingClientRect().width, lower[index].getBoundingClientRect().width) + 'px');
+        primaryFilters.parentElement.style.setProperty('--filter-columns', widths.join(' ') + ' max-content');
+    }
+    alignFilterColumns();
+    if (primaryFilters && typeof ResizeObserver !== 'undefined') {
+        const filterObserver = new ResizeObserver(alignFilterColumns);
+        filterObserver.observe(primaryFilters);
+        window.addEventListener('pagehide', () => filterObserver.disconnect(), { once: true });
+    }
+    if (document.fonts) document.fonts.ready.then(alignFilterColumns);
     const sizeSelect = document.getElementById('page-size');
     const statusFilter = document.getElementById('status-filter');
     const stockFilter = document.getElementById('stock-filter');
@@ -37,6 +64,18 @@
             navigate(1);
         });
     });
+    const modifiedSort = document.getElementById('modified-sort');
+    if (modifiedSort) {
+        const selected = sortBy === 'modified';
+        modifiedSort.title = selected
+            ? '點擊改為' + (sortDirection === 'desc' ? '最舊' : '最新') + '修改的商品優先'
+            : '點擊依最新修改時間排序';
+        modifiedSort.addEventListener('click', () => {
+            sortDirection = sortBy === 'modified' && sortDirection === 'desc' ? 'asc' : 'desc';
+            sortBy = 'modified';
+            navigate(1);
+        });
+    }
     const totalProducts = Number(table.dataset.totalProducts) || 0;
 
     function savePreferences() {

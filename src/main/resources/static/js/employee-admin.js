@@ -7,7 +7,12 @@
         employees: [],
         positions: [],
         functions: [],
+        auditLogs: [],
+        auditPage: 0,
+        auditTotalPages: 0,
+        auditTotalElements: 0,
         selectedEmployeeId: null,
+        permissionPositionFilter: "",
         permissionSearchKeyword: '',
         pendingStatus: null,
         pendingPositionStatus: null
@@ -227,6 +232,46 @@
         select.value = selectedId ? String(selectedId) : '';
     }
 
+    function renderPermissionPositionFilter() {
+        const select = byId('permission-position-filter');
+        const pillsContainer = byId('permission-position-pills');
+        if (!select) return;
+
+        const currentVal = state.permissionPositionFilter;
+        select.replaceChildren();
+
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = '全部職位部門（' + state.employees.length + ' 位）';
+        select.appendChild(allOption);
+
+        if (pillsContainer) pillsContainer.replaceChildren();
+
+        if (pillsContainer) {
+            const allPill = createElement('button', 'permission-pill' + (!currentVal ? ' is-active' : ''), '全部 (' + state.employees.length + ')');
+            allPill.type = 'button';
+            allPill.dataset.posFilter = '';
+            pillsContainer.appendChild(allPill);
+        }
+
+        state.positions.forEach((position) => {
+            const count = state.employees.filter((emp) => emp.positionId === position.positionId).length;
+            const option = createElement('option', '', position.positionName + '（' + count + ' 位）');
+            option.value = String(position.positionId);
+            select.appendChild(option);
+
+            if (pillsContainer) {
+                const isActive = currentVal === String(position.positionId);
+                const pill = createElement('button', 'permission-pill' + (isActive ? ' is-active' : ''), position.positionName + ' (' + count + ')');
+                pill.type = 'button';
+                pill.dataset.posFilter = String(position.positionId);
+                pillsContainer.appendChild(pill);
+            }
+        });
+
+        select.value = currentVal || '';
+    }
+
     function renderEmployeeOptions() {
         const previous = state.selectedEmployeeId;
         if (!state.employees.length) {
@@ -236,30 +281,56 @@
             state.selectedEmployeeId = stillExists ? previous : state.employees[0].employeeId;
         }
 
-        state.permissionSearchKeyword = '';
-        byId('permission-employee-search').value = '';
-        byId('permission-employee-search-clear').hidden = true;
-        byId('permission-employee-results').replaceChildren();
+        renderPermissionPositionFilter();
+        renderEmployeeSearchResults();
         renderSelectedEmployee();
     }
 
-    // 權限配置可能有大量員工，因此依姓名、帳號、Email 與職位即時篩選，最多顯示十筆。
+    // 權限配置名單：支援「職位部門下拉/標籤篩選」與「姓名/帳號關鍵字即時模糊搜尋」雙重篩選。
     function renderEmployeeSearchResults() {
-        const keyword = state.permissionSearchKeyword.trim().toLowerCase();
+        const keyword = (state.permissionSearchKeyword || '').trim().toLowerCase();
+        const posFilter = state.permissionPositionFilter;
         const results = byId('permission-employee-results');
-        byId('permission-employee-search-clear').hidden = !state.permissionSearchKeyword;
+        const clearBtn = byId('permission-employee-search-clear');
+        if (clearBtn) clearBtn.hidden = !keyword;
         results.replaceChildren();
-        if (!keyword) return;
 
         const matched = state.employees.filter((employee) => {
-            const searchable = [employee.employeeName, employee.employeeAccount, employee.employeeEmail,
-                employee.positionName, employee.positionCode]
-                .filter(Boolean).join(' ').toLowerCase();
-            return searchable.includes(keyword);
-        }).slice(0, 10);
+            if (posFilter && String(employee.positionId) !== posFilter) {
+                return false;
+            }
+            if (keyword) {
+                const searchable = [employee.employeeName, employee.employeeAccount, employee.employeeEmail,
+                    employee.positionName, employee.positionCode]
+                    .filter(Boolean).join(' ').toLowerCase();
+                if (!searchable.includes(keyword)) return false;
+            }
+            return true;
+        });
+
+        const countEl = byId('permission-employee-count');
+        if (countEl) {
+            const labelPrefix = posFilter
+                ? ((state.positions.find((p) => String(p.positionId) === posFilter)?.positionName || '職位') + '：')
+                : (keyword ? '符合 ' : '共 ');
+            countEl.textContent = labelPrefix + matched.length + ' 位';
+        }
+
+        // 若當前選取的員工不在篩選結果中，自動選中結果的第一位並載入細項權限
+        if (matched.length > 0) {
+            const isCurrentInMatched = matched.some((e) => e.employeeId === state.selectedEmployeeId);
+            if (!isCurrentInMatched) {
+                state.selectedEmployeeId = matched[0].employeeId;
+                loadSelectedPermissions();
+            }
+        } else {
+            state.selectedEmployeeId = null;
+            renderSelectedEmployee();
+            renderPermissionGroups([]);
+        }
 
         if (!matched.length) {
-            results.appendChild(createElement('p', 'permission-employee-no-result', '找不到符合條件的員工'));
+            results.appendChild(createElement('p', 'permission-employee-no-result', '此職位或篩選條件下找不到員工'));
             return;
         }
 
@@ -270,26 +341,37 @@
             button.setAttribute('role', 'option');
             button.setAttribute('aria-selected', selected ? 'true' : 'false');
             button.dataset.pickerEmployeeId = String(employee.employeeId);
-            button.appendChild(createElement('strong', '', employee.employeeName));
-            button.appendChild(createElement('span', '', employee.employeeAccount + ' · ' + employee.employeeEmail));
-            button.appendChild(createElement('small', '',
-                (employee.positionName || '未設定職位') + (employee.positionCode ? '（' + employee.positionCode + '）' : '')));
+
+            const rowTop = createElement('div', 'permission-employee-row-top');
+            rowTop.appendChild(createElement('span', 'permission-employee-name', employee.employeeName));
+            rowTop.appendChild(createElement('span', 'permission-employee-role', employee.positionName || '未指定職位'));
+
+            const rowBottom = createElement('div', 'permission-employee-row-bottom');
+            rowBottom.appendChild(createElement('span', 'permission-employee-account', employee.employeeAccount));
+            const countText = (employee.permissionCount !== undefined && employee.permissionCount !== null)
+                ? (employee.permissionCount + ' 項權限') : '';
+            rowBottom.appendChild(createElement('span', 'permission-employee-perms', countText));
+
+            button.appendChild(rowTop);
+            button.appendChild(rowBottom);
             results.appendChild(button);
         });
     }
 
     function renderSelectedEmployee() {
-        const area = byId('permission-selected-employee');
         const employee = state.employees.find((item) => item.employeeId === state.selectedEmployeeId);
-        area.replaceChildren();
+        const nameEl = byId('permission-target-name');
+        const roleEl = byId('permission-target-role');
+        const saveBtn = byId('permission-save-button');
         if (!employee) {
-            area.textContent = '請先新增員工帳號。';
-            byId('permission-save-button').disabled = true;
+            if (nameEl) nameEl.textContent = '未選擇員工';
+            if (roleEl) roleEl.textContent = '--';
+            if (saveBtn) saveBtn.disabled = true;
             return;
         }
-        area.appendChild(createElement('div', 'employee-primary', employee.employeeName));
-        area.appendChild(createElement('div', 'employee-secondary', employee.employeeEmail));
-        byId('permission-save-button').disabled = false;
+        if (nameEl) nameEl.textContent = employee.employeeName + ' (' + employee.employeeAccount + ')';
+        if (roleEl) roleEl.textContent = employee.positionName || '未指定職位';
+        if (saveBtn) saveBtn.disabled = false;
     }
 
     function updatePermissionCount() {
@@ -390,6 +472,78 @@
         byId('function-empty').hidden = filtered.length !== 0;
     }
 
+    const auditModuleLabels = {
+        EMPLOYEE: '員工帳號', POSITION: '職位管理', EMPLOYEE_PERMISSION: '權限配置',
+        PERMISSION_FUNCTION: '權限功能', 員工帳號: '員工帳號', 員工: '員工帳號',
+        職位管理: '職位管理', 職位: '職位管理', 權限配置: '權限配置', 員工權限: '權限配置',
+        權限功能: '權限功能'
+    };
+    const auditActionLabels = {
+        CREATE: '新增', UPDATE: '修改', STATUS: '狀態變更', PASSWORD: '重設密碼', ASSIGN: '權限配置',
+        新增: '新增', 修改: '修改', 啟用: '啟用', 停用: '停用', 狀態變更: '狀態變更',
+        重設密碼: '重設密碼', 指派: '權限配置', 權限配置: '權限配置'
+    };
+
+    // 更改紀錄採後端分頁，避免紀錄累積後一次下載大量資料。
+    function renderAuditLogs() {
+        const body = byId('audit-table-body');
+        body.replaceChildren();
+        state.auditLogs.forEach((log) => {
+            const row = document.createElement('tr');
+            const time = createElement('td', 'audit-time', formatDate(log.createdAt));
+            const actor = document.createElement('td');
+            actor.appendChild(createElement('div', 'employee-primary', log.employeeName || '系統管理員'));
+            actor.appendChild(createElement('div', 'employee-secondary', log.employeeId ? '員工 #' + log.employeeId : '尚未連結員工登入'));
+            const type = document.createElement('td');
+            type.appendChild(createElement('span', 'audit-module', auditModuleLabels[log.targetModule] || log.targetModule));
+            type.appendChild(createElement('span', 'audit-action', auditActionLabels[log.actionType] || log.actionType));
+            const target = document.createElement('td');
+            target.appendChild(createElement('div', 'employee-primary', log.targetDisplay));
+            target.appendChild(createElement('div', 'employee-secondary', '#' + log.targetId));
+            const detail = createElement('td', 'audit-detail', log.detailContent || '—');
+            const ip = createElement('td', 'audit-ip', log.ipAddress || '—');
+            [time, actor, type, target, detail, ip].forEach((cell) => row.appendChild(cell));
+            body.appendChild(row);
+        });
+        byId('audit-empty').hidden = state.auditLogs.length !== 0;
+        const visiblePage = state.auditTotalPages === 0 ? 0 : state.auditPage + 1;
+        byId('audit-page-summary').textContent = '第 ' + visiblePage + ' / ' + state.auditTotalPages
+            + ' 頁，共 ' + state.auditTotalElements + ' 筆';
+        byId('audit-page-previous').disabled = state.auditPage <= 0;
+        byId('audit-page-next').disabled = state.auditTotalPages === 0
+            || state.auditPage >= state.auditTotalPages - 1;
+    }
+
+    async function loadAuditLogs() {
+        const parameters = new URLSearchParams();
+        const keyword = byId('audit-search').value.trim();
+        const module = byId('audit-module-filter').value;
+        const action = byId('audit-action-filter').value;
+        const startDate = byId('audit-start-date').value;
+        const endDate = byId('audit-end-date').value;
+        if (keyword) parameters.set('keyword', keyword);
+        if (module) parameters.set('module', module);
+        if (action) parameters.set('action', action);
+        if (startDate) parameters.set('startDate', startDate);
+        if (endDate) parameters.set('endDate', endDate);
+        parameters.set('page', String(state.auditPage));
+        parameters.set('size', '20');
+        try {
+            const result = await request('/audit-logs?' + parameters.toString());
+            state.auditLogs = result.logs || [];
+            state.auditPage = Number(result.page || 0);
+            state.auditTotalPages = Number(result.totalPages || 0);
+            state.auditTotalElements = Number(result.totalElements || 0);
+            renderAuditLogs();
+        } catch (error) {
+            state.auditLogs = [];
+            state.auditTotalPages = 0;
+            state.auditTotalElements = 0;
+            renderAuditLogs();
+            setFeedback(error.message, 'error');
+        }
+    }
+
     async function loadEmployees(preserveSelection) {
         const selected = preserveSelection ? state.selectedEmployeeId : null;
         state.employees = await request('');
@@ -427,7 +581,9 @@
 
     function openEmployeeForm(employee) {
         const editing = Boolean(employee);
-        byId('employee-form').reset();
+        const form = byId('employee-form');
+        form.reset();
+        form.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
         byId('employee-id').value = editing ? employee.employeeId : '';
         byId('employee-form-title').textContent = editing ? '編輯員工' : '新增員工';
         byId('employee-name').value = editing ? employee.employeeName : '';
@@ -512,6 +668,7 @@
                 });
                 tab.classList.add('is-active');
                 if (tab.dataset.tab === 'assignments') loadSelectedPermissions();
+                if (tab.dataset.tab === 'audit') loadAuditLogs();
             });
         });
 
@@ -521,6 +678,33 @@
         byId('position-status-filter').addEventListener('change', renderPositions);
         byId('function-search').addEventListener('input', renderFunctions);
         byId('function-group-filter').addEventListener('change', renderFunctions);
+        let auditSearchTimer = null;
+        byId('audit-search').addEventListener('input', () => {
+            window.clearTimeout(auditSearchTimer);
+            auditSearchTimer = window.setTimeout(() => { state.auditPage = 0; loadAuditLogs(); }, 250);
+        });
+        ['audit-module-filter', 'audit-action-filter', 'audit-start-date', 'audit-end-date'].forEach((id) => {
+            byId(id).addEventListener('change', () => { state.auditPage = 0; loadAuditLogs(); });
+        });
+        byId('audit-refresh-button').addEventListener('click', loadAuditLogs);
+        const auditResetBtn = byId('audit-reset-button');
+        if (auditResetBtn) {
+            auditResetBtn.addEventListener('click', () => {
+                byId('audit-search').value = '';
+                byId('audit-module-filter').value = '';
+                byId('audit-action-filter').value = '';
+                byId('audit-start-date').value = '';
+                byId('audit-end-date').value = '';
+                state.auditPage = 0;
+                loadAuditLogs();
+            });
+        }
+        byId('audit-page-previous').addEventListener('click', () => {
+            if (state.auditPage > 0) { state.auditPage -= 1; loadAuditLogs(); }
+        });
+        byId('audit-page-next').addEventListener('click', () => {
+            if (state.auditPage < state.auditTotalPages - 1) { state.auditPage += 1; loadAuditLogs(); }
+        });
         byId('employee-add-button').addEventListener('click', () => openEmployeeForm(null));
         byId('position-add-button').addEventListener('click', () => openPositionForm(null));
 
@@ -549,6 +733,26 @@
             if (button.dataset.positionAction === 'edit') openPositionForm(position);
             if (button.dataset.positionAction === 'status') openPositionStatusForm(position);
         });
+
+        const posFilterSelect = byId('permission-position-filter');
+        if (posFilterSelect) {
+            posFilterSelect.addEventListener('change', (e) => {
+                state.permissionPositionFilter = e.target.value;
+                renderPermissionPositionFilter();
+                renderEmployeeSearchResults();
+            });
+        }
+
+        const pillsContainer = byId('permission-position-pills');
+        if (pillsContainer) {
+            pillsContainer.addEventListener('click', (e) => {
+                const pill = e.target.closest('[data-pos-filter]');
+                if (!pill) return;
+                state.permissionPositionFilter = pill.dataset.posFilter || '';
+                renderPermissionPositionFilter();
+                renderEmployeeSearchResults();
+            });
+        }
 
         byId('permission-employee-search').addEventListener('input', (event) => {
             state.permissionSearchKeyword = event.target.value;
@@ -585,6 +789,12 @@
         });
 
         byId('employee-form').addEventListener('submit', saveEmployee);
+        byId('employee-form').addEventListener('input', (event) => {
+            if (event.target.classList.contains('is-invalid')) {
+                event.target.classList.remove('is-invalid');
+                setModalFeedback('employee-form-modal', '');
+            }
+        });
         byId('position-form').addEventListener('submit', savePosition);
         byId('password-form').addEventListener('submit', savePassword);
         byId('status-confirm-button').addEventListener('click', saveStatus);
@@ -609,6 +819,7 @@
         const button = byId('employee-form-save');
         withBusy(button, true, '儲存中…');
         setModalFeedback('employee-form-modal', '');
+        form.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
         try {
             await request(employeeId ? '/' + employeeId : '', {
                 method: employeeId ? 'PUT' : 'POST', body: JSON.stringify(body)
@@ -618,6 +829,26 @@
             setFeedback(employeeId ? '員工資料已更新。' : '員工帳號已新增。', 'success');
         } catch (error) {
             setModalFeedback('employee-form-modal', error.message);
+            const msg = error.message || '';
+            if (msg.includes('帳號')) {
+                byId('employee-account').classList.add('is-invalid');
+                byId('employee-account').focus();
+            } else if (msg.includes('信箱')) {
+                byId('employee-email').classList.add('is-invalid');
+                byId('employee-email').focus();
+            } else if (msg.includes('電話')) {
+                byId('employee-phone').classList.add('is-invalid');
+                byId('employee-phone').focus();
+            } else if (msg.includes('姓名')) {
+                byId('employee-name').classList.add('is-invalid');
+                byId('employee-name').focus();
+            } else if (msg.includes('密碼')) {
+                const pwd = byId('employee-password');
+                if (pwd && !pwd.hidden) { pwd.classList.add('is-invalid'); pwd.focus(); }
+            } else if (msg.includes('職位')) {
+                byId('employee-position').classList.add('is-invalid');
+                byId('employee-position').focus();
+            }
         } finally {
             withBusy(button, false);
         }
@@ -760,6 +991,11 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         bindEvents();
+		// 右上角通知的「查看全部」會帶入 tab=audit，直接開啟更改紀錄頁籤。
+		const requestedTab = new URLSearchParams(window.location.search).get('tab');
+		const requestedButton = requestedTab
+			? document.querySelector('.employee-tab[data-tab="' + requestedTab + '"]') : null;
+		if (requestedButton) requestedButton.click();
         try {
             await loadPositions();
             await Promise.all([loadEmployees(false), loadFunctions()]);
