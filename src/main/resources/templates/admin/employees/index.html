@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>後台帳號管理</title>
     <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
-    <link th:href="@{/css/employee-admin.css?v=12}" rel="stylesheet">
+    <link th:href="@{/css/employee-admin.css?v=13}" rel="stylesheet">
 </head>
 <body id="page-top">
 <div id="wrapper">
@@ -44,6 +44,9 @@
                         </button>
                         <button class="employee-tab" data-tab="functions" type="button">
                             <i class="fas fa-key" aria-hidden="true"></i><span>權限功能</span>
+                        </button>
+                        <button class="employee-tab" data-tab="coverage" type="button">
+                            <i class="fas fa-clipboard-check" aria-hidden="true"></i><span>功能負責</span><span class="employee-tab-count is-warning" id="coverage-tab-count">0</span>
                         </button>
                         <button class="employee-tab" data-tab="audit" type="button">
                             <i class="fas fa-history" aria-hidden="true"></i><span>更改紀錄</span>
@@ -125,6 +128,19 @@
                                 <i class="fas fa-plus" aria-hidden="true"></i><span>新增職位</span>
                             </button>
                         </div>
+                        <section class="permission-coverage" id="permission-coverage" aria-live="polite" hidden>
+                            <div class="permission-coverage-summary">
+                                <i class="fas fa-exclamation-triangle permission-coverage-icon" id="permission-coverage-icon" aria-hidden="true"></i>
+                                <div class="permission-coverage-copy">
+                                    <strong id="permission-coverage-title">正在檢查功能負責狀態</strong>
+                                    <span id="permission-coverage-description"></span>
+                                </div>
+                                <button class="permission-coverage-toggle" id="permission-coverage-toggle" type="button" aria-expanded="false" aria-controls="permission-coverage-details">
+                                    <span>查看未指派功能</span><i class="fas fa-chevron-down" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="permission-coverage-details" id="permission-coverage-details" hidden></div>
+                        </section>
                         <div class="table-responsive employee-table-wrap">
                             <table class="table employee-table mb-0">
                                 <thead>
@@ -218,6 +234,41 @@
                             </table>
                         </div>
                         <div class="employee-empty" id="function-empty" hidden>找不到符合條件的權限功能。</div>
+                    </div>
+
+                    <div class="employee-panel" data-panel="coverage" hidden>
+                        <div class="responsibility-summary" id="responsibility-summary">
+                            <div><strong id="responsibility-covered-count">0</strong><span>已有人負責</span></div>
+                            <div><strong id="responsibility-uncovered-count">0</strong><span>尚未指派</span></div>
+                            <div><strong id="responsibility-total-count">0</strong><span>全部功能</span></div>
+                        </div>
+                        <div class="employee-toolbar responsibility-toolbar">
+                            <div class="employee-filter-row">
+                                <label class="sr-only" for="responsibility-status-filter">負責狀態</label>
+                                <select id="responsibility-status-filter">
+                                    <option value="">全部功能</option>
+                                    <option value="uncovered">只看尚未指派</option>
+                                    <option value="covered">只看已有人負責</option>
+                                </select>
+                                <label class="sr-only" for="responsibility-group-filter">所屬群組</label>
+                                <select id="responsibility-group-filter" title="所屬群組">
+                                    <option value="">全部群組</option>
+                                </select>
+                                <div class="employee-search-control">
+                                    <i class="fas fa-search" aria-hidden="true"></i>
+                                    <label class="sr-only" for="responsibility-search">搜尋功能或員工</label>
+                                    <input id="responsibility-search" type="search" placeholder="搜尋功能、群組、員工或職位">
+                                </div>
+                            </div>
+                            <span class="employee-result-count" id="responsibility-result-count">0 項</span>
+                        </div>
+                        <div class="table-responsive employee-table-wrap">
+                            <table class="table employee-table responsibility-table mb-0">
+                                <thead><tr><th>功能</th><th>所屬群組</th><th>負責員工</th><th>覆蓋狀態</th></tr></thead>
+                                <tbody id="responsibility-table-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="employee-empty" id="responsibility-empty" hidden>找不到符合條件的功能。</div>
                     </div>
 
                     <div class="employee-panel" data-panel="audit" hidden>
@@ -473,6 +524,6 @@
 </div>
 
 <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-<script th:src="@{/js/employee-admin.js?v=17}"></script>
+<script th:src="@{/js/employee-admin.js?v=22}"></script>
 </body>
 </html>

@@ -276,3 +276,28 @@
 }
 
 .cart-item-sku { font-size: 13px; color: #5b625b; margin: 4px 0; }
+
+/* 各頁頁尾拿掉「追蹤我們」欄之後只剩三欄連結，Webflow 原本的比例是 2fr 1fr 1fr 1fr，
+   第一欄會被拉得特別寬，改成三等分（只在桌面版；手機與平板維持 Webflow 原本的排法） */
+@media screen and (min-width: 992px) {
+  .footer-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ---- 全站主要按鈕統一用深綠（購物車、前往商城、前往結帳、確認付款、立即選購等）----
+   底色 #1f5a37；滑鼠移上去與取得焦點 #17472b；按下去 #123d24。
+   白色按鈕（.button-white，放在深色底上的那種）不受影響 */
+.primary-button:not(.button-white) {
+  background-color: #1f5a37;
+  color: #fff;
+}
+.primary-button:not(.button-white):hover,
+.primary-button:not(.button-white):focus {
+  background-color: #17472b;
+  color: #fff;
+}
+.primary-button:not(.button-white):focus {
+  border-color: #1f5a37;
+}
+.primary-button:not(.button-white):active {
+  background-color: #123d24;
+}

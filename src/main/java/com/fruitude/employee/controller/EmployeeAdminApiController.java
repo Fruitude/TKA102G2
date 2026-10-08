@@ -171,6 +171,53 @@ public class EmployeeAdminApiController {
 		return employeeAdminService.findPermissionFunctions();
 	}
 
+	/**
+	 * 列出每個權限的正常員工負責名單，供功能負責頁檢查完整覆蓋與人員分工。
+	 */
+	@GetMapping("/permission-coverage")
+	public Map<String, Object> findPermissionCoverage() {
+		Map<Integer, List<Employee>> responsibleEmployees = employeeAdminService.findActiveEmployeesByPermission();
+		List<Map<String, Object>> uncovered = new ArrayList<>();
+		List<Map<String, Object>> coverageItems = new ArrayList<>();
+		Map<Integer, EmployeePosition> positions = new LinkedHashMap<>();
+		for (EmployeePosition position : employeeAdminService.findPositions()) {
+			positions.put(position.getPositionId(), position);
+		}
+		int coveredCount = 0;
+		List<EmployeePermissionFunction> functions = employeeAdminService.findPermissionFunctions();
+		for (EmployeePermissionFunction function : functions) {
+			Map<String, Object> item = new LinkedHashMap<>();
+			item.put("permissionId", function.getPermissionId());
+			item.put("permissionCode", function.getPermissionCode());
+			item.put("permissionName", function.getPermissionName());
+			item.put("permissionDescription", function.getPermissionDescription());
+			item.put("permissionGroup", function.getPermissionGroup());
+			List<Map<String, Object>> employees = new ArrayList<>();
+			for (Employee employee : responsibleEmployees.getOrDefault(function.getPermissionId(), new ArrayList<>())) {
+				Map<String, Object> employeeItem = new LinkedHashMap<>();
+				employeeItem.put("employeeId", employee.getEmployeeId());
+				employeeItem.put("employeeName", employee.getEmployeeName());
+				employeeItem.put("employeeAccount", employee.getEmployeeAccount());
+				EmployeePosition position = positions.get(employee.getPositionId());
+				employeeItem.put("positionName", position == null ? "未指定職位" : position.getPositionName());
+				employees.add(employeeItem);
+			}
+			item.put("responsibleCount", employees.size());
+			item.put("responsibleEmployees", employees);
+			coverageItems.add(item);
+			if (employees.isEmpty()) uncovered.add(item);
+			else coveredCount++;
+		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("totalCount", functions.size());
+		body.put("coveredCount", coveredCount);
+		body.put("uncoveredCount", uncovered.size());
+		body.put("complete", uncovered.isEmpty());
+		body.put("functions", coverageItems);
+		body.put("uncoveredPermissions", uncovered);
+		return body;
+	}
+
 	/** 取得所有員工職位，供職位管理與員工表單使用。 */
 	@GetMapping("/positions")
 	public List<Map<String, Object>> findPositions() {

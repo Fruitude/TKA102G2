@@ -76,3 +76,195 @@
 .confirm-bottom-bar-total-value {
   font-size: 1.25rem;
 }
+
+/* ---- 兩欄版面：商品在左、購物金與付款詳情在右，一頁看完不用一直捲動 ---- */
+.confirm-container {
+  max-width: 64rem;
+}
+
+.confirm-page {
+  padding-bottom: 6rem;
+}
+
+.confirm-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 0 2rem;
+  align-items: start;
+}
+
+.confirm-grid .confirm-block-header {
+  margin-top: 1rem;
+}
+
+.confirm-grid .confirm-col > .confirm-block-header:first-child {
+  margin-top: 0;
+}
+
+/* 商品很多時只在這一欄內捲動，頁面本身不被拉長 */
+#confirm-item-list {
+  max-height: calc(100vh - 17rem);
+  overflow-y: auto;
+  padding-right: .5rem;
+}
+
+.confirm-item-name {
+  margin-bottom: 0;
+}
+
+.confirm-item-row + .confirm-item-row {
+  margin-top: .5rem;
+  padding-top: .5rem;
+}
+
+.confirm-credit-input-row {
+  margin-top: .5rem;
+}
+
+.confirm-page .w-commerce-commercecheckoutsummarylineitem {
+  padding-top: .25rem;
+  padding-bottom: .25rem;
+}
+
+@media screen and (max-width: 767px) {
+  .confirm-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #confirm-item-list {
+    max-height: 16rem;
+  }
+}
+
+/* ---- 「結帳」區塊置頂：總付款金額與確認付款放在這裡，不再用固定在底部的列 ---- */
+.confirm-page {
+  padding-bottom: 2rem;
+}
+
+.confirm-top-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem 1.5rem;
+  margin-bottom: 1rem;
+  padding-top: .75rem;
+  padding-bottom: .75rem;
+  background-color: var(--brand--neutrals--tan-light, #f4f7f0);
+}
+
+.confirm-top-header .heading-h3 {
+  margin-right: auto;
+}
+
+.confirm-top-header .confirm-bottom-bar {
+  position: static;
+  inset: auto;
+  padding: 0;
+  border-top: 0;
+  background-color: transparent;
+  gap: 1rem;
+}
+
+#confirm-item-list {
+  max-height: calc(100vh - 13rem);
+}
+
+@media screen and (max-width: 767px) {
+  .confirm-top-header .confirm-bottom-bar {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* ---- 結帳區塊版面：標題在左；右上是總付款金額 + 確認付款，右下是返回購物車（寬度與上面那列相同） ---- */
+.confirm-page {
+  padding-top: 0; /* 這頁沒有固定導覽列，不需要預留頂端空間，讓「結帳」區塊直接貼頂 */
+}
+
+.confirm-top-header {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.confirm-top-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; /* 返回購物車撐成與上一列同寬，上一列的寬度由總金額 + 確認付款決定 */
+  gap: .5rem;
+  margin-left: auto;
+}
+
+.confirm-top-actions .secondary-button {
+  padding: .4rem 1rem;
+  text-align: center;
+}
+
+@media screen and (max-width: 767px) {
+  .confirm-top-header {
+    flex-wrap: wrap;
+  }
+
+  .confirm-top-actions {
+    width: 100%;
+  }
+}
+
+/* 返回購物車改放在確認付款右邊，與總付款金額 + 確認付款排成同一列 */
+.confirm-top-actions {
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.confirm-top-actions .secondary-button {
+  white-space: nowrap;
+}
+
+.confirm-top-header {
+  align-items: center;
+}
+
+@media screen and (max-width: 767px) {
+  .confirm-top-actions {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+}
+
+/* 總付款金額 / 確認付款 / 返回購物車 成為一組，在「結帳」區塊水平置中；標題「結帳」靠左 */
+.confirm-top-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.confirm-top-actions {
+  grid-column: 2;
+  margin-left: 0;
+  align-items: stretch; /* 返回購物車與確認付款同高 */
+}
+
+.confirm-top-actions .confirm-bottom-bar {
+  align-items: stretch;
+}
+
+.confirm-top-actions .secondary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+@media screen and (max-width: 767px) {
+  .confirm-top-header {
+    grid-template-columns: 1fr;
+  }
+
+  .confirm-top-actions {
+    grid-column: 1;
+    justify-content: center;
+  }
+}

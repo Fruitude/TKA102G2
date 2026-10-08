@@ -30,7 +30,7 @@ public class FrontLiveProductTest {
     }
     @Test public void liveCartIgnoresCatalogCacheAndHasNoStoreHeader() throws Exception {
         FrontCatalogService service = service(); service.getProducts();
-        var mvc = MockMvcBuilders.standaloneSetup(new FrontProductController(service)).build();
+        var mvc = MockMvcBuilders.standaloneSetup(new FrontProductController(service, new com.fruitude.promo.model.PromoService(), new com.fruitude.orders.model.OrdersService())).build();
         var first = mvc.perform(get("/front/api/cart-products").param("skuIds", "6")).andReturn().getResponse();
         assertEquals(200, first.getStatus()); assertTrue(first.getHeader("Cache-Control").contains("no-store")); assertTrue(first.getContentAsString().contains("\"price\":199"));
         price[0] = 299; stock[0] = 4; // 狀態 1：可訂購數量 = min(10, stock)，即時反映在購物車查詢

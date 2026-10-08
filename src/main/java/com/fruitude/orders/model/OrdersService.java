@@ -330,6 +330,13 @@ public class OrdersService {
 		return findProductDiscount(memberId, lines);
 	}
 
+	// 會員生日的月份是不是現在這個月（壽星月資格）
+	public boolean isBirthdayMonth(Integer memberId) {
+		MemberVO member = memberRepository.findById(memberId).orElse(null);
+		return member != null && member.getMemberBirthday() != null
+				&& member.getMemberBirthday().getMonth() == LocalDate.now().getMonth();
+	}
+
 	// 商品折扣（全館折扣、壽星月、新會員首購，彼此只套用折扣最大的一個，並且和指定商品活動價擇優）。
 	// 回傳的折扣金額是相對於畫面上小計（已經是活動價）再多折的金額。
 	// 壽星月：會員生日的月份等於現在的月份；新會員首購：這個會員還沒有任何訂單

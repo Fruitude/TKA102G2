@@ -61,11 +61,19 @@ public class FrontCatalogTest {
     private Product product(int id, String name) { Product p = new Product(); p.setProductId(id); p.setProductName(name); p.setStatus((byte)1); p.setProductDesc("資料庫描述"); return p; }
     private ProductSku sku(Product p, int id, int price, int status) { ProductSku s = new ProductSku(); s.setSkuId(id); s.setSkuName("規格" + id); s.setPrice(price); s.setStock(10); s.setStatus((byte)status); s.setProduct(p); p.getProductSkus().add(s); return s; }
     private void image(ProductSku s, int id, int order) { ProductImage i = new ProductImage(); i.setImageId(id); i.setSortOrder(order); i.setImageData(new byte[]{1}); i.setProductSku(s); s.getProductImages().add(i); }
+    // 首頁會向 PromoService 要活動；這些測試只看商品，所以給一個沒有任何進行中活動的版本（不連資料庫）
+    private com.fruitude.promo.model.PromoService noPromos() {
+        return new com.fruitude.promo.model.PromoService() {
+            @Override public com.fruitude.promo.model.HomePromos findHomePromos(boolean isLoggedIn, boolean isBirthdayMonth) {
+                return new com.fruitude.promo.model.HomePromos(List.of(), List.of());
+            }
+        };
+    }
     private MockMvc mvc(FrontCatalogService service) {
         ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver(); resolver.setPrefix("templates/"); resolver.setSuffix(".html"); resolver.setTemplateMode("HTML"); resolver.setCharacterEncoding("UTF-8");
         SpringTemplateEngine engine = new SpringTemplateEngine(); engine.setTemplateResolver(resolver);
         ThymeleafViewResolver view = new ThymeleafViewResolver(); view.setTemplateEngine(engine); view.setCharacterEncoding("UTF-8");
-        return MockMvcBuilders.standaloneSetup(new FrontProductController(service)).setViewResolvers(view).build();
+        return MockMvcBuilders.standaloneSetup(new FrontProductController(service, noPromos(), new com.fruitude.orders.model.OrdersService())).setViewResolvers(view).build();
     }
     @Test public void pricesImagesAndVisibilityComeFromActiveSkus() {
         Product p = product(1, "測試芒果"); sku(p, 1, 1, 0); ProductSku available = sku(p, 2, 200, 1); image(available, 9, 2); image(available, 10, 1);

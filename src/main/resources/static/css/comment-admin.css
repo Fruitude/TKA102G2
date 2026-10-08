@@ -265,7 +265,40 @@
     outline: none;
 }
 
-.comment-table-wrap { min-height: 250px; }
+.comment-table-wrap {
+    min-height: 250px;
+    max-height: 56vh;
+    overflow: scroll;
+    overscroll-behavior: contain;
+    scrollbar-color: #8f98aa #edf0f5;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto;
+}
+
+.comment-table-wrap::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.comment-table-wrap::-webkit-scrollbar-track {
+    border: 1px solid #e0e4ec;
+    background: #edf0f5;
+}
+
+.comment-table-wrap::-webkit-scrollbar-thumb {
+    border: 2px solid #edf0f5;
+    border-radius: 6px;
+    background: #8f98aa;
+}
+
+.comment-table-wrap::-webkit-scrollbar-thumb:hover {
+    background: #626d81;
+}
+
+.comment-table-wrap::-webkit-scrollbar-corner {
+    background: #edf0f5;
+}
+
 .comment-table { min-width: 1120px; }
 
 .comment-table thead th {
@@ -276,7 +309,10 @@
     color: #656c7d;
     font-size: .76rem;
     font-weight: 800;
+    position: sticky;
+    top: 0;
     white-space: nowrap;
+    z-index: 2;
 }
 
 .comment-table tbody td {
@@ -434,6 +470,7 @@
     .comment-date-range input { min-width: 0; flex: 1; }
     .comment-toolbar-actions { width: 100%; }
     .comment-toolbar-actions .btn { flex: 1; }
+    .comment-table-wrap { max-height: 62vh; }
     .comment-detail-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .comment-detail-meta > div:nth-child(2) { border-right: 0; }
     .comment-detail-meta > div:nth-child(-n+2) { border-bottom: 1px solid var(--comment-line); }
