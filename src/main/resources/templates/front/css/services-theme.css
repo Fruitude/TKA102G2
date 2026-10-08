@@ -1,0 +1,15 @@
+/* Delivery service page colours, layered over the shared storefront theme. */
+.front-theme.front-services .services-hero-section { background-color: #fff; }
+.front-theme.front-services .services-hero-section :is(h1, h2) { color: var(--front-ink); }
+.front-theme.front-services .services-hero-section p { color: var(--front-text); }
+.front-theme.front-services .benefits-card.benfits-card-black {
+  background-color: #DCECCB;
+  border-color: #BDD1A8;
+  color: var(--front-text);
+}
+.front-theme.front-services .benefits-card.benfits-card-black :is(h2, h3, h4) {
+  color: var(--front-ink);
+}
+.front-theme.front-services .benefits-card.benfits-card-black :is(p, li, strong, .text-white, .white-text, .paragraph-18-white, .paragraph-20-white) {
+  color: var(--front-text);
+}
