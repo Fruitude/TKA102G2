@@ -1,0 +1,166 @@
+/* Shared storefront palette, based on the approved homepage.
+   Loaded after each page's layout CSS; scoped away from the admin and homepage. */
+body.front-theme {
+  --front-orange: #F47A24;
+  --front-green: #3F762A;
+  --front-ink: #263323;
+  --front-text: #404040;
+  --front-yellow: #FFE778;
+  --front-card: #F7F9D7;
+  --front-action: #F9AD7C;
+  --front-action-hover: #FBC49F;
+  --front-line: #D8CFB8;
+  --text--default--black: var(--front-text);
+  --text--default--black-light: #66645D;
+  --brand--primary--action: var(--front-ink);
+  --brand--primary--action-hover: #394B32;
+  --brand--primary--action-pressed: var(--front-green);
+  --brand--neutrals--tan-light: #FFFCF5;
+  --brand--neutrals--tan-darker: #F7F9D7;
+  --profile-ink: var(--front-ink);
+  --profile-orange: var(--front-orange);
+  --profile-paper: #FFFCF5;
+  --profile-line: var(--front-line);
+  --asset-ink: var(--front-ink);
+  --asset-orange: var(--front-orange);
+  --asset-paper: #FFFCF5;
+  --asset-line: var(--front-line);
+  --favorite-ink: var(--front-ink);
+  --favorite-orange: var(--front-orange);
+  --favorite-paper: #FFFCF5;
+  --favorite-line: var(--front-line);
+  color: var(--front-text);
+  background-color: #fff;
+}
+.front-theme :is(h1, h2, h3, h4) { color: var(--front-ink); }
+.front-theme .primary-button:not(.button-white) {
+  background-color: var(--front-action);
+  color: #4A2B19;
+}
+.front-theme .primary-button:not(.button-white):is(:hover, :focus-visible) {
+  background-color: var(--front-action-hover);
+  color: #4A2B19;
+}
+.front-theme .primary-button:not(.button-white):active { background-color: #F69759; }
+.front-theme .primary-button.button-white { color: var(--front-ink); }
+.front-theme :is(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--front-green);
+  outline-offset: 3px;
+}
+.front-theme :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--front-green); }
+.front-theme :is(.form-input, .text-field, .w-input, .w-select) {
+  color: var(--front-text);
+  background-color: #fff;
+  border-color: var(--front-line);
+}
+.front-theme :is(.form-input, .text-field, .w-input, .w-select):focus {
+  border-color: var(--front-green);
+}
+.front-theme select { color: var(--front-text); background-color: #F5DF4D; }
+.front-theme .nav_dropdown-list.w--open {
+  background-color: #F0F5E9;
+  border: 1px solid #BDD1A8;
+}
+.front-theme .nav_dropdown-card { border-color: #BDD1A8; }
+.front-theme .nav_dropdown-card:hover { background-color: #E5EEDC; }
+.front-theme .nav_dropdown-title { color: var(--front-green); }
+
+/* Decorative areas use backgrounds, so no overlay blocks links or menus.
+   Circles extend past the edges without creating horizontal scrolling. */
+.front-theme .front-theme-circles {
+  --front-circle-gold: #FFE77899;
+  --front-circle-leaf: #B9DA9270;
+  --front-circle-cream: #F5CF787A;
+  --front-circle-peach: #EAA17D65;
+  background-image:
+    radial-gradient(circle closest-side, var(--front-circle-gold) 98%, transparent 100%),
+    radial-gradient(circle closest-side, var(--front-circle-leaf) 98%, transparent 100%),
+    radial-gradient(circle closest-side, var(--front-circle-cream) 98%, transparent 100%),
+    radial-gradient(circle closest-side, var(--front-circle-peach) 98%, transparent 100%),
+    radial-gradient(circle closest-side, #F6DDA080 98%, transparent 100%),
+    radial-gradient(circle closest-side, #A9CF7D65 98%, transparent 100%);
+  background-size:
+    clamp(420px, 52vw, 720px) clamp(420px, 52vw, 720px),
+    clamp(220px, 27vw, 380px) clamp(220px, 27vw, 380px),
+    clamp(320px, 40vw, 560px) clamp(320px, 40vw, 560px),
+    clamp(200px, 24vw, 340px) clamp(200px, 24vw, 340px),
+    clamp(130px, 14vw, 190px) clamp(130px, 14vw, 190px),
+    clamp(160px, 20vw, 270px) clamp(160px, 20vw, 270px);
+  background-position: -280px -300px, calc(100% + 180px) 32%, -200px calc(100% + 220px), 86% calc(100% + 200px), 70% -120px, 12% 84%;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+}
+.front-theme .services-hero-section { background-color: var(--front-orange); }
+.front-theme .services-hero-section :is(h1, h2) { color: var(--front-yellow); }
+.front-theme .services-hero-section p { color: #fff; }
+.front-theme .section:is(.section-black, .section-black-product) {
+  --front-circle-gold: #FFE77855;
+  --front-circle-leaf: #B9DA9238;
+  --front-circle-cream: #FFF8E63D;
+  --front-circle-peach: #EAA17D40;
+  background-color: var(--front-orange);
+  color: var(--front-text);
+}
+.front-theme .section:is(.section-black, .section-black-product) :is(h1, h2) {
+  color: var(--front-yellow);
+}
+.front-theme .section:is(.section-black, .section-black-product) :is(p, .white-text, .hero-label) {
+  color: var(--front-text);
+}
+.front-theme .section.section-black-background {
+  background-color: var(--front-green);
+  color: #fff;
+}
+.front-theme .section.section-black-background :is(h1, h2, h3) { color: var(--front-yellow); }
+.front-theme .section.section-black-background :is(p, .paragraph-18-white) { color: #fff; }
+.front-theme .bottom-cta-background { background-color: #404040; }
+.front-theme .bottom-cta-content-wrapper h1 { color: var(--front-yellow); }
+.front-theme .bottom-cta-content-wrapper .paragraph-18 { color: #fff; }
+
+/* Product cards keep dark text on the same pale yellow used on the homepage. */
+.front-theme .products-card-link,
+.front-theme .products-card-link:hover {
+  background-color: var(--front-card);
+  border-color: var(--front-card);
+  color: var(--front-text);
+  border-radius: 12px;
+}
+.front-theme .products-card-link .products-item-image-wrapper { border-radius: 8px; }
+.front-theme .products-card-link .products-item-text-wrapper { padding: 12px; }
+.front-theme .products-card-link :is(.heading-h4, .product-list-desciption, .home-card-price) {
+  color: var(--front-text);
+}
+.front-theme .card-add-to-cart-btn { background-color: var(--front-action); color: #4A2B19; }
+.front-theme .card-add-to-cart-btn:hover { background-color: var(--front-action-hover); }
+.front-theme #pv-price { color: var(--front-green); }
+.front-theme #pv-sku { background-color: #F5DF4D; color: var(--front-text); }
+.front-theme .shop-product-gallery { border-radius: 12px; }
+
+/* Member forms and checkout retain plain white surfaces for readability. */
+.front-theme :is(.profile-hero, .asset-hero, .favorite-hero)::before {
+  background-color: #263323B8;
+}
+.front-theme :is(.profile-title, .asset-title, .favorite-title) { color: var(--front-yellow); }
+.front-theme .profile-summary { background-color: var(--front-green); }
+.front-theme .profile-summary :is(h2, h3, .profile-member-name) { color: #F5F2C4; }
+.front-theme :is(.profile-save-button, .asset-primary-button) {
+  background-color: var(--front-action);
+  border-color: var(--front-action);
+  color: #4A2B19;
+}
+.front-theme :is(.profile-save-button, .asset-primary-button):hover:not(:disabled) {
+  background-color: var(--front-action-hover);
+  border-color: var(--front-action-hover);
+}
+.front-theme .asset-tab.is-active { color: var(--front-green); }
+.front-theme .asset-tab.is-active::before { background-color: var(--front-green); }
+.front-theme .login-form { border-radius: 12px; background-color: #fff; }
+.front-theme .login-container.login-container-image { background-color: var(--front-green); }
+.front-theme .login-link { color: var(--front-green); }
+.front-theme :is(.w-commerce-commercecheckoutblockheader, .confirm-block-header) {
+  background-color: var(--front-card);
+  color: var(--front-ink);
+}
+.front-theme .confirm-bottom-bar { background-color: #FFFCF5; border-color: var(--front-line); }
+
+.front-theme .bottom-cta-image { filter: grayscale(1); }

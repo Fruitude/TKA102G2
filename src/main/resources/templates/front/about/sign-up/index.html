@@ -22,7 +22,6 @@
       type="text/css"
     />
     <link href="../../css/cart.css" rel="stylesheet" type="text/css" />
-    <link href="../../css/fresh-theme.css" rel="stylesheet" type="text/css" />
     <link
       href="../../css/member-sign-up.css"
       rel="stylesheet"
@@ -75,8 +74,10 @@
         hideDecimalForWholeNumbers: false,
       };
     </script>
-  </head>
-  <body>
+
+<link th:href="@{/front/css/front-theme.css}" rel="stylesheet" type="text/css"/>
+</head>
+  <body class="front-theme">
     <div
       class="nav-bar w-nav"
       data-animation="default"
@@ -642,7 +643,7 @@
         </div>
       </div>
     </div>
-    <section class="login-section" id="Contact">
+    <section class="login-section front-theme-circles" id="Contact">
       <div class="login-container login-container-image">
         <img
           alt=""
@@ -784,7 +785,7 @@
     <div class="footer-section">
       <div class="container container-footer">
         <div class="w-layout-grid footer-grid">
-          
+
           <div class="footer-link-list">
             <div class="footer-links-heading">商品</div>
             <a class="footer-links w-inline-block" href="../../all-products/"
@@ -815,7 +816,7 @@
             >
           </div>
         </div>
-        
+
       </div>
     </div>
     <script
