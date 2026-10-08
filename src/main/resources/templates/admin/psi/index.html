@@ -96,7 +96,7 @@
                     + ' html, body { height: auto !important; min-height: 0 !important; overflow-y: hidden !important; background: #fff !important; }'
                     + ' #wrapper #content-wrapper { min-height: 0 !important; background: #fff !important; }'
                     + ' #content { padding-top: 1.5rem; }'
-                    + ' html, body { overflow-x: hidden !important; } .table-responsive { overflow-x: visible !important; }';
+                    + ' html, body { overflow-x: hidden !important; }';
 
             function selectTab(tab) {
                 var tabName = $.trim(tab.text());
@@ -140,6 +140,8 @@
                             + (parseFloat(tabStyle.paddingLeft) || 0) + (parseFloat(tabStyle.paddingRight) || 0);
                         frameDoc.querySelectorAll('table').forEach(function(table) {
                             if (!table.getClientRects().length) return;
+                            // 包在 .table-responsive 裡的表格太寬時會在卡片內自己捲動，不用撐寬外層
+                            if (table.closest('.table-responsive')) return;
                             var rect = table.getBoundingClientRect();
                             minimumWidth = Math.max(minimumWidth, rect.right + Math.max(0, table.scrollWidth - table.clientWidth) + 24);
                         });

@@ -55,7 +55,7 @@ public class PoVO implements java.io.Serializable{
 
     @NotNull(message = "採購日期請勿空白")
     @Column(name = "order_date", nullable = false)
-    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm")
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDateTime orderDate;          // 採購日期
 
     @NotNull(message = "採購單狀態，請勿空白")
@@ -74,7 +74,7 @@ public class PoVO implements java.io.Serializable{
     private Employee inboundEmployeeId;        // 驗收員工編號
 
     @Column(name = "inbound_date")            // 可為 null
-    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm")
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDateTime inboundDate;        // 驗收日期
 
     @NotNull(message = "驗收狀態，請勿空白")
