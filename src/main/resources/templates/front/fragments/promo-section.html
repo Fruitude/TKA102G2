@@ -23,8 +23,8 @@
       <div class="home-promos-block" th:if="${!#lists.isEmpty(memberPerks)}">
         <h2 class="heading-h3 home-promos-title">會員專屬福利 <a class="home-promos-more" th:href="@{/front/promotions/}">查看全部活動</a></h2>
         <div class="home-perks">
-          <div class="home-perk" th:each="p : ${memberPerks}" th:classappend="${p.highlight} ? 'is-highlight'">
-            <div class="home-perk-name"><a th:href="@{|/front/promotions/#promo-${p.promoProjectId}|}" th:text="${p.title}"></a><span class="home-perk-badge" th:if="${p.highlight}">本月適用</span></div>
+          <div class="home-perk" th:each="p : ${memberPerks}" th:classappend="${p.highlight} ? 'is-highlight' : (${p.used} ? 'is-used' : '')">
+            <div class="home-perk-name"><a th:href="@{|/front/promotions/#promo-${p.promoProjectId}|}" th:text="${p.title}"></a><span class="home-perk-badge" th:if="${p.highlight}">本月適用</span><span class="home-perk-badge is-used" th:if="${p.used}">已使用</span></div>
             <div class="home-perk-benefit">
               <span th:text="${p.benefit}"></span>
               <span class="home-perk-condition" th:if="${!#strings.isEmpty(p.condition)}" th:text="${'（' + p.condition + '）'}"></span>

@@ -31,7 +31,8 @@ public class FrontProductController {
         Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
         boolean loggedIn = memberId != null;
         var promos = promoService.findHomePromos(loggedIn,
-                loggedIn && ordersService.isBirthdayMonth(memberId));
+                loggedIn && ordersService.isBirthdayMonth(memberId),
+                loggedIn && ordersService.isBirthdayPromoUsed(memberId));
         model.addAttribute("limitedPromos", promos.limited());
         model.addAttribute("memberPerks", promos.perks());
         return "front/index";

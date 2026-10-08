@@ -366,6 +366,12 @@ public class OrdersService {
 				memberId, LocalDate.now().getYear(), com.fruitude.promo.model.PromoType.BIRTHDAY_MONTH.name());
 	}
 
+	// 今年（以現在這一年為準）已經用掉壽星優惠了嗎。首頁與活動總覽頁用它把壽星月標示成「已使用」
+	public boolean isBirthdayPromoUsed(Integer memberId) {
+		return memberPromoUsageRepository.existsByMemberIdAndUsageYearAndPromoType(memberId, LocalDate.now().getYear(),
+				com.fruitude.promo.model.PromoType.BIRTHDAY_MONTH.name());
+	}
+
 	// 結帳確認頁要不要顯示「使用壽星優惠」勾選框：有進行中的壽星月活動、會員在生日月、今年還沒用過
 	public BirthdayPromoOffer findBirthdayPromoOffer(Integer memberId) {
 		com.fruitude.promo.model.PromoProject promo = promoService.findActiveBirthdayPromo();
