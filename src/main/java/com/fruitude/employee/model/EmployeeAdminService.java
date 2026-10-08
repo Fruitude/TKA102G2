@@ -7,6 +7,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -348,6 +349,24 @@ public class EmployeeAdminService {
 	/** 回傳職位目前保存的基本權限數量，供職位清單顯示。 */
 	public long countPositionPermissions(Integer positionId) {
 		return positionPermissionRepository.countByPositionId(positionId);
+	}
+
+	/**
+	 * 整理每個權限目前由哪些正常且已核准的員工負責；停用或待審核帳號不列入名單。
+	 */
+	public java.util.Map<Integer, List<Employee>> findActiveEmployeesByPermission() {
+		java.util.Map<Integer, Employee> activeEmployees = findEmployees(null, (int) STATUS_ACTIVE).stream()
+				.collect(Collectors.toMap(Employee::getEmployeeId, employee -> employee));
+		java.util.Map<Integer, List<Employee>> assignments = new HashMap<>();
+		Set<String> assignedPairs = new HashSet<>();
+		for (EmployeePermission permission : employeePermissionRepository.findAll()) {
+			Employee employee = activeEmployees.get(permission.getEmployeeId());
+			String pairKey = permission.getPermissionId() + ":" + permission.getEmployeeId();
+			if (employee != null && assignedPairs.add(pairKey)) {
+				assignments.computeIfAbsent(permission.getPermissionId(), id -> new ArrayList<>()).add(employee);
+			}
+		}
+		return assignments;
 	}
 
 	/**
