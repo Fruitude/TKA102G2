@@ -142,17 +142,16 @@ public class PromoService {
 	// 只放已經能實際生效的類型（PromoType.isShownOnFront）。
 	// 會員個人化：已登入且生日在本月的會員，「壽星月」會標示為目前符合資格；所有活動（含新會員首購）一律顯示，
 	// 不因會員身分隱藏。生日月份由呼叫端依登入會員自己算出來，不接受前端傳入
-	public HomePromos findHomePromos(boolean isLoggedIn, boolean isBirthdayMonth, boolean birthdayUsed) {
-		return buildFrontPromos(isLoggedIn, isBirthdayMonth, birthdayUsed, false);
+	public HomePromos findHomePromos(MemberPromoState state) {
+		return buildFrontPromos(state, false);
 	}
 
 	// 活動總覽頁：同樣分組與個人化，但每個活動多帶完整說明、名額，指定商品活動還帶商品與活動價
-	public HomePromos findPromotionsPage(boolean isLoggedIn, boolean isBirthdayMonth, boolean birthdayUsed) {
-		return buildFrontPromos(isLoggedIn, isBirthdayMonth, birthdayUsed, true);
+	public HomePromos findPromotionsPage(MemberPromoState state) {
+		return buildFrontPromos(state, true);
 	}
 
-	private HomePromos buildFrontPromos(boolean isLoggedIn, boolean isBirthdayMonth, boolean birthdayUsed,
-			boolean withDetails) {
+	private HomePromos buildFrontPromos(MemberPromoState state, boolean withDetails) {
 		List<HomePromos.Item> limited = new ArrayList<>();
 		List<HomePromos.Item> perks = new ArrayList<>();
 		for (PromoProject p : promoRepository.findActive(LocalDateTime.now())) {
@@ -160,9 +159,20 @@ public class PromoService {
 			if (type == null || !type.isShownOnFront()) {
 				continue;
 			}
-			// 壽星月：今年已經用過就標示「已使用」；還沒用過而且現在是生日月才標示「本月適用」
-			boolean used = type == PromoType.BIRTHDAY_MONTH && isLoggedIn && birthdayUsed;
-			boolean highlight = type == PromoType.BIRTHDAY_MONTH && isLoggedIn && isBirthdayMonth && !used;
+			// 壽星月：今年已經用過就標示「已使用」；還沒用過而且現在是生日月才標示「本月適用」。
+			// 新會員首購：已經有有效訂單就標示「已使用」；還沒有就標示「首購適用」。訪客都不標示
+			boolean used = false;
+			boolean highlight = false;
+			String highlightText = "";
+			if (state.loggedIn() && type == PromoType.BIRTHDAY_MONTH) {
+				used = state.birthdayUsed();
+				highlight = state.birthdayMonth() && !used;
+				highlightText = "本月適用";
+			} else if (state.loggedIn() && type == PromoType.NEW_MEMBER_FIRST_ORDER) {
+				used = state.firstPurchaseUsed();
+				highlight = !used;
+				highlightText = "首購適用";
+			}
 			// 起訖日兩組都帶出；常態福利在首頁不顯示日期與倒數（見 promo-section.html），活動總覽頁才顯示舉辦日期
 			LocalDateTime start = p.getPromoProjectStart();
 			LocalDateTime end = p.getPromoProjectEnd();
@@ -180,7 +190,7 @@ public class PromoService {
 				}
 			}
 			HomePromos.Item item = new HomePromos.Item(p.getPromoProjectId(), p.getPromoProjectTitle(),
-					type.getLabel(), homeBenefitText(type, p), homeConditionText(type, p), start, end, highlight, used,
+					type.getLabel(), homeBenefitText(type, p), homeConditionText(type, p), start, end, highlight, highlightText, used,
 					context, quota, products);
 			if (type.isRecurring()) {
 				perks.add(item);
@@ -202,7 +212,7 @@ public class PromoService {
 	// 使用資格文字，讓會員看得出自己能不能用
 	private String homeConditionText(PromoType type, PromoProject p) {
 		String who = switch (type) {
-			case NEW_MEMBER_FIRST_ORDER -> "首次下單";
+			case NEW_MEMBER_FIRST_ORDER -> "首次下單，限用一次（訂單取消或退款後可再使用）";
 			case BIRTHDAY_MONTH -> "生日當月，每年限用一次，結帳時勾選使用";
 			default -> "";
 		};

@@ -27,12 +27,10 @@ public class FrontProductController {
     @GetMapping({"/front/", "/front/index", "/front/index.html"})
     public String homePage(Model model, HttpSession session) {
         home(model);
-        // 首頁活動區塊：限時活動與會員專屬福利。會員身分只信任 session，用來標示目前符合資格的福利（壽星月）
+        // 首頁活動區塊：限時活動與會員專屬福利。會員身分只信任 session，用來標示目前符合資格的福利（壽星月、新會員首購）
         Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
-        boolean loggedIn = memberId != null;
-        var promos = promoService.findHomePromos(loggedIn,
-                loggedIn && ordersService.isBirthdayMonth(memberId),
-                loggedIn && ordersService.isBirthdayPromoUsed(memberId));
+        var promos = promoService.findHomePromos(memberId == null
+                ? com.fruitude.promo.model.MemberPromoState.ANONYMOUS : ordersService.memberPromoState(memberId));
         model.addAttribute("limitedPromos", promos.limited());
         model.addAttribute("memberPerks", promos.perks());
         return "front/index";

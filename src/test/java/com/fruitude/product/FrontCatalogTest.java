@@ -64,7 +64,7 @@ public class FrontCatalogTest {
     // 首頁會向 PromoService 要活動；這些測試只看商品，所以給一個沒有任何進行中活動的版本（不連資料庫）
     private com.fruitude.promo.model.PromoService noPromos() {
         return new com.fruitude.promo.model.PromoService() {
-            @Override public com.fruitude.promo.model.HomePromos findHomePromos(boolean isLoggedIn, boolean isBirthdayMonth, boolean birthdayUsed) {
+            @Override public com.fruitude.promo.model.HomePromos findHomePromos(com.fruitude.promo.model.MemberPromoState state) {
                 return new com.fruitude.promo.model.HomePromos(List.of(), List.of());
             }
         };

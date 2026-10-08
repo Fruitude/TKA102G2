@@ -8,13 +8,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
-// 會員使用「每年限用一次」活動的紀錄（目前只有壽星月），對應資料表 member_promo_usage。
-// 同一個會員、同一年、同一種活動類型只能有一筆（資料庫的唯一限制，兩個視窗同時下單也只會有一個成功）。
-// 訂單取消或退款時，刪除這筆紀錄就等於把今年的使用資格還給會員
+// 會員使用「限用一次」活動的紀錄，對應資料表 member_promo_usage：
+// - 壽星月：每年限用一次，usage_year 存使用的年份
+// - 新會員首購：一輩子限用一次，usage_year 固定存 LIFETIME_YEAR（0）
+// 同一個會員、同一個 usage_year、同一種活動類型只能有一筆（資料庫的唯一限制，兩個視窗同時下單也只會有一個成功）。
+// 訂單取消或退款時，刪除這筆紀錄就等於把使用資格還給會員
 @Entity
 @Table(name = "member_promo_usage", uniqueConstraints = @UniqueConstraint(
 		name = "uk_member_promo_usage_year", columnNames = { "member_id", "usage_year", "promo_type" }))
 public class MemberPromoUsage {
+
+	// 「一輩子限用一次」的活動（新會員首購）在 usage_year 存的值，表示不分年份
+	public static final int LIFETIME_YEAR = 0;
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)

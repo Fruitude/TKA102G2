@@ -165,7 +165,7 @@
               <div class="promo-page-head">
                 <div>
                   <div class="promo-page-type">
-                    <span th:text="${p.typeLabel}"></span><span class="promo-page-badge" th:if="${p.highlight}">本月適用</span><span class="promo-page-badge is-used" th:if="${p.used}">已使用</span>
+                    <span th:text="${p.typeLabel}"></span><span class="promo-page-badge" th:if="${p.highlight}" th:text="${p.highlightText}"></span><span class="promo-page-badge is-used" th:if="${p.used}">已使用</span>
                   </div>
                   <h3 class="heading-h4 promo-page-name" th:text="${p.title}"></h3>
                 </div>

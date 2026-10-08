@@ -239,7 +239,7 @@ public class OrdersService {
 		Orders orders = optional.get();
 		orders.setOrdersStatus(ordersStatus);
 		ordersRepository.save(orders);
-		releaseYearlyPromoIfRefunded(ordersId, ordersStatus);
+		releaseLimitedPromoIfRefunded(ordersId, ordersStatus);
 		return true;
 	}
 
@@ -248,14 +248,14 @@ public class OrdersService {
 	public boolean updateStatusByQuery(Integer ordersId, Integer ordersStatus) {
 		int updatedRows = ordersRepository.updateStatus(ordersId, ordersStatus);
 		if (updatedRows > 0) {
-			releaseYearlyPromoIfRefunded(ordersId, ordersStatus);
+			releaseLimitedPromoIfRefunded(ordersId, ordersStatus);
 		}
 		return updatedRows > 0;
 	}
 
-	// 訂單進入「待退款」或「已退款」（取消、退款作業中、金額已退還）時，把這筆訂單用掉的「每年限用一次」優惠（壽星優惠）
-	// 的使用資格還給會員，會員今年可以再用一次。判斷依據是狀態碼對應的金流狀態不是「已付款」（見 Utils.OrderStatus）
-	private void releaseYearlyPromoIfRefunded(Integer ordersId, Integer ordersStatus) {
+	// 訂單進入「待退款」或「已退款」（取消、退款作業中、金額已退還）時，把這筆訂單用掉的「限用一次」優惠（壽星優惠、新會員首購）
+	// 的使用資格還給會員（刪除 member_promo_usage 裡這筆訂單的紀錄），會員可以再用一次。判斷依據是狀態碼對應的金流狀態不是「已付款」（見 Utils.OrderStatus）
+	private void releaseLimitedPromoIfRefunded(Integer ordersId, Integer ordersStatus) {
 		if (ordersStatus == null) {
 			return;
 		}
@@ -372,6 +372,21 @@ public class OrdersService {
 				com.fruitude.promo.model.PromoType.BIRTHDAY_MONTH.name());
 	}
 
+	// 新會員首購用掉了嗎：member_promo_usage 有這位會員的首購紀錄（一輩子限用一次，usage_year 固定是 LIFETIME_YEAR）。
+	// 首購優惠真的被套用到訂單時才會寫入這筆紀錄；訂單取消或退款時紀錄會刪除，資格就回來。
+	// 不是看會員有沒有訂單：訂單沒有套用首購折扣（例如其他折扣更划算）就不算用掉
+	public boolean isFirstPurchaseUsed(Integer memberId) {
+		return memberPromoUsageRepository.existsByMemberIdAndUsageYearAndPromoType(memberId,
+				com.fruitude.promo.model.MemberPromoUsage.LIFETIME_YEAR,
+				com.fruitude.promo.model.PromoType.NEW_MEMBER_FIRST_ORDER.name());
+	}
+
+	// 首頁與活動總覽頁要用的個人化狀態（登入會員）：生日月、壽星優惠今年是否已用、新會員首購是否已用
+	public com.fruitude.promo.model.MemberPromoState memberPromoState(Integer memberId) {
+		return new com.fruitude.promo.model.MemberPromoState(true, isBirthdayMonth(memberId),
+				isBirthdayPromoUsed(memberId), isFirstPurchaseUsed(memberId));
+	}
+
 	// 結帳確認頁要不要顯示「使用壽星優惠」勾選框：有進行中的壽星月活動、會員在生日月、今年還沒用過
 	public BirthdayPromoOffer findBirthdayPromoOffer(Integer memberId) {
 		com.fruitude.promo.model.PromoProject promo = promoService.findActiveBirthdayPromo();
@@ -385,12 +400,12 @@ public class OrdersService {
 
 	// 商品折扣（全館折扣、壽星月、新會員首購，彼此只套用折扣最大的一個，並且和指定商品活動價擇優）。
 	// 回傳的折扣金額是相對於畫面上小計（已經是活動價）再多折的金額。
-	// 新會員首購：這個會員還沒有任何訂單，自動套用。
+	// 新會員首購：這個會員還沒有用掉首購優惠（見 isFirstPurchaseUsed），自動套用。
 	// 壽星月：每年限用一次，要會員自己勾選（useBirthday）而且現在有資格（生日月、今年沒用過）才參與比較；
 	// 就算勾選了，如果其他折扣更划算，回傳的折扣就不是壽星月，不會用掉今年的資格（呼叫端看 promoType 判斷）
 	public com.fruitude.promo.model.ProductDiscount findProductDiscount(Integer memberId,
 			List<com.fruitude.promo.model.DiscountLine> lines, boolean useBirthday) {
-		boolean isFirstOrder = ordersRepository.countByMemberId(memberId) == 0;
+		boolean isFirstOrder = !isFirstPurchaseUsed(memberId);
 		boolean birthdayChosen = useBirthday && isBirthdayPromoAvailable(memberId);
 		return promoService.calcProductDiscount(birthdayChosen, isFirstOrder, lines);
 	}
@@ -504,25 +519,34 @@ public class OrdersService {
 			throw new InsufficientCreditException("購物金餘額不足，請調整折抵金額");
 		}
 		ordersRepository.save(orders); // 先存，拿到自動產生的 ordersId
-		recordBirthdayPromoUsage(orders, productDiscount);
+		recordLimitedPromoUsage(orders, productDiscount);
 		List<OrdersDetail> details = toOrdersDetails(orders, form.getItems(), form.getInvoiceCarrier());
 		ordersDetailRepository.saveAll(details);
 		clearCatalogCacheAfterCommit(); // 庫存變了，等交易 commit 之後前台商品列表快取要重新載入
 		return orders;
 	}
 
-	// 這筆訂單真的套用了壽星月折扣：記錄今年已使用。資料表有（會員、年份、活動類型）的唯一限制，
+	// 這筆訂單真的套用了「限用一次」的折扣（壽星月：每年一次；新會員首購：一輩子一次），就在同一個交易裡記錄使用。
+	// 其他折扣更划算、沒有套用到的不記錄，資格保留。資料表有（會員、年份、活動類型）的唯一限制，
 	// 兩個視窗同時下單時只有一個寫得進去，另一個會失敗並讓整筆交易回滾（庫存、購物金都還原）
-	private void recordBirthdayPromoUsage(Orders orders, com.fruitude.promo.model.ProductDiscount productDiscount) {
-		if (!com.fruitude.promo.model.PromoType.BIRTHDAY_MONTH.name().equals(productDiscount.promoType())) {
+	private void recordLimitedPromoUsage(Orders orders, com.fruitude.promo.model.ProductDiscount productDiscount) {
+		String type = productDiscount.promoType();
+		int year;
+		String message;
+		if (com.fruitude.promo.model.PromoType.BIRTHDAY_MONTH.name().equals(type)) {
+			year = LocalDate.now().getYear();
+			message = "壽星優惠今年已經使用過了，請取消勾選壽星優惠後再結帳";
+		} else if (com.fruitude.promo.model.PromoType.NEW_MEMBER_FIRST_ORDER.name().equals(type)) {
+			year = com.fruitude.promo.model.MemberPromoUsage.LIFETIME_YEAR;
+			message = "新會員首購優惠已經使用過了，請重新確認金額後再結帳";
+		} else {
 			return;
 		}
 		try {
 			memberPromoUsageRepository.saveAndFlush(new com.fruitude.promo.model.MemberPromoUsage(orders.getMemberId(),
-					LocalDate.now().getYear(), productDiscount.promoType(), productDiscount.promoProjectId(),
-					orders.getOrdersId()));
+					year, type, productDiscount.promoProjectId(), orders.getOrdersId()));
 		} catch (org.springframework.dao.DataIntegrityViolationException e) {
-			throw new PromoAlreadyUsedException("壽星優惠今年已經使用過了，請取消勾選壽星優惠後再結帳");
+			throw new PromoAlreadyUsedException(message);
 		}
 	}
 	
