@@ -69,7 +69,12 @@
 										</tr>
 										<tr>
 											<th class="bg-light">採購單狀態</th>
-											<td th:text="${poVO.poStatus}"></td>
+											<td th:switch="${poVO.poStatus}">
+												<span th:case="0">待審核</span>
+												<span th:case="1">申請通過</span>
+												<span th:case="2">申請未通過</span>
+												<span th:case="3">已取消</span>
+											</td>
 										</tr>
 										<tr>
 											<th class="bg-light">總金額</th>
@@ -89,6 +94,7 @@
 							<form method="post" th:action="@{/admin/psi/purchase/getOne_For_Update}" class="m-0"
 								th:if="${poVO.editable}">
 								<input type="hidden" name="poId" th:value="${poVO.poId}">
+								<input type="hidden" name="poStatus" th:value="${poStatus}">
 								<button type="submit" class="btn btn-primary btn-sm">更新</button>
 							</form>
 						</div>

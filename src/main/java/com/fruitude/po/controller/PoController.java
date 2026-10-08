@@ -61,7 +61,9 @@ public class PoController {
 	}
 	
 	@PostMapping("/getOne_For_Update")
-	public String getOne_For_Update(@RequestParam("poId") Integer poId, Model model) {
+	public String getOne_For_Update(@RequestParam("poId") Integer poId,
+			@RequestParam(value = "poStatus", required = false) Byte poStatus,
+			Model model) {
 		PoVO poVO = poSvc.getOnePo(poId);
 
 		// 資料已被刪除時回到列表
@@ -71,9 +73,11 @@ public class PoController {
 
 		// 不是待審核的採購單不進修改頁，改顯示單筆資料
 		if (!poVO.isEditable()) {
-			return "redirect:/admin/psi/purchase/listOnePo?poId=" + poId;
+			return redirectToListOnePo(poId, poStatus);
 		}
 
+		// poStatus 是列表的篩選條件，一路帶著，修改完回列表時才能維持原本的篩選
+		model.addAttribute("poStatus", poStatus);
 		model.addAttribute("poVO", poVO);
 		// 明細的商品規格下拉選單：這張單的供應商底下、未永久停產的規格
 		model.addAttribute("skuListData", productSkuSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
@@ -82,17 +86,26 @@ public class PoController {
 	}
 
 	@PostMapping("/update")
-	public String update(@ModelAttribute("poVO") PoVO poVO, RedirectAttributes redirectAttributes) {
+	public String update(@ModelAttribute("poVO") PoVO poVO,
+			@RequestParam(value = "poStatus", required = false) Byte poStatus,
+			RedirectAttributes redirectAttributes) {
+		// 這裡的 poStatus 是列表的篩選條件，不是要存入的採購單狀態；updatePoWithDetails 不會寫入狀態
 		try {
 			poSvc.updatePoWithDetails(poVO);
 		} catch (IllegalArgumentException e) {
 			// 狀態不符或明細檢查不通過：回單筆頁顯示原因，該頁會重新從資料庫取資料
 			redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
-			return "redirect:/admin/psi/purchase/listOnePo?poId=" + poVO.getPoId();
+			return redirectToListOnePo(poVO.getPoId(), poStatus);
 		}
 
 		redirectAttributes.addFlashAttribute("success", "修改成功");
-		return "redirect:/admin/psi/purchase/listOnePo?poId=" + poVO.getPoId();
+		return redirectToListOnePo(poVO.getPoId(), poStatus);
+	}
+
+	// 回單筆頁的網址；poStatus（列表的篩選條件）有值才帶
+	private String redirectToListOnePo(Integer poId, Byte poStatus) {
+		String url = "redirect:/admin/psi/purchase/listOnePo?poId=" + poId;
+		return poStatus == null ? url : url + "&poStatus=" + poStatus;
 	}
 	
 

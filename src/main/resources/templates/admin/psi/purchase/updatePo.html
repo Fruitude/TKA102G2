@@ -60,7 +60,7 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
-					<a th:href="@{/admin/psi/purchase/listAllPo}" class="btn btn-secondary btn-icon-split mb-3"> 
+					<a th:href="@{/admin/psi/purchase/listAllPo(poStatus=${poStatus})}" class="btn btn-secondary btn-icon-split mb-3"> 
 						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> 
 						<span class="text">回採購單列表</span></a>
 
@@ -76,6 +76,8 @@
 								th:object="${poVO}" >
 
 								<input type="hidden" th:field="*{poId}" />
+								<!-- 列表的篩選條件（model 的 poStatus，不是這張單的狀態），送出後帶回單筆頁與列表 -->
+								<input type="hidden" name="poStatus" th:value="${poStatus}" />
 
 								<div class="form-group">
 									<label for="poNo">採購單編號</label>
