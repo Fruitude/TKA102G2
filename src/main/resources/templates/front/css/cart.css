@@ -276,3 +276,9 @@
 }
 
 .cart-item-sku { font-size: 13px; color: #5b625b; margin: 4px 0; }
+
+/* 各頁頁尾拿掉「追蹤我們」欄之後只剩三欄連結，Webflow 原本的比例是 2fr 1fr 1fr 1fr，
+   第一欄會被拉得特別寬，改成三等分（只在桌面版；手機與平板維持 Webflow 原本的排法） */
+@media screen and (min-width: 992px) {
+  .footer-grid { grid-template-columns: repeat(3, 1fr); }
+}

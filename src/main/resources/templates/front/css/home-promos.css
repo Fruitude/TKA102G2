@@ -24,9 +24,3 @@
 .home-promos-more { margin-left: .75rem; font-size: .875rem; font-weight: 400; text-decoration: underline; }
 .home-promo-name a, .home-perk-name a { color: inherit; text-decoration: none; }
 .home-promo-name a:hover, .home-perk-name a:hover { text-decoration: underline; }
-
-/* 首頁頁尾拿掉「追蹤我們」欄之後只剩三欄連結，原本是 2fr 1fr 1fr 1fr，
-   第一欄會被拉得特別寬，改成三等分（只在桌面版；手機與平板維持 Webflow 原本的排法） */
-@media screen and (min-width: 992px) {
-  .footer-grid { grid-template-columns: repeat(3, 1fr); }
-}
