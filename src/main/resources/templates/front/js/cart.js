@@ -204,8 +204,10 @@
 
   function renderBadges(items) {
     var count = getCount(items);
+    // 超過 9999 顯示 9999+，徽章不會無限變長
+    var text = count > 9999 ? "9999+" : String(count);
     document.querySelectorAll(".cart-quantity").forEach(function (el) {
-      el.textContent = String(count);
+      el.textContent = text;
     });
   }
 

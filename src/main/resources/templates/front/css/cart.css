@@ -301,3 +301,32 @@
 .primary-button:not(.button-white):active {
   background-color: #123d24;
 }
+
+/* ---- 購物車按鈕上的數量徽章：不影響導覽列版面 ----
+   以前徽章是按鈕裡的一個普通元素，數量位數變多（例如 10、100、1000）按鈕就變寬，
+   導覽列的連結空間被擠壓，最後一個項目（會員頭像）換行掉到「聯絡我們」下面。
+   改成貼在按鈕右上角的浮動小圓標（絕對定位），不佔按鈕的寬度，不管幾位數按鈕寬度都不變，
+   導覽列也就不會因為數量變多而重新排列。位數多時徽章往左邊長，字體也縮小一點 */
+.primary-button.primary-button-cart {
+  position: relative;
+}
+
+.primary-button.primary-button-cart .cart-quantity {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(35%, -45%);
+  margin: 0;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid #1f5a37;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
