@@ -43,7 +43,7 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 
                     // These pages need database models supplied by FrontProductController.
                     if (java.util.Set.of("front/index", "front/product/view/index", "front/all-products/index",
-                        "front/category/seasonal-fresh-fruit/index", "front/category/featured-gift-boxes/index",
+                        "front/category/seasonal-fresh-fruit/index", "front/category/featured-gift-boxes/index", "front/promotions/index",
                         "admin/orders/index", "admin/orders/detail/index", "admin/psi/vendor/index").contains(viewName)) continue;
 					registry.addViewController(dir).setViewName(viewName);
 					registry.addViewController(dir + "index").setViewName(viewName);

@@ -63,6 +63,17 @@ public enum PromoType {
 		return quotaRequired;
 	}
 
+	// 常態福利：沒有固定檔期、長期提供給符合資格的會員（首頁放在「會員專屬福利」，不顯示倒數）。
+	// 其餘類型是有明確起訖的限時活動
+	public boolean isRecurring() {
+		return this == BIRTHDAY_MONTH || this == NEW_MEMBER_FIRST_ORDER || this == REVIEW_REWARD;
+	}
+
+	// 首頁是否顯示：評論送購物金、搶購物金還沒有發放購物金的功能，先不宣傳，做好之後從這裡拿掉
+	public boolean isShownOnFront() {
+		return this != REVIEW_REWARD && this != WALLET_GRAB;
+	}
+
 	// 代碼轉活動類型；空值或不認識的代碼回傳 null
 	public static PromoType of(String code) {
 		for (PromoType t : values()) {

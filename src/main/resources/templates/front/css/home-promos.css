@@ -1,0 +1,26 @@
+/* 首頁活動區塊：限時活動卡片 + 會員專屬福利列 */
+.home-promos { padding: 3rem 0 1rem; background-color: var(--brand--neutrals--tan-light, #f4f7f0); }
+.home-promos-block + .home-promos-block { margin-top: 2.5rem; }
+.home-promos-title { margin-bottom: 1.25rem; }
+
+.home-promos-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1.25rem; }
+.home-promo-card { display: flex; flex-direction: column; gap: .5rem; padding: 1.25rem; border: 1px solid var(--text--default--black, #302f2d); background: #fff; }
+.home-promo-type { font-size: .8125rem; color: var(--text--default--black-light, #7a7a7a); }
+.home-promo-name { margin: 0; }
+.home-promo-benefit { font-size: 1.5rem; font-weight: 600; color: #b4462b; }
+.home-promo-condition { font-size: .875rem; color: var(--text--default--black-light, #7a7a7a); }
+.home-promo-end { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .25rem; margin-top: auto; padding-top: .5rem; font-size: .875rem; }
+.home-promo-countdown { font-weight: 600; color: #b4462b; }
+.home-promo-link { align-self: flex-start; }
+
+/* 常態福利：精簡的固定福利列，不放倒數 */
+.home-perks { display: flex; flex-wrap: wrap; gap: .75rem; }
+.home-perk { flex: 1 1 14rem; padding: .875rem 1.125rem; border: 1px dashed var(--text--default--black, #302f2d); background: transparent; }
+.home-perk.is-highlight { border-style: solid; background: #fff; }
+.home-perk-name { font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+.home-perk-badge { padding: .05rem .5rem; border-radius: 999px; background: #b4462b; color: #fff; font-size: .75rem; font-weight: 500; }
+.home-perk-benefit { margin-top: .25rem; font-size: .9375rem; }
+.home-perk-condition { color: var(--text--default--black-light, #7a7a7a); font-size: .875rem; }
+.home-promos-more { margin-left: .75rem; font-size: .875rem; font-weight: 400; text-decoration: underline; }
+.home-promo-name a, .home-perk-name a { color: inherit; text-decoration: none; }
+.home-promo-name a:hover, .home-perk-name a:hover { text-decoration: underline; }

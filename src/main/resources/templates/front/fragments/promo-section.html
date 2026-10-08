@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"><body>
+<!-- 首頁活動區塊：限時活動（有倒數）與會員專屬福利（常態，不顯示倒數）。兩組都沒有資料時整個區塊不輸出 -->
+<th:block th:fragment="promoSection">
+  <section class="home-promos" th:if="${!#lists.isEmpty(limitedPromos) or !#lists.isEmpty(memberPerks)}">
+    <div class="container">
+      <div class="home-promos-block" th:if="${!#lists.isEmpty(limitedPromos)}">
+        <h2 class="heading-h3 home-promos-title">限時活動 <a class="home-promos-more" th:href="@{/front/promotions/}">查看全部活動</a></h2>
+        <div class="home-promos-cards">
+          <div class="home-promo-card" th:each="p : ${limitedPromos}">
+            <div class="home-promo-type" th:text="${p.typeLabel}"></div>
+            <h3 class="heading-h4 home-promo-name"><a th:href="@{|/front/promotions/#promo-${p.promoProjectId}|}" th:text="${p.title}"></a></h3>
+            <div class="home-promo-benefit" th:if="${!#strings.isEmpty(p.benefit)}" th:text="${p.benefit}"></div>
+            <div class="home-promo-condition" th:if="${!#strings.isEmpty(p.condition)}" th:text="${p.condition}"></div>
+            <div class="home-promo-end">
+              <span th:text="${'活動至 ' + #temporals.format(p.end, 'yyyy/MM/dd HH:mm')}"></span>
+              <span class="home-promo-countdown" th:attr="data-end=${#temporals.format(p.end, 'yyyy-MM-dd''T''HH:mm:ss')}"></span>
+            </div>
+            <a class="secondary-button w-button home-promo-link" th:href="@{|/front/promotions/#promo-${p.promoProjectId}|}">活動詳情</a>
+          </div>
+        </div>
+      </div>
+      <div class="home-promos-block" th:if="${!#lists.isEmpty(memberPerks)}">
+        <h2 class="heading-h3 home-promos-title">會員專屬福利 <a class="home-promos-more" th:href="@{/front/promotions/}">查看全部活動</a></h2>
+        <div class="home-perks">
+          <div class="home-perk" th:each="p : ${memberPerks}" th:classappend="${p.highlight} ? 'is-highlight'">
+            <div class="home-perk-name"><a th:href="@{|/front/promotions/#promo-${p.promoProjectId}|}" th:text="${p.title}"></a><span class="home-perk-badge" th:if="${p.highlight}">本月適用</span></div>
+            <div class="home-perk-benefit">
+              <span th:text="${p.benefit}"></span>
+              <span class="home-perk-condition" th:if="${!#strings.isEmpty(p.condition)}" th:text="${'（' + p.condition + '）'}"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // 限時活動倒數：還有一天以上顯示「剩 N 天」，不到一天顯示「剩 HH:MM:SS」，到期後顯示「已結束」
+      (function () {
+        var els = document.querySelectorAll(".home-promo-countdown[data-end]");
+        if (!els.length) return;
+        function pad(n) { return (n < 10 ? "0" : "") + n; }
+        function tick() {
+          var now = Date.now();
+          els.forEach(function (el) {
+            var left = new Date(el.getAttribute("data-end")).getTime() - now;
+            if (isNaN(left)) { el.textContent = ""; return; }
+            if (left <= 0) { el.textContent = "已結束"; return; }
+            var days = Math.floor(left / 86400000);
+            if (days >= 1) { el.textContent = "剩 " + days + " 天"; return; }
+            var h = Math.floor(left / 3600000), m = Math.floor(left % 3600000 / 60000), s = Math.floor(left % 60000 / 1000);
+            el.textContent = "剩 " + pad(h) + ":" + pad(m) + ":" + pad(s);
+          });
+        }
+        tick();
+        window.setInterval(tick, 1000);
+      })();
+    </script>
+  </section>
+</th:block>
+</body></html>
