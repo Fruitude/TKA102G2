@@ -1,0 +1,51 @@
+/* 首頁拼貼區：五張圖大小一致（3:4），錯落擺放但互不重疊。
+   原本的版面是用 absolute 定位把小圖疊在中央大圖四周，圖片會互相壓住；
+   這裡改成格線（grid）排列，每張圖再用不同的上方位移與寬度做出散亂的感覺，格子之間有固定間距，所以不會重疊。
+   順序：火龍果、蘋果（中央圖）、水果禮盒（蜜瓜與方形西瓜）、西瓜、水果禮盒（多層水果供盤） */
+.collage-wrapper {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+  margin-bottom: 4rem;
+}
+
+.collage-wrapper .collage-center-image-wrapper,
+.collage-wrapper .collage-small-image-wrapper {
+  position: static;
+  inset: auto;
+  width: 100%;
+  margin: 0;
+}
+
+.collage-wrapper .collage-center-image,
+.collage-wrapper .collage-small-image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  display: block;
+}
+
+/* 順序：image-1、中央圖、image-2、image-3、image-4 */
+.collage-wrapper .collage-small-image-wrapper.image-1 { order: 1; margin-top: 3.5rem; }
+.collage-wrapper .collage-center-image-wrapper        { order: 2; margin-top: 0; }
+.collage-wrapper .collage-small-image-wrapper.image-2 { order: 3; margin-top: 5rem; width: 92%; }
+.collage-wrapper .collage-small-image-wrapper.image-3 { order: 4; margin-top: 1.5rem; }
+.collage-wrapper .collage-small-image-wrapper.image-4 { order: 5; margin-top: 4rem; width: 94%; }
+
+@media screen and (max-width: 991px) {
+  .collage-wrapper { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .collage-wrapper .collage-small-image-wrapper.image-1 { margin-top: 2.5rem; }
+  .collage-wrapper .collage-small-image-wrapper.image-2 { margin-top: 0; width: 100%; }
+  .collage-wrapper .collage-small-image-wrapper.image-3 { margin-top: 3rem; }
+  .collage-wrapper .collage-small-image-wrapper.image-4 { margin-top: 1rem; width: 100%; }
+}
+
+@media screen and (max-width: 479px) {
+  .collage-wrapper { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .collage-wrapper .collage-small-image-wrapper.image-1 { margin-top: 1.5rem; }
+  .collage-wrapper .collage-small-image-wrapper.image-2 { margin-top: 0; }
+  .collage-wrapper .collage-small-image-wrapper.image-3 { margin-top: 1.5rem; }
+  .collage-wrapper .collage-small-image-wrapper.image-4 { margin-top: 0; }
+}
