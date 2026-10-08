@@ -8,6 +8,7 @@
         applications: [],
         positions: [],
         functions: [],
+        permissionCoverage: null,
         auditLogs: [],
         auditPage: 0,
         auditTotalPages: 0,
@@ -256,6 +257,135 @@
         byId('position-empty').hidden = filtered.length !== 0;
     }
 
+    // 顯示所有後台功能是否至少由一位正常員工負責，缺口可展開查看明細。
+    function renderPermissionCoverage() {
+        const coverage = state.permissionCoverage;
+        const root = byId('permission-coverage');
+        if (!coverage) {
+            root.hidden = true;
+            return;
+        }
+
+        const complete = Boolean(coverage.complete);
+        root.hidden = false;
+        root.className = 'permission-coverage ' + (complete ? 'is-complete' : 'is-warning');
+        byId('permission-coverage-icon').className = 'fas permission-coverage-icon '
+            + (complete ? 'fa-check-circle' : 'fa-exclamation-triangle');
+        byId('permission-coverage-title').textContent = complete
+            ? '所有功能皆有人負責'
+            : coverage.uncoveredCount + ' 項功能尚無負責人';
+        byId('permission-coverage-description').textContent = coverage.coveredCount + ' / '
+            + coverage.totalCount + ' 項功能已有正常員工承接';
+
+        const toggle = byId('permission-coverage-toggle');
+        toggle.hidden = complete;
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.querySelector('span').textContent = '查看未指派功能';
+        toggle.querySelector('i').className = 'fas fa-chevron-down';
+
+        const details = byId('permission-coverage-details');
+        details.hidden = true;
+        details.replaceChildren();
+        const groups = new Map();
+        (coverage.uncoveredPermissions || []).forEach((permission) => {
+            const groupName = permission.permissionGroup || '其他';
+            if (!groups.has(groupName)) groups.set(groupName, []);
+            groups.get(groupName).push(permission);
+        });
+        groups.forEach((permissions, groupName) => {
+            const group = createElement('section', 'permission-coverage-group');
+            group.appendChild(createElement('h3', '', groupName));
+            const list = createElement('div', 'permission-coverage-list');
+            permissions.forEach((permission) => {
+                const item = createElement('span', 'permission-coverage-item');
+                item.appendChild(createElement('code', '', permission.permissionCode));
+                item.appendChild(createElement('strong', '', permission.permissionName));
+                list.appendChild(item);
+            });
+            group.appendChild(list);
+            details.appendChild(group);
+        });
+        renderResponsibilityAssignments();
+    }
+
+    // 完整列出每個功能與實際負責員工，不依賴固定職位或部門名稱。
+    function renderResponsibilityGroupOptions() {
+        const select = byId('responsibility-group-filter');
+        const current = select.value;
+        const functions = state.permissionCoverage ? state.permissionCoverage.functions || [] : [];
+        const groups = Array.from(new Set(functions.map((permission) =>
+            permission.permissionGroup || '其他'))).sort();
+        select.replaceChildren();
+        const all = createElement('option', '', '全部群組');
+        all.value = '';
+        select.appendChild(all);
+        groups.forEach((group) => {
+            const option = createElement('option', '', group);
+            option.value = group;
+            select.appendChild(option);
+        });
+        select.value = groups.includes(current) ? current : '';
+    }
+
+    function renderResponsibilityAssignments() {
+        const coverage = state.permissionCoverage;
+        if (!coverage) return;
+        byId('responsibility-covered-count').textContent = String(coverage.coveredCount || 0);
+        byId('responsibility-uncovered-count').textContent = String(coverage.uncoveredCount || 0);
+        byId('responsibility-total-count').textContent = String(coverage.totalCount || 0);
+        byId('coverage-tab-count').textContent = String(coverage.uncoveredCount || 0);
+
+        const keyword = byId('responsibility-search').value.trim().toLowerCase();
+        const status = byId('responsibility-status-filter').value;
+        const group = byId('responsibility-group-filter').value;
+        const filtered = (coverage.functions || []).filter((permission) => {
+            const peopleText = (permission.responsibleEmployees || []).map((employee) =>
+                [employee.employeeName, employee.employeeAccount, employee.positionName].join(' ')).join(' ');
+            const searchable = [permission.permissionCode, permission.permissionName,
+                permission.permissionDescription, permission.permissionGroup, peopleText]
+                .filter(Boolean).join(' ').toLowerCase();
+            const covered = Number(permission.responsibleCount) > 0;
+            return (!keyword || searchable.includes(keyword))
+                && (!group || (permission.permissionGroup || '其他') === group)
+                && (!status || (status === 'covered' ? covered : !covered));
+        });
+
+        const body = byId('responsibility-table-body');
+        body.replaceChildren();
+        filtered.forEach((permission) => {
+            const row = document.createElement('tr');
+            const functionCell = createElement('td', 'responsibility-function');
+            functionCell.appendChild(createElement('code', 'permission-code', permission.permissionCode));
+            functionCell.appendChild(createElement('strong', '', permission.permissionName));
+            functionCell.appendChild(createElement('small', '', permission.permissionDescription || '—'));
+            const groupCell = createElement('td', '', permission.permissionGroup || '其他');
+            const peopleCell = document.createElement('td');
+            const people = createElement('div', 'responsibility-people');
+            (permission.responsibleEmployees || []).forEach((employee) => {
+                const person = createElement('span', 'responsibility-person');
+                person.appendChild(createElement('strong', '', employee.employeeName + '（' + employee.employeeAccount + '）'));
+                person.appendChild(createElement('small', '', employee.positionName));
+                people.appendChild(person);
+            });
+            if (!permission.responsibleEmployees || permission.responsibleEmployees.length === 0) {
+                people.appendChild(createElement('span', 'responsibility-unassigned', '尚未指派員工'));
+            }
+            peopleCell.appendChild(people);
+            const statusCell = document.createElement('td');
+            const covered = Number(permission.responsibleCount) > 0;
+            statusCell.appendChild(createElement('span', 'employee-badge ' + (covered ? 'is-active' : 'is-uncovered'),
+                covered ? permission.responsibleCount + ' 人負責' : '尚未指派'));
+            [functionCell, groupCell, peopleCell, statusCell].forEach((cell) => row.appendChild(cell));
+            body.appendChild(row);
+        });
+        byId('responsibility-result-count').textContent = filtered.length + ' 項';
+        const empty = byId('responsibility-empty');
+        empty.textContent = status === 'uncovered' && !keyword
+            ? '目前沒有尚未指派負責人的功能。'
+            : '找不到符合條件的功能。';
+        empty.hidden = filtered.length !== 0;
+    }
+
     function renderPositionOptions(selectedId) {
         const select = byId('employee-position');
         select.replaceChildren();
@@ -418,6 +548,46 @@
         byId(countId).textContent = checked + ' 項已選';
     }
 
+    // 群組快速操作後立即顯示全選、清除或部分選取狀態，避免收合時看不出結果。
+    function updatePermissionGroupState(group) {
+        const checkboxes = Array.from(group.querySelectorAll('input[type="checkbox"]'));
+        const checkedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
+        const allSelected = checkboxes.length > 0 && checkedCount === checkboxes.length;
+        const empty = checkedCount === 0;
+        const toggle = group.querySelector('[data-group-toggle]');
+        const count = group.querySelector('.permission-group-count');
+
+        group.classList.toggle('is-all-selected', allSelected);
+        group.classList.toggle('is-empty', empty);
+        toggle.classList.toggle('is-all-selected', allSelected);
+        toggle.classList.toggle('is-empty', empty);
+        toggle.textContent = allSelected ? '已全選' : (empty ? '已清除' : '部分選取');
+        toggle.title = allSelected ? '點擊清除此群組' : '點擊全選此群組';
+        toggle.setAttribute('aria-pressed', allSelected ? 'true' : 'false');
+        count.textContent = checkedCount + ' / ' + checkboxes.length;
+        count.setAttribute('aria-label', '已選 ' + checkedCount + ' 項，共 ' + checkboxes.length + ' 項');
+    }
+
+    function setPermissionGroupExpanded(group, expanded) {
+        if (!group) return;
+        const collapse = group.querySelector('[data-group-collapse]');
+        const options = group.querySelector('.permission-group-options');
+        collapse.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        collapse.setAttribute('aria-label', (expanded ? '收合' : '展開') + collapse.dataset.groupCollapse);
+        collapse.querySelector('i').className = 'fas ' + (expanded ? 'fa-chevron-down' : 'fa-chevron-right');
+        options.classList.toggle('is-collapsed', !expanded);
+    }
+
+    // 桌面版為兩欄排列，同一列必須同步展開，避免另一側留下等高空白區。
+    function setPermissionGroupRowExpanded(container, sourceGroup, expanded) {
+        setPermissionGroupExpanded(sourceGroup, expanded);
+        if (!window.matchMedia('(min-width: 768px)').matches) return;
+        const groups = Array.from(container.querySelectorAll('.permission-group'));
+        const index = groups.indexOf(sourceGroup);
+        const partnerIndex = index % 2 === 0 ? index + 1 : index - 1;
+        setPermissionGroupExpanded(groups[partnerIndex], expanded);
+    }
+
     // 權限依資料庫群組呈現，同一群組可用「全選／清除」快速操作。
     function renderPermissionGroups(selectedIds, containerId, countId, collapsed) {
         containerId = containerId || 'permission-groups';
@@ -448,6 +618,7 @@
             headingIcon.setAttribute('aria-hidden', 'true');
             headingButton.appendChild(headingIcon);
             headingButton.appendChild(createElement('h3', '', groupName));
+            headingButton.appendChild(createElement('span', 'permission-group-count', '0 / ' + permissions.length));
             heading.appendChild(headingButton);
             const toggle = createElement('button', 'permission-group-toggle', '全選／清除');
             toggle.type = 'button';
@@ -471,7 +642,17 @@
             });
             group.appendChild(options);
             container.appendChild(group);
+            updatePermissionGroupState(group);
         });
+        if (collapsed && window.matchMedia('(min-width: 768px)').matches) {
+            const renderedGroups = Array.from(container.querySelectorAll('.permission-group'));
+            for (let index = 0; index < renderedGroups.length; index += 2) {
+                const pair = renderedGroups.slice(index, index + 2);
+                const shouldExpand = pair.some((group) =>
+                    group.querySelector('[data-group-collapse]').getAttribute('aria-expanded') === 'true');
+                pair.forEach((group) => setPermissionGroupExpanded(group, shouldExpand));
+            }
+        }
         if (!state.functions.length) container.textContent = '目前沒有可分配的權限功能。';
         updatePermissionCount(containerId, countId);
     }
@@ -629,6 +810,12 @@
         renderFunctions();
     }
 
+    async function loadPermissionCoverage() {
+        state.permissionCoverage = await request('/permission-coverage');
+        renderResponsibilityGroupOptions();
+        renderPermissionCoverage();
+    }
+
     async function loadSelectedPermissions() {
         renderSelectedEmployee();
         if (state.selectedEmployeeId === null) {
@@ -747,6 +934,10 @@
                 });
                 tab.classList.add('is-active');
                 if (tab.dataset.tab === 'assignments') loadSelectedPermissions();
+                if (tab.dataset.tab === 'positions') loadPermissionCoverage()
+                    .catch((error) => setFeedback(error.message, 'error'));
+                if (tab.dataset.tab === 'coverage') loadPermissionCoverage()
+                    .catch((error) => setFeedback(error.message, 'error'));
                 if (tab.dataset.tab === 'audit') loadAuditLogs();
                 if (tab.dataset.tab === 'applications') loadApplications().catch((error) => setFeedback(error.message, 'error'));
             });
@@ -758,6 +949,9 @@
         byId('position-status-filter').addEventListener('change', renderPositions);
         byId('function-search').addEventListener('input', renderFunctions);
         byId('function-group-filter').addEventListener('change', renderFunctions);
+        byId('responsibility-search').addEventListener('input', renderResponsibilityAssignments);
+        byId('responsibility-status-filter').addEventListener('change', renderResponsibilityAssignments);
+        byId('responsibility-group-filter').addEventListener('change', renderResponsibilityAssignments);
         let auditSearchTimer = null;
         byId('audit-search').addEventListener('input', () => {
             window.clearTimeout(auditSearchTimer);
@@ -787,6 +981,15 @@
         });
         byId('employee-add-button').addEventListener('click', () => openEmployeeForm(null));
         byId('position-add-button').addEventListener('click', () => openPositionForm(null));
+        byId('permission-coverage-toggle').addEventListener('click', () => {
+            const toggle = byId('permission-coverage-toggle');
+            const details = byId('permission-coverage-details');
+            const expanded = toggle.getAttribute('aria-expanded') === 'true';
+            toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+            toggle.querySelector('span').textContent = expanded ? '查看未指派功能' : '收起未指派功能';
+            toggle.querySelector('i').className = 'fas ' + (expanded ? 'fa-chevron-down' : 'fa-chevron-up');
+            details.hidden = expanded;
+        });
         byId('employee-application-refresh').addEventListener('click', () => loadApplications().catch((error) => setFeedback(error.message, 'error')));
 
         byId('employee-application-table-body').addEventListener('click', (event) => {
@@ -870,18 +1073,17 @@
             const countId = containerId === 'permission-groups'
                 ? 'permission-selection-count' : 'position-permission-selection-count';
             container.addEventListener('change', (event) => {
-                if (event.target.matches('input[type="checkbox"]')) updatePermissionCount(containerId, countId);
+                if (event.target.matches('input[type="checkbox"]')) {
+                    updatePermissionGroupState(event.target.closest('.permission-group'));
+                    updatePermissionCount(containerId, countId);
+                }
             });
             container.addEventListener('click', (event) => {
                 const collapse = event.target.closest('[data-group-collapse]');
                 if (collapse) {
                     const group = collapse.closest('.permission-group');
-                    const options = group.querySelector('.permission-group-options');
                     const expanded = collapse.getAttribute('aria-expanded') === 'true';
-                    collapse.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-                    collapse.setAttribute('aria-label', (expanded ? '展開' : '收合') + collapse.dataset.groupCollapse);
-                    collapse.querySelector('i').className = 'fas ' + (expanded ? 'fa-chevron-right' : 'fa-chevron-down');
-                    options.classList.toggle('is-collapsed', expanded);
+                    setPermissionGroupRowExpanded(container, group, !expanded);
                     return;
                 }
                 const toggle = event.target.closest('[data-group-toggle]');
@@ -890,6 +1092,7 @@
                 const checkboxes = Array.from(group.querySelectorAll('input[type="checkbox"]'));
                 const shouldCheck = checkboxes.some((checkbox) => !checkbox.checked);
                 checkboxes.forEach((checkbox) => { checkbox.checked = shouldCheck; });
+                updatePermissionGroupState(group);
                 updatePermissionCount(containerId, countId);
             });
         });
@@ -914,7 +1117,7 @@
     async function approveApplication(application) {
         try {
             await request('/' + application.employeeId + '/application/approve', { method: 'PUT' });
-            await Promise.all([loadApplications(), loadEmployees(true)]);
+            await Promise.all([loadApplications(), loadEmployees(true), loadPermissionCoverage()]);
             setFeedback('員工申請已核准，帳號現在可以登入。', 'success');
         } catch (error) {
             setFeedback(error.message, 'error');
@@ -971,7 +1174,7 @@
                 method: employeeId ? 'PUT' : 'POST', body: JSON.stringify(body)
             });
             hideModal('employee-form-modal');
-            await loadEmployees(true);
+            await Promise.all([loadEmployees(true), loadPermissionCoverage()]);
             setFeedback(employeeId ? '員工資料已更新。' : '員工帳號已新增。', 'success');
         } catch (error) {
             setModalFeedback('employee-form-modal', error.message);
@@ -1019,7 +1222,7 @@
             });
             hideModal('position-form-modal');
             await loadPositions();
-            await loadEmployees(true);
+            await Promise.all([loadEmployees(true), loadPermissionCoverage()]);
             setFeedback(positionId ? '職位資料已更新。' : '員工職位已新增。', 'success');
         } catch (error) {
             setModalFeedback('position-form-modal', error.message);
@@ -1058,7 +1261,7 @@
                 method: 'PUT', body: JSON.stringify({ employeeStatus: state.pendingStatus.status })
             });
             hideModal('status-modal');
-            await loadEmployees(true);
+            await Promise.all([loadEmployees(true), loadPermissionCoverage()]);
             setFeedback(state.pendingStatus.status === 1 ? '員工帳號已啟用。' : '員工帳號已停用。', 'success');
             state.pendingStatus = null;
         } catch (error) {
@@ -1099,7 +1302,7 @@
             await request('/' + state.selectedEmployeeId + '/permissions', {
                 method: 'PUT', body: JSON.stringify({ permissionIds: permissionIds })
             });
-            await loadEmployees(true);
+            await Promise.all([loadEmployees(true), loadPermissionCoverage()]);
             await loadSelectedPermissions();
             setFeedback('員工權限已儲存。', 'success');
         } catch (error) {
@@ -1167,7 +1370,7 @@
 		if (requestedButton) requestedButton.click();
         try {
             await loadPositions();
-            await Promise.all([loadEmployees(false), loadFunctions(), loadApplications()]);
+            await Promise.all([loadEmployees(false), loadFunctions(), loadApplications(), loadPermissionCoverage()]);
             renderPermissionGroups([]);
         } catch (error) {
             setFeedback(error.message, 'error');
