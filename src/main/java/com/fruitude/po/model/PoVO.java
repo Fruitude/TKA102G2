@@ -22,6 +22,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -55,7 +56,7 @@ public class PoVO implements java.io.Serializable{
 
     @NotNull(message = "採購日期請勿空白")
     @Column(name = "order_date", nullable = false)
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm")
     private LocalDateTime orderDate;          // 採購日期
 
     @NotNull(message = "採購單狀態，請勿空白")
@@ -74,7 +75,7 @@ public class PoVO implements java.io.Serializable{
     private Employee inboundEmployeeId;        // 驗收員工編號
 
     @Column(name = "inbound_date")            // 可為 null
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm")
     private LocalDateTime inboundDate;        // 驗收日期
 
     @NotNull(message = "驗收狀態，請勿空白")
@@ -88,6 +89,7 @@ public class PoVO implements java.io.Serializable{
     @Column(name = "inbound_amount", nullable = false)
     private Integer inboundAmount = 0;        // 驗收實付金額
     
+    @Valid
     @OneToMany(mappedBy = "poId", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("poDetailId asc")
     private List<PoDetailVO> poDetails = new ArrayList<>();

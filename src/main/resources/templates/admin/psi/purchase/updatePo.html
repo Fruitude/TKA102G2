@@ -71,9 +71,10 @@
 						<div class="card-body">
 							<p class="text-muted"><span class="text-danger">*</span> 為必填欄位</p>
 
-							<!-- vendorVO 由 VendorController 的 getOne_For_Update 依 listAllVendor 選中的 vendorId 查出後放入 model -->
+							<!-- poVO、poStatus、skuListData 由 PoController 的 getOne_For_Update 放入 model；檢查失敗時由 update 放入 -->
+							<!-- 頁面不做驗證（novalidate），檢查都在 PoController 的 update；錯誤以 th:errors 顯示在對應欄位下方 -->
 							<form class="update_form" th:action="@{/admin/psi/purchase/update}" method="post"
-								th:object="${poVO}" >
+								th:object="${poVO}" novalidate>
 
 								<input type="hidden" th:field="*{poId}" />
 								<!-- 列表的篩選條件（model 的 poStatus，不是這張單的狀態），送出後帶回單筆頁與列表 -->
@@ -141,11 +142,25 @@
 														th:value="${productSku.skuId}"
 														th:text="${productSku.skuId + ' - ' + productSku.displayName}"></option>
 												</select>
+												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].skuId')}"
+													th:errors="*{poDetails[__${stat.index}__].skuId}"
+													class="text-danger d-block mt-1"></span>
 											</td>
-											<td><input type="number" min="1" required class="form-control detail-quantity"
-												th:field="*{poDetails[__${stat.index}__].quantity}" /></td>
-											<td><input type="number" min="0" required class="form-control detail-unit-price"
-												th:field="*{poDetails[__${stat.index}__].unitPrice}" /></td>
+											<td>
+												<!-- type="number" 只是讓瀏覽器擋掉文字輸入；空白、範圍由 PoDetailVO 的註解檢查。th:field 會保留使用者輸入的內容 -->
+												<input type="number" class="form-control detail-quantity"
+													th:field="*{poDetails[__${stat.index}__].quantity}" />
+												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].quantity')}"
+													th:errors="*{poDetails[__${stat.index}__].quantity}"
+													class="text-danger d-block mt-1"></span>
+											</td>
+											<td>
+												<input type="number" class="form-control detail-unit-price"
+													th:field="*{poDetails[__${stat.index}__].unitPrice}" />
+												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].unitPrice')}"
+													th:errors="*{poDetails[__${stat.index}__].unitPrice}"
+													class="text-danger d-block mt-1"></span>
+											</td>
 											<td class="detail-subtotal" th:text="${poDetailVO.subtotal}"></td>
 										</tr>
 									</tbody>
@@ -196,6 +211,19 @@
 		}
 
 		document.getElementById("po_detail_table").addEventListener("input", updateAmounts);
+
+		//使用者開始修改明細的某一格（輸入數字或改選規格）時，清掉該格下方的錯誤訊息
+		function clearCellError(event) {
+			var cell = event.target.closest("td");
+			if (!cell) {
+				return;
+			}
+			cell.querySelectorAll(".text-danger").forEach(function(errorSpan) {
+				errorSpan.remove();
+			});
+		}
+		document.querySelector("#po_detail_table tbody").addEventListener("input", clearCellError);
+		document.querySelector("#po_detail_table tbody").addEventListener("change", clearCellError);
 
 		//送出後鎖住按鈕，避免連按重複送出
 		document.querySelector(".update_form").addEventListener("submit", function() {

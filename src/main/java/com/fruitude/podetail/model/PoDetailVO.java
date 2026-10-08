@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -41,11 +42,13 @@ public class PoDetailVO implements java.io.Serializable {
 
     @NotNull(message = "採購數量，請勿空白")
     @Min(value = 1, message = "採購數量必須大於0")
+    @Max(value = 9999, message = "採購數量不可超過9999")
     @Column(name = "quantity", nullable = false)
     private Integer quantity;                    // 採購數量
 
     @NotNull(message = "進貨單價，請勿空白")
     @Min(value = 0, message = "進貨單價不可為負數")
+    @Max(value = 99999, message = "進貨單價不可超過99999")
     @Column(name = "unit_price", nullable = false)
     private Integer unitPrice;                   // 進貨單價
 
