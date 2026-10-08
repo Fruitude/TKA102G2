@@ -17,4 +17,7 @@ public interface OrdersDetailRepository extends JpaRepository<OrdersDetail, Inte
 			+ " where D.ordersId = :orderId")
 	List<Tuple> getDetail(Integer orderId);
 
+	// 一次取多張訂單的明細（購買清單頁用）
+	List<OrdersDetail> findByOrdersIdIn(List<Integer> ordersIds);
+
 }

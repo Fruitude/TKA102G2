@@ -358,6 +358,12 @@
 					</div>
 					<fieldset
 						class="w-commerce-commercecheckoutblockcontent checkout-contents">
+						<!-- 勾選後自動帶入會員的姓名、Email、預設電話、預設地址，並由地址算出郵遞區號（見頁面最下方的 script） -->
+						<label style="display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; cursor: pointer">
+							<input type="checkbox" id="checkout-same-as-member" style="width: auto; margin: 0" />
+							<span>收件者同會員</span>
+						</label>
+						<div class="paragraph-18" id="checkout-same-as-member-hint" style="display: none; margin-bottom: .75rem"></div>
 						<label class="w-commerce-commercecheckoutlabel field-label"
 							for="checkout-customer-name">收件者 <span
 							class="required-mark">*</span></label><input
@@ -1166,6 +1172,74 @@
 					syncSelect();
 				})
 				.catch(function() { /* 維持隱藏 */ });
+		})();
+	</script>
+	<!-- 收件者同會員：勾選後向伺服器取得會員的預設收件資料並填入欄位 -->
+	<script>
+		(function() {
+			var box = document.getElementById("checkout-same-as-member");
+			var hint = document.getElementById("checkout-same-as-member-hint");
+			if (!box || !hint) return;
+
+			var fields = {
+				name: document.getElementById("checkout-customer-name"),
+				email: document.getElementById("wf-ecom-email"),
+				phone: document.getElementById("checkout-phone"),
+				zip: document.getElementById("checkout-shipping-zip"),
+				address: document.getElementById("checkout-shipping-address")
+			};
+			for (var key in fields) { if (!fields[key]) return; }
+
+			var filled = null;   // 最近一次自動帶入的值；取消勾選時，只清掉「還是自動帶入的那個值」的欄位，不動使用者自己改過的
+			var contextPath = window.location.pathname.split("/front/")[0];
+
+			// 用 input 事件填值，頁面原本的格式檢查（電話、Email、郵遞區號）才會跟著更新
+			function setField(input, value) {
+				input.value = value;
+				input.dispatchEvent(new Event("input", { bubbles: true }));
+			}
+			function showHint(text) {
+				hint.textContent = text;
+				hint.style.display = text ? "" : "none";
+			}
+
+			box.addEventListener("change", function() {
+				if (!box.checked) {
+					if (filled) {
+						for (var k in fields) {
+							if (filled[k] && fields[k].value === filled[k]) setField(fields[k], "");
+						}
+					}
+					filled = null;
+					showHint("");
+					return;
+				}
+				box.disabled = true;   // 查詢中，避免連按
+				fetch(contextPath + "/front/checkout/member-defaults", { cache: "no-store", credentials: "same-origin" })
+					.then(function(res) { return res.ok ? res.json() : null; })
+					.then(function(d) {
+						if (!d) {
+							box.checked = false;
+							showHint("無法取得會員資料，請稍後再試，或自行輸入收件資料");
+							return;
+						}
+						filled = { name: d.name || "", email: d.email || "", phone: d.phone || "",
+							address: d.address || "", zip: d.postalCode || "" };
+						// 會員有的資料才填；沒有的欄位維持原樣
+						for (var k in fields) { if (filled[k]) setField(fields[k], filled[k]); }
+						var missing = [];
+						if (!d.phone) missing.push("預設電話");
+						if (!d.address) missing.push("預設地址");
+						if (missing.length) showHint("會員尚未設定" + missing.join("、") + "，請自行輸入");
+						else if (!d.postalCode) showHint("無法由地址判斷郵遞區號，請自行輸入");
+						else showHint("");
+					})
+					.catch(function() {
+						box.checked = false;
+						showHint("無法取得會員資料，請稍後再試，或自行輸入收件資料");
+					})
+					.then(function() { box.disabled = false; });
+			});
 		})();
 	</script>
 </body>

@@ -3,6 +3,7 @@ package com.fruitude.orders.model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,7 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.fruitude.member.model.MemberAssetService;
 import com.fruitude.member.model.MemberVO;
+import com.fruitude.product.model.FrontCatalogService;
+import com.fruitude.promo.model.PromoService;
+import com.fruitude.utils.PostalCodeLookup;
 import com.fruitude.utils.PostalCodes;
 import com.fruitude.utils.Utils;
 
@@ -37,10 +42,14 @@ public class OrdersService {
 	// 下單時鎖定規格、原子扣庫存（庫存夠才扣）
 	@Autowired
 	private SkuStockRepository skuStockRepository;
+
+	// 結帳頁「收件者同會員」：會員的預設電話、預設地址
 	@Autowired
-	private com.fruitude.product.model.FrontCatalogService frontCatalogService;
+	private MemberAssetService memberAssetService;
 	@Autowired
-	private com.fruitude.promo.model.PromoService promoService;
+	private FrontCatalogService frontCatalogService;
+	@Autowired
+	private PromoService promoService;
 
 	private static final String STATUS = "status";
 	private static final String PHONE = "phone";
@@ -234,6 +243,71 @@ public class OrdersService {
 	public boolean updateStatusByQuery(Integer ordersId, Integer ordersStatus) {
 		int updatedRows = ordersRepository.updateStatus(ordersId, ordersStatus);
 		return updatedRows > 0;
+	}
+
+	// 會員「購買清單」頁：查出會員的訂單與商品明細。
+	// 分頁與顯示文字由「訂單出貨狀態碼」合併金流狀態決定（OrderStatus 的對照表）；
+	// 狀態碼不在對照表內的訂單不顯示
+	public List<MemberOrderView> findMemberOrders(Integer memberId) {
+		List<Orders> ordersList = ordersRepository.findByMemberIdOrderByOrdersIdDesc(memberId);
+		List<MemberOrderView> result = new ArrayList<>();
+		if (ordersList.isEmpty()) {
+			return result;
+		}
+		List<Integer> ordersIds = new ArrayList<>();
+		for (Orders o : ordersList) {
+			ordersIds.add(o.getOrdersId());
+		}
+		// 一次查出全部明細，再依訂單編號分組，避免每張訂單各查一次
+		Map<Integer, List<MemberOrderView.Item>> itemsByOrders = new HashMap<>();
+		for (OrdersDetail d : ordersDetailRepository.findByOrdersIdIn(ordersIds)) {
+			itemsByOrders.computeIfAbsent(d.getOrdersId(), k -> new ArrayList<>())
+					.add(new MemberOrderView.Item(d.getSkuId(), d.getProductName(), d.getOrdersQuantity()));
+		}
+		for (Orders o : ordersList) {
+			Utils.OrderStatus orderStatus = o.getOrdersStatus() == null ? null
+					: Utils.OrderStatus.fromCode(o.getOrdersStatus());
+			if (orderStatus == null) {
+				continue;
+			}
+			String status = Utils.getOrderStatus(orderStatus, orderStatus.getExpectedPaymentStatus());
+			List<MemberOrderView.Item> items = itemsByOrders.getOrDefault(o.getOrdersId(), List.of());
+			result.add(new MemberOrderView(o.getOrdersId(), o.getOrdersDate(), orderStatus.getMemberTab().getKey(),
+					status, o.getActualPaymentAmount(), items));
+		}
+		return result;
+	}
+
+	// 結帳頁「收件者同會員」要帶入的資料：會員姓名、Email、預設電話、預設地址，
+	// 以及由預設地址算出的郵遞區號（認不出縣市或鄉鎮市區就是 null，由使用者自己填）。
+	// 沒有設預設的電話或地址時，退而求其次用第一筆；完全沒有就是 null
+	public MemberCheckoutDefaults findMemberCheckoutDefaults(Integer memberId) {
+		MemberVO member = memberRepository.findById(memberId).orElse(null);
+		if (member == null) {
+			return MemberCheckoutDefaults.EMPTY;
+		}
+		String phone = null;
+		List<com.fruitude.member.model.MemberPhone> phones = memberAssetService.findPhones(memberId);
+		for (com.fruitude.member.model.MemberPhone p : phones) {
+			if (phone == null || Byte.valueOf((byte) 1).equals(p.getDefaultValue())) {
+				phone = p.getContactPhone();
+				if (Byte.valueOf((byte) 1).equals(p.getDefaultValue())) {
+					break;
+				}
+			}
+		}
+		String address = null;
+		List<com.fruitude.member.model.MemberAddress> addresses = memberAssetService.findAddresses(memberId);
+		for (com.fruitude.member.model.MemberAddress a : addresses) {
+			if (address == null || Byte.valueOf((byte) 1).equals(a.getDefaultValue())) {
+				address = a.getContactAddress();
+				if (Byte.valueOf((byte) 1).equals(a.getDefaultValue())) {
+					break;
+				}
+			}
+		}
+		return new MemberCheckoutDefaults(member.getMemberName(), member.getMemberEmail(), phone, address,
+				PostalCodeLookup.fromAddress(address));
 	}
 
 	// 會員目前的購物金餘額（元）；找不到會員或餘額是空的就是 0
