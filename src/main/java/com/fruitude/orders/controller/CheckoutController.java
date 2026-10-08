@@ -124,6 +124,18 @@ public class CheckoutController {
     	return memberId == null ? 0 : ordersService.getShoppingCredit(memberId);
     }
 
+    /** 結帳頁勾選「收件者同會員」時呼叫：回傳登入會員的姓名、Email、預設電話、預設地址，
+     *  以及由地址算出的郵遞區號（認不出就是 null）。會員編號一律取自登入 session，不接受前端傳 */
+    @GetMapping("/member-defaults")
+    @ResponseBody
+    public com.fruitude.orders.model.MemberCheckoutDefaults memberDefaults(HttpSession session) {
+    	Integer memberId = loggedInMemberId(session);
+    	if (memberId == null) { // 正常不會發生（結帳頁要先登入）
+    		return com.fruitude.orders.model.MemberCheckoutDefaults.EMPTY;
+    	}
+    	return ordersService.findMemberCheckoutDefaults(memberId);
+    }
+
     /** 目前登入的會員編號，沒登入回傳 null。登入時由 MemberController 存進 session */
     private Integer loggedInMemberId(HttpSession session) {
     	Object id = session.getAttribute("loggedInMemberId");
