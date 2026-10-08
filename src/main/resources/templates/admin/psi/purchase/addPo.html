@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>新增採購單</title>
+
+<!-- 引入css資源 -->
+<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<style>
+#po_add_form label {
+	font-weight: bold;
+}
+
+#po_add_form .required::after {
+	content: " *";
+	color: #e74a3b;
+}
+
+#po_detail_table th, #po_detail_table td {
+	vertical-align: middle; /* 內容上下置中 */
+}
+
+/* 欄寬固定，不隨輸入的內容或錯誤訊息變動；商品規格沒有設定寬度，使用剩下的空間 */
+#po_detail_table {
+	table-layout: fixed;
+	min-width: 720px; /* 畫面太窄時在卡片內橫向捲動，商品規格才不會被擠到看不見 */
+}
+
+#po_detail_table thead th:nth-child(2) {
+	width: 120px; /* 採購數量：最窄 */
+}
+
+#po_detail_table thead th:nth-child(3) {
+	width: 150px; /* 進貨單價 */
+}
+
+#po_detail_table thead th:nth-child(4) {
+	width: 180px; /* 小計：最寬 */
+}
+
+#po_detail_table thead th:nth-child(5) {
+	width: 90px; /* 操作 */
+}
+</style>
+</head>
+<body id="page-top">
+
+	<!-- Page Wrapper -->
+	<div id="wrapper">
+
+		<!-- 引入側邊欄 -->
+		<ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+
+		<!-- Content Wrapper -->
+		<div id="content-wrapper" class="d-flex flex-column">
+
+			<!-- Main Content -->
+			<div id="content">
+
+				<!-- 引入Topbar -->
+				<nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+				<!-- 這裡放頁面自己的內容 -->
+				<div class="container-fluid">
+
+					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3">
+						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
+						<span class="text">回採購單管理</span>
+					</a>
+
+					<!-- 不屬於任何欄位的錯誤（PoController 的 insert：採購單編號重複） -->
+					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
+
+					<!-- poVO、vendorListData、skuOptionData 由 PoController 的 addPo、insert 放入 model -->
+					<!-- 頁面不做驗證（novalidate），檢查都在 PoController 的 insert；錯誤以 th:errors 顯示在對應欄位下方 -->
+					<form id="po_add_form" th:action="@{/admin/psi/purchase/insert}" method="post" th:object="${poVO}" novalidate>
+
+						<div class="card shadow mb-4">
+							<div class="card-header py-3">
+								<h6 class="m-0 font-weight-bold text-primary">新增採購單</h6>
+							</div>
+							<div class="card-body">
+								<p class="text-muted"><span class="text-danger">*</span> 為必填欄位</p>
+
+								<div class="form-group">
+									<label for="vendorId" class="required">供應商</label>
+									<!-- data-sku-url：選了供應商後，下方 script 向這個網址查該供應商可採購的商品規格 -->
+									<!-- 不用 th:field：剛進頁面時 poVO.vendor 是 null；檢查失敗回來時以 th:selected 選回原本選的 -->
+									<select id="vendorId" name="vendor.vendorId" class="custom-select"
+										th:attr="data-sku-url=@{/admin/psi/purchase/skuOptions}">
+										<option value="">請選擇供應商</option>
+										<option th:each="vendorVO : ${vendorListData}"
+											th:value="${vendorVO.vendorId}"
+											th:text="${vendorVO.vendorId + ' - ' + vendorVO.vendorName}"
+											th:selected="${poVO.vendor != null and vendorVO.vendorId == poVO.vendor.vendorId}"></option>
+									</select>
+									<span th:if="${#fields.hasErrors('vendor')}" th:errors="*{vendor}"
+										class="text-danger d-block mt-1"></span>
+								</div>
+
+								<!-- 採購員工固定為登入的員工，只顯示不送出（沒有 name）；實際存入的員工由 PoController 的 insert 從 session 取得 -->
+								<div class="form-group">
+									<label for="poEmployeeName">採購員工</label>
+									<input type="text" id="poEmployeeName" class="form-control-plaintext" readonly
+										th:value="${poVO.poEmployeeId != null ? poVO.poEmployeeId.employeeId + ' - ' + poVO.poEmployeeId.employeeName : '尚未登入'}" />
+								</div>
+
+								<!-- 採購日期鎖定為當天，只顯示不送出（沒有 name）；實際存入的時間由 PoService 的 prepareNewPo 在送出時決定 -->
+								<div class="form-group">
+									<label for="orderDate">採購日期</label>
+									<input type="text" id="orderDate" th:value="${#temporals.format(poVO.orderDate, 'yyyy-MM-dd')}"
+										class="form-control-plaintext" readonly />
+								</div>
+							</div>
+						</div>
+
+						<!-- 採購明細：欄位名以 poDetails[索引].欄位 的形式送出，索引由下方 script 的 renumberDetailRows 依列的順序編號 -->
+						<div class="card shadow mb-4">
+							<div class="card-header py-3 d-flex justify-content-between align-items-center">
+								<h6 class="m-0 font-weight-bold text-primary">採購明細</h6>
+								<button type="button" id="add_detail_row" class="btn btn-success btn-sm">新增明細</button>
+							</div>
+							<div class="card-body">
+								<div class="table-responsive">
+									<table class="table table-bordered" id="po_detail_table" width="100%" cellspacing="0">
+										<thead>
+											<tr>
+												<th class="required">商品規格</th>
+												<th class="required">採購數量</th>
+												<th class="required">進貨單價</th>
+												<th>小計</th>
+												<th>操作</th>
+											</tr>
+										</thead>
+										<!-- 檢查失敗回來時，由這裡把送出的明細連同錯誤訊息畫出來；剛進頁面時沒有明細，由 script 補一列空白 -->
+										<tbody>
+											<tr th:each="poDetailVO, stat : *{poDetails}">
+												<td>
+													<!-- 先放一個選項記住原本選的規格，其餘選項由 script 的 renderSkuOptions 依 skuOptionData 補齊 -->
+													<select class="custom-select detail-sku">
+														<option th:if="${poDetailVO.skuId != null and poDetailVO.skuId.skuId != null}"
+															th:value="${poDetailVO.skuId.skuId}" selected></option>
+													</select>
+													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].skuId')}"
+														th:errors="*{poDetails[__${stat.index}__].skuId}"
+														class="text-danger d-block mt-1 detail-error"></span>
+												</td>
+												<td>
+													<!-- type="number" 只是讓瀏覽器擋掉文字輸入；空白、範圍由 PoDetailVO 的註解檢查。th:field 會保留使用者輸入的內容 -->
+													<input type="number" class="form-control detail-quantity"
+														th:field="*{poDetails[__${stat.index}__].quantity}" />
+													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].quantity')}"
+														th:errors="*{poDetails[__${stat.index}__].quantity}"
+														class="text-danger d-block mt-1 detail-error"></span>
+												</td>
+												<td>
+													<input type="number" class="form-control detail-unit-price"
+														th:field="*{poDetails[__${stat.index}__].unitPrice}" />
+													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].unitPrice')}"
+														th:errors="*{poDetails[__${stat.index}__].unitPrice}"
+														class="text-danger d-block mt-1 detail-error"></span>
+												</td>
+												<td>
+													<span class="detail-subtotal">0</span>
+													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].subtotal')}"
+														th:errors="*{poDetails[__${stat.index}__].subtotal}"
+														class="text-danger d-block mt-1 detail-error amount-error"></span>
+												</td>
+												<td><button type="button" class="btn btn-danger btn-sm detail-remove">刪除</button></td>
+											</tr>
+										</tbody>
+										<tfoot>
+											<tr>
+												<th colspan="3" class="text-right">總金額</th>
+												<th>
+													<span id="totalAmount">0</span>
+													<span th:if="${#fields.hasErrors('totalAmount')}" th:errors="*{totalAmount}"
+														class="text-danger font-weight-normal d-block mt-1 detail-error amount-error"></span>
+												</th>
+												<th></th>
+											</tr>
+										</tfoot>
+									</table>
+								</div>
+
+								<!-- 一筆明細都沒有送出時的錯誤 -->
+								<span th:if="${#fields.hasErrors('poDetails')}" th:errors="*{poDetails}"
+									class="text-danger d-block mb-3 detail-error"></span>
+
+								<button type="submit" id="submit" class="btn btn-primary">送出新增</button>
+							</div>
+						</div>
+					</form>
+
+					<!-- 明細列的樣板：按「新增明細」時由 script 複製一份放進表格 -->
+					<!-- 商品規格的選項由 script 的 renderSkuOptions 依 PoController 的 skuOptions 回傳的清單產生 -->
+					<template id="po_detail_row_template">
+						<tr>
+							<td>
+								<select class="custom-select detail-sku">
+									<option value="">請先選擇供應商</option>
+								</select>
+							</td>
+							<td><input type="number" class="form-control detail-quantity" /></td>
+							<td><input type="number" class="form-control detail-unit-price" /></td>
+							<td><span class="detail-subtotal">0</span></td>
+							<td><button type="button" class="btn btn-danger btn-sm detail-remove">刪除</button></td>
+						</tr>
+					</template>
+
+				</div>
+
+			</div>
+
+			<!-- 引入Footer -->
+			<footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+
+		</div>
+	</div>
+
+	<!-- Scroll to Top Button-->
+	<span class="scroll-to-top rounded"> <i class="fas fa-angle-up"></i>
+	</span>
+
+	<!-- 引入js資源 -->
+	<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+	<!-- 檢查失敗回來時，已選供應商的商品規格清單（PoController 的 addFormData 放入 model）；剛進頁面時是空的 -->
+	<script th:inline="javascript">
+		var initialSkuOptions = /*[[${skuOptionData}]]*/ [];
+	</script>
+
+	<script>
+		var vendorSelect = document.getElementById("vendorId");
+		var detailTable = document.getElementById("po_detail_table");
+		var detailBody = detailTable.querySelector("tbody");
+		var rowTemplate = document.getElementById("po_detail_row_template");
+
+		//依列的順序重編欄位名的索引，刪掉中間的列之後索引才不會跳號
+		function renumberDetailRows() {
+			detailBody.querySelectorAll("tr").forEach(function(row, index) {
+				row.querySelector(".detail-sku").name = "poDetails[" + index + "].skuId.skuId";
+				row.querySelector(".detail-quantity").name = "poDetails[" + index + "].quantity";
+				row.querySelector(".detail-unit-price").name = "poDetails[" + index + "].unitPrice";
+			});
+		}
+
+		//目前所選供應商可採購的商品規格（skuOptions 回傳的清單），新增明細列時直接沿用，不用再查一次
+		var skuOptions = initialSkuOptions || [];
+		//商品規格下拉選單第一個空白選項的文字，隨查詢狀態改變
+		var skuPlaceholder = "請先選擇供應商";
+		if (vendorSelect.value !== "") {
+			skuPlaceholder = skuOptions.length > 0 ? "請選擇商品規格" : "此供應商沒有可採購的商品規格";
+		}
+
+		//伺服器畫出來的明細錯誤訊息是照送出當時的列順序放的；使用者增刪明細列或換供應商後就對不上，直接清掉
+		function clearDetailErrors() {
+			document.querySelectorAll(".detail-error").forEach(function(errorSpan) {
+				errorSpan.remove();
+			});
+		}
+
+		//以 skuOptions 重建一個商品規格下拉選單；原本選的規格還在清單裡就維持選中
+		function renderSkuOptions(skuSelect) {
+			var selectedSkuId = skuSelect.value;
+			skuSelect.innerHTML = "";
+			skuSelect.appendChild(new Option(skuPlaceholder, ""));
+			skuOptions.forEach(function(skuOption) {
+				skuSelect.appendChild(new Option(skuOption.skuId + " - " + skuOption.displayName, skuOption.skuId));
+			});
+			skuSelect.value = selectedSkuId;
+			if (skuSelect.selectedIndex < 0) {
+				skuSelect.value = "";
+			}
+		}
+
+		function renderAllSkuOptions() {
+			detailBody.querySelectorAll(".detail-sku").forEach(renderSkuOptions);
+		}
+
+		//供應商改變時向 PoController 的 skuOptions 查該供應商可採購的商品規格；已選的規格屬於原供應商，一律清空
+		function loadSkuOptions() {
+			var vendorId = vendorSelect.value;
+			skuOptions = [];
+			clearDetailErrors();
+
+			if (vendorId === "") {
+				skuPlaceholder = "請先選擇供應商";
+				renderAllSkuOptions();
+				return;
+			}
+
+			skuPlaceholder = "商品規格載入中…";
+			renderAllSkuOptions();
+
+			fetch(vendorSelect.dataset.skuUrl + "?vendorId=" + encodeURIComponent(vendorId))
+				.then(function(response) {
+					if (!response.ok) {
+						throw new Error("HTTP " + response.status);
+					}
+					return response.json();
+				})
+				.then(function(data) {
+					//等待回應期間又換了供應商時，丟掉這次的結果
+					if (vendorSelect.value !== vendorId) {
+						return;
+					}
+					skuOptions = data;
+					skuPlaceholder = data.length > 0 ? "請選擇商品規格" : "此供應商沒有可採購的商品規格";
+					renderAllSkuOptions();
+				})
+				.catch(function() {
+					if (vendorSelect.value !== vendorId) {
+						return;
+					}
+					skuPlaceholder = "商品規格載入失敗，請重新選擇供應商";
+					renderAllSkuOptions();
+				});
+		}
+
+		//採購數量或進貨單價變動時，重算該列小計與整張單的總金額（只是即時顯示）
+		function updateAmounts() {
+			var total = 0;
+			detailBody.querySelectorAll("tr").forEach(function(row) {
+				var quantity = Number(row.querySelector(".detail-quantity").value) || 0;
+				var unitPrice = Number(row.querySelector(".detail-unit-price").value) || 0;
+				var subtotal = quantity * unitPrice;
+				row.querySelector(".detail-subtotal").textContent = subtotal;
+				total += subtotal;
+			});
+			document.getElementById("totalAmount").textContent = total;
+		}
+
+		function addDetailRow() {
+			detailBody.appendChild(rowTemplate.content.cloneNode(true));
+			renumberDetailRows();
+			renderSkuOptions(detailBody.querySelector("tr:last-child .detail-sku"));
+		}
+
+		document.getElementById("add_detail_row").addEventListener("click", function() {
+			clearDetailErrors();
+			addDetailRow();
+		});
+		vendorSelect.addEventListener("change", loadSkuOptions);
+
+		//使用者開始修改明細的某一格（輸入數字或改選規格）時，清掉該格下方的錯誤訊息
+		function clearCellError(event) {
+			var cell = event.target.closest("td");
+			if (!cell) {
+				return;
+			}
+			cell.querySelectorAll(".detail-error").forEach(function(errorSpan) {
+				errorSpan.remove();
+			});
+			//小計、總金額是算出來的，任何一格改動後舊的金額錯誤就不準了，一併清掉
+			document.querySelectorAll(".amount-error").forEach(function(errorSpan) {
+				errorSpan.remove();
+			});
+		}
+		detailBody.addEventListener("input", clearCellError);
+		detailBody.addEventListener("change", clearCellError);
+		detailTable.addEventListener("input", updateAmounts);
+
+		//刪除明細列；至少保留一列
+		detailBody.addEventListener("click", function(event) {
+			if (!event.target.classList.contains("detail-remove")) {
+				return;
+			}
+			if (detailBody.querySelectorAll("tr").length <= 1) {
+				return;
+			}
+			clearDetailErrors();
+			event.target.closest("tr").remove();
+			renumberDetailRows();
+			updateAmounts();
+		});
+
+		//剛進頁面時沒有明細，先放一列空白；檢查失敗回來時伺服器已經畫好明細列，補齊規格選項並算出金額
+		if (detailBody.querySelectorAll("tr").length === 0) {
+			addDetailRow();
+		} else {
+			renumberDetailRows();
+			renderAllSkuOptions();
+			updateAmounts();
+		}
+
+		//送出後鎖住按鈕，避免連按重複送出
+		document.getElementById("po_add_form").addEventListener("submit", function() {
+			document.getElementById("submit").disabled = true;
+		});
+
+		//按上一頁回到此頁時，瀏覽器可能還原成鎖住的狀態，需恢復按鈕
+		window.addEventListener("pageshow", function() {
+			document.getElementById("submit").disabled = false;
+		});
+	</script>
+
+</body>
+</html>

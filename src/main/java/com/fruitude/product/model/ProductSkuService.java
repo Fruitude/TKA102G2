@@ -36,6 +36,12 @@ public class ProductSkuService {
 		return repository.findAll();
 	}
 
+	// 某供應商可採購的規格：status 0~3 都列入，4（永久停產）不列入
+	public List<ProductSku> getPurchasableByVendorId(Integer vendorId) {
+		return repository.findByProduct_Vendor_VendorIdAndStatusNotOrderBySkuIdAsc(vendorId,
+				ProductSku.STATUS_DISCONTINUED);
+	}
+
 	// 新增時檢查同商品是否已有相同規格名稱
 	public boolean isSkuNameExist(Integer productId, String skuName) {
 		return repository.existsByProduct_ProductIdAndSkuName(productId, skuName);

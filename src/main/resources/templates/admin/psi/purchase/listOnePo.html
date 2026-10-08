@@ -2,7 +2,7 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>供應商資料</title>
+<title>採購單資料</title>
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
@@ -27,10 +27,15 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
-					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3"> <span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> <span class="text">回採購單管理</span></a>
+					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3"> 
+						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> 
+						<span class="text">回採購單管理</span>
+					</a>
 
 					<!-- 新增、修改成功的提示（VendorController 的 insert、update） -->
 					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
+					<!-- 修改失敗的提示（PoController 的 update） -->
+					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
 
 					<!-- 供應商單筆資料：vendorVO 由 VendorNoController 的 getOne_For_Display，或 VendorController 的 listOneVendor 放入 model -->
 					<div class="card shadow mb-4">
@@ -47,48 +52,70 @@
 										</tr>
 										<tr>
 											<th class="bg-light">供應商</th>
-											<td th:text="${poVO.vendor.vendorName}"></td>
+											<td th:text="${poVO.vendor.vendorId + ' - ' + poVO.vendor.vendorName}"></td>
 										</tr>
 										<tr>
 											<th class="bg-light">採購員工</th>
-											<td th:text="${poVO.poEmployeeId.employeeName}"></td>
+											<td th:text="${poVO.poEmployeeId.employeeId + ' - ' + poVO.poEmployeeId.employeeName}"></td>
 										</tr>
 										<tr>
 											<th class="bg-light">採購日期</th>
-											<td th:text="${poVO.orderDate}"></td>
+											<td th:text="${{poVO.orderDate}}"></td>
 										</tr>
 										<tr>
 											<th class="bg-light">採購單狀態</th>
-											<td th:text="${poVO.poStatus}"></td>
+											<td th:switch="${poVO.poStatus}">
+												<span th:case="0">待審核</span>
+												<span th:case="1">申請通過</span>
+												<span th:case="2">申請未通過</span>
+												<span th:case="3">已取消</span>
+											</td>
 										</tr>
 										<tr>
 											<th class="bg-light">總金額</th>
 											<td th:text="${poVO.totalAmount}"></td>
 										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+
+					<!-- 採購明細：poVO.poDetails 由 PoVO 的 @OneToMany 帶出 -->
+					<div class="card shadow mb-4">
+						<div class="card-header py-3 d-flex justify-content-between align-items-center">
+							<h6 class="m-0 font-weight-bold text-primary">採購明細</h6>
+							<!-- 待審核（poStatus = 0）的採購單才顯示更新按鈕 -->
+							<form method="post" th:action="@{/admin/psi/purchase/getOne_For_Update}" class="m-0"
+								th:if="${poVO.editable}">
+								<input type="hidden" name="poId" th:value="${poVO.poId}">
+								<button type="submit" class="btn btn-primary btn-sm">更新</button>
+							</form>
+						</div>
+						<div class="card-body">
+							<div class="table-responsive">
+								<table class="table table-bordered" width="100%" cellspacing="0">
+									<thead>
 										<tr>
-											<th class="bg-light">驗收員工</th>
-											<td th:text="${poVO.inboundEmployeeId?.employeeName}"></td>
+											<th>明細編號</th>
+											<th>商品規格編號</th>
+											<th>商品規格</th>
+											<th>採購數量</th>
+											<th>進貨單價</th>
+											<th>小計</th>
 										</tr>
-										<tr>
-											<th class="bg-light">驗收日期</th>
-											<td th:text="${poVO.inboundDate}"></td>
+									</thead>
+									<tbody>
+										<tr th:if="${#lists.isEmpty(poVO.poDetails)}">
+											<td colspan="6" class="text-center">此採購單尚無明細</td>
 										</tr>
-										<tr>
-											<th class="bg-light">驗收狀態</th>
-											<td th:text="${poVO.inboundStatus}"></td>
-										</tr>
-										<tr>
-											<th class="bg-light">驗收實付金額</th>
-											<td th:text="${poVO.inboundAmount}"></td>
-										</tr>
-										<tr>
-											<th class="bg-light">操作</th>
-											<td>
-												<form method="post" th:action="@{/admin/psi/po/getOne_For_Update}">
-													<input type="hidden" name="poId" th:value="${poVO.poId}">
-													<button type="submit" class="btn btn-primary btn-sm">更新</button>
-												</form>
-											</td>
+										<tr th:each="poDetailVO : ${poVO.poDetails}">
+											<td th:text="${poDetailVO.poDetailId}"></td>
+											<td th:text="${poDetailVO.skuId.skuId}"></td>
+											<td th:text="${poDetailVO.skuId.displayName}"></td>
+											<td th:text="${poDetailVO.quantity}"></td>
+											<td th:text="${poDetailVO.unitPrice}"></td>
+											<td th:text="${poDetailVO.subtotal}"></td>
 										</tr>
 									</tbody>
 								</table>

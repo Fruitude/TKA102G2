@@ -2,7 +2,7 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>修改供應商</title>
+<title>修改採購單</title>
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
@@ -34,6 +34,31 @@
 	border-color: #6b6d7d;
 }
 
+#po_detail_table th, #po_detail_table td {
+	vertical-align: middle; /* 內容上下置中 */
+}
+
+/* 欄寬固定，不隨輸入的內容或錯誤訊息變動；商品規格沒有設定寬度，使用剩下的空間 */
+#po_detail_table {
+	table-layout: fixed;
+}
+
+#po_detail_table thead th:nth-child(2) {
+	width: 120px; /* 採購數量：最窄 */
+}
+
+#po_detail_table thead th:nth-child(3) {
+	width: 150px; /* 進貨單價 */
+}
+
+#po_detail_table thead th:nth-child(4) {
+	width: 180px; /* 小計：最寬 */
+}
+
+#po_detail_table thead th:nth-child(5) {
+	width: 90px; /* 操作 */
+}
+
 #blob_holder img {
 	margin-top: 10px;
 	border: 1px solid #d1d3e2;
@@ -59,11 +84,10 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
-					<h1 class="h3 mb-4 text-gray-800">採購單管理</h1>
 
-					<a th:href="@{/admin/psi/po/listAllPo}" class="btn btn-secondary btn-icon-split mb-3"> 
+					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3">
 						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> 
-						<span class="text">回採購單列表</span></a>
+						<span class="text">回採購單管理</span></a>
 
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
@@ -72,76 +96,141 @@
 						<div class="card-body">
 							<p class="text-muted"><span class="text-danger">*</span> 為必填欄位</p>
 
-							<!-- vendorVO 由 VendorController 的 getOne_For_Update 依 listAllVendor 選中的 vendorId 查出後放入 model -->
-							<form class="update_form" th:action="@{/admin/psi/po/update}" method="post"
-								th:object="${poVO}" >
+							<!-- poVO、skuListData 由 PoController 的 getOne_For_Update 放入 model；檢查失敗時由 update 放入 -->
+							<!-- 頁面不做驗證（novalidate），檢查都在 PoController 的 update；錯誤以 th:errors 顯示在對應欄位下方 -->
+							<form class="update_form" th:action="@{/admin/psi/purchase/update}" method="post"
+								th:object="${poVO}" novalidate>
 
 								<input type="hidden" th:field="*{poId}" />
 
 								<div class="form-group">
-									<label for="poNo">編號</label>
+									<label for="poNo">採購單編號</label>
 									<input type="text" th:field="*{poNo}" class="form-control-plaintext font-weight-bold" readonly />
 								</div>
 
 								<div class="form-group">
-									<label>供應商編號</label>
+									<label>供應商</label>
 									<input type="hidden" th:field="*{vendor.vendorId}" />
-									<input type="text" th:value="*{vendor.vendorName}" class="form-control-plaintext" readonly />
+									<input type="text" th:value="*{vendor.vendorId + ' - ' + vendor.vendorName}" class="form-control-plaintext" readonly />
 								</div>
 
 								<div class="form-group">
-									<label>採購員工姓名</label>
+									<label>採購員工</label>
 									<input type="hidden" th:field="*{poEmployeeId.employeeId}" />
-									<input type="text" th:value="*{poEmployeeId.employeeName}" class="form-control-plaintext" readonly />
+									<input type="text" th:value="*{poEmployeeId.employeeId + ' - ' + poEmployeeId.employeeName}" class="form-control-plaintext" readonly />
+								</div>
+
+								<!-- 採購日期、採購單狀態、總金額只顯示不送出（沒有 name），由 PoService 的 updatePoWithDetails 決定實際存入的值 -->
+								<div class="form-group">
+									<label>採購日期</label>
+									<input type="text" th:value="*{{orderDate}}" class="form-control-plaintext" readonly />
 								</div>
 
 								<div class="form-group">
-									<label for="orderDate" class="required">採購日期</label>
-									<input type="text" th:field="*{orderDate}" class="form-control" placeholder="yyyy-MM-dd HH:mm" />
+									<label>採購單狀態</label>
+									<th:block th:switch="*{poStatus}">
+										<input type="text" th:case="0" value="待審核" class="form-control-plaintext" readonly />
+										<input type="text" th:case="1" value="申請通過" class="form-control-plaintext" readonly />
+										<input type="text" th:case="2" value="申請未通過" class="form-control-plaintext" readonly />
+										<input type="text" th:case="3" value="已取消" class="form-control-plaintext" readonly />
+									</th:block>
 								</div>
 
 								<div class="form-group">
-									<label for="poStatus" class="required">採購單狀態</label>
-									<select th:field="*{poStatus}" class="custom-select">
-										<option value="0">待審核</option>
-										<option value="1">申請通過</option>
-										<option value="2">申請未通過</option>
-									</select>
+									<label for="totalAmount">總金額</label>
+									<input type="text" id="totalAmount" th:value="*{totalAmount}" class="form-control-plaintext" readonly />
+									<span th:if="${#fields.hasErrors('totalAmount')}" th:errors="*{totalAmount}"
+										class="text-danger d-block mt-1 amount-error"></span>
 								</div>
 
-								<div class="form-group">
-									<label for="totalAmount" class="required">總金額</label>
-									<input type="number" th:field="*{totalAmount}" class="form-control" min="0" />
+								<!-- 採購明細：可以修改、新增、刪除；送出的是畫面上的每一列（poDetailId、商品規格編號、採購數量、進貨單價） -->
+								<!-- 存檔時 PoService 的 updatePoWithDetails 依商品規格對應資料庫的明細：規格還在的是修改、多出來的是新增、不見的是刪除 -->
+								<!-- 欄位名的索引由下方 script 的 renumberDetailRows 依列的順序重編；小計與總金額由 script 即時計算，存檔時由後端重算 -->
+								<!-- skuListData 由 PoController 的 getOne_For_Update 依這張單的供應商查出（不含永久停產的規格） -->
+								<div class="d-flex justify-content-between align-items-center mb-2">
+									<label class="mb-0">採購明細</label>
+									<button type="button" id="add_detail_row" class="btn btn-success btn-sm">新增明細</button>
 								</div>
+								<table class="table table-bordered" id="po_detail_table">
+									<thead>
+										<tr>
+											<th class="required">商品規格</th>
+											<th class="required">採購數量</th>
+											<th class="required">進貨單價</th>
+											<th>小計</th>
+											<th>操作</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr th:each="poDetailVO, stat : *{poDetails}">
+											<td>
+												<!-- 既有明細帶著明細編號，新增的明細這一格是空的 -->
+												<input type="hidden" class="detail-id" th:field="*{poDetails[__${stat.index}__].poDetailId}" />
+												<select class="custom-select detail-sku" th:field="*{poDetails[__${stat.index}__].skuId.skuId}">
+													<option value="">請選擇商品規格</option>
+													<!-- 這筆明細原本的規格若已永久停產，清單裡不會有，補一個選項讓它維持選中 -->
+													<option th:if="${poDetailVO.skuId.status == 4}"
+														th:value="${poDetailVO.skuId.skuId}"
+														th:text="${poDetailVO.skuId.skuId + ' - ' + poDetailVO.skuId.displayName + '（已停產）'}"></option>
+													<option th:each="productSku : ${skuListData}"
+														th:value="${productSku.skuId}"
+														th:text="${productSku.skuId + ' - ' + productSku.displayName}"></option>
+												</select>
+												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].skuId')}"
+													th:errors="*{poDetails[__${stat.index}__].skuId}"
+													class="text-danger d-block mt-1"></span>
+											</td>
+											<td>
+												<!-- type="number" 只是讓瀏覽器擋掉文字輸入；空白、範圍由 PoDetailVO 的註解檢查。th:field 會保留使用者輸入的內容 -->
+												<input type="number" class="form-control detail-quantity"
+													th:field="*{poDetails[__${stat.index}__].quantity}" />
+												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].quantity')}"
+													th:errors="*{poDetails[__${stat.index}__].quantity}"
+													class="text-danger d-block mt-1"></span>
+											</td>
+											<td>
+												<input type="number" class="form-control detail-unit-price"
+													th:field="*{poDetails[__${stat.index}__].unitPrice}" />
+												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].unitPrice')}"
+													th:errors="*{poDetails[__${stat.index}__].unitPrice}"
+													class="text-danger d-block mt-1"></span>
+											</td>
+											<td>
+												<span class="detail-subtotal" th:text="${poDetailVO.subtotal}"></span>
+												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].subtotal')}"
+													th:errors="*{poDetails[__${stat.index}__].subtotal}"
+													class="text-danger d-block mt-1 amount-error"></span>
+											</td>
+											<td><button type="button" class="btn btn-danger btn-sm detail-remove">刪除</button></td>
+										</tr>
+									</tbody>
+								</table>
 
-								<div class="form-group">
-									<label>驗收員工姓名</label>
-									<input type="hidden" name="inboundEmployeeId.employeeId" th:if="*{inboundEmployeeId != null}"
-										th:value="*{inboundEmployeeId.employeeId}" />
-									<input type="text" th:value="*{inboundEmployeeId?.employeeName}" class="form-control-plaintext" />
-								</div>
-
-								<div class="form-group">
-									<label for="inboundDate">驗收日期</label>
-									<input type="text" th:field="*{inboundDate}" class="form-control" placeholder="yyyy-MM-dd HH:mm" />
-								</div>
-
-								<div class="form-group">
-									<label for="inboundStatus" class="required">驗收狀態</label>
-									<select th:field="*{inboundStatus}" class="custom-select">
-										<option value="0">尚未驗收</option>
-										<option value="1">驗收成功</option>
-										<option value="2">驗收失敗</option>
-									</select>
-								</div>
-
-								<div class="form-group">
-									<label for="inboundAmount" class="required">驗收實付金額</label>
-									<input type="number" th:field="*{inboundAmount}" class="form-control" min="0" />
-								</div>
+								<!-- 不屬於單一欄位的明細錯誤：一筆明細都沒有、要刪除的明細已有到貨數量 -->
+								<span th:if="${#fields.hasErrors('poDetails')}" th:errors="*{poDetails}"
+									class="text-danger d-block mb-3" id="po_details_error"></span>
 
 								<button type="submit" id="submit" class="btn btn-primary">送出修改</button>
 							</form>
+
+							<!-- 明細列的樣板：按「新增明細」時由 script 複製一份放進表格；新增的明細沒有明細編號 -->
+							<template id="po_detail_row_template">
+								<tr>
+									<td>
+										<input type="hidden" class="detail-id" />
+										<select class="custom-select detail-sku">
+											<option value="">請選擇商品規格</option>
+											<option th:each="productSku : ${skuListData}"
+												th:value="${productSku.skuId}"
+												th:text="${productSku.skuId + ' - ' + productSku.displayName}"></option>
+										</select>
+									</td>
+									<td><input type="number" class="form-control detail-quantity" /></td>
+									<td><input type="number" class="form-control detail-unit-price" /></td>
+									<td><span class="detail-subtotal">0</span></td>
+									<td><button type="button" class="btn btn-danger btn-sm detail-remove">刪除</button></td>
+								</tr>
+							</template>
 						</div>
 					</div>
 
@@ -170,6 +259,81 @@
 				el.style.display = "none";
 			}
 		}
+
+		//採購數量或進貨單價變動時，重算該列小計與整張單的總金額
+		function updateAmounts() {
+			var total = 0;
+			document.querySelectorAll("#po_detail_table tbody tr").forEach(function(row) {
+				var quantity = Number(row.querySelector(".detail-quantity").value) || 0;
+				var unitPrice = Number(row.querySelector(".detail-unit-price").value) || 0;
+				var subtotal = quantity * unitPrice;
+				row.querySelector(".detail-subtotal").textContent = subtotal;
+				total += subtotal;
+			});
+			document.getElementById("totalAmount").value = total;
+		}
+
+		document.getElementById("po_detail_table").addEventListener("input", updateAmounts);
+
+		//使用者開始修改明細的某一格（輸入數字或改選規格）時，清掉該格下方的錯誤訊息
+		function clearCellError(event) {
+			var cell = event.target.closest("td");
+			if (!cell) {
+				return;
+			}
+			cell.querySelectorAll(".text-danger").forEach(function(errorSpan) {
+				errorSpan.remove();
+			});
+			//小計、總金額是算出來的，任何一格改動後舊的金額錯誤就不準了，一併清掉
+			document.querySelectorAll(".amount-error").forEach(function(errorSpan) {
+				errorSpan.remove();
+			});
+		}
+		document.querySelector("#po_detail_table tbody").addEventListener("input", clearCellError);
+		document.querySelector("#po_detail_table tbody").addEventListener("change", clearCellError);
+
+		var detailBody = document.querySelector("#po_detail_table tbody");
+		var rowTemplate = document.getElementById("po_detail_row_template");
+
+		//依列的順序重編欄位名的索引，新增或刪除列之後索引才會連續
+		function renumberDetailRows() {
+			detailBody.querySelectorAll("tr").forEach(function(row, index) {
+				row.querySelector(".detail-id").name = "poDetails[" + index + "].poDetailId";
+				row.querySelector(".detail-sku").name = "poDetails[" + index + "].skuId.skuId";
+				row.querySelector(".detail-quantity").name = "poDetails[" + index + "].quantity";
+				row.querySelector(".detail-unit-price").name = "poDetails[" + index + "].unitPrice";
+			});
+		}
+
+		//伺服器畫出來的錯誤訊息是照送出當時的列順序放的；新增或刪除列之後就對不上，直接清掉
+		function clearDetailErrors() {
+			document.querySelectorAll("#po_detail_table .text-danger, #po_details_error, .amount-error").forEach(function(errorSpan) {
+				errorSpan.remove();
+			});
+		}
+
+		document.getElementById("add_detail_row").addEventListener("click", function() {
+			clearDetailErrors();
+			detailBody.appendChild(rowTemplate.content.cloneNode(true));
+			renumberDetailRows();
+		});
+
+		//刪除明細列；至少保留一列。真正刪除資料是在送出修改之後，由後端比對沒送回來的規格
+		detailBody.addEventListener("click", function(event) {
+			if (!event.target.classList.contains("detail-remove")) {
+				return;
+			}
+			if (detailBody.querySelectorAll("tr").length <= 1) {
+				return;
+			}
+			clearDetailErrors();
+			event.target.closest("tr").remove();
+			renumberDetailRows();
+			updateAmounts();
+		});
+
+		//進頁面時依輸入框的數量、單價算一次；檢查失敗回來時，畫面上的小計與總金額才會和使用者填的內容一致
+		updateAmounts();
 
 		//送出後鎖住按鈕，避免連按重複送出
 		document.querySelector(".update_form").addEventListener("submit", function() {

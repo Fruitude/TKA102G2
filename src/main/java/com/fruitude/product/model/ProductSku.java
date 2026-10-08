@@ -21,6 +21,8 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "product_sku")
 public class ProductSku implements java.io.Serializable {
+	public static final Byte STATUS_DISCONTINUED = 4; // 永久停產
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "sku_id", updatable = false)

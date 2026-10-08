@@ -152,6 +152,13 @@ public class VendorController {
 		vendorVO.setLogo(part.getBytes());
 		return true;
 	}
+	
+	@GetMapping("/addVendor")
+	public String addVendor(Model model) {
+		model.addAttribute("vendorVO", new VendorVO());
+
+		return "admin/psi/vendor/addVendor"; // view
+	}
 
 	@InitBinder
 	public void initBinder(WebDataBinder binder) {

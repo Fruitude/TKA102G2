@@ -1,6 +1,7 @@
 package com.fruitude.podetail.model;
 
 import com.fruitude.po.model.PoVO;
+import com.fruitude.product.model.ProductSku;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,6 +14,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -32,18 +34,21 @@ public class PoDetailVO implements java.io.Serializable {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "po_id", nullable = false)
     private PoVO poId;                         // 採購單系統編號 (FK)
-
+    
     @NotNull(message = "商品規格編號，請勿空白")
-    @Column(name = "sku_id", nullable = false)
-    private Integer skuId;                       // 商品規格編號 (FK)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "sku_id", nullable = false)
+    private ProductSku skuId;                       // 商品規格編號 (FK)
 
     @NotNull(message = "採購數量，請勿空白")
     @Min(value = 1, message = "採購數量必須大於0")
+    @Max(value = 9999, message = "採購數量不可超過9999")
     @Column(name = "quantity", nullable = false)
     private Integer quantity;                    // 採購數量
 
     @NotNull(message = "進貨單價，請勿空白")
     @Min(value = 0, message = "進貨單價不可為負數")
+    @Max(value = 99999, message = "進貨單價不可超過99999")
     @Column(name = "unit_price", nullable = false)
     private Integer unitPrice;                   // 進貨單價
 
@@ -89,7 +94,7 @@ public class PoDetailVO implements java.io.Serializable {
 		return poId;
 	}
 
-	public Integer getSkuId() {
+	public ProductSku getSkuId() {
 		return skuId;
 	}
 
@@ -129,7 +134,7 @@ public class PoDetailVO implements java.io.Serializable {
 		this.poId = poId;
 	}
 
-	public void setSkuId(Integer skuId) {
+	public void setSkuId(ProductSku skuId) {
 		this.skuId = skuId;
 	}
 

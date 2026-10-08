@@ -1,6 +1,7 @@
 package com.fruitude.vendor.model;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,4 +62,9 @@ public class VendorService {
 	public List<VendorVO> getActiveVendorsByTaxId(String taxId) {
 		return repository.findByTaxIdContainingAndIsActive(taxId, (byte) 1);
 	}
+	
+	// 已啟用供應商的編號與名稱，給下拉選單使用；不會讀出 logo
+		public List<Map<String, Object>> getActiveVendorOptions() {
+		    return repository.findOptionsByIsActive((byte) 1);
+		}
 }
