@@ -1,0 +1,106 @@
+/* 首頁「當季鮮果」區塊：原本是黑底白字，改成柔和明亮的鮮綠（青蘋果、奇異果的感覺），文字同步改成深綠色。
+   只套用在加了 section-fresh 的區塊（「精選禮盒」那個黑底區塊不受影響）。
+   色碼：底色漸層 #e4f7b8 → #bfe86f；主要文字 #1f3a28（深綠）；次要文字 #3f5a47；按鈕 #1f5a37（深綠）。
+   淺色底配白字對比不夠，所以文字一律改深色；想換顏色只要改這個檔案的色碼 */
+.section.section-black.section-fresh {
+  background: linear-gradient(135deg, #e4f7b8 0%, #bfe86f 100%);
+  color: #1f3a28;
+}
+
+/* 標題、商品名稱、價格、數量標籤：深綠色 */
+.section-fresh .display-heading-1.display-heading-1-white,
+.section-fresh .heading-h4.heading-h4-white,
+.section-fresh .products-purchase-card,
+.section-fresh .home-card-controls label,
+.section-fresh .home-card-price {
+  color: #1f3a28;
+}
+
+/* 「熱銷精選」小標與商品說明：稍微淡一點的深綠，和標題拉出層次 */
+.section-fresh .hero-label.hero-label-white,
+.section-fresh .product-list-desciption.product-list-desciption-white {
+  color: #3f5a47;
+}
+
+/* 「查看全部鮮果」原本是白色按鈕，改成深綠色按鈕，在淺綠底上才夠明顯 */
+.section-fresh .primary-button.button-white {
+  background-color: #1f5a37;
+  color: #fff;
+  border-color: #1f5a37;
+}
+.section-fresh .primary-button.button-white:hover {
+  background-color: #17472b;
+  color: #fff;
+}
+
+/* 每個商品框格的框線：原本是淺色（#f4f7f0），在黑底上看得到，在淺綠底上會消失，改成中深綠 #2f7a4a；
+   滑鼠移上去時底色用半透明白色 #ffffff66 提亮，不再是原本黑底用的 #ffffff1f */
+.section-fresh .products-card-link,
+.section-fresh .products-purchase-card.products-card-link {
+  border: 1px solid #2f7a4a;
+}
+.section-fresh .products-card-link:hover {
+  background-color: #ffffff66;
+}
+
+/* ---- 卡片裡的按鈕重新配色（原本是黑灰色，放在鮮綠底上很沉重）----
+   規格下拉選單與數量 +/- 按鈕：深綠 #1f5a37、白字；滑鼠移上去 #17472b
+   規格展開的選單：由原本的粉紅紫漸層改成鮮綠漸層 #9bd86a → #6cc04a，文字 #14301f
+   加入購物車圖示的圓形底色：深綠 #1f5a37（白色圖示），滑鼠移上去 #17472b，與其他按鈕統一 */
+.section-fresh .home-sku-trigger {
+  background: #1f5a37;
+  color: #fff;
+}
+.section-fresh .home-sku-trigger:hover {
+  background: #17472b;
+}
+.section-fresh .home-sku-menu {
+  background: linear-gradient(#9bd86a, #6cc04a);
+}
+.section-fresh .home-sku-menu button {
+  color: #14301f;
+}
+.section-fresh .home-sku-menu button:hover,
+.section-fresh .home-sku-menu button[aria-pressed="true"] {
+  background: #ffffff59;
+}
+
+.section-fresh .home-qty-stepper button {
+  background: #1f5a37;
+  color: #fff;
+}
+.section-fresh .home-qty-stepper button:hover:not(:disabled) {
+  background: #17472b;
+}
+
+.section-fresh .products-purchase-card .home-card-add {
+  background: #1f5a37;
+  color: #fff;
+}
+.section-fresh .products-purchase-card .home-card-add:hover {
+  background: #17472b;
+}
+/* 缺貨（按鈕停用）時維持灰色，和可以按的深綠色區分 */
+.section-fresh .products-purchase-card .home-card-add:disabled {
+  background: #8c9a90;
+}
+
+/* ---- 其他黑底區塊（精選禮盒、品質拼貼、服務說明）也套用同一組鮮綠樣式 ---- */
+
+/* 區塊之間的分隔線：原本是淺色，改成半透明深綠 */
+.section.section-black.section-fresh {
+  border-bottom: 1px solid #2f7a4a55;
+}
+
+/* 拼貼區與兩欄說明區用到的白色文字，一律改成深綠 */
+.section-fresh .white-text,
+.section-fresh .heading-h3.heading-h3-white,
+.section-fresh .heading-h5,
+.section-fresh .paragraph-20.paragraph-20-white {
+  color: #1f3a28;
+}
+
+/* 兩欄說明區每個重點上方的分隔線：原本是黑色 */
+.section-fresh .text-points-container {
+  border-top-color: #2f7a4a;
+}
