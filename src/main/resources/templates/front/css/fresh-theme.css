@@ -1,0 +1,76 @@
+/* 鮮綠主題（首頁 css/home-fresh.css 的同一組色碼），套用到其他頁面原本是黑底的地方：
+   服務頁的「全部服務」區塊與 5 張服務卡片、登入頁左邊的圖片欄。
+   色碼：底色漸層 #e4f7b8 → #bfe86f；文字深綠 #1f3a28；框線 #2f7a4a；按鈕 #1f5a37（hover #17472b）。
+   淺色底配白字對比不夠，所以文字一律改深色 */
+
+/* ---- 服務頁（front/services/）---- */
+.section.section-black-background {
+  background: linear-gradient(135deg, #e4f7b8 0%, #bfe86f 100%);
+  color: #1f3a28;
+}
+
+/* 區塊標題與說明（原本白色） */
+.section-black-background .heading-h2-medium.heading-h2-medium-white,
+.section-black-background .paragraph-20.paragraph-20-white {
+  color: #1f3a28;
+}
+
+/* 服務卡片：半透明白底、深綠框線、深綠文字 */
+.benefits-card.benfits-card-black {
+  background-color: #ffffff59;
+  border-color: #2f7a4a;
+  color: #1f3a28;
+}
+.benefits-card.benfits-card-black .benefits-card-heading,
+.benefits-card.benfits-card-black .paragraph-18.paragraph-18-white,
+.benefits-card.benfits-card-black .text-white {
+  color: #1f3a28;
+}
+
+/* 「聯絡我們」原本是白色按鈕，改成深綠按鈕 */
+.section-black-background .primary-button.button-white {
+  background-color: #1f5a37;
+  color: #fff;
+  border-color: #1f5a37;
+}
+.section-black-background .primary-button.button-white:hover {
+  background-color: #17472b;
+  color: #fff;
+}
+
+/* ---- 登入頁（front/about/login/）左邊的圖片欄：原本是黑底 ---- */
+.login-container.login-container-image {
+  background: linear-gradient(135deg, #e4f7b8 0%, #bfe86f 100%);
+}
+
+/* ---- 服務頁最上面的大標題區（原本是黑色半透明蓋在室內照片上）---- */
+.services-hero-section {
+  background: linear-gradient(135deg, #e4f7b8 0%, #bfe86f 100%);
+}
+.services-hero-section .display-heading-1.display-heading-1-white,
+.services-hero-section .paragraph-20.paragraph-20-white {
+  color: #1f3a28;
+}
+
+/* ---- 頁面最下方的「把最新鮮的美味，送到您手上」橫幅（首頁、全部商品頁）----
+   原本是黑底疊一張變色的照片、白字；改成鮮綠底，照片淡淡地透出來，文字深綠，按鈕深綠 */
+.bottom-cta-background {
+  background: linear-gradient(135deg, #e4f7b8 0%, #bfe86f 100%);
+}
+.bottom-cta-image {
+  opacity: .18;
+  filter: none;
+}
+.bottom-cta-content-wrapper .display-heading-2.display-heading-3-white,
+.bottom-cta-content-wrapper .paragraph-18.paragraph-18-white {
+  color: #1f3a28;
+}
+.bottom-cta-content-wrapper .primary-button.button-white {
+  background-color: #1f5a37;
+  color: #fff;
+  border-color: #1f5a37;
+}
+.bottom-cta-content-wrapper .primary-button.button-white:hover {
+  background-color: #17472b;
+  color: #fff;
+}
