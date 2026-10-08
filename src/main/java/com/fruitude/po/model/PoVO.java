@@ -60,7 +60,7 @@ public class PoVO implements java.io.Serializable{
 
     @NotNull(message = "採購單狀態，請勿空白")
     @Min(value = 0, message = "採購單狀態值不正確")
-    @Max(value = 2, message = "採購單狀態值不正確")
+    @Max(value = 3, message = "採購單狀態值不正確")
     @Column(name = "po_status", nullable = false)
     private Byte poStatus = 0;                // 採購單狀態 0=待審核,1=申請通過,2=申請未通過
 
@@ -79,7 +79,7 @@ public class PoVO implements java.io.Serializable{
 
     @NotNull(message = "驗收狀態，請勿空白")
     @Min(value = 0, message = "驗收狀態值不正確")
-    @Max(value = 2, message = "驗收狀態值不正確")
+    @Max(value = 3, message = "驗收狀態值不正確")
     @Column(name = "inbound_status", nullable = false)
     private Byte inboundStatus = 0;           // 驗收狀態 0=尚未驗收,1=驗收成功,2=驗收失敗
 
@@ -93,6 +93,11 @@ public class PoVO implements java.io.Serializable{
     private List<PoDetailVO> poDetails = new ArrayList<>();
 
 	public PoVO() {}
+
+	// 待審核（poStatus = 0）的採購單才能修改，頁面以 poVO.editable 判斷
+	public boolean isEditable() {
+		return poStatus != null && poStatus == 0;
+	}
 
 	public Integer getPoId() {
 		return poId;

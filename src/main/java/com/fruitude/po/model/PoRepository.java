@@ -10,7 +10,7 @@ public interface PoRepository  extends JpaRepository<PoVO, Integer>  {
 	
 	boolean existsByPoNo(String poNo);
 	
-	List<PoVO> getByInboundStatus(Byte inboundStatus);
+	List<PoVO> getByPoStatus(Byte poStatus);
 	
 	List<PoVO> findByPoEmployeeId(Employee employee);
 	

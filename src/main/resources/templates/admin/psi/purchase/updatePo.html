@@ -59,9 +59,8 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
-					<h1 class="h3 mb-4 text-gray-800">採購單管理</h1>
 
-					<a th:href="@{/admin/psi/po/listAllPo}" class="btn btn-secondary btn-icon-split mb-3"> 
+					<a th:href="@{/admin/psi/purchase/listAllPo}" class="btn btn-secondary btn-icon-split mb-3"> 
 						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> 
 						<span class="text">回採購單列表</span></a>
 
@@ -73,18 +72,18 @@
 							<p class="text-muted"><span class="text-danger">*</span> 為必填欄位</p>
 
 							<!-- vendorVO 由 VendorController 的 getOne_For_Update 依 listAllVendor 選中的 vendorId 查出後放入 model -->
-							<form class="update_form" th:action="@{/admin/psi/po/update}" method="post"
+							<form class="update_form" th:action="@{/admin/psi/purchase/update}" method="post"
 								th:object="${poVO}" >
 
 								<input type="hidden" th:field="*{poId}" />
 
 								<div class="form-group">
-									<label for="poNo">編號</label>
+									<label for="poNo">採購單編號</label>
 									<input type="text" th:field="*{poNo}" class="form-control-plaintext font-weight-bold" readonly />
 								</div>
 
 								<div class="form-group">
-									<label>供應商編號</label>
+									<label>供應商</label>
 									<input type="hidden" th:field="*{vendor.vendorId}" />
 									<input type="text" th:value="*{vendor.vendorName}" class="form-control-plaintext" readonly />
 								</div>
@@ -95,50 +94,60 @@
 									<input type="text" th:value="*{poEmployeeId.employeeName}" class="form-control-plaintext" readonly />
 								</div>
 
+								<!-- 採購日期、採購單狀態、總金額只顯示不送出（沒有 name），由 PoService 的 updatePoWithDetails 決定實際存入的值 -->
 								<div class="form-group">
-									<label for="orderDate" class="required">採購日期</label>
-									<input type="text" th:field="*{orderDate}" class="form-control" placeholder="yyyy-MM-dd HH:mm" />
+									<label>採購日期</label>
+									<input type="text" th:value="*{{orderDate}}" class="form-control-plaintext" readonly />
 								</div>
 
 								<div class="form-group">
-									<label for="poStatus" class="required">採購單狀態</label>
-									<select th:field="*{poStatus}" class="custom-select">
-										<option value="0">待審核</option>
-										<option value="1">申請通過</option>
-										<option value="2">申請未通過</option>
-									</select>
+									<label>採購單狀態</label>
+									<th:block th:switch="*{poStatus}">
+										<input type="text" th:case="0" value="待審核" class="form-control-plaintext" readonly />
+										<input type="text" th:case="1" value="申請通過" class="form-control-plaintext" readonly />
+										<input type="text" th:case="2" value="申請未通過" class="form-control-plaintext" readonly />
+										<input type="text" th:case="3" value="已取消" class="form-control-plaintext" readonly />
+									</th:block>
 								</div>
 
 								<div class="form-group">
-									<label for="totalAmount" class="required">總金額</label>
-									<input type="number" th:field="*{totalAmount}" class="form-control" min="0" />
+									<label for="totalAmount">總金額</label>
+									<input type="text" id="totalAmount" th:value="*{totalAmount}" class="form-control-plaintext" readonly />
 								</div>
 
-								<div class="form-group">
-									<label>驗收員工姓名</label>
-									<input type="hidden" name="inboundEmployeeId.employeeId" th:if="*{inboundEmployeeId != null}"
-										th:value="*{inboundEmployeeId.employeeId}" />
-									<input type="text" th:value="*{inboundEmployeeId?.employeeName}" class="form-control-plaintext" />
-								</div>
-
-								<div class="form-group">
-									<label for="inboundDate">驗收日期</label>
-									<input type="text" th:field="*{inboundDate}" class="form-control" placeholder="yyyy-MM-dd HH:mm" />
-								</div>
-
-								<div class="form-group">
-									<label for="inboundStatus" class="required">驗收狀態</label>
-									<select th:field="*{inboundStatus}" class="custom-select">
-										<option value="0">尚未驗收</option>
-										<option value="1">驗收成功</option>
-										<option value="2">驗收失敗</option>
-									</select>
-								</div>
-
-								<div class="form-group">
-									<label for="inboundAmount" class="required">驗收實付金額</label>
-									<input type="number" th:field="*{inboundAmount}" class="form-control" min="0" />
-								</div>
+								<!-- 採購明細：送出 poDetailId、商品規格編號、採購數量、進貨單價；小計與總金額由下方 script 即時計算，存檔時由後端重算 -->
+								<!-- skuListData 由 PoController 的 getOne_For_Update 依這張單的供應商查出（不含永久停產的規格） -->
+								<table class="table table-bordered" id="po_detail_table">
+									<thead>
+										<tr>
+											<th class="required">商品規格</th>
+											<th class="required">採購數量</th>
+											<th class="required">進貨單價</th>
+											<th>小計</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr th:each="poDetailVO, stat : *{poDetails}">
+											<td>
+												<input type="hidden" th:field="*{poDetails[__${stat.index}__].poDetailId}" />
+												<select class="custom-select" th:field="*{poDetails[__${stat.index}__].skuId.skuId}">
+													<!-- 這筆明細原本的規格若已永久停產，清單裡不會有，補一個選項讓它維持選中 -->
+													<option th:if="${poDetailVO.skuId.status == 4}"
+														th:value="${poDetailVO.skuId.skuId}"
+														th:text="${poDetailVO.skuId.skuId + ' - ' + poDetailVO.skuId.displayName + '（已停產）'}"></option>
+													<option th:each="productSku : ${skuListData}"
+														th:value="${productSku.skuId}"
+														th:text="${productSku.skuId + ' - ' + productSku.displayName}"></option>
+												</select>
+											</td>
+											<td><input type="number" min="1" required class="form-control detail-quantity"
+												th:field="*{poDetails[__${stat.index}__].quantity}" /></td>
+											<td><input type="number" min="0" required class="form-control detail-unit-price"
+												th:field="*{poDetails[__${stat.index}__].unitPrice}" /></td>
+											<td class="detail-subtotal" th:text="${poDetailVO.subtotal}"></td>
+										</tr>
+									</tbody>
+								</table>
 
 								<button type="submit" id="submit" class="btn btn-primary">送出修改</button>
 							</form>
@@ -170,6 +179,21 @@
 				el.style.display = "none";
 			}
 		}
+
+		//採購數量或進貨單價變動時，重算該列小計與整張單的總金額
+		function updateAmounts() {
+			var total = 0;
+			document.querySelectorAll("#po_detail_table tbody tr").forEach(function(row) {
+				var quantity = Number(row.querySelector(".detail-quantity").value) || 0;
+				var unitPrice = Number(row.querySelector(".detail-unit-price").value) || 0;
+				var subtotal = quantity * unitPrice;
+				row.querySelector(".detail-subtotal").textContent = subtotal;
+				total += subtotal;
+			});
+			document.getElementById("totalAmount").value = total;
+		}
+
+		document.getElementById("po_detail_table").addEventListener("input", updateAmounts);
 
 		//送出後鎖住按鈕，避免連按重複送出
 		document.querySelector(".update_form").addEventListener("submit", function() {

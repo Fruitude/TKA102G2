@@ -47,14 +47,15 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
-					<h4 class="h4 mb-4 text-gray-800" th:switch="${inboundStatus}">
-					    <span th:case="0">尚未驗收</span>
-					    <span th:case="1">驗收成功</span>
-					    <span th:case="2">驗收失敗</span>
+					<h4 class="h4 mb-4 text-gray-800" th:switch="${poStatus}">
+					    <span th:case="0">待審核</span>
+					    <span th:case="1">申請通過</span>
+					    <span th:case="2">申請未通過</span>
+					    <span th:case="3">已取消</span>
 					    <span th:case="*">顯示全部採購單</span>
 					</h4>
 
-					<a th:href="@{/admin/psi/vendor}" class="btn btn-secondary btn-icon-split mb-3"> 
+					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3"> 
 						<span class="icon text-white-50">
 						<i class="fas fa-arrow-left"></i></span> 
 						<span class="text">回採購單管理</span>
@@ -101,8 +102,13 @@
 									<tbody>
 										<tr th:each="poVO : ${poListData}">
 											<td>
-												<a th:href="@{/admin/psi/po/listOnePo(poId=${poVO.poId})}" class="btn btn-primary btn-sm mb-1">詳細</a><br>
-												<form method="post" th:action="@{/admin/psi/po/getOne_For_Update}" class="d-inline">
+												<a th:href="@{/admin/psi/purchase/listOnePo(poId=${poVO.poId}, poStatus=${poStatus})}"
+												class="btn btn-primary btn-sm mb-1">詳細</a>
+
+												<!-- 待審核（poStatus = 0）的採購單才顯示修改按鈕 -->
+												<form method="post" th:action="@{/admin/psi/purchase/getOne_For_Update}" class="d-inline"
+													th:if="${poVO.editable}">
+													<br>
 													<input type="hidden" name="poId" th:value="${poVO.poId}">
 													<button type="submit" class="btn btn-danger btn-sm">修改</button>
 												</form>
