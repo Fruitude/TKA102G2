@@ -2,7 +2,8 @@
    只套用在加了 section-fresh 的區塊（「精選禮盒」那個黑底區塊不受影響）。
    色碼：底色漸層 #e4f7b8 → #bfe86f；主要文字 #1f3a28（深綠）；次要文字 #3f5a47；按鈕 #1f5a37（深綠）。
    淺色底配白字對比不夠，所以文字一律改深色；想換顏色只要改這個檔案的色碼 */
-.section.section-black.section-fresh {
+.section.section-black.section-fresh,
+.section.section-black-product.section-fresh {
   background: linear-gradient(135deg, #e4f7b8 0%, #bfe86f 100%);
   color: #1f3a28;
 }
@@ -88,7 +89,8 @@
 /* ---- 其他黑底區塊（精選禮盒、品質拼貼、服務說明）也套用同一組鮮綠樣式 ---- */
 
 /* 區塊之間的分隔線：原本是淺色，改成半透明深綠 */
-.section.section-black.section-fresh {
+.section.section-black.section-fresh,
+.section.section-black-product.section-fresh {
   border-bottom: 1px solid #2f7a4a55;
 }
 
@@ -103,4 +105,23 @@
 /* 兩欄說明區每個重點上方的分隔線：原本是黑色 */
 .section-fresh .text-points-container {
   border-top-color: #2f7a4a;
+}
+
+/* ---- 商品列表頁（全部商品、當季鮮果、精選禮盒）：商品卡片用的是簡易版卡片（整張卡片是一個連結）---- */
+
+/* 滑鼠移上去時 Webflow 原本會把文字變成淺色（黑底用），在淺綠底上會看不見，維持深綠 */
+.section-fresh .products-card-link:hover {
+  color: #1f3a28;
+}
+
+/* 卡片右下角的快速加入購物車圓形按鈕：深綠 #1f5a37，hover #17472b，缺貨停用時灰綠 #8c9a90 */
+.section-fresh .card-add-to-cart-btn {
+  background-color: #1f5a37;
+  color: #fff;
+}
+.section-fresh .card-add-to-cart-btn:hover {
+  background-color: #17472b;
+}
+.section-fresh .card-add-to-cart-btn:disabled {
+  background-color: #8c9a90;
 }
