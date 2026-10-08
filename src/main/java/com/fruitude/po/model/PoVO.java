@@ -67,6 +67,7 @@ public class PoVO implements java.io.Serializable{
 
     @NotNull(message = "採購單總金額，請勿空白")
     @Min(value = 0, message = "總金額不可為負數")
+    @Max(value = 10000000, message = "總金額不可超過10,000,000")   // 新增這一行
     @Column(name = "total_amount", nullable = false)
     private Integer totalAmount;              // 總金額
 

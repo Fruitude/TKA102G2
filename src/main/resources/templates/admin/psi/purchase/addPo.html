@@ -19,6 +19,28 @@
 #po_detail_table th, #po_detail_table td {
 	vertical-align: middle; /* 內容上下置中 */
 }
+
+/* 欄寬固定，不隨輸入的內容或錯誤訊息變動；商品規格沒有設定寬度，使用剩下的空間 */
+#po_detail_table {
+	table-layout: fixed;
+	min-width: 720px; /* 畫面太窄時在卡片內橫向捲動，商品規格才不會被擠到看不見 */
+}
+
+#po_detail_table thead th:nth-child(2) {
+	width: 120px; /* 採購數量：最窄 */
+}
+
+#po_detail_table thead th:nth-child(3) {
+	width: 150px; /* 進貨單價 */
+}
+
+#po_detail_table thead th:nth-child(4) {
+	width: 180px; /* 小計：最寬 */
+}
+
+#po_detail_table thead th:nth-child(5) {
+	width: 90px; /* 操作 */
+}
 </style>
 </head>
 <body id="page-top">
@@ -49,7 +71,7 @@
 					<!-- 不屬於任何欄位的錯誤（PoController 的 insert：採購單編號重複） -->
 					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
 
-					<!-- poVO、vendorListData、employeeListData、skuOptionData 由 PoController 的 addPo、insert 放入 model -->
+					<!-- poVO、vendorListData、skuOptionData 由 PoController 的 addPo、insert 放入 model -->
 					<!-- 頁面不做驗證（novalidate），檢查都在 PoController 的 insert；錯誤以 th:errors 顯示在對應欄位下方 -->
 					<form id="po_add_form" th:action="@{/admin/psi/purchase/insert}" method="post" th:object="${poVO}" novalidate>
 
@@ -69,25 +91,18 @@
 										<option value="">請選擇供應商</option>
 										<option th:each="vendorVO : ${vendorListData}"
 											th:value="${vendorVO.vendorId}"
-											th:text="${vendorVO.vendorName}"
+											th:text="${vendorVO.vendorId + ' - ' + vendorVO.vendorName}"
 											th:selected="${poVO.vendor != null and vendorVO.vendorId == poVO.vendor.vendorId}"></option>
 									</select>
 									<span th:if="${#fields.hasErrors('vendor')}" th:errors="*{vendor}"
 										class="text-danger d-block mt-1"></span>
 								</div>
 
-								<!-- 剛進頁面時預設選中目前登入的員工（session 的 loggedInEmployeeId）；檢查失敗回來時選回原本選的 -->
+								<!-- 採購員工固定為登入的員工，只顯示不送出（沒有 name）；實際存入的員工由 PoController 的 insert 從 session 取得 -->
 								<div class="form-group">
-									<label for="poEmployeeId" class="required">採購員工</label>
-									<select id="poEmployeeId" name="poEmployeeId.employeeId" class="custom-select">
-										<option value="">請選擇採購員工</option>
-										<option th:each="employee : ${employeeListData}"
-											th:value="${employee.employeeId}"
-											th:text="${employee.employeeName}"
-											th:selected="${poVO.poEmployeeId != null ? employee.employeeId == poVO.poEmployeeId.employeeId : employee.employeeId == session.loggedInEmployeeId}"></option>
-									</select>
-									<span th:if="${#fields.hasErrors('poEmployeeId')}" th:errors="*{poEmployeeId}"
-										class="text-danger d-block mt-1"></span>
+									<label for="poEmployeeName">採購員工</label>
+									<input type="text" id="poEmployeeName" class="form-control-plaintext" readonly
+										th:value="${poVO.poEmployeeId != null ? poVO.poEmployeeId.employeeId + ' - ' + poVO.poEmployeeId.employeeName : '尚未登入'}" />
 								</div>
 
 								<!-- 採購日期鎖定為當天，只顯示不送出（沒有 name）；實際存入的時間由 PoService 的 prepareNewPo 在送出時決定 -->
@@ -145,14 +160,23 @@
 														th:errors="*{poDetails[__${stat.index}__].unitPrice}"
 														class="text-danger d-block mt-1 detail-error"></span>
 												</td>
-												<td class="detail-subtotal">0</td>
+												<td>
+													<span class="detail-subtotal">0</span>
+													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].subtotal')}"
+														th:errors="*{poDetails[__${stat.index}__].subtotal}"
+														class="text-danger d-block mt-1 detail-error amount-error"></span>
+												</td>
 												<td><button type="button" class="btn btn-danger btn-sm detail-remove">刪除</button></td>
 											</tr>
 										</tbody>
 										<tfoot>
 											<tr>
 												<th colspan="3" class="text-right">總金額</th>
-												<th id="totalAmount">0</th>
+												<th>
+													<span id="totalAmount">0</span>
+													<span th:if="${#fields.hasErrors('totalAmount')}" th:errors="*{totalAmount}"
+														class="text-danger font-weight-normal d-block mt-1 detail-error amount-error"></span>
+												</th>
 												<th></th>
 											</tr>
 										</tfoot>
@@ -179,7 +203,7 @@
 							</td>
 							<td><input type="number" class="form-control detail-quantity" /></td>
 							<td><input type="number" class="form-control detail-unit-price" /></td>
-							<td class="detail-subtotal">0</td>
+							<td><span class="detail-subtotal">0</span></td>
 							<td><button type="button" class="btn btn-danger btn-sm detail-remove">刪除</button></td>
 						</tr>
 					</template>
@@ -326,6 +350,10 @@
 				return;
 			}
 			cell.querySelectorAll(".detail-error").forEach(function(errorSpan) {
+				errorSpan.remove();
+			});
+			//小計、總金額是算出來的，任何一格改動後舊的金額錯誤就不準了，一併清掉
+			document.querySelectorAll(".amount-error").forEach(function(errorSpan) {
 				errorSpan.remove();
 			});
 		}

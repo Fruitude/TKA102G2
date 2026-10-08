@@ -36,6 +36,8 @@ import com.fruitude.product.model.ProductSkuService;
 import com.fruitude.vendor.model.VendorService;
 import com.fruitude.vendor.model.VendorVO;
 
+import jakarta.servlet.http.HttpSession;
+
 @Controller
 @RequestMapping("/admin/psi/purchase")
 public class PoController {
@@ -56,8 +58,9 @@ public class PoController {
 
 	// 新增採購單頁面：由 purchase/index 的「新增採購單」連過來
 	@GetMapping("/addPo")
-	public String addPo(Model model) {
+	public String addPo(Model model, HttpSession session) {
 		PoVO poVO = new PoVO();
+		poVO.setPoEmployeeId(getLoggedInEmployee(session)); // 採購員工固定為登入的員工，頁面只顯示姓名
 		model.addAttribute("poVO", poVO);
 		// 明細的商品規格不在這裡給，頁面選了供應商後再向 skuOptions 查
 		addFormData(model, poVO);
@@ -70,13 +73,22 @@ public class PoController {
 	// 數量、單價輸入的不是整數時，Spring 在綁定階段就已經把錯誤記進 result
 	@PostMapping("/insert")
 	public String insert(@ModelAttribute("poVO") PoVO poVO, BindingResult result, Model model,
-			RedirectAttributes redirectAttributes) {
+			HttpSession session, RedirectAttributes redirectAttributes) {
+
+		// 採購員工不由表單決定，一律使用登入的員工；請求即使帶了 poEmployeeId 也會被這裡蓋掉
+		poVO.setPoEmployeeId(getLoggedInEmployee(session));
+		if (poVO.getPoEmployeeId() == null) {
+			// 登入逾時或沒登入：不是欄位填錯，顯示在頁面上方，使用者填的內容保留
+			model.addAttribute("errorMessage", "尚未登入後台或登入已逾時，請重新登入後再送出");
+			addFormData(model, poVO);
+			return "admin/psi/purchase/addPo";
+		}
 
 		// 1. 填好不由使用者決定的欄位
 		poSvc.prepareNewPo(poVO);
 
 		// 2. 依 PoVO、PoDetailVO 上的註解驗證（poDetails 有 @Valid，會逐筆驗明細）
-		validator.validate(poVO, result);
+		validatePo(poVO, result);
 
 		// 3. 註解管不到的檢查
 		checkNewPo(poVO, result);
@@ -100,9 +112,36 @@ public class PoController {
 		return redirectToListOnePo(poVO.getPoId(), null);
 	}
 
+	// 依 PoVO、PoDetailVO 上的註解驗證，insert 與 update 共用
+	// 小計、總金額超過 Integer 上限時，PoService 的 fillSubtotal、prepareNewPo、prepareUpdatePo 會放 null；
+	// 直接驗會得到「請勿空白」，使用者看不懂，所以先換成 0 讓 @NotNull 通過，驗完再記上「超過上限」的訊息
+	private void validatePo(PoVO poVO, BindingResult result) {
+		List<Integer> tooLargeIndexes = new ArrayList<>();
+		for (int index = 0; index < poVO.getPoDetails().size(); index++) {
+			PoDetailVO poDetailVO = poVO.getPoDetails().get(index);
+			if (poDetailVO.getSubtotal() == null) {
+				poDetailVO.setSubtotal(0);
+				tooLargeIndexes.add(index);
+			}
+		}
+		boolean totalTooLarge = poVO.getTotalAmount() == null;
+		if (totalTooLarge) {
+			poVO.setTotalAmount(0);
+		}
+
+		validator.validate(poVO, result);
+
+		for (Integer index : tooLargeIndexes) {
+			result.rejectValue("poDetails[" + index + "].subtotal", "tooLarge", "小計超過上限，請減少採購數量或進貨單價");
+		}
+		if (totalTooLarge) {
+			result.rejectValue("totalAmount", "tooLarge", "總金額超過上限，請減少明細或分成多張採購單");
+		}
+	}
+
 	// 新增採購單時註解管不到的檢查，錯誤以 rejectValue 記在對應欄位
 	// 下拉選單沒選時，Spring 仍會建立編號為 null 的物件，@NotNull 擋不到，所以在這裡檢查
-	// 查到的供應商、員工、商品規格會換回表單物件，存檔時用的是資料庫裡的那一筆
+	// 查到的供應商、商品規格會換回表單物件，存檔時用的是資料庫裡的那一筆
 	private void checkNewPo(PoVO poVO, BindingResult result) {
 		VendorVO vendorVO = null;
 		if (poVO.getVendor() == null || poVO.getVendor().getVendorId() == null) {
@@ -116,17 +155,6 @@ public class PoController {
 				vendorVO = null;
 			} else {
 				poVO.setVendor(vendorVO);
-			}
-		}
-
-		if (poVO.getPoEmployeeId() == null || poVO.getPoEmployeeId().getEmployeeId() == null) {
-			result.rejectValue("poEmployeeId", "required", "請選擇採購員工");
-		} else {
-			Employee employee = poSvc.getOneEmployee(poVO.getPoEmployeeId().getEmployeeId());
-			if (employee == null) {
-				result.rejectValue("poEmployeeId", "notFound", "查無此員工");
-			} else {
-				poVO.setPoEmployeeId(employee);
 			}
 		}
 
@@ -172,19 +200,25 @@ public class PoController {
 		}
 	}
 
-	// 新增頁需要的資料：供應商與採購員工的下拉選單、顯示用的採購日期（今天）
+	// 新增頁需要的資料：供應商的下拉選單、顯示用的採購日期（今天）
 	// 檢查失敗重新顯示時，已選供應商的商品規格清單也一併給頁面，明細列才能還原選中的規格
 	private void addFormData(Model model, PoVO poVO) {
 		poVO.setOrderDate(LocalDateTime.now()); // 只用來顯示；實際存入的時間由 prepareNewPo 在送出時決定
 
-		model.addAttribute("vendorListData", vendorSvc.getActiveVendors());
-		model.addAttribute("employeeListData", poSvc.getAllEmployees());
+		model.addAttribute("vendorListData", vendorSvc.getActiveVendorOptions());
 
 		List<Map<String, Object>> skuOptionData = new ArrayList<>();
 		if (poVO.getVendor() != null && poVO.getVendor().getVendorId() != null) {
 			skuOptionData = skuOptions(poVO.getVendor().getVendorId());
 		}
 		model.addAttribute("skuOptionData", skuOptionData);
+	}
+
+	// 目前登入後台的員工（EmployeeSessionController 登入時放進 session 的 loggedInEmployeeId）
+	// 沒登入、登入逾時或查無此員工時回傳 null
+	private Employee getLoggedInEmployee(HttpSession session) {
+		Object employeeId = session.getAttribute("loggedInEmployeeId");
+		return employeeId instanceof Number ? poSvc.getOneEmployee(((Number) employeeId).intValue()) : null;
 	}
 
 	// 新增採購單頁面選了供應商後以 fetch 呼叫，回傳該供應商可採購的商品規格（JSON）
@@ -218,10 +252,10 @@ public class PoController {
 	    model.addAttribute("poListData", pos);
 	    return "admin/psi/purchase/listAllPo";
 	}
-	
-	// 新增、修改成功後 redirect 過來，依 vendorId 顯示單筆資料
+
+	// 新增、修改成功後 redirect 過來，依 poId 顯示單筆資料
 	@GetMapping("/listOnePo")
-	public String listOneVendor(@RequestParam("poId") Integer poId, 
+	public String listOneVendor(@RequestParam("poId") Integer poId,
 			@RequestParam(value = "poStatus", required = false) Byte poStatus,
 			Model model) {
 		PoVO poVO = poSvc.getOnePo(poId);
@@ -235,7 +269,7 @@ public class PoController {
 
 		return "admin/psi/purchase/listOnePo"; //view
 	}
-	
+
 	@PostMapping("/getOne_For_Update")
 	public String getOne_For_Update(@RequestParam("poId") Integer poId,
 			@RequestParam(value = "poStatus", required = false) Byte poStatus,
@@ -261,7 +295,7 @@ public class PoController {
 		return "admin/psi/purchase/updatePo"; //view
 	}
 
-	// 修改採購明細：流程比照 insert，錯誤記在 BindingResult，由 updatePo.html 顯示在對應欄位下方
+	// 修改採購明細（可修改、新增、刪除明細）：流程比照 insert，錯誤記在 BindingResult，由 updatePo.html 顯示在對應欄位下方
 	// 參數不加 @Valid：表單只送明細的規格、數量、單價，其餘欄位要先從資料庫補回來再驗，否則會被誤判成空白
 	// 這裡的 poStatus 是列表的篩選條件，不是要存入的採購單狀態；它和 PoVO 的 poStatus 同名，會一併綁進 poVO，
 	// 但 prepareUpdatePo 會以資料庫的狀態蓋回去，updatePoWithDetails 也不會寫入狀態
@@ -270,7 +304,7 @@ public class PoController {
 			@RequestParam(value = "poStatus", required = false) Byte poStatus,
 			RedirectAttributes redirectAttributes) {
 
-		// 1. 從資料庫補回表單沒送的欄位；採購單不存在、不是待審核、明細對不起來時不是欄位填錯，回單筆頁顯示原因
+		// 1. 從資料庫補回表單沒送的欄位；採購單不存在、不是待審核時不是欄位填錯，回單筆頁顯示原因
 		try {
 			poSvc.prepareUpdatePo(poVO);
 		} catch (IllegalArgumentException e) {
@@ -278,7 +312,7 @@ public class PoController {
 		}
 
 		// 2. 依 PoVO、PoDetailVO 上的註解驗證（poDetails 有 @Valid，會逐筆驗明細）
-		validator.validate(poVO, result);
+		validatePo(poVO, result);
 
 		// 3. 註解管不到的檢查
 		checkUpdatePo(poVO, result);
@@ -294,6 +328,10 @@ public class PoController {
 			poSvc.updatePoWithDetails(poVO);
 		} catch (IllegalArgumentException e) {
 			return redirectWithError(poVO.getPoId(), poStatus, e.getMessage(), redirectAttributes);
+		} catch (DataIntegrityViolationException e) {
+			// 資料庫的限制擋下這次修改（例如別人同時改了同一張單）；整筆已回滾，回單筆頁顯示而不是出現錯誤頁
+			return redirectWithError(poVO.getPoId(), poStatus, "資料庫拒絕這次修改，請重新進入修改頁再試一次",
+					redirectAttributes);
 		}
 
 		redirectAttributes.addFlashAttribute("success", "修改成功");
@@ -301,22 +339,23 @@ public class PoController {
 	}
 
 	// 修改採購明細時註解管不到的檢查，錯誤以 rejectValue 記在對應欄位
-	// 呼叫前 prepareUpdatePo 已確認每筆表單明細都對得上資料庫的明細
+	// 和 PoService 的 updatePoWithDetails 一樣依商品規格對應資料庫的明細：
+	// 規格原本就在這張單裡的是修改，原本沒有的是新增，資料庫有但表單沒送回來的是刪除
 	private void checkUpdatePo(PoVO poVO, BindingResult result) {
-		Map<Integer, PoDetailVO> dbDetails = new HashMap<>();
-		for (PoDetailVO dbDetail : poSvc.getOnePo(poVO.getPoId()).getPoDetails()) {
-			dbDetails.put(dbDetail.getPoDetailId(), dbDetail);
+		Map<Integer, PoDetailVO> dbDetailsBySkuId = new HashMap<>();
+		List<PoDetailVO> dbDetails = poSvc.getOnePo(poVO.getPoId()).getPoDetails();
+		for (PoDetailVO dbDetail : dbDetails) {
+			dbDetailsBySkuId.put(dbDetail.getSkuId().getSkuId(), dbDetail);
+		}
+
+		if (poVO.getPoDetails().isEmpty()) {
+			result.rejectValue("poDetails", "empty", "採購明細至少要有一筆");
 		}
 
 		Set<Integer> skuIds = new HashSet<>();
 		for (int index = 0; index < poVO.getPoDetails().size(); index++) {
 			PoDetailVO formDetail = poVO.getPoDetails().get(index);
-			PoDetailVO dbDetail = dbDetails.get(formDetail.getPoDetailId());
 			String skuField = "poDetails[" + index + "].skuId";
-
-			if (formDetail.getQuantity() != null && formDetail.getQuantity() < dbDetail.getArrivedPcs()) {
-				result.rejectValue("poDetails[" + index + "].quantity", "belowArrived", "採購數量不可小於已到貨數量");
-			}
 
 			Integer formSkuId = formDetail.getSkuId().getSkuId();
 			if (formSkuId == null) {
@@ -330,9 +369,13 @@ public class PoController {
 				continue;
 			}
 
-			// 規格沒換的明細即使原規格已停產也照原樣保留，不再檢查
-			if (formSkuId.equals(dbDetail.getSkuId().getSkuId())) {
+			// 規格原本就在這張單裡：即使已停產也照原樣保留，只檢查數量不可小於已到貨數量
+			PoDetailVO dbDetail = dbDetailsBySkuId.get(formSkuId);
+			if (dbDetail != null) {
 				formDetail.setSkuId(dbDetail.getSkuId());
+				if (formDetail.getQuantity() != null && formDetail.getQuantity() < dbDetail.getArrivedPcs()) {
+					result.rejectValue("poDetails[" + index + "].quantity", "belowArrived", "採購數量不可小於已到貨數量");
+				}
 				continue;
 			}
 
@@ -355,6 +398,14 @@ public class PoController {
 			}
 
 			formDetail.setSkuId(productSku);
+		}
+
+		// 這次沒送回來的規格代表要刪除（或被換成別的規格）；已經有到貨或入庫數量的不可拿掉
+		for (PoDetailVO dbDetail : dbDetails) {
+			if (!skuIds.contains(dbDetail.getSkuId().getSkuId()) && poSvc.hasInboundRecord(dbDetail)) {
+				result.rejectValue("poDetails", "hasInboundRecord",
+						"「" + dbDetail.getSkuId().getDisplayName() + "」已有到貨或入庫數量，不可刪除或更換規格");
+			}
 		}
 	}
 

@@ -52,8 +52,17 @@ public class PoService {
 		repository.save(poVO);
 	}
 
-	// 修改採購明細：從資料庫取出原資料，只覆蓋採購數量與進貨單價，小計與總金額由這裡重算
-	// 不直接 save(formPo)，避免表單沒送的欄位被寫成 null、沒送回來的明細被 orphanRemoval 刪除
+	// 修改採購明細：以表單送回來的明細為準，可以修改、新增、刪除明細；小計與總金額由這裡重算
+	// 不直接 save(formPo)，避免表單沒送的欄位（到貨數量、驗收欄位等）被寫成 null
+	//
+	// 表單的每一列要寫回哪一筆資料庫明細，是依「商品規格」決定，不是依明細編號：
+	// 資料表有 po_id + sku_id 的唯一限制，而資料庫是一筆一筆寫入的（先新增、再更新、最後才刪除）。
+	// 如果照明細編號直接改規格，或刪掉某規格的明細又新增一筆同規格，寫到一半會短暫出現兩筆相同規格而被擋下。
+	// 所以分成三種情況處理：
+	// 1. 規格原本就在這張單裡：把數量、單價寫到原本是那個規格的明細（不改規格）
+	// 2. 規格是這張單原本沒有的：先沿用一筆「這次已經沒人要用」的明細改成新規格，不夠用才新增一筆
+	// 3. 原本有、這次沒送回來的規格：沒被第 2 種沿用的才刪除
+	// 這樣新增的一定是這張單原本沒有的規格、有新增就不會有刪除，任何時候都不會重複
 	@Transactional
 	public void updatePoWithDetails(PoVO formPo) {
 		PoVO dbPo = repository.findById(formPo.getPoId())
@@ -64,20 +73,13 @@ public class PoService {
 			throw new IllegalArgumentException("此採購單不是待審核狀態，無法修改");
 		}
 
+		if (formPo.getPoDetails() == null || formPo.getPoDetails().isEmpty()) {
+			throw new IllegalArgumentException("採購明細至少要有一筆");
+		}
+
+		Set<Integer> formSkuIds = new HashSet<>();
 		for (PoDetailVO formDetail : formPo.getPoDetails()) {
-			if (formDetail.getPoDetailId() == null) {
-				throw new IllegalArgumentException("採購明細編號遺失");
-			}
-
-			PoDetailVO dbDetail = poDetailRepository.findById(formDetail.getPoDetailId())
-					.orElseThrow(() -> new IllegalArgumentException("查無此採購明細"));
-
-			// 確認這筆明細真的屬於這張採購單
-			if (!dbDetail.getPoId().getPoId().equals(dbPo.getPoId())) {
-				throw new IllegalArgumentException("採購明細不屬於此採購單");
-			}
-
-			if (formDetail.getQuantity() == null || formDetail.getUnitPrice() == null) {
+			if (formDetail == null || formDetail.getQuantity() == null || formDetail.getUnitPrice() == null) {
 				throw new IllegalArgumentException("採購數量、進貨單價，請勿空白");
 			}
 
@@ -89,56 +91,113 @@ public class PoService {
 				throw new IllegalArgumentException("進貨單價不可為負數");
 			}
 
-			if (formDetail.getQuantity() < dbDetail.getArrivedPcs()) {
-				throw new IllegalArgumentException("採購數量不可小於已到貨數量");
-			}
-
 			if (formDetail.getSkuId() == null || formDetail.getSkuId().getSkuId() == null) {
 				throw new IllegalArgumentException("商品規格，請勿空白");
 			}
 
-			// 規格有更換時才檢查；沒換的明細即使原規格已停產也照原樣保留
-			Integer formSkuId = formDetail.getSkuId().getSkuId();
-			if (!formSkuId.equals(dbDetail.getSkuId().getSkuId())) {
-				ProductSku productSku = productSkuRepository.findById(formSkuId)
-						.orElseThrow(() -> new IllegalArgumentException("查無此商品規格"));
-
-				// 下拉選單只列這張單供應商的規格，這裡擋直接送出其他編號的情況
-				if (productSku.getProduct() == null || productSku.getProduct().getVendor() == null
-						|| !productSku.getProduct().getVendor().getVendorId().equals(dbPo.getVendor().getVendorId())) {
-					throw new IllegalArgumentException("商品規格不屬於此採購單的供應商");
-				}
-
-				if (ProductSku.STATUS_DISCONTINUED.equals(productSku.getStatus())) {
-					throw new IllegalArgumentException("商品規格已永久停產，無法採購");
-				}
-
-				dbDetail.setSkuId(productSku);
-			}
-
-			dbDetail.setQuantity(formDetail.getQuantity());
-			dbDetail.setUnitPrice(formDetail.getUnitPrice());
-			dbDetail.setSubtotal(formDetail.getQuantity() * formDetail.getUnitPrice());
-		}
-
-		// 同一張採購單不可有重複的商品規格（資料表有 po_id + sku_id 的唯一限制）
-		Set<Integer> skuIds = new HashSet<>();
-		for (PoDetailVO dbDetail : dbPo.getPoDetails()) {
-			if (!skuIds.add(dbDetail.getSkuId().getSkuId())) {
+			// 同一張採購單不可有重複的商品規格
+			if (!formSkuIds.add(formDetail.getSkuId().getSkuId())) {
 				throw new IllegalArgumentException("同一張採購單不可有重複的商品規格");
 			}
 		}
 
+		// 資料庫現有的明細依規格編號整理；這次沒送回來的規格是要拿掉的，已經有到貨或入庫記錄的不可拿掉
+		Map<Integer, PoDetailVO> dbDetailsBySkuId = new HashMap<>();
+		List<PoDetailVO> removedDbDetails = new ArrayList<>();
+		for (PoDetailVO dbDetail : dbPo.getPoDetails()) {
+			dbDetailsBySkuId.put(dbDetail.getSkuId().getSkuId(), dbDetail);
+			if (!formSkuIds.contains(dbDetail.getSkuId().getSkuId())) {
+				if (hasInboundRecord(dbDetail)) {
+					throw new IllegalArgumentException(
+							"「" + dbDetail.getSkuId().getDisplayName() + "」已有到貨或入庫數量，不可刪除或更換規格");
+				}
+				removedDbDetails.add(dbDetail);
+			}
+		}
+
+		// 情況 1：規格原本就在這張單裡，數量、單價直接寫到原本是那個規格的明細
+		List<PoDetailVO> newSkuFormDetails = new ArrayList<>();
+		for (PoDetailVO formDetail : formPo.getPoDetails()) {
+			PoDetailVO dbDetail = dbDetailsBySkuId.get(formDetail.getSkuId().getSkuId());
+			if (dbDetail == null) {
+				newSkuFormDetails.add(formDetail);
+			} else {
+				applyFormDetail(dbDetail, formDetail);
+			}
+		}
+
+		// 情況 2：規格是這張單原本沒有的
+		for (PoDetailVO formDetail : newSkuFormDetails) {
+			ProductSku productSku = productSkuRepository.findById(formDetail.getSkuId().getSkuId())
+					.orElseThrow(() -> new IllegalArgumentException("查無此商品規格"));
+
+			// 下拉選單只列這張單供應商的規格，這裡擋直接送出其他編號的情況
+			if (productSku.getProduct() == null || productSku.getProduct().getVendor() == null
+					|| !productSku.getProduct().getVendor().getVendorId().equals(dbPo.getVendor().getVendorId())) {
+				throw new IllegalArgumentException("商品規格不屬於此採購單的供應商");
+			}
+
+			if (ProductSku.STATUS_DISCONTINUED.equals(productSku.getStatus())) {
+				throw new IllegalArgumentException("商品規格已永久停產，無法採購");
+			}
+
+			PoDetailVO dbDetail;
+			if (removedDbDetails.isEmpty()) {
+				// 沒有可以沿用的明細，新增一筆；poDetails 設了 cascade ALL，會跟著採購單一起存
+				dbDetail = new PoDetailVO();
+				dbDetail.setPoId(dbPo);
+				dbPo.getPoDetails().add(dbDetail);
+			} else {
+				// 沿用一筆這次要拿掉的明細；優先用表單這一列原本的那筆，明細編號才會盡量維持不變
+				dbDetail = removedDbDetails.get(0);
+				for (PoDetailVO candidate : removedDbDetails) {
+					if (candidate.getPoDetailId().equals(formDetail.getPoDetailId())) {
+						dbDetail = candidate;
+						break;
+					}
+				}
+				removedDbDetails.remove(dbDetail);
+			}
+
+			dbDetail.setSkuId(productSku);
+			applyFormDetail(dbDetail, formDetail);
+		}
+
+		// 情況 3：沒被沿用的才刪除；poDetails 設了 orphanRemoval，從清單移除就會刪掉資料列
+		dbPo.getPoDetails().removeAll(removedDbDetails);
+
 		// 總金額不收表單的值，以這張採購單所有明細的小計加總
-		int totalAmount = 0;
+		long totalAmount = 0;
 		for (PoDetailVO dbDetail : dbPo.getPoDetails()) {
 			totalAmount += dbDetail.getSubtotal();
 		}
-		dbPo.setTotalAmount(totalAmount);
+		if (totalAmount > Integer.MAX_VALUE) {
+			throw new IllegalArgumentException("總金額超過上限");
+		}
+		dbPo.setTotalAmount((int) totalAmount);
+	}
+
+	// 把表單一列的數量、單價寫進資料庫的明細，小計由這裡重算
+	private void applyFormDetail(PoDetailVO dbDetail, PoDetailVO formDetail) {
+		if (formDetail.getQuantity() < dbDetail.getArrivedPcs()) {
+			throw new IllegalArgumentException("採購數量不可小於已到貨數量");
+		}
+		long subtotal = (long) formDetail.getQuantity() * formDetail.getUnitPrice();
+		if (subtotal > Integer.MAX_VALUE) {
+			throw new IllegalArgumentException("小計超過上限");
+		}
+		dbDetail.setQuantity(formDetail.getQuantity());
+		dbDetail.setUnitPrice(formDetail.getUnitPrice());
+		dbDetail.setSubtotal((int) subtotal);
+	}
+
+	// 這筆明細是否已經有到貨、不良品或入庫的數量；有的話不可刪除或更換規格
+	public boolean hasInboundRecord(PoDetailVO poDetailVO) {
+		return poDetailVO.getArrivedPcs() > 0 || poDetailVO.getDefectPcs() > 0 || poDetailVO.getInboundPcs() > 0;
 	}
 
 	// 新增採購單前，把不由使用者決定的欄位填好，之後才能用 PoVO、PoDetailVO 上的註解驗證
-	// 表單只採用供應商、採購員工、每筆明細的規格、數量、單價；其餘欄位即使請求有帶也一律蓋掉
+	// 表單只採用供應商、每筆明細的規格、數量、單價（採購員工由 PoController 的 insert 填入登入的員工）；其餘欄位即使請求有帶也一律蓋掉
 	public void prepareNewPo(PoVO poVO) {
 		LocalDateTime now = LocalDateTime.now();
 
@@ -173,8 +232,8 @@ public class PoService {
 
 	// 修改採購單前，把表單沒送的欄位從資料庫補回表單物件，之後才能用 PoVO、PoDetailVO 上的註解驗證，
 	// 檢查失敗重新顯示修改頁時，供應商、採購員工、日期、狀態也才有資料可以顯示
-	// 表單只採用每筆明細的規格、數量、單價；其餘欄位即使請求有帶也一律以資料庫為準
-	// 採購單不存在、不是待審核、明細和資料庫對不起來時丟 IllegalArgumentException（不是欄位填錯，無法顯示在欄位下方）
+	// 表單只採用每筆明細的規格、數量、單價（可以比資料庫多或少幾筆）；其餘欄位即使請求有帶也一律以資料庫為準
+	// 採購單不存在、不是待審核時丟 IllegalArgumentException（不是欄位填錯，無法顯示在欄位下方）
 	@Transactional(readOnly = true)
 	public void prepareUpdatePo(PoVO formPo) {
 		if (formPo.getPoId() == null) {
@@ -203,38 +262,32 @@ public class PoService {
 		}
 		formPo.getPoDetails().removeIf(Objects::isNull);
 
-		// 修改頁會把這張單的每一筆明細都送回來，筆數或編號對不上代表頁面資料已過期或請求被改過
-		Map<Integer, PoDetailVO> dbDetails = new HashMap<>();
+		// 和 updatePoWithDetails 一樣依商品規格對應資料庫的明細：規格原本就在這張單裡的，到貨等數量取那一筆的值
+		Map<Integer, PoDetailVO> dbDetailsBySkuId = new HashMap<>();
+		Set<Integer> dbDetailIds = new HashSet<>();
 		for (PoDetailVO dbDetail : dbPo.getPoDetails()) {
-			dbDetails.put(dbDetail.getPoDetailId(), dbDetail);
-		}
-		if (formPo.getPoDetails().size() != dbDetails.size()) {
-			throw new IllegalArgumentException("採購明細與資料庫不一致，請重新進入修改頁");
+			dbDetailsBySkuId.put(dbDetail.getSkuId().getSkuId(), dbDetail);
+			dbDetailIds.add(dbDetail.getPoDetailId());
 		}
 
-		Set<Integer> poDetailIds = new HashSet<>();
 		long totalAmount = 0;
 		for (PoDetailVO formDetail : formPo.getPoDetails()) {
-			if (formDetail.getPoDetailId() == null) {
-				throw new IllegalArgumentException("採購明細編號遺失");
-			}
-			PoDetailVO dbDetail = dbDetails.get(formDetail.getPoDetailId());
-			if (dbDetail == null) {
-				throw new IllegalArgumentException("採購明細不屬於此採購單");
-			}
-			if (!poDetailIds.add(formDetail.getPoDetailId())) {
-				throw new IllegalArgumentException("採購明細與資料庫不一致，請重新進入修改頁");
-			}
-
-			formDetail.setPoId(formPo);
-			formDetail.setArrivedPcs(dbDetail.getArrivedPcs());
-			formDetail.setDefectPcs(dbDetail.getDefectPcs());
-			formDetail.setInboundPcs(dbDetail.getInboundPcs());
-			formDetail.setInboundSubtotal(dbDetail.getInboundSubtotal());
 			// 請求沒帶商品規格時補一個空的，頁面與後續檢查才不用處理 null
 			if (formDetail.getSkuId() == null) {
 				formDetail.setSkuId(new ProductSku());
 			}
+			// 明細編號只用來在沿用明細時盡量維持原本的編號；不屬於這張單的編號一律當成沒有
+			if (formDetail.getPoDetailId() != null && !dbDetailIds.contains(formDetail.getPoDetailId())) {
+				formDetail.setPoDetailId(null);
+			}
+
+			PoDetailVO dbDetail = dbDetailsBySkuId.get(formDetail.getSkuId().getSkuId());
+			formDetail.setPoId(formPo);
+			// 新的規格還沒有任何到貨記錄
+			formDetail.setArrivedPcs(dbDetail == null ? 0 : dbDetail.getArrivedPcs());
+			formDetail.setDefectPcs(dbDetail == null ? 0 : dbDetail.getDefectPcs());
+			formDetail.setInboundPcs(dbDetail == null ? 0 : dbDetail.getInboundPcs());
+			formDetail.setInboundSubtotal(dbDetail == null ? 0 : dbDetail.getInboundSubtotal());
 
 			totalAmount += fillSubtotal(formDetail);
 		}
@@ -292,13 +345,28 @@ public class PoService {
 		return repository.getByPoStatus(poStatus);
 	}
 
-	// 新增採購單頁面的採購員工下拉選單
-	public List<Employee> getAllEmployees() {
-		return employeeRepository.findAll();
+	// 以下四個給 PoNoController 的條件查詢使用
+	public PoVO getOneByPoNo(String poNo) {
+		return repository.findByPoNo(poNo).orElse(null);
 	}
 
+	public List<PoVO> getByVendorId(Integer vendorId) {
+		return repository.findByVendor_VendorIdOrderByPoIdDesc(vendorId);
+	}
+
+	public List<PoVO> getByPoEmployeeId(Integer employeeId) {
+		return repository.findByPoEmployeeId_EmployeeIdOrderByPoIdDesc(employeeId);
+	}
+
+	public List<PoVO> getByVendorName(String vendorName) {
+		return repository.findByVendor_VendorNameContainingOrderByPoIdDesc(vendorName);
+	}
+
+	// 新增採購單時以登入的員工編號取出採購員工
 	public Employee getOneEmployee(Integer employeeId) {
 		return employeeRepository.findById(employeeId).orElse(null);
 	}
+	
+
 
 }
