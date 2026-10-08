@@ -128,6 +128,16 @@ public class PromoService {
 		return threshold;
 	}
 
+	// 目前進行中的壽星月活動（有優惠值的第一筆）；沒有回傳 null。結帳確認頁用它決定要不要顯示「使用壽星優惠」勾選框
+	public PromoProject findActiveBirthdayPromo() {
+		for (PromoProject p : promoRepository.findActiveByType(PromoType.BIRTHDAY_MONTH.name(), LocalDateTime.now())) {
+			if (p.getBenefitValue() != null && p.getBenefitValue() >= 1) {
+				return p;
+			}
+		}
+		return null;
+	}
+
 	// 首頁的活動區塊：目前進行中的活動分成「限時活動」與「會員專屬福利（常態）」兩組。
 	// 只放已經能實際生效的類型（PromoType.isShownOnFront）。
 	// 會員個人化：已登入且生日在本月的會員，「壽星月」會標示為目前符合資格；所有活動（含新會員首購）一律顯示，
@@ -191,7 +201,7 @@ public class PromoService {
 	private String homeConditionText(PromoType type, PromoProject p) {
 		String who = switch (type) {
 			case NEW_MEMBER_FIRST_ORDER -> "首次下單";
-			case BIRTHDAY_MONTH -> "生日當月";
+			case BIRTHDAY_MONTH -> "生日當月，每年限用一次，結帳時勾選使用";
 			default -> "";
 		};
 		Integer min = p.getMinOrderAmount();
@@ -204,15 +214,17 @@ public class PromoService {
 
 	// 商品折扣：全館折扣、壽星月、新會員首購，和指定商品活動價「擇優」，並回傳是哪個活動給的。
 	// 這三種折扣活動彼此只取折扣最大的一個（不疊加）；折扣金額是「相對於畫面上小計（已經是活動價）」再多折的金額。
-	// 壽星月要會員目前在生日月、新會員首購要是第一筆訂單，這兩個條件由呼叫端判斷後傳進來。沒有符合的活動回傳 ProductDiscount.NONE
-	public ProductDiscount calcProductDiscount(boolean isBirthdayMonth, boolean isFirstOrder, List<DiscountLine> lines) {
+	// birthdayChosen：會員有資格（生日月、今年還沒用過）而且這次結帳勾選了要用壽星優惠，才會讓壽星月參與比較；
+	// 就算勾選了，如果其他折扣更划算，最後也不會套用壽星月（呼叫端看回傳的 promoType 判斷有沒有真的用到）。
+	// 新會員首購要是第一筆訂單，這個條件由呼叫端判斷後傳進來。沒有符合的活動回傳 ProductDiscount.NONE
+	public ProductDiscount calcProductDiscount(boolean birthdayChosen, boolean isFirstOrder, List<DiscountLine> lines) {
 		long displayedTotal = 0;
 		for (DiscountLine line : lines) {
 			displayedTotal += line.lineTotal();
 		}
 		LocalDateTime now = LocalDateTime.now();
 		List<PromoProject> candidates = new ArrayList<>(promoRepository.findActiveByType(PromoType.STOREWIDE.name(), now));
-		if (isBirthdayMonth) {
+		if (birthdayChosen) {
 			candidates.addAll(promoRepository.findActiveByType(PromoType.BIRTHDAY_MONTH.name(), now));
 		}
 		if (isFirstOrder) {
@@ -231,7 +243,7 @@ public class PromoService {
 			}
 			if (extra > best.amount()) {
 				String title = p.getPromoProjectTitle();
-				best = new ProductDiscount((int) extra, title == null ? "" : title);
+				best = new ProductDiscount((int) extra, title == null ? "" : title, p.getPromoProjectId(), p.getPromoType());
 			}
 		}
 		return best;

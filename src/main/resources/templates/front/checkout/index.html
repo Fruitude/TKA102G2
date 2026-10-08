@@ -350,6 +350,21 @@
 						</div>
 					</fieldset>
 				</div>
+				<!-- 壽星優惠：每年限用一次，有資格（生日月、今年還沒用過、有進行中的活動）才會顯示，由會員自己決定這次要不要用。
+					 勾選狀態會跟著表單一起送出（name="useBirthday"）；折扣金額由 cart.js 向伺服器查詢後顯示在右邊的訂單摘要 -->
+				<div id="checkout-birthday-block" style="display: none; margin-bottom: 20px">
+					<div class="checkout-header">
+						<h2 class="heading-h3">壽星優惠</h2>
+					</div>
+					<div class="checkout-contents">
+						<label style="display: flex; align-items: center; gap: .5rem; cursor: pointer">
+							<input type="checkbox" id="checkout-birthday-checkbox" name="useBirthday" value="true"
+								form="checkout-form" style="width: 1.1rem; height: 1.1rem; margin: 0; accent-color: #1f5a37" />
+							<span id="checkout-birthday-label"></span>
+						</label>
+						<div class="paragraph-18" id="checkout-birthday-hint" style="margin-top: .5rem">每年限用一次，用掉後要等明年；今年沒有使用就會過期。</div>
+					</div>
+				</div>
 				<form class="w-commerce-commercecheckoutcustomerinfowrapper"
 					data-node-type="commerce-checkout-customer-info-wrapper">
 					<div class="w-commerce-commercecheckoutblockheader checkout-header">
