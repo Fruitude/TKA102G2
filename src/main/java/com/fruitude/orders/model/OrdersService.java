@@ -3,6 +3,7 @@ package com.fruitude.orders.model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -242,6 +243,39 @@ public class OrdersService {
 	public boolean updateStatusByQuery(Integer ordersId, Integer ordersStatus) {
 		int updatedRows = ordersRepository.updateStatus(ordersId, ordersStatus);
 		return updatedRows > 0;
+	}
+
+	// 會員「購買清單」頁：查出會員的訂單與商品明細。
+	// 分頁與顯示文字由「訂單出貨狀態碼」合併金流狀態決定（OrderStatus 的對照表）；
+	// 狀態碼不在對照表內的訂單不顯示
+	public List<MemberOrderView> findMemberOrders(Integer memberId) {
+		List<Orders> ordersList = ordersRepository.findByMemberIdOrderByOrdersIdDesc(memberId);
+		List<MemberOrderView> result = new ArrayList<>();
+		if (ordersList.isEmpty()) {
+			return result;
+		}
+		List<Integer> ordersIds = new ArrayList<>();
+		for (Orders o : ordersList) {
+			ordersIds.add(o.getOrdersId());
+		}
+		// 一次查出全部明細，再依訂單編號分組，避免每張訂單各查一次
+		Map<Integer, List<MemberOrderView.Item>> itemsByOrders = new HashMap<>();
+		for (OrdersDetail d : ordersDetailRepository.findByOrdersIdIn(ordersIds)) {
+			itemsByOrders.computeIfAbsent(d.getOrdersId(), k -> new ArrayList<>())
+					.add(new MemberOrderView.Item(d.getSkuId(), d.getProductName(), d.getOrdersQuantity()));
+		}
+		for (Orders o : ordersList) {
+			Utils.OrderStatus orderStatus = o.getOrdersStatus() == null ? null
+					: Utils.OrderStatus.fromCode(o.getOrdersStatus());
+			if (orderStatus == null) {
+				continue;
+			}
+			String status = Utils.getOrderStatus(orderStatus, orderStatus.getExpectedPaymentStatus());
+			List<MemberOrderView.Item> items = itemsByOrders.getOrDefault(o.getOrdersId(), List.of());
+			result.add(new MemberOrderView(o.getOrdersId(), o.getOrdersDate(), orderStatus.getMemberTab().getKey(),
+					status, o.getActualPaymentAmount(), items));
+		}
+		return result;
 	}
 
 	// 結帳頁「收件者同會員」要帶入的資料：會員姓名、Email、預設電話、預設地址，

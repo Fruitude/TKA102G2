@@ -1023,6 +1023,15 @@
       '<path d="M7.5 3h-3A1.5 1.5 0 0 0 3 4.5C3 13.6 10.4 21 19.5 21a1.5 1.5 0 0 0 1.5-1.5v-3l-4-1-1.5 2a14.2 14.2 0 0 1-9-9L8.5 7l-1-4Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
       "</svg><span>我的電話</span>";
 
+    var ordersLink = document.createElement("a");
+    ordersLink.className = "member-menu-link";
+    ordersLink.href = getContextPath() + "/front/about/member/orders/";
+    ordersLink.setAttribute("role", "menuitem");
+    ordersLink.innerHTML =
+      '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 5h6M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      "</svg><span>我的訂單</span>";
+
     var logout = document.createElement("button");
     logout.type = "button";
     logout.className = "member-menu-logout";
@@ -1040,6 +1049,7 @@
     dropdown.appendChild(addressLink);
     dropdown.appendChild(cardLink);
     dropdown.appendChild(phoneLink);
+    dropdown.appendChild(ordersLink);
     dropdown.appendChild(logout);
     menu.appendChild(trigger);
     menu.appendChild(dropdown);
