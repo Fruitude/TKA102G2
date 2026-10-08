@@ -209,6 +209,7 @@
     });
   }
 
+
   function buildItemRow(item, opts) {
     var row = document.createElement("div");
     row.className = "w-commerce-commercecartitem";
@@ -592,6 +593,53 @@
       void wrapper.offsetWidth; // force reflow so the transition plays
       wrapper.classList.add("cart-is-open");
     });
+  }
+
+  // 購物車按鈕：要先登入會員才能開啟購物車。
+  // 已登入就直接開；沒登入就導到登入頁，並在 next 帶上目前頁面加 openCart=1，登入成功回到這一頁後再自動開啟購物車。
+  // 查詢登入狀態失敗（例如伺服器暫時連不上）不擋使用者，照常開啟購物車，結帳時伺服器仍會檢查登入
+  function openCartIfLoggedIn() {
+    fetch(getContextPath() + "/api/members/session", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { "Accept": "application/json" }
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error("Unable to read member session");
+        return response.json();
+      })
+      .then(function (member) {
+        if (member.loggedIn) {
+          openCart();
+          return;
+        }
+        var url = new URL(window.location.href);
+        // 本來就在登入或註冊頁時，登入後回首頁開購物車，不要回到登入頁自己
+        if (url.pathname.indexOf("/front/about/login/") >= 0 || url.pathname.indexOf("/front/about/sign-up/") >= 0) {
+          url = new URL(getContextPath() + "/front/", window.location.origin);
+        }
+        url.searchParams.set("openCart", "1");
+        var next = url.pathname + url.search;
+        window.location.assign(getContextPath() + "/front/about/login/?next=" + encodeURIComponent(next));
+      })
+      .catch(function () { openCart(); });
+  }
+
+  // 從登入頁回來（網址帶 openCart=1）：已登入就開啟購物車；不論有沒有開，都把這個參數從網址拿掉，
+  // 避免重新整理又自動彈出購物車
+  function openCartAfterLogin() {
+    var url = new URL(window.location.href);
+    if (url.searchParams.get("openCart") !== "1") return;
+    url.searchParams.delete("openCart");
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    fetch(getContextPath() + "/api/members/session", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { "Accept": "application/json" }
+    })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (member) { if (member && member.loggedIn) openCart(); })
+      .catch(function () { /* 查不到登入狀態就不自動開啟 */ });
   }
 
   function closeCart() {
@@ -1188,7 +1236,7 @@
       var openLink = e.target.closest(".w-commerce-commercecartopenlink");
       if (openLink) {
         e.preventDefault();
-        openCart();
+        openCartIfLoggedIn();
         return;
       }
 
@@ -1278,6 +1326,7 @@
   injectCardAddToCartButtons();
   injectClearCartButton();
   initMemberMenu();
+  openCartAfterLogin();
   if (window.location.pathname.indexOf("/front/checkout/") >= 0) {
     verifyCart().catch(function () { window.alert("無法確認最新商品資料，請稍後再試。"); });
     if (new URLSearchParams(window.location.search).get("error") === "products")
