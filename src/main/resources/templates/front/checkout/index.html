@@ -450,26 +450,20 @@
 							<label
 								class="w-commerce-commercecheckoutshippingmethoditem shipping-method"><input
 								name="paymentMethod" form="checkout-form" required=""
-								type="radio" value="COD" />
-								<div
-									class="w-commerce-commercecheckoutshippingmethoddescriptionblock">
-									<div class="checkout-option-text">貨到付款</div>
-								</div></label> <label
-								class="w-commerce-commercecheckoutshippingmethoditem shipping-method"><input
-								name="paymentMethod" form="checkout-form" required=""
-								type="radio" value="CREDIT_CARD" />
+								type="radio" value="CREDIT_CARD" checked="checked" />
 								<div
 									class="w-commerce-commercecheckoutshippingmethoddescriptionblock">
 									<div class="checkout-option-text">信用卡</div>
 								</div></label>
 						</div>
-						<!-- 會員已儲存的信用卡：選「信用卡」時顯示下拉選單（預設選會員設定的預設卡）；
-							 會員沒有信用卡時，整個「信用卡」選項會被隱藏（見頁面最下方的 script） -->
+						<!-- 付款方式只有信用卡，預設就選取。會員已儲存的信用卡：顯示下拉選單（預設選會員設定的預設卡）；
+							 會員沒有信用卡時改顯示提示，且不能送出訂單（見頁面最下方的 script） -->
 						<div
 							class="w-commerce-commercecheckoutblockcontent checkout-contents"
 							id="checkout-credit-card-info" style="display: none">
 							<label class="form_field-label" for="checkout-credit-card">選擇信用卡</label>
 							<select class="form-input" id="checkout-credit-card" disabled></select>
+							<div class="paragraph-18" id="checkout-no-card-hint" style="display: none">您還沒有儲存信用卡，請先<a href="../about/member/manage/?view=card">新增信用卡</a>後再結帳</div>
 						</div>
 					</fieldset>
 				</div>
@@ -1134,17 +1128,23 @@
 							});
 		})();
 	</script>
-	<!-- 付款方式接會員的信用卡：有信用卡才顯示「信用卡」選項，選了之後出現下拉選單，預設選會員設定的預設卡 -->
+	<!-- 付款方式只有信用卡：顯示下拉選單，預設選會員設定的預設卡；會員沒有信用卡（或查不到）時顯示提示，且不能送出訂單 -->
 	<script>
 		(function() {
 			var radio = document.querySelector('input[name="paymentMethod"][value="CREDIT_CARD"]');
-			var option = radio && radio.closest("label");
 			var info = document.getElementById("checkout-credit-card-info");
 			var select = document.getElementById("checkout-credit-card");
-			if (!radio || !option || !info || !select) return;
+			var hint = document.getElementById("checkout-no-card-hint");
+			var cardLabel = info && info.querySelector("label");
+			if (!radio || !info || !select || !hint || !cardLabel) return;
 
-			// 先隱藏，確認會員有信用卡才顯示；查詢失敗（例如登入逾時）也維持隱藏，只能選貨到付款
-			option.style.display = "none";
+			// 確認有信用卡之前先擋住送出（送出前的欄位檢查會呼叫 checkValidity）；查詢失敗（例如登入逾時）也維持擋住
+			radio.setCustomValidity("請先新增信用卡");
+			function showNoCard() {
+				cardLabel.style.display = "none";
+				select.style.display = "none";
+				hint.style.display = "";
+			}
 
 			// 只有選了「信用卡」才啟用下拉選單（選的卡片目前只是顯示，不會送出，也不會存進訂單）
 			function syncSelect() { select.disabled = !radio.checked; }
@@ -1156,7 +1156,7 @@
 			fetch(contextPath + "/api/members/me/credit-cards", { cache: "no-store", credentials: "same-origin" })
 				.then(function(res) { return res.ok ? res.json() : []; })
 				.then(function(cards) {
-					if (!Array.isArray(cards) || cards.length === 0) return;
+					if (!Array.isArray(cards) || cards.length === 0) { showNoCard(); return; }
 					var defaultId = null;
 					cards.forEach(function(card) {
 						var item = document.createElement("option");
@@ -1168,10 +1168,10 @@
 						if (Number(card.defaultValue) === 1 && defaultId === null) defaultId = item.value;
 					});
 					select.value = defaultId !== null ? defaultId : select.options[0].value;
-					option.style.display = "";
+					radio.setCustomValidity("");
 					syncSelect();
 				})
-				.catch(function() { /* 維持隱藏 */ });
+				.catch(function() { showNoCard(); });
 		})();
 	</script>
 	<!-- 收件者同會員：勾選後向伺服器取得會員的預設收件資料並填入欄位 -->

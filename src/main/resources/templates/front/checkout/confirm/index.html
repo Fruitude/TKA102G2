@@ -16,9 +16,23 @@
 <div class="checkout-form confirm-page">
   <div class="confirm-container">
 
-    <div class="checkout-header">
+    <div class="checkout-header confirm-top-header">
       <h1 class="heading-h3">結帳</h1>
-      <a class="secondary-button w-button" href="../">返回購物車</a>
+      <!-- 總付款金額與確認付款放在最上面的「結帳」區塊，捲動時也一直看得到 -->
+      <div class="confirm-top-actions">
+        <div id="confirm-bottom-bar" class="confirm-bottom-bar" style="display:none">
+          <div>
+            <div class="confirm-bottom-bar-total-label paragraph-18">總付款金額</div>
+            <div class="confirm-bottom-bar-total-value heading-h4" id="confirm-bottom-total"></div>
+          </div>
+          <button class="primary-button buy-button" id="confirm-pay-button" type="button"
+                  th:data-place-order-url="@{/front/checkout/place-order}"
+                  th:data-free-shipping-url="@{/front/checkout/free-shipping}"
+                  th:data-product-discount-url="@{/front/checkout/product-discount}"
+                  th:data-credit-balance-url="@{/front/checkout/credit-balance}">確認付款</button>
+        </div>
+        <a class="secondary-button w-button" href="../">返回購物車</a>
+      </div>
     </div>
 
     <div id="confirm-empty-state" class="confirm-empty-state" style="display:none">
@@ -31,13 +45,19 @@
       <a class="primary-button w-button" href="../../" style="margin-top:1.5rem; display:inline-flex;">回首頁</a>
     </div>
 
-    <div id="confirm-order-ui">
+    <div id="confirm-order-ui" class="confirm-grid">
+      <!-- 左欄：訂單商品（商品多時只在欄內捲動，不拉長整頁） -->
+      <div class="confirm-col">
       <div class="checkout-header confirm-block-header">
         <h2 class="heading-h4">訂單商品</h2>
       </div>
       <div class="checkout-contents">
         <div id="confirm-item-list"></div>
       </div>
+      </div>
+
+      <!-- 右欄：購物金折抵與付款詳情 -->
+      <div class="confirm-col">
 
       <div class="checkout-header confirm-block-header">
         <h2 class="heading-h4">購物金折抵</h2>
@@ -84,20 +104,9 @@
           <div class="w-commerce-commercecheckoutsummarytotal paragraph-18" id="confirm-total"></div>
         </div>
       </div>
+      </div>
     </div>
 
-  </div>
-
-  <div id="confirm-bottom-bar" class="confirm-bottom-bar" style="display:none">
-    <div>
-      <div class="confirm-bottom-bar-total-label paragraph-18">總付款金額</div>
-      <div class="confirm-bottom-bar-total-value heading-h4" id="confirm-bottom-total"></div>
-    </div>
-    <button class="primary-button buy-button" id="confirm-pay-button" type="button"
-            th:data-place-order-url="@{/front/checkout/place-order}"
-            th:data-free-shipping-url="@{/front/checkout/free-shipping}"
-            th:data-product-discount-url="@{/front/checkout/product-discount}"
-            th:data-credit-balance-url="@{/front/checkout/credit-balance}">確認付款</button>
   </div>
 </div>
 
