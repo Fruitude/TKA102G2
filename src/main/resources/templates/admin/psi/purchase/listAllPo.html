@@ -105,7 +105,7 @@
 									<tbody>
 										<tr th:each="poVO : ${poListData}">
 											<td>
-												<a th:href="@{/admin/psi/purchase/listOnePo(poId=${poVO.poId}, poStatus=${poStatus})}"
+												<a th:href="@{/admin/psi/purchase/listOnePo(poId=${poVO.poId})}"
 												class="btn btn-primary btn-sm mb-1">詳細</a>
 
 												<!-- 待審核（poStatus = 0）的採購單才顯示修改按鈕 -->
@@ -113,7 +113,6 @@
 													th:if="${poVO.editable}">
 													<br>
 													<input type="hidden" name="poId" th:value="${poVO.poId}">
-													<input type="hidden" name="poStatus" th:value="${poStatus}">
 													<button type="submit" class="btn btn-danger btn-sm">修改</button>
 												</form>
 											</td>

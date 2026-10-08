@@ -109,7 +109,7 @@ public class PoController {
 
 		// 新增完成，redirect 到 listOnePo 顯示該筆資料（避免重新整理時重複送出表單）
 		redirectAttributes.addFlashAttribute("success", "新增成功");
-		return redirectToListOnePo(poVO.getPoId(), null);
+		return redirectToListOnePo(poVO.getPoId());
 	}
 
 	// 依 PoVO、PoDetailVO 上的註解驗證，insert 與 update 共用
@@ -255,25 +255,20 @@ public class PoController {
 
 	// 新增、修改成功後 redirect 過來，依 poId 顯示單筆資料
 	@GetMapping("/listOnePo")
-	public String listOneVendor(@RequestParam("poId") Integer poId,
-			@RequestParam(value = "poStatus", required = false) Byte poStatus,
-			Model model) {
+	public String listOneVendor(@RequestParam("poId") Integer poId, Model model) {
 		PoVO poVO = poSvc.getOnePo(poId);
 
 		// 資料已被刪除時回到列表
 		if (poVO == null) {
 			return "redirect:/admin/psi/purchase/listAllPo";
 		}
-		model.addAttribute("poStatus", poStatus);
 		model.addAttribute("poVO", poVO);
 
 		return "admin/psi/purchase/listOnePo"; //view
 	}
 
 	@PostMapping("/getOne_For_Update")
-	public String getOne_For_Update(@RequestParam("poId") Integer poId,
-			@RequestParam(value = "poStatus", required = false) Byte poStatus,
-			Model model) {
+	public String getOne_For_Update(@RequestParam("poId") Integer poId, Model model) {
 		PoVO poVO = poSvc.getOnePo(poId);
 
 		// 資料已被刪除時回到列表
@@ -283,11 +278,9 @@ public class PoController {
 
 		// 不是待審核的採購單不進修改頁，改顯示單筆資料
 		if (!poVO.isEditable()) {
-			return redirectToListOnePo(poId, poStatus);
+			return redirectToListOnePo(poId);
 		}
 
-		// poStatus 是列表的篩選條件，一路帶著，修改完回列表時才能維持原本的篩選
-		model.addAttribute("poStatus", poStatus);
 		model.addAttribute("poVO", poVO);
 		// 明細的商品規格下拉選單：這張單的供應商底下、未永久停產的規格
 		model.addAttribute("skuListData", productSkuSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
@@ -297,18 +290,15 @@ public class PoController {
 
 	// 修改採購明細（可修改、新增、刪除明細）：流程比照 insert，錯誤記在 BindingResult，由 updatePo.html 顯示在對應欄位下方
 	// 參數不加 @Valid：表單只送明細的規格、數量、單價，其餘欄位要先從資料庫補回來再驗，否則會被誤判成空白
-	// 這裡的 poStatus 是列表的篩選條件，不是要存入的採購單狀態；它和 PoVO 的 poStatus 同名，會一併綁進 poVO，
-	// 但 prepareUpdatePo 會以資料庫的狀態蓋回去，updatePoWithDetails 也不會寫入狀態
 	@PostMapping("/update")
 	public String update(@ModelAttribute("poVO") PoVO poVO, BindingResult result, Model model,
-			@RequestParam(value = "poStatus", required = false) Byte poStatus,
 			RedirectAttributes redirectAttributes) {
 
 		// 1. 從資料庫補回表單沒送的欄位；採購單不存在、不是待審核時不是欄位填錯，回單筆頁顯示原因
 		try {
 			poSvc.prepareUpdatePo(poVO);
 		} catch (IllegalArgumentException e) {
-			return redirectWithError(poVO.getPoId(), poStatus, e.getMessage(), redirectAttributes);
+			return redirectWithError(poVO.getPoId(), e.getMessage(), redirectAttributes);
 		}
 
 		// 2. 依 PoVO、PoDetailVO 上的註解驗證（poDetails 有 @Valid，會逐筆驗明細）
@@ -318,7 +308,6 @@ public class PoController {
 		checkUpdatePo(poVO, result);
 
 		if (result.hasErrors()) {
-			model.addAttribute("poStatus", poStatus);
 			model.addAttribute("skuListData", productSkuSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
 			return "admin/psi/purchase/updatePo";
 		}
@@ -327,15 +316,15 @@ public class PoController {
 		try {
 			poSvc.updatePoWithDetails(poVO);
 		} catch (IllegalArgumentException e) {
-			return redirectWithError(poVO.getPoId(), poStatus, e.getMessage(), redirectAttributes);
+			return redirectWithError(poVO.getPoId(), e.getMessage(), redirectAttributes);
 		} catch (DataIntegrityViolationException e) {
 			// 資料庫的限制擋下這次修改（例如別人同時改了同一張單）；整筆已回滾，回單筆頁顯示而不是出現錯誤頁
-			return redirectWithError(poVO.getPoId(), poStatus, "資料庫拒絕這次修改，請重新進入修改頁再試一次",
+			return redirectWithError(poVO.getPoId(), "資料庫拒絕這次修改，請重新進入修改頁再試一次",
 					redirectAttributes);
 		}
 
 		redirectAttributes.addFlashAttribute("success", "修改成功");
-		return redirectToListOnePo(poVO.getPoId(), poStatus);
+		return redirectToListOnePo(poVO.getPoId());
 	}
 
 	// 修改採購明細時註解管不到的檢查，錯誤以 rejectValue 記在對應欄位
@@ -410,19 +399,17 @@ public class PoController {
 	}
 
 	// 帶著錯誤訊息回單筆頁；連採購單編號都沒有時回列表
-	private String redirectWithError(Integer poId, Byte poStatus, String errorMessage,
-			RedirectAttributes redirectAttributes) {
+	private String redirectWithError(Integer poId, String errorMessage, RedirectAttributes redirectAttributes) {
 		redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
 		if (poId == null) {
 			return "redirect:/admin/psi/purchase/listAllPo";
 		}
-		return redirectToListOnePo(poId, poStatus);
+		return redirectToListOnePo(poId);
 	}
 
-	// 回單筆頁的網址；poStatus（列表的篩選條件）有值才帶
-	private String redirectToListOnePo(Integer poId, Byte poStatus) {
-		String url = "redirect:/admin/psi/purchase/listOnePo?poId=" + poId;
-		return poStatus == null ? url : url + "&poStatus=" + poStatus;
+	// 回單筆頁的網址
+	private String redirectToListOnePo(Integer poId) {
+		return "redirect:/admin/psi/purchase/listOnePo?poId=" + poId;
 	}
 	
 	@InitBinder

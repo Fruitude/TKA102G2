@@ -89,7 +89,6 @@
 							<form method="post" th:action="@{/admin/psi/purchase/getOne_For_Update}" class="m-0"
 								th:if="${poVO.editable}">
 								<input type="hidden" name="poId" th:value="${poVO.poId}">
-								<input type="hidden" name="poStatus" th:value="${poStatus}">
 								<button type="submit" class="btn btn-primary btn-sm">更新</button>
 							</form>
 						</div>

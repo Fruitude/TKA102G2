@@ -85,9 +85,9 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
-					<a th:href="@{/admin/psi/purchase/listAllPo(poStatus=${poStatus})}" class="btn btn-secondary btn-icon-split mb-3">
+					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3">
 						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> 
-						<span class="text">回採購單列表</span></a>
+						<span class="text">回採購單管理</span></a>
 
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
@@ -96,14 +96,12 @@
 						<div class="card-body">
 							<p class="text-muted"><span class="text-danger">*</span> 為必填欄位</p>
 
-							<!-- poVO、poStatus、skuListData 由 PoController 的 getOne_For_Update 放入 model；檢查失敗時由 update 放入 -->
+							<!-- poVO、skuListData 由 PoController 的 getOne_For_Update 放入 model；檢查失敗時由 update 放入 -->
 							<!-- 頁面不做驗證（novalidate），檢查都在 PoController 的 update；錯誤以 th:errors 顯示在對應欄位下方 -->
 							<form class="update_form" th:action="@{/admin/psi/purchase/update}" method="post"
 								th:object="${poVO}" novalidate>
 
 								<input type="hidden" th:field="*{poId}" />
-								<!-- 列表的篩選條件（model 的 poStatus，不是這張單的狀態），送出後帶回單筆頁與列表 -->
-								<input type="hidden" name="poStatus" th:value="${poStatus}" />
 
 								<div class="form-group">
 									<label for="poNo">採購單編號</label>
