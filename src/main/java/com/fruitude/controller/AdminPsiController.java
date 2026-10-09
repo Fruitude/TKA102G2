@@ -18,13 +18,8 @@ public class AdminPsiController {
 	    return "admin/psi/vendor/index";
 	}
 	
-	@GetMapping("/purchase")
-	public String purchase(Model model) {
-		System.out.println("執行purchase導向");
-		
-		return "admin/psi/purchase/index"; //view
-	}
-	
+	// 採購單首頁（/admin/psi/purchase）改由 PoController 的 purchase 處理
+
 	@GetMapping("/shipping")
 	public String shipping(Model model) {
 		System.out.println("執行shipping導向");
@@ -32,13 +27,8 @@ public class AdminPsiController {
 		return "admin/psi/shipping/index"; //view
 	}
 	
-	@GetMapping("/receiving")
-	public String receiving(Model model) {
-		System.out.println("執行receiving導向");
-		
-		return "admin/psi/receiving/index"; //view
-	}
-	
+	// 進貨系統首頁（/admin/psi/receiving）改由 ReceivingController 的 receiving 處理
+
 	@GetMapping("/stock")
 	public String stock(Model model) {
 		System.out.println("執行stock導向");

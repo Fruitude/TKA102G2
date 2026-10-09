@@ -2,7 +2,7 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>採購單資料</title>
+<title>進貨驗收</title>
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
@@ -27,20 +27,19 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
-					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3"> 
+					<a th:href="@{/admin/psi/receiving}" class="btn btn-secondary btn-icon-split mb-3"> 
 						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> 
-						<span class="text">回採購單管理</span>
+						<span class="text">回進貨系統管理</span>
 					</a>
 
-					<!-- 新增、修改成功的提示（PoController 的 insert、update） -->
+					<!-- 驗收完成、驗收失敗的提示：由 ReceivingController 的 update redirect 回來時顯示 -->
 					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
-					<!-- 修改失敗的提示（PoController 的 update） -->
 					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
 
-					<!-- 採購單單筆資料：poVO 由 PoController 的 listOnePo 放入 model -->
+					<!-- 採購單與驗收資料：poVO 由 ReceivingController 的 listOneReceiving 放入 model，一定是申請通過的採購單 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
-							<h6 class="m-0 font-weight-bold text-primary">採購單資料</h6>
+							<h6 class="m-0 font-weight-bold text-primary">進貨驗收</h6>
 						</div>
 						<div class="card-body">
 							<div class="table-responsive">
@@ -63,17 +62,29 @@
 											<td th:text="${{poVO.orderDate}}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">採購單狀態</th>
-											<td th:switch="${poVO.poStatus}">
-												<span th:case="0">待審核</span>
-												<span th:case="1">申請通過</span>
-												<span th:case="2">申請未通過</span>
-												<span th:case="3">已取消</span>
+											<th class="bg-light">總金額</th>
+											<td th:text="${poVO.totalAmount}"></td>
+										</tr>
+										<!-- 以下四列是驗收的結果，尚未驗收時驗收員工、驗收日期是空的 -->
+										<tr>
+											<th class="bg-light">驗收狀態</th>
+											<td th:switch="${poVO.inboundStatus}">
+												<span th:case="0">尚未驗收</span>
+												<span th:case="1">驗收成功</span>
+												<span th:case="2">驗收失敗</span>
 											</td>
 										</tr>
 										<tr>
-											<th class="bg-light">總金額</th>
-											<td th:text="${poVO.totalAmount}"></td>
+											<th class="bg-light">驗收員工</th>
+											<td th:text="${poVO.inboundEmployeeId != null ? poVO.inboundEmployeeId.employeeId + ' - ' + poVO.inboundEmployeeId.employeeName : ''}"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">驗收日期</th>
+											<td th:text="${{poVO.inboundDate}}"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">驗收實付金額</th>
+											<td th:text="${poVO.inboundAmount}"></td>
 										</tr>
 									</tbody>
 								</table>
@@ -85,11 +96,11 @@
 					<div class="card shadow mb-4">
 						<div class="card-header py-3 d-flex justify-content-between align-items-center">
 							<h6 class="m-0 font-weight-bold text-primary">採購明細</h6>
-							<!-- 待審核（poStatus = 0）的採購單才顯示更新按鈕 -->
-							<form method="post" th:action="@{/admin/psi/purchase/getOne_For_Update}" class="m-0"
-								th:if="${poVO.editable}">
+							<!-- 申請通過且尚未驗收的採購單才顯示驗收按鈕（PoVO 的 isReceivable），進入 ReceivingController 的 getOneForUpdate 顯示驗收頁 -->
+							<form method="post" th:action="@{/admin/psi/receiving/getOneForUpdate}" class="m-0"
+								th:if="${poVO.receivable}">
 								<input type="hidden" name="poId" th:value="${poVO.poId}">
-								<button type="submit" class="btn btn-primary btn-sm">更新</button>
+								<button type="submit" class="btn btn-primary btn-sm">驗收</button>
 							</form>
 						</div>
 						<div class="card-body">
@@ -103,11 +114,15 @@
 											<th>採購數量</th>
 											<th>進貨單價</th>
 											<th>小計</th>
+											<th>到貨數量</th>
+											<th>不良品數量</th>
+											<th>入庫數量</th>
+											<th>入庫小計</th>
 										</tr>
 									</thead>
 									<tbody>
 										<tr th:if="${#lists.isEmpty(poVO.poDetails)}">
-											<td colspan="6" class="text-center">此採購單尚無明細</td>
+											<td colspan="10" class="text-center">此採購單尚無明細</td>
 										</tr>
 										<tr th:each="poDetailVO : ${poVO.poDetails}">
 											<td th:text="${poDetailVO.poDetailId}"></td>
@@ -116,6 +131,10 @@
 											<td th:text="${poDetailVO.quantity}"></td>
 											<td th:text="${poDetailVO.unitPrice}"></td>
 											<td th:text="${poDetailVO.subtotal}"></td>
+											<td th:text="${poDetailVO.arrivedPcs}"></td>
+											<td th:text="${poDetailVO.defectPcs}"></td>
+											<td th:text="${poDetailVO.inboundPcs}"></td>
+											<td th:text="${poDetailVO.inboundSubtotal}"></td>
 										</tr>
 									</tbody>
 								</table>

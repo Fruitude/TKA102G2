@@ -2,19 +2,19 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>Receiving System</title>
+<title>Purchase Review</title>
 
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
 <!-- DataTables 樣式 -->
 <link th:href="@{/vendor/datatables/dataTables.bootstrap4.min.css}" rel="stylesheet">
 <style>
-#receiving_list_all th, #receiving_list_all td {
+#po_review_list_all th, #po_review_list_all td {
 	white-space: nowrap; /* 不換行 */
 	vertical-align: middle; /* 內容上下置中 */
 }
 
-#receiving_list_all {
+#po_review_list_all {
 	font-size: 0.9rem;
 }
 </style>
@@ -39,15 +39,15 @@
                 <!-- 這裡放頁面自己的內容 -->
                 <div class="container-fluid">
 
-					<!-- 申請通過（poStatus = 1）且尚未驗收（inboundStatus = 0）的採購單：poListData 由 ReceivingController 的 receiving 放入 model -->
-					<!-- 表格比照 purchase/listAllPo.html；清單裡都是申請通過、尚未驗收的單，所以不列採購單狀態與驗收相關的欄位 -->
+					<!-- 待審核（poStatus = 0）的採購單：poListData 由 PoReviewController 的 purchasereview 放入 model -->
+					<!-- 表格比照 psi/receiving/index.html；清單裡都是待審核的單，所以不列採購單狀態，驗收相關的欄位此時也還沒有資料 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
-							<h6 class="m-0 font-weight-bold text-primary">待驗收採購單</h6>
+							<h6 class="m-0 font-weight-bold text-primary">待審核採購單</h6>
 						</div>
 						<div class="card-body">
 							<div class="table-responsive">
-								<table class="table table-bordered" id="receiving_list_all" width="100%" cellspacing="0">
+								<table class="table table-bordered" id="po_review_list_all" width="100%" cellspacing="0">
 									<thead>
 										<tr>
 											<th>操作</th>
@@ -71,8 +71,8 @@
 									<tbody>
 										<tr th:each="poVO : ${poListData}">
 											<td>
-												<!-- 連到 ReceivingController 的 listOneReceiving，以 listOneReceiving.html 顯示單筆資料 -->
-												<a th:href="@{/admin/psi/receiving/listOneReceiving(poId=${poVO.poId})}"
+												<!-- 連到 PoReviewController 的 updatePurchaseReview，以 updatePurchaseReview.html 顯示審核頁 -->
+												<a th:href="@{/admin/account/purchasereview/updatePurchaseReview(poId=${poVO.poId})}"
 													class="btn btn-primary btn-sm">詳細</a>
 											</td>
 											<td th:text="${poVO.poNo}" style="text-align: center"></td>
@@ -109,7 +109,7 @@
 	<script th:src="@{/vendor/datatables/dataTables.bootstrap4.min.js}"></script>
 	<script>
 		$(document).ready(function() {
-			var table = $('#receiving_list_all').DataTable({
+			var table = $('#po_review_list_all').DataTable({
 				searching : true, // 顯示右上角的搜尋欄位
 				lengthMenu : [ 5, 10, 25, 50, 100 ], // 每頁顯示筆數的選項
 				pageLength : 5, // 預設每頁顯示筆數
@@ -118,7 +118,8 @@
 					searchable : false,
 					targets : [ 0 ] // 操作欄不可排序、不列入搜尋
 				} ],
-				order : [ [ 1, 'asc' ] ], // 預設依採購單編號排序
+				// 預設依採購單編號由小到大：編號是日期加流水號，最早送出的排最上面，先送的先審
+				order : [ [ 1, 'asc' ] ],
 				language : {
 					lengthMenu : "每頁顯示 _MENU_ 筆", // 左上角的筆數選單
 					search : "搜尋：", // 右上角的搜尋欄位
@@ -134,11 +135,11 @@
 				}
 			});
 
-			var searchInput = $('#receiving_list_all_filter input');
+			var searchInput = $('#po_review_list_all_filter input');
 			var searchButton = $('<button type="button" class="btn btn-primary btn-sm ml-2">搜尋</button>');
 
 			searchInput.off('.DT'); // 移除 DataTables 內建的即時搜尋
-			$('#receiving_list_all_filter').append(searchButton); // 把按鈕放在搜尋欄位後面
+			$('#po_review_list_all_filter').append(searchButton); // 把按鈕放在搜尋欄位後面
 
 			searchButton.on('click', function() {
 			    table.search(searchInput.val()).draw();

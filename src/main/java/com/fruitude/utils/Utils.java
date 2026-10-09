@@ -56,7 +56,7 @@ public class Utils {
 	
 	public enum Vendorstatus{
 		
-		UNACTIVE(0,"尚未啟用"),
+		INACTIVE(0,"尚未啟用"),
 		ACTIVE(1,"已啟用"),
 		STOP(2,"已停用");
 		

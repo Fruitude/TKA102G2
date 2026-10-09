@@ -2,7 +2,7 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>採購單資料</title>
+<title>採購單審核</title>
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
@@ -27,17 +27,13 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
-					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3"> 
-						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> 
-						<span class="text">回採購單管理</span>
+					<a th:href="@{/admin/account/purchasereview}" class="btn btn-secondary btn-icon-split mb-3">
+						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
+						<span class="text">回採購單審核</span>
 					</a>
 
-					<!-- 新增、修改成功的提示（PoController 的 insert、update） -->
-					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
-					<!-- 修改失敗的提示（PoController 的 update） -->
-					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
-
-					<!-- 採購單單筆資料：poVO 由 PoController 的 listOnePo 放入 model -->
+					<!-- 採購單資料：poVO 由 PoReviewController 的 updatePurchaseReview 放入 model，一定是待審核的採購單 -->
+					<!-- 這頁只顯示不能編輯，審核的人只決定通過、不通過或取消 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
 							<h6 class="m-0 font-weight-bold text-primary">採購單資料</h6>
@@ -63,38 +59,17 @@
 											<td th:text="${{poVO.orderDate}}"></td>
 										</tr>
 										<tr>
-											<th class="bg-light">採購單狀態</th>
-											<td th:switch="${poVO.poStatus}">
-												<span th:case="0">待審核</span>
-												<span th:case="1">申請通過</span>
-												<span th:case="2">申請未通過</span>
-												<span th:case="3">已取消</span>
-											</td>
-										</tr>
-										<tr>
 											<th class="bg-light">總金額</th>
 											<td th:text="${poVO.totalAmount}"></td>
 										</tr>
 									</tbody>
 								</table>
 							</div>
-						</div>
-					</div>
 
-					<!-- 採購明細：poVO.poDetails 由 PoVO 的 @OneToMany 帶出 -->
-					<div class="card shadow mb-4">
-						<div class="card-header py-3 d-flex justify-content-between align-items-center">
-							<h6 class="m-0 font-weight-bold text-primary">採購明細</h6>
-							<!-- 待審核（poStatus = 0）的採購單才顯示更新按鈕 -->
-							<form method="post" th:action="@{/admin/psi/purchase/getOne_For_Update}" class="m-0"
-								th:if="${poVO.editable}">
-								<input type="hidden" name="poId" th:value="${poVO.poId}">
-								<button type="submit" class="btn btn-primary btn-sm">更新</button>
-							</form>
-						</div>
-						<div class="card-body">
+							<!-- 採購明細：和採購單資料放在同一個區塊；poVO.poDetails 由 PoVO 的 @OneToMany 帶出 -->
+							<h6 class="font-weight-bold text-primary mt-4 mb-3">採購明細</h6>
 							<div class="table-responsive">
-								<table class="table table-bordered" width="100%" cellspacing="0">
+								<table class="table table-bordered mb-0" width="100%" cellspacing="0">
 									<thead>
 										<tr>
 											<th>明細編號</th>
@@ -120,6 +95,18 @@
 									</tbody>
 								</table>
 							</div>
+						</div>
+					</div>
+
+					<!-- 審核：獨立的區塊；三個按鈕先保留，還沒有接任何動作 -->
+					<div class="card shadow mb-4">
+						<div class="card-header py-3">
+							<h6 class="m-0 font-weight-bold text-primary">審核結果</h6>
+						</div>
+						<div class="card-body">
+							<button type="button" class="btn btn-success mr-2">通過</button>
+							<button type="button" class="btn btn-danger mr-2">不通過</button>
+							<button type="button" class="btn btn-secondary">取消採購</button>
 						</div>
 					</div>
 

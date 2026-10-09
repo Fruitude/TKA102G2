@@ -17,7 +17,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.Validator;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -25,6 +27,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.fruitude.employee.model.Employee;
@@ -56,13 +60,41 @@ public class PoController {
 	@Qualifier("mvcValidator")
 	Validator validator;
 
+	// 這支 controller 的每個請求都會先執行，把低於安全庫存的規格放進 model，回首頁時顯示待採購商品
+	// key 是供應商編號、value 是該供應商的規格清單
+	@ModelAttribute("belowSafetyStockByVendor")
+	public Map<Integer, List<ProductSku>> belowSafetyStockByVendor() {
+		return poSvc.getBelowSafetyStockByVendor();
+	}
+
+	// 待採購商品的「待審核數量」欄：key 是規格編號、value 是待審核採購單裡的採購數量加總
+	@ModelAttribute("pendingQuantityBySkuId")
+	public Map<Integer, Long> pendingQuantityBySkuId() {
+		return poSvc.getPendingQuantityBySkuId();
+	}
+
+	// 採購單首頁：待採購商品由上方的 belowSafetyStockByVendor 放入 model
+	@GetMapping("")
+	public String purchase() {
+		return "admin/psi/purchase/index"; //view
+	}
+
 	// 新增採購單頁面：由 purchase/index 的「新增採購單」連過來
+	// 從待採購商品的供應商區塊連過來時會帶 vendorId，只先選好供應商，明細仍是空白的
 	@GetMapping("/addPo")
-	public String addPo(Model model, HttpSession session) {
+	public String addPo(Model model, HttpSession session,
+			@RequestParam(value = "vendorId", required = false) Integer vendorId) {
 		PoVO poVO = new PoVO();
 		poVO.setPoEmployeeId(getLoggedInEmployee(session)); // 採購員工固定為登入的員工，頁面只顯示姓名
+		if (vendorId != null) {
+			// 供應商不存在或未啟用時不預選，頁面維持「請選擇供應商」
+			VendorVO vendorVO = vendorSvc.getOneVendor(vendorId);
+			if (vendorVO != null && Byte.valueOf((byte) 1).equals(vendorVO.getIsActive())) {
+				poVO.setVendor(vendorVO);
+			}
+		}
 		model.addAttribute("poVO", poVO);
-		// 明細的商品規格不在這裡給，頁面選了供應商後再向 skuOptions 查
+		// 有預選供應商時 addFormData 會先給該供應商的商品規格；沒有預選時頁面選了供應商後再向 skuOptions 查
 		addFormData(model, poVO);
 
 		return "admin/psi/purchase/addPo"; //view
@@ -101,8 +133,12 @@ public class PoController {
 		try {
 			poSvc.addPo(poVO);
 		} catch (DataIntegrityViolationException e) {
-			// 兩人同時新增時可能產生相同的採購單編號，被資料庫的唯一限制擋下
-			model.addAttribute("errorMessage", "採購單編號重複，請再送出一次");
+			// 兩人同時新增時可能產生相同的採購單編號，被資料庫的唯一限制擋下；再送出一次會重新產生編號
+			// 其他限制也會丟同一種例外，所以存檔失敗後再查一次編號，確定已經存在才說是編號重複
+			String errorMessage = poSvc.existsByPoNo(poVO.getPoNo())
+					? "採購單編號重複，請再送出一次"
+					: "資料庫拒絕這次新增，請確認內容後再送出一次";
+			model.addAttribute("errorMessage", errorMessage);
 			addFormData(model, poVO);
 			return "admin/psi/purchase/addPo";
 		}
@@ -227,7 +263,7 @@ public class PoController {
 	@ResponseBody
 	public List<Map<String, Object>> skuOptions(@RequestParam("vendorId") Integer vendorId) {
 		List<Map<String, Object>> skuOptions = new ArrayList<>();
-		for (ProductSku productSku : productSkuSvc.getPurchasableByVendorId(vendorId)) {
+		for (ProductSku productSku : poSvc.getPurchasableByVendorId(vendorId)) {
 			Map<String, Object> skuOption = new LinkedHashMap<>();
 			skuOption.put("skuId", productSku.getSkuId());
 			skuOption.put("displayName", productSku.getDisplayName());
@@ -237,7 +273,7 @@ public class PoController {
 	}
 
 	@RequestMapping("/listAllPo")
-	public String listAllVendor(Model model,
+	public String listAllPo(Model model,
 	        @RequestParam(value = "poStatus", required = false) Byte poStatus) {
 
 	    List<PoVO> pos = (poStatus == null)
@@ -255,7 +291,7 @@ public class PoController {
 
 	// 新增、修改成功後 redirect 過來，依 poId 顯示單筆資料
 	@GetMapping("/listOnePo")
-	public String listOneVendor(@RequestParam("poId") Integer poId, Model model) {
+	public String listOnePo(@RequestParam("poId") Integer poId, Model model) {
 		PoVO poVO = poSvc.getOnePo(poId);
 
 		// 資料已被刪除時回到列表
@@ -283,7 +319,7 @@ public class PoController {
 
 		model.addAttribute("poVO", poVO);
 		// 明細的商品規格下拉選單：這張單的供應商底下、未永久停產的規格
-		model.addAttribute("skuListData", productSkuSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
+		model.addAttribute("skuListData", poSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
 
 		return "admin/psi/purchase/updatePo"; //view
 	}
@@ -308,7 +344,7 @@ public class PoController {
 		checkUpdatePo(poVO, result);
 
 		if (result.hasErrors()) {
-			model.addAttribute("skuListData", productSkuSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
+			model.addAttribute("skuListData", poSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
 			return "admin/psi/purchase/updatePo";
 		}
 
@@ -416,6 +452,17 @@ public class PoController {
 	public void initBinder(WebDataBinder binder) {
 	    // true 代表：空字串或只有空白的字串，轉成 null
 	    binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
+	}
+
+	// 網址參數的型別不符（例如 poId=abc）或缺少必要的參數時，回首頁顯示訊息，不出現預設的錯誤頁
+	// 只處理這支 controller 的方法丟出的例外；例外處理不會經過 @ModelAttribute，待採購商品的資料要自己再放一次
+	@ExceptionHandler({ MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class })
+	public ModelAndView handleError(Exception e) {
+		ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
+		mav.addObject("errorMessage", "網址的參數不正確，請從採購單管理重新操作");
+		mav.addObject("belowSafetyStockByVendor", poSvc.getBelowSafetyStockByVendor());
+		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
+		return mav;
 	}
 
 }
