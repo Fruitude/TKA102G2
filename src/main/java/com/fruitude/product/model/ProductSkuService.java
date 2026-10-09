@@ -38,6 +38,24 @@ public class ProductSkuService {
         products.saveAndFlush(product);
     }
 
+    public record StatusResult(Integer productId, Byte productStatus, java.util.Map<Integer, Byte> skuStatuses) {}
+
+    @org.springframework.transaction.annotation.Transactional
+    public StatusResult updateStatus(Integer skuId, Byte status) {
+        ProductSku reference = repository.findById(skuId).orElseThrow(() -> new java.util.NoSuchElementException("規格不存在"));
+        Product product = products.lockForStatus(reference.getProduct().getProductId())
+            .orElseThrow(() -> new java.util.NoSuchElementException("商品不存在"));
+        ProductSku sku = product.getProductSkus().stream().filter(s -> s.getSkuId().equals(skuId))
+            .findFirst().orElseThrow(() -> new java.util.NoSuchElementException("規格不存在"));
+        lifecycle.validateSkuChange(sku.getStatus(), status);
+        sku.setStatus(status); sku.setUpdatedAt(java.time.LocalDateTime.now());
+        lifecycle.synchronize(product);
+        products.saveAndFlush(product);
+        var states = new java.util.LinkedHashMap<Integer, Byte>();
+        product.getProductSkus().forEach(s -> states.put(s.getSkuId(), s.getStatus()));
+        return new StatusResult(product.getProductId(), product.getStatus(), states);
+    }
+
     @org.springframework.transaction.annotation.Transactional
     public void deleteProductSku(Integer skuId) {
         ProductSku reference = repository.findById(skuId).orElse(null);

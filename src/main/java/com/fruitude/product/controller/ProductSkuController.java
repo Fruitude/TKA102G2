@@ -193,6 +193,20 @@ public class ProductSkuController {
         return "redirect:/productsku/listAllProductSku";
     }
 
+    @PostMapping("/updateStatus")
+    @org.springframework.web.bind.annotation.ResponseBody
+    public org.springframework.http.ResponseEntity<?> updateStatus(@RequestParam Integer skuId, @RequestParam Byte status) {
+        try {
+            return org.springframework.http.ResponseEntity.ok(productSkuSvc.updateStatus(skuId, status));
+        } catch (com.fruitude.product.model.ProductStatusAccessException e) {
+            return org.springframework.http.ResponseEntity.status(403).body(java.util.Map.of("message", e.getMessage()));
+        } catch (java.util.NoSuchElementException e) {
+            return org.springframework.http.ResponseEntity.status(404).body(java.util.Map.of("message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return org.springframework.http.ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
+
     // 刪除規格
     @PostMapping("/delete")
     public String delete(

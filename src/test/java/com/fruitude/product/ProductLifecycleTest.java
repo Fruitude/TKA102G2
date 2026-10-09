@@ -126,6 +126,17 @@ public class ProductLifecycleTest {
         form.setStatus((byte)2); service.updateProductSku(form); assertEquals(Byte.valueOf((byte)1),parent.getStatus());
         form.setStatus((byte)3); form.setStock(10); form.setOutboundQty(2); form.setInboundQty(1);
         service.updateProductSku(form); assertEquals(Byte.valueOf((byte)1),parent.getStatus());
-        form.setStatus((byte)5); service.updateProductSku(form); assertEquals(Byte.valueOf((byte)0),parent.getStatus());
+        form.setStatus((byte)5);
+        try { service.updateProductSku(form); fail(); } catch (IllegalArgumentException expected) {}
+        assertEquals(Byte.valueOf((byte)1),parent.getStatus());
+        form.setStatus((byte)0); service.updateProductSku(form); assertEquals(Byte.valueOf((byte)0),parent.getStatus());
+    }
+    @Test public void preparedStateCanBeCreatedOrKeptButNeverReenteredEvenByAdmin() {
+        var lifecycle=new ProductLifecycleService(access(true));
+        lifecycle.validateSkuChange(null,(byte)5); lifecycle.validateSkuChange((byte)5,(byte)5);
+        lifecycle.validateSkuChange((byte)5,(byte)1);
+        for (byte previous=0;previous<=4;previous++) {
+            try { lifecycle.validateSkuChange(previous,(byte)5); fail(); } catch (IllegalArgumentException expected) {}
+        }
     }
 }

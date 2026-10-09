@@ -160,6 +160,27 @@ public class ProductSku implements java.io.Serializable {
         return stock + inboundQty - outboundQty;
     }
     
+    public List<String> getStockStatuses() {
+        long current = stock == null ? 0L : stock.longValue();
+        long safety = safetyStock == null ? 0L : safetyStock.longValue();
+        long incoming = inboundQty == null ? 0L : inboundQty.longValue();
+        long outgoing = outboundQty == null ? 0L : outboundQty.longValue();
+        var alerts = new ArrayList<String>();
+        if (current + incoming - outgoing < safety) alerts.add("低於安全庫存");
+        if (safety == 0 && current < 10) alerts.add("庫存低於10");
+        if (current > 100) alerts.add("庫存高於100");
+        if (incoming > 100) alerts.add("待進貨超過100");
+        else if (incoming > 50) alerts.add("待進貨超過50");
+        if (outgoing > 100) alerts.add("待出貨超過100");
+        else if (outgoing > 50) alerts.add("待出貨超過50");
+        if (safety == 0) alerts.add("未設安全庫存");
+        return alerts.isEmpty() ? List.of("正常") : List.copyOf(alerts);
+    }
+
+    public boolean isStockAbnormal() {
+        return !getStockStatuses().equals(List.of("正常"));
+    }
+
     public boolean isBelowSafetyStock() {
 
         int safetyStock = this.safetyStock == null ? 0 : this.safetyStock;
