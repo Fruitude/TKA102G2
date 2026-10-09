@@ -24,3 +24,5 @@
 .home-promos-more { margin-left: .75rem; font-size: .875rem; font-weight: 400; text-decoration: underline; }
 .home-promo-name a, .home-perk-name a { color: inherit; text-decoration: none; }
 .home-promo-name a:hover, .home-perk-name a:hover { text-decoration: underline; }
+.home-perk-badge.is-used { background: #8c9a90; }
+.home-perk.is-used { opacity: .8; }

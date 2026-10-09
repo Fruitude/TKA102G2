@@ -18,6 +18,10 @@ public class CheckoutForm implements Serializable{
     private String invoiceCarrier;
     private String orderNote;
 
+    // 結帳頁勾選「使用壽星優惠」（每年限用一次）。表單的 checkbox 只有勾選時才會送出 true，沒勾就保持 false。
+    // 這裡只是會員的意願，有沒有資格、有沒有真的套用，下單時由伺服器重新判斷
+    private boolean useBirthday;
+
     // 結帳頁送出時，由 JS 把購物車勾選的商品塞進這個隱藏欄位（JSON 字串），
     // name="cartItemsJson"，跟其他欄位一樣由 @ModelAttribute 自動繫結
     private String cartItemsJson;
@@ -71,6 +75,14 @@ public class CheckoutForm implements Serializable{
 	public void setInvoiceCarrier(String invoiceCarrier) {
 		this.invoiceCarrier = invoiceCarrier;
 	}
+	public boolean isUseBirthday() {
+		return useBirthday;
+	}
+
+	public void setUseBirthday(boolean useBirthday) {
+		this.useBirthday = useBirthday;
+	}
+
 	public String getOrderNote() {
 		return orderNote;
 	}

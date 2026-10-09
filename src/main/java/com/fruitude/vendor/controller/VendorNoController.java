@@ -144,12 +144,6 @@ public class VendorNoController {
 		return "admin/psi/vendor/listAllVendor";
 	}
 
-	@GetMapping("/addVendor")
-	public String addVendor(Model model) {
-		model.addAttribute("vendorVO", new VendorVO());
-
-		return "admin/psi/vendor/addVendor"; // view
-	}
 
 	@ExceptionHandler({ HandlerMethodValidationException.class, ConstraintViolationException.class,
 			MethodArgumentTypeMismatchException.class })

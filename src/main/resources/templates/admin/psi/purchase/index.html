@@ -43,7 +43,7 @@
 							
 							<h6 class="m-0 font-weight-bold text-primary">條件查詢</h6>
 
-							 <a th:href="@{/admin/psi/po/addPo}"
+							 <a th:href="@{/admin/psi/purchase/addPo}"
 								class="btn btn-success btn-icon-split"> <span
 								class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
 								class="text">新增採購單</span>
@@ -52,29 +52,31 @@
 						</div>
 						<div class="card-body">
 						
-							<form th:action="@{/admin/psi/po/listAllPo}" method="post" class="form-inline mb-3">
-					            <label for="inboundStatus" class="mr-3" style="width: 120px;">採購單狀態</label>
-					            <select id="inboundStatus" name="inboundStatus" class="custom-select mr-2">
+							<form th:action="@{/admin/psi/purchase/listAllPo}" method="post" class="form-inline mb-3">
+					            <label for="poStatus" class="mr-3" style="width: 120px;">採購單狀態</label>
+					            <select id="poStatus" name="poStatus" class="custom-select mr-2">
 					                <option value="">查詢全部</option>
-					                <option value="0" selected>尚未驗收</option>
-					                <option value="1">驗收成功</option>
-					                <option value="2">驗收失敗</option>
+					                <option value="0" selected>待審核</option>
+					                <option value="1">申請通過</option>
+					                <option value="2">申請未通過</option>
+					                <option value="3">已取消</option>
 					            </select>
 					            <button type="submit" class="btn btn-primary">查詢</button>
 					        </form>
 
+							<!-- 以下四個查詢由 PoNoController 處理，格式不符或查無資料時回到本頁，以上方的錯誤訊息顯示原因 -->
 							<form method="post"
-								th:action="@{/admin/psi/vendor/listVendors_ByOrigin}"
+								th:action="@{/admin/psi/purchase/getOneForDisplay}"
 								class="form-inline mb-3">
-								<label for="originInput" class="mr-3" style="width: 120px;">輸入採購單編號</label>
-								<input type="text" id="originInput" name="origin"
-									class="form-control mr-2" placeholder="POYYYYMMDDXXXX" maxlength="20"
-									th:value="${param.origin}">
+								<label for="poNoInput" class="mr-3" style="width: 120px;">採購單編號</label>
+								<input type="text" id="poNoInput" name="poNo"
+									class="form-control mr-2" placeholder="PO202610090001" maxlength="15"
+									th:value="${param.poNo}">
 								<button type="submit" class="btn btn-primary">送出</button>
 							</form>
-							
+
 							<form method="post"
-								th:action="@{/admin/psi/vendor/getOne_For_Display}"
+								th:action="@{/admin/psi/purchase/listPosByVendorId}"
 								class="form-inline mb-3">
 								<label for="vendorIdInput" class="mr-3" style="width: 120px;">供應商編號</label>
 								<input type="text" id="vendorIdInput" name="vendorId"
@@ -84,22 +86,22 @@
 							</form>
 
 							<form method="post"
-								th:action="@{/admin/psi/vendor/listVendors_ByContactPerson}"
+								th:action="@{/admin/psi/purchase/listPosByPoEmployeeId}"
 								class="form-inline mb-3">
-								<label for="contactPersonInput" class="mr-3" style="width: 120px;">採購員工編號</label>
-								<input type="text" id="contactPersonInput" name="contactPerson"
-									class="form-control mr-2" placeholder="請輸入採購員工編號" maxlength="10"
-									th:value="${param.contactPerson}">
+								<label for="poEmployeeIdInput" class="mr-3" style="width: 120px;">採購員工編號</label>
+								<input type="text" id="poEmployeeIdInput" name="poEmployeeId"
+									class="form-control mr-2" placeholder="請輸入採購員工編號"
+									th:value="${param.poEmployeeId}">
 								<button type="submit" class="btn btn-primary">送出</button>
 							</form>
-							
+
 							<form method="post"
-								th:action="@{/admin/psi/vendor/listVendors_ByTaxId}"
+								th:action="@{/admin/psi/purchase/listPosByVendorName}"
 								class="form-inline">
-								<label for="taxIdInput" class="mr-3" style="width: 120px;">輸入統一編號</label>
-								<input type="text" id="taxIdInput" name="taxId"
-									class="form-control mr-2" placeholder="請輸入供應商統一編號" maxlength="8"
-									th:value="${param.taxId}">
+								<label for="vendorNameInput" class="mr-3" style="width: 120px;">供應商名稱</label>
+								<input type="text" id="vendorNameInput" name="vendorName"
+									class="form-control mr-2" placeholder="請輸入供應商名稱（可只輸入部分）" maxlength="30"
+									th:value="${param.vendorName}">
 								<button type="submit" class="btn btn-primary">送出</button>
 							</form>
 						</div>
