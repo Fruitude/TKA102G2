@@ -2,11 +2,13 @@ package com.fruitude.po.controller;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +19,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.fruitude.po.model.PoService;
 import com.fruitude.po.model.PoVO;
+import com.fruitude.product.model.ProductSku;
+import com.fruitude.product.model.ProductSkuService;
 
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.constraints.Max;
@@ -30,6 +34,22 @@ public class PoNoController {
 
 	@Autowired
 	PoService poSvc;
+
+	@Autowired
+	ProductSkuService productSkuSvc;
+
+	// 這支 controller 的每個請求都會先執行，把低於安全庫存的規格放進 model，回首頁時顯示待採購商品
+	// key 是供應商編號、value 是該供應商的規格清單；例外處理（handleError）不會經過這裡，要自己再放一次
+	@ModelAttribute("belowSafetyStockByVendor")
+	public Map<Integer, List<ProductSku>> belowSafetyStockByVendor() {
+		return productSkuSvc.getBelowSafetyStockByVendor();
+	}
+
+	// 待採購商品的「待審核數量」欄：key 是規格編號、value 是待審核採購單裡的採購數量加總；handleError 一樣要自己再放一次
+	@ModelAttribute("pendingQuantityBySkuId")
+	public Map<Integer, Long> pendingQuantityBySkuId() {
+		return poSvc.getPendingQuantityBySkuId();
+	}
 
 	// 依採購單編號查單筆，查到後交給 PoController 的 listOnePo 顯示
 	@PostMapping("/getOneForDisplay")
@@ -112,30 +132,33 @@ public class PoNoController {
 		model.addAttribute("poListData", pos);
 		return "admin/psi/purchase/listAllPo";
 	}
-
+	
 	// 只處理這支 controller 的方法丟出的例外，回首頁顯示訊息
-	@ExceptionHandler({ HandlerMethodValidationException.class, ConstraintViolationException.class,
-			MethodArgumentTypeMismatchException.class })
-	public ModelAndView handleError(Exception e) {
+		@ExceptionHandler({ HandlerMethodValidationException.class, ConstraintViolationException.class,
+				MethodArgumentTypeMismatchException.class })
+		public ModelAndView handleError(Exception e) {
 
-		List<String> messages = new ArrayList<>();
+			List<String> messages = new ArrayList<>();
 
-		if (e instanceof HandlerMethodValidationException ex) {
-			// 方法參數驗證失敗（@NotNull、@Min、@Max）
-			ex.getParameterValidationResults().forEach(
-					result -> result.getResolvableErrors().forEach(error -> messages.add(error.getDefaultMessage())));
-		} else if (e instanceof ConstraintViolationException ex) {
-			// 類別上有加 @Validated 時會丟這個
-			ex.getConstraintViolations().forEach(violation -> messages.add(violation.getMessage()));
-		} else if (e instanceof MethodArgumentTypeMismatchException ex) {
-			// 轉型失敗（輸入英文字、超過 int 範圍）；依出錯的參數名稱顯示對應的欄位
-			String fieldLabel = "poEmployeeId".equals(ex.getName()) ? "採購員工編號" : "供應商編號";
-			messages.add(fieldLabel + "，只能輸入正整數");
+			if (e instanceof HandlerMethodValidationException ex) {
+				// 方法參數驗證失敗（@NotNull、@Min、@Max）
+				ex.getParameterValidationResults().forEach(
+						result -> result.getResolvableErrors().forEach(error -> messages.add(error.getDefaultMessage())));
+			} else if (e instanceof ConstraintViolationException ex) {
+				// 類別上有加 @Validated 時會丟這個
+				ex.getConstraintViolations().forEach(violation -> messages.add(violation.getMessage()));
+			} else if (e instanceof MethodArgumentTypeMismatchException ex) {
+				// 轉型失敗（輸入英文字、超過 int 範圍）；依出錯的參數名稱顯示對應的欄位
+				String fieldLabel = "poEmployeeId".equals(ex.getName()) ? "採購員工編號" : "供應商編號";
+				messages.add(fieldLabel + "，只能輸入正整數");
+			}
+
+			ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
+			mav.addObject("errorMessage", String.join("\n", messages));
+			mav.addObject("belowSafetyStockByVendor", productSkuSvc.getBelowSafetyStockByVendor());
+			mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
+			return mav;
 		}
 
-		ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
-		mav.addObject("errorMessage", String.join("\n", messages));
-		return mav;
-	}
 
 }

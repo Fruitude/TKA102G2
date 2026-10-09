@@ -1,10 +1,16 @@
 package com.fruitude.product.model;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import com.fruitude.vendor.model.VendorVO;
 
 @Service
 public class ProductSkuService {
@@ -90,5 +96,21 @@ public class ProductSkuService {
 	public boolean isSkuNameExistExcludeSkuId(Integer productId, String skuName, Integer skuId) {
 
 		return repository.existsByProduct_ProductIdAndSkuNameAndSkuIdNot(productId, skuName, skuId);
+	}
+	
+	// 需要採購的規格：上架（1）或缺貨（2），且低於安全庫存
+	public List<ProductSku> getBelowSafetyStock() {
+	        return repository.findBelowSafetyStockByStatusIn(List.of((byte) 1, (byte) 2));
+	}
+
+	// 需要採購的規格依供應商分組：key 為供應商編號（由小到大），沒有供應商的排最後
+	public Map<Integer, List<ProductSku>> getBelowSafetyStockByVendor() {
+		Map<Integer, List<ProductSku>> skusByVendorId = new TreeMap<>(Comparator.nullsLast(Comparator.naturalOrder()));
+		for (ProductSku productSku : getBelowSafetyStock()) {
+			VendorVO vendor = productSku.getProduct().getVendor();
+			Integer vendorId = vendor == null ? null : vendor.getVendorId();
+			skusByVendorId.computeIfAbsent(vendorId, key -> new ArrayList<>()).add(productSku);
+		}
+		return skusByVendorId;
 	}
 }

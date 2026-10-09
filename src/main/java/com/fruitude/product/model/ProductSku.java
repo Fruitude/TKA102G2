@@ -248,4 +248,12 @@ public class ProductSku implements java.io.Serializable {
 	public void setProductImages(List<ProductImage> productImages) {
 	    this.productImages = productImages;
 	}
+	
+	// 缺口數量：待出貨 + 安全庫存量 - 庫存量 - 待進貨
+	public Integer getShortageQty() {
+
+	    int safetyStock = this.safetyStock == null ? 0 : this.safetyStock;
+
+	    return safetyStock - getExpectedStock();
+	}
 }

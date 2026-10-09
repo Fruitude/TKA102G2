@@ -18,6 +18,7 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.Validator;
 import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -25,6 +26,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.fruitude.employee.model.Employee;
@@ -37,6 +41,7 @@ import com.fruitude.vendor.model.VendorService;
 import com.fruitude.vendor.model.VendorVO;
 
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.ConstraintViolationException;
 
 @Controller
 @RequestMapping("/admin/psi/purchase")
@@ -56,11 +61,39 @@ public class PoController {
 	@Qualifier("mvcValidator")
 	Validator validator;
 
+	// 這支 controller 的每個請求都會先執行，把低於安全庫存的規格放進 model，回首頁時顯示待採購商品
+	// key 是供應商編號、value 是該供應商的規格清單
+	@ModelAttribute("belowSafetyStockByVendor")
+	public Map<Integer, List<ProductSku>> belowSafetyStockByVendor() {
+		return productSkuSvc.getBelowSafetyStockByVendor();
+	}
+
+	// 待採購商品的「待審核數量」欄：key 是規格編號、value 是待審核採購單裡的採購數量加總
+	@ModelAttribute("pendingQuantityBySkuId")
+	public Map<Integer, Long> pendingQuantityBySkuId() {
+		return poSvc.getPendingQuantityBySkuId();
+	}
+
+	// 採購單首頁：待採購商品由上方的 belowSafetyStockByVendor 放入 model
+	@GetMapping("")
+	public String purchase(Model model) {
+		return "admin/psi/purchase/index"; //view
+	}
+
 	// 新增採購單頁面：由 purchase/index 的「新增採購單」連過來
+	// 從待採購商品的供應商區塊連過來時會帶 vendorId，只先選好供應商，明細仍是空白的
 	@GetMapping("/addPo")
-	public String addPo(Model model, HttpSession session) {
+	public String addPo(Model model, HttpSession session,
+			@RequestParam(value = "vendorId", required = false) Integer vendorId) {
 		PoVO poVO = new PoVO();
 		poVO.setPoEmployeeId(getLoggedInEmployee(session)); // 採購員工固定為登入的員工，頁面只顯示姓名
+		if (vendorId != null) {
+			// 供應商不存在或未啟用時不預選，頁面維持「請選擇供應商」
+			VendorVO vendorVO = vendorSvc.getOneVendor(vendorId);
+			if (vendorVO != null && Byte.valueOf((byte) 1).equals(vendorVO.getIsActive())) {
+				poVO.setVendor(vendorVO);
+			}
+		}
 		model.addAttribute("poVO", poVO);
 		// 明細的商品規格不在這裡給，頁面選了供應商後再向 skuOptions 查
 		addFormData(model, poVO);
@@ -417,5 +450,7 @@ public class PoController {
 	    // true 代表：空字串或只有空白的字串，轉成 null
 	    binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
 	}
+	
+	
 
 }

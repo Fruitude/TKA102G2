@@ -362,6 +362,15 @@ public class PoService {
 		return repository.findByVendor_VendorNameContainingOrderByPoIdDesc(vendorName);
 	}
 
+	// 各商品規格在待審核採購單裡的採購數量加總：key 為規格編號；沒有待審核明細的規格不會出現在裡面
+	public Map<Integer, Long> getPendingQuantityBySkuId() {
+		Map<Integer, Long> pendingQuantityBySkuId = new HashMap<>();
+		for (Object[] row : poDetailRepository.sumPendingQuantityBySkuId()) {
+			pendingQuantityBySkuId.put((Integer) row[0], ((Number) row[1]).longValue());
+		}
+		return pendingQuantityBySkuId;
+	}
+
 	// 新增採購單時以登入的員工編號取出採購員工
 	public Employee getOneEmployee(Integer employeeId) {
 		return employeeRepository.findById(employeeId).orElse(null);

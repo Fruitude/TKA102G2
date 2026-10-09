@@ -2,10 +2,18 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>Account Index</title>
+<title>PSI Index</title>
 
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<link th:href="@{/css/admin-system-tabs.css}" rel="stylesheet">
+ <style>
+    .psi-scroll-viewport { overflow-x: auto; }
+    .psi-scroll-content { width: 100%; min-width: var(--psi-content-min-width, 700px); }
+    .psi-tabs-header { overflow: hidden; border-bottom: 0; }
+    #psi-frame { display: block; width: 100%; min-height: 400px; height: 400px; border: 0; background: white; }
+    #psi-panel[aria-busy="true"] #psi-frame { visibility: hidden; }
+</style>
 </head>
 <body>
 <body id="page-top">
@@ -14,7 +22,7 @@
     <div id="wrapper">
 
         <!-- 引入側邊欄 -->
-        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='account')}"></ul>
+        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='psi')}"></ul>
 
         <!-- Content Wrapper -->
         <div id="content-wrapper" class="d-flex flex-column">
@@ -27,14 +35,31 @@
 
                 <!-- 這裡放頁面自己的內容 -->
                 <div class="container-fluid">
-                    <h1 class="h3 mb-4 text-gray-800">會計作業系統</h1>
-                    
-                    
-                    
-                    
-                    
-                    
-                    
+                              	
+                    <div class="card shadow mb-4 psi-scroll-viewport">
+                        <div class="psi-scroll-content">
+                        <div class="card-header bg-white p-0 psi-tabs-header">
+                            <div class="nav nav-tabs psi-tabs management-tabs" role="tablist" aria-label="進銷存管理功能">
+                                <button class="nav-link active" type="button" role="tab" 
+                                id="tab-shipping" aria-selected="true" aria-controls="psi-panel" 
+                                data-psi-tab data-key="shipping" th:attr="data-url=@{/admin/account/purchasereview}">
+                                    <i class="fas fa-truck" aria-hidden="true"></i>採購單審核
+                                </button>
+                                <button class="nav-link" type="button" role="tab" id="tab-receiving" 
+                                aria-selected="false" aria-controls="psi-panel" tabindex="-1" 
+                                data-psi-tab data-key="receiving" th:attr="data-url=@{/admin/account/refoundreview}">
+                                    <i class="fas fa-dolly" aria-hidden="true"></i>訂單退款審核
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-0" id="psi-panel" role="tabpanel" aria-labelledby="tab-shipping" aria-busy="true">
+                            <p id="psi-load-status" class="m-3 text-muted" role="status">正在載入出貨系統…</p>
+                            <iframe id="psi-frame" name="psi-content" title="出貨系統"></iframe>
+                        </div>
+                        </div>
+                    </div>
+
+
                     
                 </div>
 
@@ -52,6 +77,110 @@
     </span>
 		<!-- 	引入js資源     -->
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+    <!-- 分頁標籤：點選後把對應頁面載入 iframe -->
+    <script>
+        $(document).ready(function() {
+            var tabs = $('[data-psi-tab]');
+            var panel = $('#psi-panel');
+            var loadStatus = $('#psi-load-status');
+            var frame = document.getElementById('psi-frame');
+
+            // 內嵌頁面不需要自己的側邊欄、Topbar、Footer，並取消滿版高度讓 iframe 可以貼合內容
+            var embeddedCss = '#accordionSidebar, .topbar, .sticky-footer, .scroll-to-top { display: none !important; }'
+                    + ' html, body { height: auto !important; min-height: 0 !important; overflow-y: hidden !important; background: #fff !important; }'
+                    + ' #wrapper #content-wrapper { min-height: 0 !important; background: #fff !important; }'
+                    + ' #content { padding-top: 1.5rem; }'
+                    + ' html, body { overflow-x: hidden !important; }';
+
+            function selectTab(tab) {
+                var tabName = $.trim(tab.text());
+
+                tabs.removeClass('active').attr('aria-selected', 'false').attr('tabindex', '-1');
+                tab.addClass('active').attr('aria-selected', 'true').removeAttr('tabindex');
+
+                panel.attr('aria-labelledby', tab.attr('id')).attr('aria-busy', 'true');
+                loadStatus.text('正在載入' + tabName + '…').show();
+                frame.title = tabName;
+
+                // 把目前分頁記在網址的 # 後面，重新整理時停留在同一個分頁
+                history.replaceState(null, '', '#' + tab.attr('data-key'));
+                frame.contentWindow.location.replace(tab.attr('data-url'));
+            }
+
+            $(frame).on('load', function() {
+                var frameDoc = null;
+                try {
+                    frameDoc = frame.contentDocument;
+                } catch (e) {
+                    // 讀不到內嵌頁面時，直接顯示 iframe 原本的內容
+                }
+
+                if (frameDoc && frameDoc.body && frame.contentWindow.location.href !== 'about:blank') {
+                    var style = frameDoc.createElement('style');
+                    style.textContent = embeddedCss;
+                    frameDoc.head.appendChild(style);
+
+                    // 「回進銷存管理」這類連回本頁的連結改為整頁跳轉，避免分頁裡又出現一層分頁
+                    $(frameDoc).find('a').filter(function() {
+                        return this.pathname.split(';')[0] === window.location.pathname;
+                    }).attr('target', '_top');
+
+                    // iframe 高度跟著內容走（換頁、切換每頁筆數時也會更新）
+                    var fitHeight = function() {
+                        var tabBar = document.querySelector('.psi-tabs');
+                        var tabStyle = getComputedStyle(tabBar);
+                        var minimumWidth = Array.from(tabBar.children).reduce(function(sum, tab) { return sum + tab.getBoundingClientRect().width; }, 0)
+                            + (parseFloat(tabStyle.columnGap) || 0) * (tabBar.children.length - 1)
+                            + (parseFloat(tabStyle.paddingLeft) || 0) + (parseFloat(tabStyle.paddingRight) || 0);
+                        frameDoc.querySelectorAll('table').forEach(function(table) {
+                            if (!table.getClientRects().length) return;
+                            // 包在 .table-responsive 裡的表格太寬時會在卡片內自己捲動，不用撐寬外層
+                            if (table.closest('.table-responsive')) return;
+                            var rect = table.getBoundingClientRect();
+                            minimumWidth = Math.max(minimumWidth, rect.right + Math.max(0, table.scrollWidth - table.clientWidth) + 24);
+                        });
+                        document.querySelector('.psi-scroll-content').style.setProperty('--psi-content-min-width', Math.ceil(minimumWidth) + 'px');
+                        frame.style.height = frameDoc.body.offsetHeight + 'px';
+                    };
+                    fitHeight();
+                    if (window.ResizeObserver) {
+                        new ResizeObserver(fitHeight).observe(frameDoc.body);
+                    }
+
+                    // 在 iframe 裡送出表單或點連結時，先藏起來等新頁面處理好再顯示
+                    frame.contentWindow.addEventListener('pagehide', function() {
+                        panel.attr('aria-busy', 'true');
+                        loadStatus.show();
+                    });
+                }
+
+                panel.attr('aria-busy', 'false');
+                loadStatus.hide();
+            });
+
+            tabs.on('click', function() {
+                selectTab($(this));
+            });
+
+            // 鍵盤左右鍵切換分頁
+            tabs.on('keydown', function(e) {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                    return;
+                }
+                var nextIndex = tabs.index(this) + (e.key === 'ArrowRight' ? 1 : -1);
+                var nextTab = tabs.eq((nextIndex + tabs.length) % tabs.length);
+                nextTab.focus();
+                selectTab(nextTab);
+            });
+
+            var hashKey = window.location.hash.substring(1);
+            var initialTab = tabs.filter(function() {
+                return $(this).attr('data-key') === hashKey;
+            });
+            selectTab(initialTab.length ? initialTab : tabs.first());
+        });
+    </script>
 
 </body>
 
