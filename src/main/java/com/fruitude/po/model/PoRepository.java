@@ -11,6 +11,9 @@ public interface PoRepository  extends JpaRepository<PoVO, Integer>  {
 	boolean existsByPoNo(String poNo);
 	
 	List<PoVO> getByPoStatus(Byte poStatus);
+
+	// 同時符合採購單狀態與驗收狀態；ReceivingService 用來查申請通過、尚未驗收的採購單
+	List<PoVO> findByPoStatusAndInboundStatus(Byte poStatus, Byte inboundStatus);
 	
 	// 以下三個給 PoNoController 的條件查詢使用
 	Optional<PoVO> findByPoNo(String poNo);

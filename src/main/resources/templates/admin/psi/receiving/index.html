@@ -6,8 +6,19 @@
 
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<!-- DataTables 樣式 -->
+<link th:href="@{/vendor/datatables/dataTables.bootstrap4.min.css}" rel="stylesheet">
+<style>
+#receiving_list_all th, #receiving_list_all td {
+	white-space: nowrap; /* 不換行 */
+	vertical-align: middle; /* 內容上下置中 */
+}
+
+#receiving_list_all {
+	font-size: 0.9rem;
+}
+</style>
 </head>
-<body>
 <body id="page-top">
 
     <!-- Page Wrapper -->
@@ -27,15 +38,55 @@
 
                 <!-- 這裡放頁面自己的內容 -->
                 <div class="container-fluid">
-                    <h1 class="h3 mb-4 text-gray-800">進貨系統</h1>
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
+
+					<!-- 申請通過（poStatus = 1）且尚未驗收（inboundStatus = 0）的採購單：poListData 由 ReceivingController 的 receiving 放入 model -->
+					<!-- 表格比照 purchase/listAllPo.html；清單裡都是申請通過、尚未驗收的單，所以不列採購單狀態與驗收相關的欄位 -->
+					<div class="card shadow mb-4">
+						<div class="card-header py-3">
+							<h6 class="m-0 font-weight-bold text-primary">待驗收採購單</h6>
+						</div>
+						<div class="card-body">
+							<div class="table-responsive">
+								<table class="table table-bordered" id="receiving_list_all" width="100%" cellspacing="0">
+									<thead>
+										<tr>
+											<th>操作</th>
+											<th>編號</th>
+											<th>供應商</th>
+											<th>採購員工</th>
+											<th>採購日期</th>
+											<th>總金額</th>
+										</tr>
+									</thead>
+									<tfoot>
+										<tr>
+											<th>操作</th>
+											<th>編號</th>
+											<th>供應商</th>
+											<th>採購員工</th>
+											<th>採購日期</th>
+											<th>總金額</th>
+										</tr>
+									</tfoot>
+									<tbody>
+										<tr th:each="poVO : ${poListData}">
+											<td>
+												<!-- 連到 ReceivingController 的 listOneReceiving，以 listOneReceiving.html 顯示單筆資料 -->
+												<a th:href="@{/admin/psi/receiving/listOneReceiving(poId=${poVO.poId})}"
+													class="btn btn-primary btn-sm">詳細</a>
+											</td>
+											<td th:text="${poVO.poNo}" style="text-align: center"></td>
+											<td th:text="${poVO.vendor.vendorId + ' - ' + poVO.vendor.vendorName}"></td>
+											<td th:text="${poVO.poEmployeeId.employeeId + ' - ' + poVO.poEmployeeId.employeeName}"></td>
+											<td th:text="${{poVO.orderDate}}"></td>
+											<td th:text="${poVO.totalAmount}"></td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+
                 </div>
 
             </div>
@@ -53,7 +104,61 @@
 		<!-- 	引入js資源     -->
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
 
-</body>
+	<!-- DataTables 套件與初始化 -->
+	<script th:src="@{/vendor/datatables/jquery.dataTables.min.js}"></script>
+	<script th:src="@{/vendor/datatables/dataTables.bootstrap4.min.js}"></script>
+	<script>
+		$(document).ready(function() {
+			var table = $('#receiving_list_all').DataTable({
+				searching : true, // 顯示右上角的搜尋欄位
+				lengthMenu : [ 5, 10, 25, 50, 100 ], // 每頁顯示筆數的選項
+				pageLength : 5, // 預設每頁顯示筆數
+				columnDefs : [ {
+					orderable : false,
+					searchable : false,
+					targets : [ 0 ] // 操作欄不可排序、不列入搜尋
+				} ],
+				order : [ [ 1, 'asc' ] ], // 預設依採購單編號排序
+				language : {
+					lengthMenu : "每頁顯示 _MENU_ 筆", // 左上角的筆數選單
+					search : "搜尋：", // 右上角的搜尋欄位
+					info : "顯示第 _START_ 至 _END_ 筆，共 _TOTAL_ 筆", // 左下角的資訊
+					infoEmpty : "顯示第 0 至 0 筆，共 0 筆", // 沒有資料時的左下角資訊
+					infoFiltered : "（從 _MAX_ 筆中篩選）", // 搜尋後附加在左下角資訊後面
+					zeroRecords : "找不到符合的資料", // 搜尋不到資料時顯示
+					emptyTable : "目前沒有資料", // 表格完全沒資料時顯示
+					paginate : {
+						previous : "上一頁",
+						next : "下一頁"
+					}
+				}
+			});
+
+			var searchInput = $('#receiving_list_all_filter input');
+			var searchButton = $('<button type="button" class="btn btn-primary btn-sm ml-2">搜尋</button>');
+
+			searchInput.off('.DT'); // 移除 DataTables 內建的即時搜尋
+			$('#receiving_list_all_filter').append(searchButton); // 把按鈕放在搜尋欄位後面
+
+			searchButton.on('click', function() {
+			    table.search(searchInput.val()).draw();
+			});
+
+			// 在搜尋欄位按 Enter 也可以搜尋
+			searchInput.on('keydown', function(e) {
+			    if (e.key === 'Enter') {
+			        table.search(searchInput.val()).draw();
+			    }
+			});
+
+			// 搜尋欄位被清空時，自動還原成全部資料
+			searchInput.on('input', function() {
+			    if (searchInput.val().trim() === '') {
+			        table.search('').draw();
+			    }
+			});
+		});
+	</script>
 
 </body>
 </html>

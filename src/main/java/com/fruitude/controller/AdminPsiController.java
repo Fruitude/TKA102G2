@@ -27,13 +27,8 @@ public class AdminPsiController {
 		return "admin/psi/shipping/index"; //view
 	}
 	
-	@GetMapping("/receiving")
-	public String receiving(Model model) {
-		System.out.println("執行receiving導向");
-		
-		return "admin/psi/receiving/index"; //view
-	}
-	
+	// 進貨系統首頁（/admin/psi/receiving）改由 ReceivingController 的 receiving 處理
+
 	@GetMapping("/stock")
 	public String stock(Model model) {
 		System.out.println("執行stock導向");
