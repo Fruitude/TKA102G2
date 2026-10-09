@@ -102,6 +102,11 @@ public class PoVO implements java.io.Serializable{
 		return poStatus != null && poStatus == 0;
 	}
 
+	// 申請通過（poStatus = 1）且尚未驗收（inboundStatus = 0）的採購單才能驗收，頁面以 poVO.receivable 判斷
+	public boolean isReceivable() {
+		return poStatus != null && poStatus == 1 && inboundStatus != null && inboundStatus == 0;
+	}
+
 	public Integer getPoId() {
 		return poId;
 	}
