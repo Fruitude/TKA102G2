@@ -22,7 +22,6 @@ import com.fruitude.podetail.model.PoDetailRepository;
 import com.fruitude.podetail.model.PoDetailVO;
 import com.fruitude.product.model.ProductSku;
 import com.fruitude.product.model.ProductSkuRepository;
-import com.fruitude.vendor.model.VendorRepository;
 
 @Service
 public class PoService {
@@ -32,9 +31,6 @@ public class PoService {
 
 	@Autowired
 	private PoDetailRepository poDetailRepository;
-
-	@Autowired
-	private VendorRepository vendorRepository;
 
 	@Autowired
 	private ProductSkuRepository productSkuRepository;
@@ -48,8 +44,9 @@ public class PoService {
 		repository.save(poVO);
 	}
 
-	public void updatePo(PoVO poVO) {
-		repository.save(poVO);
+	// 新增採購單存檔失敗時，PoController 的 insert 用來確認是不是採購單編號已經被別人用掉
+	public boolean existsByPoNo(String poNo) {
+		return repository.existsByPoNo(poNo);
 	}
 
 	// 修改採購明細：以表單送回來的明細為準，可以修改、新增、刪除明細；小計與總金額由這裡重算
@@ -326,14 +323,8 @@ public class PoService {
 		return poNoPrefix + String.format("%04d", serialNumber);
 	}
 
-	public void deletePo(Integer PoId) {
-		if (repository.existsById(PoId))
-			repository.deleteById(PoId);
-	}
-
-
-	public PoVO getOnePo(Integer PoId) {
-		Optional<PoVO> optional = repository.findById(PoId);
+	public PoVO getOnePo(Integer poId) {
+		Optional<PoVO> optional = repository.findById(poId);
 		return optional.orElse(null); // public T orElse(T other) : 如果值存在就回傳其值，否則回傳other的值
 	}
 
@@ -345,7 +336,7 @@ public class PoService {
 		return repository.getByPoStatus(poStatus);
 	}
 
-	// 以下四個給 PoNoController 的條件查詢使用
+	// 以下三個給 PoNoController 的條件查詢使用
 	public PoVO getOneByPoNo(String poNo) {
 		return repository.findByPoNo(poNo).orElse(null);
 	}
@@ -356,10 +347,6 @@ public class PoService {
 
 	public List<PoVO> getByPoEmployeeId(Integer employeeId) {
 		return repository.findByPoEmployeeId_EmployeeIdOrderByPoIdDesc(employeeId);
-	}
-
-	public List<PoVO> getByVendorName(String vendorName) {
-		return repository.findByVendor_VendorNameContainingOrderByPoIdDesc(vendorName);
 	}
 
 	// 各商品規格在待審核採購單裡的採購數量加總：key 為規格編號；沒有待審核明細的規格不會出現在裡面

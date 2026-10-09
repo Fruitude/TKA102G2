@@ -14,9 +14,9 @@ public class AdminAccountController {
 	    return "admin/account/purchasereview/index";
 	}
 	
-	@GetMapping("/refoundreview")
-	public String refoundreview(Model model) {
-	    return "admin/account/refoundreview/index";
+	@GetMapping("/refundreview")
+	public String refundreview(Model model) {
+	    return "admin/account/refundreview/index";
 	}
 
 }

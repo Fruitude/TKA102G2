@@ -99,28 +99,6 @@ public class PoNoController {
 				"採購員工編號 " + poEmployeeId + " 的採購單");
 	}
 
-	// 依供應商名稱模糊查詢採購單，結果以 listAllPo.html 顯示
-	@PostMapping("/listPosByVendorName")
-	public String listPosByVendorName(Model model,
-			@RequestParam(value = "vendorName", required = false) String vendorName) {
-
-		String errorMessage = null;
-		if (vendorName == null || vendorName.isBlank()) {
-			errorMessage = "供應商名稱，請勿空白";
-		} else if (vendorName.trim().length() > 30) {
-			// VendorVO 的品牌名稱最長 30 個字
-			errorMessage = "供應商名稱: 長度不可超過30個字";
-		}
-
-		if (errorMessage != null) {
-			model.addAttribute("errorMessage", errorMessage);
-			return "admin/psi/purchase/index";
-		}
-
-		String keyword = vendorName.trim();
-		return showSearchResult(model, poSvc.getByVendorName(keyword), "供應商名稱包含「" + keyword + "」的採購單");
-	}
-
 	// 列表搜尋共用：查無資料時回首頁，否則以 listAllPo.html 顯示
 	private String showSearchResult(Model model, List<PoVO> pos, String searchTitle) {
 		if (pos.isEmpty()) {
@@ -132,33 +110,32 @@ public class PoNoController {
 		model.addAttribute("poListData", pos);
 		return "admin/psi/purchase/listAllPo";
 	}
-	
+
 	// 只處理這支 controller 的方法丟出的例外，回首頁顯示訊息
-		@ExceptionHandler({ HandlerMethodValidationException.class, ConstraintViolationException.class,
-				MethodArgumentTypeMismatchException.class })
-		public ModelAndView handleError(Exception e) {
+	@ExceptionHandler({ HandlerMethodValidationException.class, ConstraintViolationException.class,
+			MethodArgumentTypeMismatchException.class })
+	public ModelAndView handleError(Exception e) {
 
-			List<String> messages = new ArrayList<>();
+		List<String> messages = new ArrayList<>();
 
-			if (e instanceof HandlerMethodValidationException ex) {
-				// 方法參數驗證失敗（@NotNull、@Min、@Max）
-				ex.getParameterValidationResults().forEach(
-						result -> result.getResolvableErrors().forEach(error -> messages.add(error.getDefaultMessage())));
-			} else if (e instanceof ConstraintViolationException ex) {
-				// 類別上有加 @Validated 時會丟這個
-				ex.getConstraintViolations().forEach(violation -> messages.add(violation.getMessage()));
-			} else if (e instanceof MethodArgumentTypeMismatchException ex) {
-				// 轉型失敗（輸入英文字、超過 int 範圍）；依出錯的參數名稱顯示對應的欄位
-				String fieldLabel = "poEmployeeId".equals(ex.getName()) ? "採購員工編號" : "供應商編號";
-				messages.add(fieldLabel + "，只能輸入正整數");
-			}
-
-			ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
-			mav.addObject("errorMessage", String.join("\n", messages));
-			mav.addObject("belowSafetyStockByVendor", productSkuSvc.getBelowSafetyStockByVendor());
-			mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
-			return mav;
+		if (e instanceof HandlerMethodValidationException ex) {
+			// 方法參數驗證失敗（@NotNull、@Min、@Max）
+			ex.getParameterValidationResults().forEach(
+					result -> result.getResolvableErrors().forEach(error -> messages.add(error.getDefaultMessage())));
+		} else if (e instanceof ConstraintViolationException ex) {
+			// 類別上有加 @Validated 時會丟這個
+			ex.getConstraintViolations().forEach(violation -> messages.add(violation.getMessage()));
+		} else if (e instanceof MethodArgumentTypeMismatchException ex) {
+			// 轉型失敗（輸入英文字、超過 int 範圍）；依出錯的參數名稱顯示對應的欄位
+			String fieldLabel = "poEmployeeId".equals(ex.getName()) ? "採購員工編號" : "供應商編號";
+			messages.add(fieldLabel + "，只能輸入正整數");
 		}
 
+		ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
+		mav.addObject("errorMessage", String.join("\n", messages));
+		mav.addObject("belowSafetyStockByVendor", productSkuSvc.getBelowSafetyStockByVendor());
+		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
+		return mav;
+	}
 
 }

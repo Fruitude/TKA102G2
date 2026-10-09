@@ -2,7 +2,7 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>PSI Index</title>
+<title>Account Index</title>
 
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
@@ -22,7 +22,7 @@
     <div id="wrapper">
 
         <!-- 引入側邊欄 -->
-        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='psi')}"></ul>
+        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='account')}"></ul>
 
         <!-- Content Wrapper -->
         <div id="content-wrapper" class="d-flex flex-column">
@@ -39,22 +39,22 @@
                     <div class="card shadow mb-4 psi-scroll-viewport">
                         <div class="psi-scroll-content">
                         <div class="card-header bg-white p-0 psi-tabs-header">
-                            <div class="nav nav-tabs psi-tabs management-tabs" role="tablist" aria-label="進銷存管理功能">
+                            <div class="nav nav-tabs psi-tabs management-tabs" role="tablist" aria-label="採購單審核與訂單退款審核">
                                 <button class="nav-link active" type="button" role="tab" 
-                                id="tab-shipping" aria-selected="true" aria-controls="psi-panel" 
-                                data-psi-tab data-key="shipping" th:attr="data-url=@{/admin/account/purchasereview}">
+                                id="tab-purchasereview" aria-selected="true" aria-controls="psi-panel" 
+                                data-psi-tab data-key="purchasereview" th:attr="data-url=@{/admin/account/purchasereview}">
                                     <i class="fas fa-truck" aria-hidden="true"></i>採購單審核
                                 </button>
-                                <button class="nav-link" type="button" role="tab" id="tab-receiving" 
+                                <button class="nav-link" type="button" role="tab" id="tab-refundreview"
                                 aria-selected="false" aria-controls="psi-panel" tabindex="-1" 
-                                data-psi-tab data-key="receiving" th:attr="data-url=@{/admin/account/refoundreview}">
+                                data-psi-tab data-key="refundreview" th:attr="data-url=@{/admin/account/refundreview}">
                                     <i class="fas fa-dolly" aria-hidden="true"></i>訂單退款審核
                                 </button>
                             </div>
                         </div>
-                        <div class="card-body p-0" id="psi-panel" role="tabpanel" aria-labelledby="tab-shipping" aria-busy="true">
-                            <p id="psi-load-status" class="m-3 text-muted" role="status">正在載入出貨系統…</p>
-                            <iframe id="psi-frame" name="psi-content" title="出貨系統"></iframe>
+                        <div class="card-body p-0" id="psi-panel" role="tabpanel" aria-labelledby="tab-purchasereview" aria-busy="true">
+                            <p id="psi-load-status" class="m-3 text-muted" role="status">正在載入會計作業系統…</p>
+                            <iframe id="psi-frame" name="psi-content" title="會計作業系統"></iframe>
                         </div>
                         </div>
                     </div>

@@ -9,21 +9,12 @@
 <!-- DataTables 樣式 -->
 <link th:href="@{/vendor/datatables/dataTables.bootstrap4.min.css}" rel="stylesheet">
 <style>
-#vendor_list_all th, #vendor_list_all td {
+#po_list_all th, #po_list_all td {
 	white-space: nowrap; /* 不換行 */
 	vertical-align: middle; /* 內容上下置中 */
 }
 
-.intro-text {
-	white-space: normal; /* 這欄允許換行 */
-	width: 120px;
-	display: -webkit-box;
-	 /*-webkit-line-clamp: 3; 限制顯示三行 */
-	-webkit-box-orient: vertical;
-	overflow: hidden;
-}
-
-#vendor_list_all {
+#po_list_all {
 	font-size: 0.9rem;
 }
 
@@ -71,7 +62,7 @@
 						</div>
 						<div class="card-body">
 							<div class="table-responsive">
-								<table class="table table-bordered" id="vendor_list_all" width="100%" cellspacing="0">
+								<table class="table table-bordered" id="po_list_all" width="100%" cellspacing="0">
 									<thead>
 										<tr>
 											<th>操作</th>
@@ -165,7 +156,7 @@
 	<script th:src="@{/vendor/datatables/dataTables.bootstrap4.min.js}"></script>
 	<script>
 		$(document).ready(function() {
-			var table = $('#vendor_list_all').DataTable({
+			var table = $('#po_list_all').DataTable({
 				searching : true, // 顯示右上角的搜尋欄位
 				lengthMenu : [ 5, 10, 25, 50, 100 ], // 每頁顯示筆數的選項
 				pageLength : 5, // 預設每頁顯示筆數
@@ -190,11 +181,11 @@
 				}
 			});
 			
-			var searchInput = $('#vendor_list_all_filter input');
+			var searchInput = $('#po_list_all_filter input');
 			var searchButton = $('<button type="button" class="btn btn-primary btn-sm ml-2">搜尋</button>');
 			
 			searchInput.off('.DT'); // 移除 DataTables 內建的即時搜尋
-			$('#vendor_list_all_filter').append(searchButton); // 把按鈕放在搜尋欄位後面
+			$('#po_list_all_filter').append(searchButton); // 把按鈕放在搜尋欄位後面
 
 			searchButton.on('click', function() {
 			    table.search(searchInput.val()).draw();
