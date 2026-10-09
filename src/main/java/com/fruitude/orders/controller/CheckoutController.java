@@ -81,12 +81,18 @@ public class CheckoutController {
      *  itemsTotal 是前端算的商品金額，只用來預覽；實際折扣以下單時伺服器重算為準 */
     @GetMapping("/product-discount")
     @ResponseBody
-    public com.fruitude.promo.model.ProductDiscount productDiscount(@RequestParam String items, HttpSession session) {
+    public com.fruitude.promo.model.ProductDiscount productDiscount(@RequestParam String items,
+    		@RequestParam(value = "useBirthday", required = false) Boolean useBirthday, HttpSession session) {
     	Integer memberId = loggedInMemberId(session);
     	if (memberId == null) { // 正常不會發生（結帳頁要先登入），保險起見回傳沒有折扣
     		return com.fruitude.promo.model.ProductDiscount.NONE;
     	}
-    	return ordersService.previewProductDiscount(memberId, parseSkuQty(items));
+    	// 結帳頁勾選框會明確帶 useBirthday；確認頁沒帶，就用結帳頁送出、存在 session 的勾選狀態
+    	if (useBirthday == null) {
+    		CheckoutForm form = (CheckoutForm) session.getAttribute(SESSION_KEY);
+    		useBirthday = form != null && form.isUseBirthday();
+    	}
+    	return ordersService.previewProductDiscount(memberId, parseSkuQty(items), useBirthday);
     }
 
     /** 把 "規格編號:數量,規格編號:數量" 解析成 Map；格式不對或數量不是正整數的項目直接略過，最多取 200 項 */
@@ -116,6 +122,18 @@ public class CheckoutController {
     	return result;
     }
 
+
+    /** 給確認頁用：要不要顯示「使用壽星優惠」勾選框。有進行中的壽星月活動、會員在生日月、今年還沒用過才是 eligible。
+     *  會員編號一律取自登入 session，不接受前端傳 */
+    @GetMapping("/birthday-promo")
+    @ResponseBody
+    public com.fruitude.orders.model.BirthdayPromoOffer birthdayPromo(HttpSession session) {
+    	Integer memberId = loggedInMemberId(session);
+    	if (memberId == null) { // 正常不會發生（結帳頁要先登入）
+    		return com.fruitude.orders.model.BirthdayPromoOffer.NONE;
+    	}
+    	return ordersService.findBirthdayPromoOffer(memberId);
+    }
     /** 給確認頁顯示用：目前登入會員的購物金餘額（元）。會員編號一律取自登入 session，不接受前端傳 */
     @GetMapping("/credit-balance")
     @ResponseBody
@@ -171,10 +189,12 @@ public class CheckoutController {
             // OrdersService 在建立訂單的交易中重新確認上架狀態、價格與庫存。
             Orders orders;
             try {
-            	orders = ordersService.placeOrder(form, storeCredit, memberId);
+            	orders = ordersService.placeOrder(form, storeCredit, memberId, form.isUseBirthday());
             } catch (com.fruitude.product.model.ProductUnavailableException e) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
             } catch (com.fruitude.orders.model.InsufficientCreditException e) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+            } catch (com.fruitude.orders.model.PromoAlreadyUsedException e) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
             } catch (Exception e) {
             	e.printStackTrace();

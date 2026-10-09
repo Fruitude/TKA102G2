@@ -61,6 +61,7 @@
       <!-- 右欄：購物金折抵與付款詳情 -->
       <div class="confirm-col">
 
+
       <div class="checkout-header confirm-block-header">
         <h2 class="heading-h4">購物金折抵</h2>
       </div>
@@ -266,6 +267,9 @@
       .catch(function () {});
     // 商品折扣：全館折扣、壽星月、新會員首購（只取折扣最大的一個，沒有符合的活動回傳 0）
     // 折扣由伺服器依「規格:數量」用資料庫價格算（活動價的品項不算進折扣基準）
+    // 商品折扣：全館折扣、壽星月、新會員首購（只取折扣最大的一個，沒有符合的活動回傳 0）
+    // 折扣由伺服器依「規格:數量」用資料庫價格算（活動價的品項不算進折扣基準）。
+    // 壽星優惠有沒有勾選，由結帳頁送出的資料（存在 session）決定，這裡不用再帶參數
     fetch(payButton.dataset.productDiscountUrl + "?items="
         + encodeURIComponent(items.map(function (item) { return item.skuId + ":" + item.qty; }).join(",")))
       .then(function (res) { return res.ok ? res.json() : null; })
@@ -277,6 +281,7 @@
         }
       })
       .catch(function () {});
+
     // 取得目前會員的購物金餘額並顯示；沒有餘額就停用輸入框。取不到就不限制輸入，結帳時伺服器仍會檢查餘額
     fetch(payButton.dataset.creditBalanceUrl, { cache: "no-store", credentials: "same-origin" })
       .then(function (res) { return res.ok ? res.json() : null; })

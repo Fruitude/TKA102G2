@@ -27,3 +27,7 @@
 .promo-page-actions { margin-top: .75rem; text-align: right; }
 .promo-page-shop { display: inline-block; padding: .25rem .875rem; border: 1px solid var(--text--default--black, #302f2d); border-radius: 3px; color: inherit; font-size: .875rem; text-decoration: none; }
 .promo-page-shop:hover { background: var(--text--default--black, #302f2d); color: #fff; }
+
+/* 壽星月今年已使用：灰色「已使用」標籤，卡片不再有「本月適用」的強調框 */
+.promo-page-badge.is-used { background: #8c9a90; }
+.promo-page-card.is-used { opacity: .85; }

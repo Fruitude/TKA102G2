@@ -204,8 +204,10 @@
 
   function renderBadges(items) {
     var count = getCount(items);
+    // 超過 9999 顯示 9999+，徽章不會無限變長
+    var text = count > 9999 ? "9999+" : String(count);
     document.querySelectorAll(".cart-quantity").forEach(function (el) {
-      el.textContent = String(count);
+      el.textContent = text;
     });
   }
 
@@ -438,26 +440,72 @@
 
   // 折扣由伺服器依「規格:數量」用資料庫價格算（活動價的品項不算進折扣基準），不能用前端的金額
   function loadProductDiscount(checkedItems) {
-    var key = checkedItems.map(function (item) { return item.skuId + ":" + item.qty; }).join(",");
+    var itemsKey = checkedItems.map(function (item) { return item.skuId + ":" + item.qty; }).join(",");
+    // 壽星優惠勾選狀態也是查詢條件之一：勾選或取消勾選都要重新問伺服器
+    var useBirthday = isBirthdayChosen();
+    var key = itemsKey + (useBirthday ? "|birthday" : "");
     if (productDiscountSubtotal === key) return;
     productDiscountSubtotal = key;
     var asked = key;
-    fetch(getContextPath() + "/front/checkout/product-discount?items=" + encodeURIComponent(key),
+    fetch(getContextPath() + "/front/checkout/product-discount?items=" + encodeURIComponent(itemsKey)
+        + (useBirthday ? "&useBirthday=true" : ""),
         { cache: "no-store", credentials: "same-origin" })
       .then(function (response) { return response.ok ? response.json() : null; })
       .then(function (discount) {
         if (productDiscountSubtotal !== asked) return; // 回來時商品金額已經又變了，這份答案作廢
         productDiscount = discount ? Number(discount.amount) || 0 : 0;
         productDiscountTitle = productDiscount > 0 && discount.title ? String(discount.title) : "";
+        updateBirthdayHint(useBirthday, discount);
         renderCheckoutSummary(readCart());
       })
       .catch(function () { /* 取不到就維持原價，不影響結帳 */ });
+  }
+
+  // ---- 壽星優惠勾選（結帳頁「訂單商品」下面）----
+  // 每年限用一次，要會員自己勾選。勾選框只有「有進行中的壽星月活動、會員在生日月、今年還沒用過」才顯示；
+  // 勾選狀態會跟著結帳表單送出（name="useBirthday"）。真正有沒有資格、有沒有套用，下單時伺服器會再判斷
+  var BIRTHDAY_HINT_DEFAULT = "";
+
+  function isBirthdayChosen() {
+    var box = document.getElementById("checkout-birthday-checkbox");
+    return !!(box && box.checked);
+  }
+
+  // 勾選了但最後套用的不是壽星優惠（其他折扣更划算）：提醒會員這次不會用掉今年的資格
+  function updateBirthdayHint(useBirthday, discount) {
+    var hint = document.getElementById("checkout-birthday-hint");
+    if (!hint) return;
+    hint.textContent = useBirthday && !(discount && discount.promoType === "BIRTHDAY_MONTH")
+      ? "這次其他折扣更划算，不會套用壽星優惠，也不會用掉今年的資格。"
+      : BIRTHDAY_HINT_DEFAULT;
+  }
+
+  var birthdayOfferRequested = false;
+  function loadCheckoutBirthdayOffer() {
+    var block = document.getElementById("checkout-birthday-block");
+    var box = document.getElementById("checkout-birthday-checkbox");
+    var label = document.getElementById("checkout-birthday-label");
+    var hint = document.getElementById("checkout-birthday-hint");
+    if (!block || !box || !label || birthdayOfferRequested) return;
+    birthdayOfferRequested = true;
+    BIRTHDAY_HINT_DEFAULT = hint ? hint.textContent : "";
+    fetch(getContextPath() + "/front/checkout/birthday-promo", { cache: "no-store", credentials: "same-origin" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (offer) {
+        if (!offer || !offer.eligible) return;
+        label.textContent = "這次購買使用壽星優惠" + (offer.benefit ? "（" + offer.benefit + "）" : "")
+          + (offer.title ? "－" + offer.title : "");
+        block.style.display = "";
+        box.addEventListener("change", function () { renderCheckoutSummary(readCart()); });
+      })
+      .catch(function () { /* 取不到就不顯示勾選框，也就不會套用壽星優惠 */ });
   }
 
   function renderCheckoutSummary(items) {
     var list = document.querySelector(".w-commerce-commercecheckoutorderitemslist");
     if (!list) return; // not on the checkout page
     loadFreeShippingThreshold();
+    loadCheckoutBirthdayOffer();
 
     var checkedItems = getCheckedItems(items);
 
