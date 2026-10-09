@@ -160,6 +160,7 @@
             state.totalElements = Number(result.totalElements || 0);
             state.totalPages = Number(result.totalPages || 0);
             renderMembers();
+            byId('member-online-count').textContent = String(result.onlineCount || 0);
             showFeedback('', '');
         } catch (error) {
             state.members = [];

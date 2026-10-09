@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fruitude.member.model.MemberService;
+import com.fruitude.member.model.OnlineMemberTracker;
 import com.fruitude.member.model.MemberCreditTransaction;
 import com.fruitude.member.model.MemberVO;
 import com.fruitude.employee.model.OperationAuditService;
@@ -36,10 +37,13 @@ public class AdminMemberController {
 
 	private final MemberService memberService;
 	private final OperationAuditService auditService;
+	private final OnlineMemberTracker onlineMemberTracker;
 
-	public AdminMemberController(MemberService memberService, OperationAuditService auditService) {
+	public AdminMemberController(MemberService memberService, OperationAuditService auditService,
+			OnlineMemberTracker onlineMemberTracker) {
 		this.memberService = memberService;
 		this.auditService = auditService;
+		this.onlineMemberTracker = onlineMemberTracker;
 	}
 
 	/**
@@ -61,6 +65,7 @@ public class AdminMemberController {
 			body.put("totalPages", members.getTotalPages());
 			body.put("first", members.isFirst());
 			body.put("last", members.isLast());
+			body.put("onlineCount", onlineMemberTracker.countOnlineMembers());
 			return ResponseEntity.ok(body);
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest().body(message(e.getMessage()));
