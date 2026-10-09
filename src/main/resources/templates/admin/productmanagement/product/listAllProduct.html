@@ -214,10 +214,8 @@
                 <div class="product-actions">
                 <button type="button" data-product-detail title="查看" aria-label="查看" th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)},data-detail-name=${product.productName}"><i class="fas fa-eye" aria-hidden="true"></i></button>
 
-                <form th:action="@{/product/getOne_For_Update}" method="post">
-                    <input type="hidden" name="productId" th:value="${product.productId}">
-                    <button type="submit" title="修改" aria-label="修改"><i class="fas fa-cog" aria-hidden="true"></i></button>
-                </form>
+                <button type="button" data-product-edit title="修改" aria-label="修改"
+                        th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)},data-detail-name=${product.productName}"><i class="fas fa-cog" aria-hidden="true"></i></button>
 
 <form th:action="@{/product/delete}" method="post" data-product-delete>
 <input type="hidden" name="productId" th:value="${product.productId}">

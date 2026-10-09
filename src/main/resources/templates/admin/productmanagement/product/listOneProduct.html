@@ -197,7 +197,7 @@
 
         .sku-option.active {
             border: 2px solid #287a4b;
-            background: #edf6ef;
+            background: white;
             color: #287a4b;
             font-weight: bold;
         }
@@ -213,7 +213,9 @@
         }
 
         .sku-panel.active {
-            display: block;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            column-gap: 16px;
         }
 
         .sku-panel .item:first-child {
@@ -397,8 +399,8 @@
         .rating-star-fill svg { fill: #f5c542; }
         .switch { position: relative; display: inline-block; width: 50px; height: 22px; vertical-align: middle; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; inset: 0; background: #e74a3b; border-radius: 20px; cursor: pointer; }
-        .slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #0004; }
+        .slider { position: absolute; inset: 0; background: #e74a3b; border-radius: 20px; cursor: pointer; transition: background-color .25s ease; }
+        .slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #0004; transition: transform .25s ease; }
         .switch-text { position: absolute; top: 50%; width: 50%; transform: translateY(-50%); text-align: center; font-size: 10px; font-weight: bold; color: white; }
         .switch-text.on { left: 0; display: none; }
         .switch-text.off { right: 0; }
@@ -410,7 +412,66 @@
         .sku-title { margin-bottom: 0; padding-top: 6px; }
         .sku-panel, .no-sku { grid-column: 1 / -1; }
         @media(max-width: 480px) { .product-meta { grid-template-columns: 1fr; } }
-    </style>
+
+        .product-meta .name, .sku-panel .name { width: 5em; text-align: center; color: #777; margin-right: 10px; }
+        .product-meta .item, .sku-panel .item { align-items: center; }
+        .sku-title { color: #777; }
+        .sku-status-value { white-space: normal; }
+        .sku-status-select { max-width: 100%; border: 1px solid currentColor; border-radius: 4px; padding: 3px 6px; font: inherit; cursor: pointer; }
+        .sku-status-select:disabled { opacity: .65; cursor: wait; }
+        .status-4 { background: #e8e4ee; color: #675373; }
+        .status-5 { background: #e1f5fe; color: #306479; }
+        .sku-status-feedback { display: block; margin-top: 4px; color: #b42318; font-size: 12px; }
+        .sku-status-feedback[hidden] { display: none; }
+        /* Five 16px stars and four 2px gaps: the third star is centered at 44px. */
+        .product-meta .value:not(.rating-value):not(.status-value), .sku-panel .value:not(.rating-value) {
+            flex: 0 1 88px; text-align: center;
+        }
+        .status-value > .switch { margin-left: 12px; flex-shrink: 0; }
+        .status-value > .status { width: 88px; text-align: center; }
+        .product-meta .value.meta-text-value:not(.rating-value):not(.status-value) {
+            flex: 1; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .product-meta .description-item .value:not(.rating-value):not(.status-value) {
+            flex: 1; min-width: 0; text-align: left;
+        }
+        .sku-panel .value.sku-status-value { flex: 0 1 88px; text-align: left; }
+        .sku-status-select {
+            width: calc(max(6, var(--status-label-length, 6)) * 1em + 32px); min-width: calc(6em + 32px); max-width: none;
+            background: white; color: #333; border-color: #aaa;
+            text-align: left; text-align-last: left;
+            padding: 3px 20px 3px 6px; margin-left: calc(37px - 1.5em);
+        }
+        .sku-panel { color: #333; transition: background-color .25s ease; }
+        .sku-panel.status-0 { background: #eee; }
+        .sku-panel.status-1 { background: #e5f4e9; }
+        .sku-panel.status-2 { background: #fff0d9; }
+        .sku-panel.status-3 { background: #fff0f0; }
+        .sku-panel.status-4 { background: #e8e4ee; }
+        .sku-panel.status-5 { background: #e1f5fe; }
+        .sku-option { display: inline-flex; align-items: center; gap: 6px; }
+        .sku-stock-warning {
+            display: inline-flex; align-items: center; justify-content: center; flex: 0 0 15px;
+            width: 15px; height: 15px; border: 1.5px solid #dc3545; border-radius: 50%;
+            background: white; color: #dc3545; font-size: 11px; font-weight: bold; line-height: 1;
+        }
+        .sku-panel .value.stock-alerts { flex: 1; text-align: left; white-space: normal; }
+        .sku-section { overflow-anchor: none; }
+        .stock-alert-first { display: inline-block; width: 88px; text-align: center; white-space: nowrap; vertical-align: top; }
+        .stock-alert-first + span { margin-left: 8px; }
+        .stock-alerts.abnormal { color: #b42318; }
+
+        .product-meta { transition: opacity .2s ease; }
+        @media (hover: hover) {
+            body:not(.product-edit-mode) .product-info:has(.sku-section:hover) .product-meta { opacity: .4; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .slider, .slider::before, .product-meta { transition: none; }
+        }
+
+
+</style>
+<link rel="stylesheet" th:href="@{/css/product-detail-editor.css}">
 </head>
 <body>
 <div class="container">
@@ -479,25 +540,23 @@
         <section class="product-info">
 
             <div class="product-meta">
-                <div class="item"><span class="name">　 分類</span><span class="value" th:text="${product.productCategory != null ? product.productCategory.categoryName : '—'}"></span></div>
-                <div class="item"><span class="name">　 廠商</span><span class="value" th:text="${product.vendor != null ? product.vendor.vendorName : '—'}"></span></div>
-                <div class="item"><span class="name">　 建立</span><span class="value" th:text="${product.createdAt != null ? #temporals.format(product.createdAt, 'yyyy-MM-dd HH:mm:ss') : '—'}"></span></div>
-                <div class="item"><span class="name">　 修改</span><span class="value" th:text="${product.updatedAt != null ? #temporals.format(product.updatedAt, 'yyyy-MM-dd HH:mm:ss') : '—'}"></span></div>
+                <div class="item"><span class="name">分類</span><span class="value meta-text-value" th:text="${product.productCategory != null ? product.productCategory.categoryName : '—'}" th:title="${product.productCategory != null ? product.productCategory.categoryName : '—'}"></span></div>
+                <div class="item"><span class="name">廠商</span><span class="value meta-text-value" th:text="${product.vendor != null ? product.vendor.vendorName : '—'}" th:title="${product.vendor != null ? product.vendor.vendorName : '—'}"></span></div>
                 <div class="item" th:with="rating=${product.allCommentAmount != null and product.allCommentAmount > 0 and product.allCommentStar != null ? product.allCommentStar * 1.0 / product.allCommentAmount : 0.0}">
-                    <span class="name">　總均分</span><span class="value rating-value">
+                    <span class="name">總均分</span><span class="value rating-value">
                         <span class="rating-stars" role="img" th:attr="aria-label=${#numbers.formatDecimal(rating, 1, 1) + '顆星，共5顆星'}">
                             <span class="rating-star" th:each="star : ${#numbers.sequence(1,5)}">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01Z"/></svg>
                                 <span class="rating-star-fill" th:style="${'width:' + (rating >= star ? 100 : (rating > star - 1 ? (rating - star + 1) * 100 : 0)) + '%'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01Z"/></svg></span>
                             </span>
-                        </span><span th:text="${product.allCommentAmount != null and product.allCommentAmount > 0 ? #numbers.formatDecimal(rating, 1, 1) : '尚未評分'}"></span>
+                        </span><span th:text="${product.allCommentAmount != null and product.allCommentAmount > 0 ? #numbers.formatDecimal(rating, 1, 1) : ''}"></span>
                     </span>
                 </div>
-                <div class="item"><span class="name">　總評論</span><span class="value" th:text="${product.allCommentAmount != null ? product.allCommentAmount : 0}"></span></div>
-                <div class="item meta-wide status-item"><span class="name">　 狀態</span><span class="value status-value">
+                <div class="item"><span class="name">總評論</span><span class="value" th:text="${product.allCommentAmount != null ? product.allCommentAmount : 0}"></span></div>
+                <div class="item meta-wide status-item"><span class="name">狀態</span><span class="value status-value">
                     <span th:if="${product.status == 2}" class="status">永久停產</span><label class="switch" th:if="${product.status != 2}" th:attr="aria-label=${product.status == 1 ? '上架' : '下架'}"><input id="detail-product-status" type="checkbox" th:checked="${product.status == 1}" th:attr="data-product-id=${product.productId},data-update-url=@{/product/updateStatus}" onchange="changeDetailProductStatus(this)"><span class="slider"><span class="switch-text on">上架</span><span class="switch-text off">下架</span></span></label><span id="detail-status-error" class="status-error" role="status" hidden></span>
                 </span></div>
-                <div class="item meta-wide description-item"><span class="name">　 描述</span><span class="value" th:text="${product.productDesc}"></span></div>
+                <div class="item meta-wide description-item"><span class="name">描述</span><span class="value" th:text="${product.productDesc}"></span></div>
             </div>
 
             <!-- 規格按鈕 -->
@@ -512,8 +571,10 @@
                             th:each="sku, stat : ${productSkuList}"
                             th:classappend="${stat.index == 0 ? ' active' : ''}"
                             th:attr="data-panel-id=|sku-panel-${sku.skuId}|,data-sku-id=${sku.skuId}"
-                            onclick="showSkuInfo(this)"
-                            th:text="${sku.displayName}">
+                            onclick="showSkuInfo(this)">
+                        <span th:text="${sku.displayName}"></span>
+                        <span class="sku-stock-warning" th:if="${sku.stockAbnormal}" role="img" aria-label="庫存異常"
+                              th:title="${#strings.listJoin(sku.stockStatuses, ' ')}">!</span>
                     </button>
                 </div>
 
@@ -526,7 +587,7 @@
                 <div th:each="sku, stat : ${productSkuList}"
                      th:id="|sku-panel-${sku.skuId}|"
                      class="sku-panel"
-                     th:classappend="${stat.index == 0 ? ' active' : ''}">
+                     th:classappend="${(stat.index == 0 ? ' active' : '') + ' status-' + sku.status}">
 
                     <div class="item">
                         <span class="name">規格價格</span>
@@ -536,17 +597,27 @@
                     </div>
 
                     <div class="item">
-    					<span class="name">規格狀態</span>
-    					<span class="value" th:switch="${sku.status}">
-        					<span th:case="0" class="status status-0">下架</span>
-        					<span th:case="1" class="status status-1">上架</span>
-        					<span th:case="2" class="status status-2">缺貨</span>
-        					<span th:case="3" class="status status-3">即將下架</span>
-                <span th:case="4" class="status status-4">永久停產</span>
-                        <span th:case="5" class="status status-5">預備上架</span>
-                        <span th:case="*" class="status">未設定</span>
-    					</span>
-					</div>
+                        <span class="name">規格狀態</span>
+                        <span class="value sku-status-value">
+                            <select class="sku-status-select" aria-label="規格狀態"
+                                    th:style="|--status-label-length: ${#strings.length(sku.statusLabel)}|"
+                                    th:attr="data-sku-id=${sku.skuId},data-current-status=${sku.status},data-can-restore=${canRestoreDiscontinued == true},data-update-url=@{/productsku/updateStatus}"
+                                    onchange="changeSkuStatus(this)">
+                                <option th:each="state : ${#numbers.sequence(0,5)}" th:value="${state}"
+                                        th:selected="${sku.status == state}"
+                                        th:disabled="${(state == 5 and sku.status != 5) or (sku.status == 4 and state != 4 and canRestoreDiscontinued != true)}"
+                                        th:text="${state == 0 ? '下架' : (state == 1 ? '上架' : (state == 2 ? '缺貨' : (state == 3 ? '即將下架' : (state == 4 ? '永久停產' : '預備上架'))))}"></option>
+                            </select>
+                            <span class="sku-status-feedback" role="status" hidden></span>
+                        </span>
+                    </div>
+
+                    <div class="item meta-wide" th:if="${sku.stockAbnormal}">
+                        <span class="name">異常狀態</span>
+                        <span class="value stock-alerts abnormal">
+                            <span th:each="alert, stat : ${sku.stockStatuses}" th:classappend="${stat.first ? ' stock-alert-first' : ''}"><span th:if="${!stat.first}"> </span><span th:text="${alert}"></span></span>
+                        </span>
+                    </div>
 
                     <div class="item">
                         <span class="name">庫存量</span>
@@ -573,18 +644,26 @@
                               th:text="${sku.outboundQty != null ? sku.outboundQty : 0}">
                         </span>
                     </div>
+
+                <div class="item" th:with="rating=${sku.allCommentAmount != null and sku.allCommentAmount > 0 and sku.allCommentStar != null ? sku.allCommentStar * 1.0 / sku.allCommentAmount : 0.0}">
+                    <span class="name">規格均分</span><span class="value rating-value">
+                        <span class="rating-stars" role="img" th:attr="aria-label=${#numbers.formatDecimal(rating, 1, 1) + '顆星，共5顆星'}">
+                            <span class="rating-star" th:each="star : ${#numbers.sequence(1,5)}">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01Z"/></svg>
+                                <span class="rating-star-fill" th:style="${'width:' + (rating >= star ? 100 : (rating > star - 1 ? (rating - star + 1) * 100 : 0)) + '%'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01Z"/></svg></span>
+                            </span>
+                        </span><span th:text="${sku.allCommentAmount != null and sku.allCommentAmount > 0 ? #numbers.formatDecimal(rating, 1, 1) : ''}"></span>
+                    </span>
+                </div>
+                <div class="item"><span class="name">規格評論數</span><span class="value" th:text="${sku.allCommentAmount != null ? sku.allCommentAmount : 0}"></span></div>
                 </div>
             </div>
 
             <!-- 修改與返回按鈕 -->
             <div class="action-buttons" th:if="${param.modal == null}"><a class="btn" th:href="@{/productsku/listAllProductSku}">管理規格</a>
 
-                <form th:action="@{/product/getOne_For_Update}" method="post">
-                    <input type="hidden"
-                           name="productId"
-                           th:value="${product.productId}">
-                    <button type="submit" class="btn btn-edit">修改</button>
-                </form>
+                <button type="button" class="btn btn-edit" data-product-edit
+                        th:attr="data-detail-url=@{/product/getOne_For_Display(productId=${product.productId},modal=true)},data-detail-name=${product.productName}">修改</button>
 
                 <a class="btn" th:href="@{/product/listAllProduct}">
                     返回商品列表
@@ -596,6 +675,52 @@
 </div>
 
 <script>
+    async function changeSkuStatus(select) {
+        const requested = select.value;
+        const previous = select.dataset.currentStatus;
+        const feedback = select.parentElement.querySelector('.sku-status-feedback');
+        if (requested === '4' && previous !== '4'
+                && !window.confirm('請確認該規格是否永久停產，永久停產後無法再調整規格狀態。')) {
+            select.value = previous;
+            return;
+        }
+        feedback.hidden = true; select.disabled = true;
+        try {
+            const response = await fetch(select.dataset.updateUrl, {
+                method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({skuId: select.dataset.skuId, status: requested})
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || '規格狀態更新失敗');
+            document.querySelectorAll('.sku-status-select').forEach(control => {
+                const actual = result.skuStatuses[control.dataset.skuId];
+                if (actual == null) return;
+                control.value = String(actual); control.dataset.currentStatus = String(actual);
+                control.style.setProperty('--status-label-length', control.selectedOptions[0].textContent.trim().length);
+                const panel = control.closest('.sku-panel');
+                for (let state = 0; state <= 5; state++) panel.classList.remove('status-' + state);
+                panel.classList.add('status-' + actual);
+                Array.from(control.options).forEach(option => {
+                    option.disabled = (option.value === '5' && actual !== 5)
+                        || (actual === 4 && option.value !== '4' && control.dataset.canRestore !== 'true');
+                });
+            });
+            const toggle = document.getElementById('detail-product-status');
+            if (toggle) {
+                toggle.checked = result.productStatus === 1;
+                toggle.closest('label').setAttribute('aria-label', toggle.checked ? '上架' : '下架');
+            }
+            if (requested !== select.value) {
+                feedback.textContent = '庫存＋待進貨－待出貨已小於或等於 0，規格已自動下架。'; feedback.hidden = false;
+            }
+            document.dispatchEvent(new CustomEvent('product-status-updated', {
+                detail: {productId: result.productId, status: result.productStatus}
+            }));
+        } catch (failure) {
+            select.value = previous; feedback.textContent = failure.message || '更新失敗，請重試。'; feedback.hidden = false;
+        } finally { select.disabled = false; }
+    }
+
     async function changeDetailProductStatus(toggle) {
         const status = toggle.checked ? 1 : 0;
         const error = document.getElementById('detail-status-error');
@@ -659,8 +784,14 @@
             option.classList.remove("active");
         });
 
+        const scrollContainer = document.scrollingElement;
+        const scrollTop = scrollContainer?.scrollTop;
+        const scrollLeft = scrollContainer?.scrollLeft;
+        const selectedPanel = document.getElementById(panelId);
+        if (!selectedPanel) return;
+        // Keep a panel visible before image measurements force layout, so the document never collapses.
         document.querySelectorAll(".sku-panel").forEach(function (panel) {
-            panel.classList.remove("active");
+            panel.classList.toggle("active", panel === selectedPanel);
         });
 
         button.classList.add("active");
@@ -681,9 +812,9 @@
             }
             updateImageArrows();
         }
-        const selectedPanel = document.getElementById(panelId);
-        if (selectedPanel) {
-            selectedPanel.classList.add("active");
+        if (scrollContainer) {
+            scrollContainer.scrollTop = scrollTop;
+            scrollContainer.scrollLeft = scrollLeft;
         }
     }
     const initialSku = document.querySelector('.sku-option.active');
@@ -691,5 +822,7 @@
     else updateImageArrows();
 </script>
 <script th:src="@{/admin/js/product-status.js}"></script>
+<script th:src="@{/admin/js/product-detail-editor.js}"></script>
+<script th:if="${param.modal == null}" th:src="@{/admin/js/product-detail-modal.js}" defer></script>
 </body>
 </html>

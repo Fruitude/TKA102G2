@@ -35,6 +35,8 @@ public class ProductLifecycleService {
     public void validateSkuChange(Byte previous, Byte next) {
         if (next == null || next < 0 || next > 5) throw new IllegalArgumentException("規格狀態須為 0～5");
         access.requireRestorePermission(previous, next, SKU_DISCONTINUED);
+        if (Byte.valueOf((byte)5).equals(next) && previous != null && !Byte.valueOf((byte)5).equals(previous))
+            throw new IllegalArgumentException("預備上架僅能於新增規格時設定，離開後不可再切回。");
     }
 
     public void synchronize(Product product) {
