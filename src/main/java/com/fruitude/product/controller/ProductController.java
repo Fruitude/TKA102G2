@@ -45,7 +45,7 @@ public class ProductController {
             result.rejectValue("productName", "invalid", "商品名稱須為 1～100 字");
         else p.setProductName(p.getProductName().trim());
         if (p.getProductDesc() != null && p.getProductDesc().length() > 255) result.rejectValue("productDesc", "invalid", "描述不可超過 255 字");
-        if (p.getStatus() == null || p.getStatus() < 0 || p.getStatus() > 3) result.rejectValue("status", "invalid", "狀態須為 0～3");
+        if (p.getStatus() == null || p.getStatus() < 0 || p.getStatus() > 2) result.rejectValue("status", "invalid", "狀態須為 0～2");
         Integer categoryId = p.getProductCategory() == null ? null : p.getProductCategory().getProductCategoryId();
         Integer vendorId = p.getVendor() == null ? null : p.getVendor().getVendorId();
         ProductCategory category = categoryId == null ? null : productCategorySvc.getOneProductCategory(categoryId);
@@ -112,6 +112,7 @@ public class ProductController {
     public String insert(
             @Valid @ModelAttribute("product") Product product,
             BindingResult result,
+            @RequestParam(defaultValue = "false") boolean activateSkus,
             MultipartHttpServletRequest multipartRequest,
             ModelMap model) {
 
@@ -273,7 +274,10 @@ public class ProductController {
         }
 
         // 新增資料
-        try { productSvc.addProduct(product); }
+        try { productSvc.addProduct(product, activateSkus); }
+        catch (IllegalArgumentException | IllegalStateException e) {
+            result.reject("status", e.getMessage()); return "admin/productmanagement/product/addProduct";
+        }
         catch (org.springframework.dao.DataIntegrityViolationException e) {
             result.reject("save", "商品或規格名稱重複，或關聯資料已變更");
             return "admin/productmanagement/product/addProduct";
@@ -309,6 +313,7 @@ public class ProductController {
     public String update(
             @Valid @ModelAttribute("product") Product product,
             BindingResult result,
+            @RequestParam(defaultValue = "false") boolean activateSkus,
             ModelMap model) {
 
         if (product.getProductId() == null || productSvc.getOneProduct(product.getProductId()) == null) return "redirect:/product/listAllProduct";
@@ -320,7 +325,11 @@ public class ProductController {
         }
 
         // 修改資料
-        try { productSvc.updateBasicFields(product); }
+        try { productSvc.updateBasicFields(product, activateSkus); }
+        catch (IllegalArgumentException | IllegalStateException e) {
+            result.reject("status", e.getMessage());
+            return "admin/productmanagement/product/update_product_input";
+        }
         catch (org.springframework.dao.DataIntegrityViolationException e) {
             result.reject("save", "商品名稱重複，或關聯資料已變更");
             return "admin/productmanagement/product/update_product_input";
@@ -339,31 +348,33 @@ public class ProductController {
     
     @PostMapping("updateStatus")
     @ResponseBody
-    public String updateStatus(
-            @RequestParam("productId") Integer productId,
-            @RequestParam("status") Byte status) {
-
-        if (status < 0 || status > 3) return "狀態無效";
-
-        Product product =
-                productSvc.getOneProduct(productId);
-
-        if (product == null) {
-            return "商品不存在";
+    public org.springframework.http.ResponseEntity<String> updateStatus(
+            @RequestParam Integer productId, @RequestParam Byte status,
+            @RequestParam(defaultValue = "false") boolean activateSkus) {
+        try {
+            return productSvc.updateStatus(productId, status, activateSkus)
+                ? org.springframework.http.ResponseEntity.ok("success")
+                : org.springframework.http.ResponseEntity.status(404).body("商品不存在");
+        } catch (com.fruitude.product.model.ProductStatusConfirmationException e) {
+            return org.springframework.http.ResponseEntity.status(409).body(e.getMessage());
+        } catch (com.fruitude.product.model.ProductStatusAccessException e) {
+            return org.springframework.http.ResponseEntity.status(403).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return org.springframework.http.ResponseEntity.badRequest().body(e.getMessage());
         }
-
-        productSvc.updateStatus(productId, status);
-
-        return "success";
     }
 
     @PostMapping("updatePageStatus")
     @ResponseBody
     public org.springframework.http.ResponseEntity<?> updatePageStatus(
-            @RequestParam List<Integer> productIds, @RequestParam Byte status) {
+            @RequestParam List<Integer> productIds, @RequestParam Byte status,
+            @RequestParam(defaultValue = "false") boolean activateSkus) {
         try {
-            int updated = productSvc.updatePageStatus(productIds, status);
-            return org.springframework.http.ResponseEntity.ok(java.util.Map.of("updated", updated));
+            int updated = productSvc.updatePageStatus(productIds, status, activateSkus);
+            int skipped = (int)productIds.stream().distinct().count() - updated;
+            return org.springframework.http.ResponseEntity.ok(java.util.Map.of("updated", updated, "skipped", skipped));
+        } catch (com.fruitude.product.model.ProductStatusConfirmationException e) {
+            return org.springframework.http.ResponseEntity.status(409).body(java.util.Map.of("message", e.getMessage()));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return org.springframework.http.ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
         }

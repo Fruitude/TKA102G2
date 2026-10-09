@@ -100,6 +100,19 @@ public class Product implements java.io.Serializable {
 	public void setProductDesc(String productDesc) {
 		this.productDesc = productDesc;
 	}
+    public boolean isHasSellableSku() {
+        return productSkus.stream().anyMatch(s -> ProductLifecycleService.isSellable(s.getStatus())
+            && !(s.getStatus() == 3 && ProductLifecycleService.isDepleted(s)));
+    }
+
+    public boolean isHasReadySku() {
+        return productSkus.stream().anyMatch(s -> Byte.valueOf((byte)5).equals(s.getStatus()));
+    }
+
+    public boolean isHasListedSku() {
+        return productSkus.stream().anyMatch(s -> Byte.valueOf((byte)1).equals(s.getStatus()));
+    }
+
 	public Byte getStatus() {
 		return status;
 	}

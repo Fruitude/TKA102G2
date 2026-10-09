@@ -9,39 +9,59 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProductService {
 
+    @Autowired
+    ProductLifecycleService lifecycle;
+
     @org.springframework.transaction.annotation.Transactional
-    public void updateBasicFields(Product form) {
-        Product existing = repository.findById(form.getProductId()).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
-        existing.setProductName(form.getProductName());
-        existing.setProductDesc(form.getProductDesc());
-        existing.setProductCategory(form.getProductCategory());
-        existing.setVendor(form.getVendor());
-        existing.setStatus(form.getStatus());
-        existing.setUpdatedAt(java.time.LocalDateTime.now());
+    public void updateBasicFields(Product form) { updateBasicFields(form, false); }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void updateBasicFields(Product form, boolean activateSkus) {
+        Product existing = repository.lockForStatus(form.getProductId()).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        lifecycle.changeProduct(existing, form.getStatus(), activateSkus);
+        existing.setProductName(form.getProductName()); existing.setProductDesc(form.getProductDesc());
+        existing.setProductCategory(form.getProductCategory()); existing.setVendor(form.getVendor());
         repository.saveAndFlush(existing);
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public boolean updateStatus(Integer id, Byte status) {
-        Product existing = repository.findById(id).orElse(null);
+    public boolean updateStatus(Integer id, Byte status) { return updateStatus(id, status, false); }
+
+    @org.springframework.transaction.annotation.Transactional
+    public boolean updateStatus(Integer id, Byte status, boolean activateSkus) {
+        Product existing = repository.lockForStatus(id).orElse(null);
         if (existing == null) return false;
-        existing.setStatus(status);
-        existing.setUpdatedAt(java.time.LocalDateTime.now());
+        lifecycle.changeProduct(existing, status, activateSkus);
         repository.saveAndFlush(existing);
         return true;
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public int updatePageStatus(List<Integer> productIds, Byte status) {
+    public int updatePageStatus(List<Integer> productIds, Byte status) { return updatePageStatus(productIds, status, false); }
+
+    @org.springframework.transaction.annotation.Transactional
+    public int updatePageStatus(List<Integer> productIds, Byte status, boolean activateSkus) {
         if (status == null || (status != 0 && status != 1)) throw new IllegalArgumentException("狀態須為上架或下架");
         if (productIds == null || productIds.isEmpty() || productIds.size() > 100
-                || productIds.stream().anyMatch(id -> id == null || id <= 0)) {
+                || productIds.stream().anyMatch(id -> id == null || id <= 0))
             throw new IllegalArgumentException("請提供本頁有效的商品編號（最多100筆）");
+        var products = productIds.stream().distinct().sorted().map(id -> repository.lockForStatus(id)
+            .orElseThrow(() -> new IllegalArgumentException("本頁商品已變更，請重新整理後再操作"))).toList();
+        // Preflight the entire page before modifying anything; a confirmation never partially updates a page.
+        for (Product product : products) {
+            if (product.getStatus() == 2) continue;
+            if (status == 1 && product.getProductSkus().stream().noneMatch(sku -> ProductLifecycleService.isSellable(sku.getStatus()) && !(sku.getStatus() == 3 && ProductLifecycleService.isDepleted(sku)))) {
+                if (product.getProductSkus().stream().noneMatch(sku -> sku.getStatus() != 4))
+                    throw new IllegalArgumentException(product.getProductName() + " 沒有可上架規格");
+                if (!activateSkus && !product.isHasReadySku()) throw new ProductStatusConfirmationException();
+            }
         }
-        var ids = new java.util.LinkedHashSet<>(productIds);
-        if (repository.countByProductIdIn(ids) != ids.size()) throw new IllegalArgumentException("本頁商品已變更，請重新整理後再操作");
-        int updated = repository.updatePageStatus(ids, status, java.time.LocalDateTime.now());
-        if (updated != ids.size()) throw new IllegalStateException("本頁商品已變更，請重新整理後再操作");
+        int updated = 0;
+        for (Product product : products) {
+            if (product.getStatus() == 2) continue;
+            lifecycle.changeProduct(product, status, activateSkus); updated++;
+        }
+        repository.flush();
         return updated;
     }
 
@@ -53,12 +73,21 @@ public class ProductService {
     @Autowired
     ProductRepository repository;
 
-    public void addProduct(Product product) {
-        repository.save(product);
+    @org.springframework.transaction.annotation.Transactional
+    public void addProduct(Product product) { addProduct(product, false); }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void addProduct(Product product, boolean activateSkus) {
+        if (product.getStatus() != 2 && product.getProductSkus().stream().anyMatch(s -> ProductLifecycleService.isSellable(s.getStatus()) && !(s.getStatus() == 3 && ProductLifecycleService.isDepleted(s)))) product.setStatus((byte)1);
+        lifecycle.changeProduct(product, product.getStatus(), activateSkus);
+        // A sellable SKU takes precedence on creation, unless the product is permanently retired.
+        if (product.getStatus() != 2 && product.getProductSkus().stream().anyMatch(s -> ProductLifecycleService.isSellable(s.getStatus()) && !(s.getStatus() == 3 && ProductLifecycleService.isDepleted(s)))) lifecycle.synchronize(product);
+        repository.saveAndFlush(product);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void updateProduct(Product product) {
-        repository.save(product);
+        updateBasicFields(product);
     }
 
     public void deleteProduct(Integer productId) {

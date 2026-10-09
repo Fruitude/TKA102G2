@@ -12,19 +12,40 @@ public class ProductSkuService {
 	@Autowired
 	ProductSkuRepository repository;
 
-	public void addProductSku(ProductSku productSku) {
-		repository.save(productSku);
-	}
+    @Autowired ProductRepository products;
+    @Autowired ProductLifecycleService lifecycle;
 
-	public void updateProductSku(ProductSku productSku) {
-		repository.save(productSku);
-	}
+    @org.springframework.transaction.annotation.Transactional
+    public void addProductSku(ProductSku sku) {
+        Product product = products.lockForStatus(sku.getProduct().getProductId()).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        lifecycle.validateSkuChange(null, sku.getStatus());
+        sku.setProduct(product); product.getProductSkus().add(sku);
+        lifecycle.synchronize(product);
+        products.saveAndFlush(product);
+    }
 
-	public void deleteProductSku(Integer skuId) {
-		if (repository.existsById(skuId)) {
-			repository.deleteById(skuId);
-		}
-	}
+    @org.springframework.transaction.annotation.Transactional
+    public void updateProductSku(ProductSku form) {
+        ProductSku reference = repository.findById(form.getSkuId()).orElseThrow(() -> new IllegalArgumentException("規格不存在"));
+        Product product = products.lockForStatus(reference.getProduct().getProductId()).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        ProductSku sku = product.getProductSkus().stream().filter(s -> s.getSkuId().equals(form.getSkuId())).findFirst().orElseThrow();
+        lifecycle.validateSkuChange(sku.getStatus(), form.getStatus());
+        sku.setSkuName(form.getSkuName().trim()); sku.setAnotherName(form.getAnotherName());
+        sku.setPrice(form.getPrice()); sku.setStock(form.getStock()); sku.setSafetyStock(form.getSafetyStock());
+        sku.setInboundQty(form.getInboundQty()); sku.setOutboundQty(form.getOutboundQty());
+        sku.setStatus(form.getStatus()); sku.setUpdatedAt(java.time.LocalDateTime.now());
+        lifecycle.synchronize(product);
+        products.saveAndFlush(product);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteProductSku(Integer skuId) {
+        ProductSku reference = repository.findById(skuId).orElse(null);
+        if (reference == null) return;
+        Product product = products.lockForStatus(reference.getProduct().getProductId()).orElseThrow();
+        product.getProductSkus().removeIf(s -> s.getSkuId().equals(skuId));
+        lifecycle.synchronize(product); products.saveAndFlush(product);
+    }
 
 	public ProductSku getOneProductSku(Integer skuId) {
 		Optional<ProductSku> optional = repository.findById(skuId);

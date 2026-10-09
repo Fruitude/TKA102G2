@@ -1,51 +1,52 @@
-/* 首頁拼貼區：五張圖大小一致（3:4），錯落擺放但互不重疊。
-   原本的版面是用 absolute 定位把小圖疊在中央大圖四周，圖片會互相壓住；
-   這裡改成格線（grid）排列，每張圖再用不同的上方位移與寬度做出散亂的感覺，格子之間有固定間距，所以不會重疊。
-   順序：火龍果、蘋果（中央圖）、水果禮盒（蜜瓜與方形西瓜）、西瓜、水果禮盒（多層水果供盤） */
-.collage-wrapper {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 1.5rem;
-  align-items: start;
-  margin-bottom: 4rem;
+/* Reference layout, left to right: low, high, lowest, highest, middle.
+   The first, third and fifth photos overlap the second and fourth by 15px on desktop. */
+.home-quality-section .collage-wrapper {
+  display: block;
+  position: relative;
+  width: 82%;
+  max-width: 900px;
+  aspect-ratio: 1.78 / 1;
+  margin: 0 auto 2rem;
+  isolation: isolate;
 }
-
-.collage-wrapper .collage-center-image-wrapper,
-.collage-wrapper .collage-small-image-wrapper {
-  position: static;
+.home-quality-section .collage-wrapper .collage-center-image-wrapper,
+.home-quality-section .collage-wrapper .collage-small-image-wrapper {
+  position: absolute;
   inset: auto;
-  width: 100%;
   margin: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px #26332324;
 }
-
-.collage-wrapper .collage-center-image,
-.collage-wrapper .collage-small-image {
+.home-quality-section .collage-wrapper .collage-center-image,
+.home-quality-section .collage-wrapper .collage-small-image {
+  display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 3 / 4;
   object-fit: cover;
-  display: block;
 }
-
-/* 順序：image-1、中央圖、image-2、image-3、image-4 */
-.collage-wrapper .collage-small-image-wrapper.image-1 { order: 1; margin-top: 3.5rem; }
-.collage-wrapper .collage-center-image-wrapper        { order: 2; margin-top: 0; }
-.collage-wrapper .collage-small-image-wrapper.image-2 { order: 3; margin-top: 5rem; width: 92%; }
-.collage-wrapper .collage-small-image-wrapper.image-3 { order: 4; margin-top: 1.5rem; }
-.collage-wrapper .collage-small-image-wrapper.image-4 { order: 5; margin-top: 4rem; width: 94%; }
-
-@media screen and (max-width: 991px) {
-  .collage-wrapper { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .collage-wrapper .collage-small-image-wrapper.image-1 { margin-top: 2.5rem; }
-  .collage-wrapper .collage-small-image-wrapper.image-2 { margin-top: 0; width: 100%; }
-  .collage-wrapper .collage-small-image-wrapper.image-3 { margin-top: 3rem; }
-  .collage-wrapper .collage-small-image-wrapper.image-4 { margin-top: 1rem; width: 100%; }
+.home-quality-section .collage-wrapper .image-1 {
+  width: 22%; left: calc(-15% + 30px); top: 33%; z-index: 2;
 }
-
-@media screen and (max-width: 479px) {
-  .collage-wrapper { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-  .collage-wrapper .collage-small-image-wrapper.image-1 { margin-top: 1.5rem; }
-  .collage-wrapper .collage-small-image-wrapper.image-2 { margin-top: 0; }
-  .collage-wrapper .collage-small-image-wrapper.image-3 { margin-top: 1.5rem; }
-  .collage-wrapper .collage-small-image-wrapper.image-4 { margin-top: 0; }
+.home-quality-section .collage-wrapper .collage-center-image-wrapper {
+  width: 26%; left: calc(7% + 15px); top: 10%; z-index: 1;
+}
+.home-quality-section .collage-wrapper .image-2 {
+  width: 25%; left: 33%; top: 40%; z-index: 3;
+}
+.home-quality-section .collage-wrapper .image-3 {
+  width: 30%; left: calc(58% - 15px); top: 0; z-index: 1;
+}
+.home-quality-section .collage-wrapper .image-4 {
+  width: 27%; left: calc(88% - 30px); top: 28%; z-index: 2;
+}
+@media screen and (max-width: 767px) {
+  .home-quality-section .collage-wrapper { width: 100%; }
+  /* Keep photos inside the narrow-screen content area. */
+  .home-quality-section .collage-wrapper .image-1 { left: 0; }
+  .home-quality-section .collage-wrapper .collage-center-image-wrapper { left: 13%; }
+  .home-quality-section .collage-wrapper .image-2 { left: 34%; }
+  .home-quality-section .collage-wrapper .image-3 { left: 50%; }
+  .home-quality-section .collage-wrapper .image-4 { left: 73%; }
 }

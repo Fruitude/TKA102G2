@@ -429,6 +429,7 @@ public class OrdersService {
 			}
 		}
 		if (!qtyBySku.isEmpty()) {
+			skuStockRepository.lockProducts(qtyBySku.keySet());
 			skuStockRepository.lockSkus(qtyBySku.keySet());
 		}
 		frontCatalogService.validateCheckoutItems(form.getItems());
@@ -441,6 +442,10 @@ public class OrdersService {
 						productNameOf(form.getItems(), entry.getKey()) + " 庫存不足，請返回購物車調整數量");
 			}
 		}
+        if (!qtyBySku.isEmpty()) {
+            skuStockRepository.closeDepletedSkus(qtyBySku.keySet());
+            skuStockRepository.closeProductsWithoutListedSkus(qtyBySku.keySet());
+        }
 		// 實際折抵的購物金要從會員餘額扣掉；餘額不足就丟例外，整筆交易回滾，不會留下訂單
 		int usedCredit = orders.getShoppingCredit();
 		if (usedCredit > 0 && memberRepository.deductShoppingCredit(orders.getMemberId(), usedCredit) == 0) {

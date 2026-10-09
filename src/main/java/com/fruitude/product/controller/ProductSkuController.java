@@ -175,18 +175,13 @@ public class ProductSkuController {
             return "admin/productmanagement/productsku/updateProductSkuInput";
         }
 
-        // 修改時保留原本關聯的商品，不允許表單改動 product_id
-        originalSku.setSkuName(skuName);
-        originalSku.setAnotherName(formSku.getAnotherName());
-        originalSku.setPrice(formSku.getPrice());
-        originalSku.setStock(formSku.getStock());
-        originalSku.setSafetyStock(formSku.getSafetyStock());
-        originalSku.setInboundQty(formSku.getInboundQty());
-        originalSku.setOutboundQty(formSku.getOutboundQty());
-        originalSku.setStatus(formSku.getStatus());
-        originalSku.setUpdatedAt(LocalDateTime.now());
-
-        try { productSkuSvc.updateProductSku(originalSku); }
+        formSku.setSkuId(skuId);
+        formSku.setProduct(originalSku.getProduct());
+        try { productSkuSvc.updateProductSku(formSku); }
+        catch (IllegalArgumentException e) {
+            model.addAttribute("errorMsg", e.getMessage()); addProductList(model);
+            return "admin/productmanagement/productsku/updateProductSkuInput";
+        }
         catch (org.springframework.dao.DataIntegrityViolationException e) {
             formSku.setProduct(originalSku.getProduct());
             model.addAttribute("errorMsg", "規格名稱重複，或關聯資料已變更。");
@@ -247,7 +242,7 @@ public class ProductSkuController {
 
         if (sku.getSkuName() != null && sku.getSkuName().trim().length() > 50) errors.append("規格名稱不可超過 50 字。");
         if (sku.getAnotherName() != null && sku.getAnotherName().length() > 50) errors.append("別稱不可超過 50 字。");
-        if (sku.getStatus() == null || sku.getStatus() < 0 || sku.getStatus() > 3) errors.append("狀態須為 0～3。");
+        if (sku.getStatus() == null || sku.getStatus() < 0 || sku.getStatus() > 5) errors.append("狀態須為 0～5。");
 
         if (sku.getSkuName() == null || sku.getSkuName().trim().isEmpty()) {
             errors.append("規格名稱不可空白。");

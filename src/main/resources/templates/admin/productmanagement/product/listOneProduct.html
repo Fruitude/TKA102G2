@@ -495,7 +495,7 @@
                 </div>
                 <div class="item"><span class="name">　總評論</span><span class="value" th:text="${product.allCommentAmount != null ? product.allCommentAmount : 0}"></span></div>
                 <div class="item meta-wide status-item"><span class="name">　 狀態</span><span class="value status-value">
-                    <label class="switch" th:attr="aria-label=${product.status == 1 ? '上架' : '下架'}"><input id="detail-product-status" type="checkbox" th:checked="${product.status == 1}" th:attr="data-product-id=${product.productId},data-update-url=@{/product/updateStatus}" onchange="changeDetailProductStatus(this)"><span class="slider"><span class="switch-text on">上架</span><span class="switch-text off">下架</span></span></label><span id="detail-status-error" class="status-error" role="status" hidden></span>
+                    <span th:if="${product.status == 2}" class="status">永久停產</span><label class="switch" th:if="${product.status != 2}" th:attr="aria-label=${product.status == 1 ? '上架' : '下架'}"><input id="detail-product-status" type="checkbox" th:checked="${product.status == 1}" th:attr="data-product-id=${product.productId},data-update-url=@{/product/updateStatus}" onchange="changeDetailProductStatus(this)"><span class="slider"><span class="switch-text on">上架</span><span class="switch-text off">下架</span></span></label><span id="detail-status-error" class="status-error" role="status" hidden></span>
                 </span></div>
                 <div class="item meta-wide description-item"><span class="name">　 描述</span><span class="value" th:text="${product.productDesc}"></span></div>
             </div>
@@ -542,7 +542,9 @@
         					<span th:case="1" class="status status-1">上架</span>
         					<span th:case="2" class="status status-2">缺貨</span>
         					<span th:case="3" class="status status-3">即將下架</span>
-        					<span th:case="*" class="status">未設定</span>
+                <span th:case="4" class="status status-4">永久停產</span>
+                        <span th:case="5" class="status status-5">預備上架</span>
+                        <span th:case="*" class="status">未設定</span>
     					</span>
 					</div>
 
@@ -599,10 +601,8 @@
         const error = document.getElementById('detail-status-error');
         error.hidden = true; toggle.disabled = true;
         try {
-            const response = await fetch(toggle.dataset.updateUrl, {
-                method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({productId: toggle.dataset.productId, status})
-            });
+            const response = await window.requestProductStatus(toggle.dataset.updateUrl,
+                new URLSearchParams({productId: toggle.dataset.productId, status}));
             const result = await response.text();
             if (!response.ok || result !== 'success') throw new Error(result || '更新失敗');
             toggle.closest('label').setAttribute('aria-label', status === 1 ? '上架' : '下架');
@@ -611,7 +611,7 @@
             }));
         } catch (failure) {
             toggle.checked = !toggle.checked;
-            error.textContent = '更新失敗，請重試。'; error.hidden = false;
+            error.textContent = failure.message || '更新失敗，請重試。'; error.hidden = false;
         } finally { toggle.disabled = false; }
     }
     const thumbnails = Array.from(document.querySelectorAll('.thumbnail'));
@@ -690,5 +690,6 @@
     if (initialSku) showSkuInfo(initialSku);
     else updateImageArrows();
 </script>
+<script th:src="@{/admin/js/product-status.js}"></script>
 </body>
 </html>
