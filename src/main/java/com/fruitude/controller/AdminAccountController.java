@@ -9,11 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @RequestMapping("/admin/account")
 public class AdminAccountController {
 	
-	@GetMapping("/purchasereview")
-	public String purchasereview(Model model) {
-	    return "admin/account/purchasereview/index";
-	}
-	
+	// 採購單審核首頁（/admin/account/purchasereview）改由 PoReviewController 的 purchasereview 處理
+
 	@GetMapping("/refundreview")
 	public String refundreview(Model model) {
 	    return "admin/account/refundreview/index";
