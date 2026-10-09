@@ -244,7 +244,7 @@
 <body>
 <div class="container">
 
-    <form th:action="@{/product/insert}"
+    <form data-product-status-form th:attr="data-has-sellable-sku=${product.hasSellableSku},data-has-ready-sku=${product.hasReadySku}" th:action="@{/product/insert}"
           th:object="${product}"
           method="post"
           enctype="multipart/form-data"><ul class="error" th:if="${#fields.hasAnyErrors()}"><li th:each="e:${#fields.allErrors()}" th:text="${e}"></li></ul><p></p>
@@ -312,9 +312,9 @@
                 <th><label for="status">商品狀態</label></th>
                 <td>
                     <select id="status" th:field="*{status}">
-                        <option value="0">下架</option>
-                        <option value="1">上架</option>
-                    </select>
+                        <option th:disabled="${product.status == 2 and canRestoreDiscontinued != true}" value="0">下架</option>
+                        <option th:disabled="${product.status == 2 and canRestoreDiscontinued != true}" value="1">上架</option>
+                    <option value="2">永久停產</option></select>
                 </td>
             </tr>
             </tbody>
@@ -414,8 +414,8 @@
                                     required>
                                 <option value="0">下架</option>
                                 <option value="1">上架</option>
-<!--                                 <option value="2">缺貨</option> -->
-<!--                                 <option value="3">即將下架</option> -->
+                                <option value="2">缺貨</option>
+                                <option value="3">即將下架</option><option value="4">永久停產</option><option value="5">預備上架</option>
                             </select>
                         </td>
                     </tr>
@@ -528,8 +528,8 @@
                                     required>
                                 <option value="0">下架</option>
                                 <option value="1">上架</option>
-//                                 <option value="2">缺貨</option>
-//                                 <option value="3">即將下架</option>
+                                <option value="2">缺貨</option>
+                                <option value="3">即將下架</option><option value="4">永久停產</option><option value="5">預備上架</option>
                             </select>
                         </td>
                     </tr>
@@ -617,5 +617,6 @@
         preview.hidden = false;
     });
 </script>
+<script th:src="@{/admin/js/product-status.js}"></script>
 </body>
 </html>

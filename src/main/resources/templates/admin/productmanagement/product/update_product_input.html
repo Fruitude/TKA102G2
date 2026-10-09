@@ -19,7 +19,7 @@
 <div class="container">
     <h1>修改商品</h1>
 
-    <form th:action="@{/product/update}" th:object="${product}" method="post">
+    <form data-product-status-form th:attr="data-has-sellable-sku=${product.hasSellableSku},data-has-ready-sku=${product.hasReadySku}" th:action="@{/product/update}" th:object="${product}" method="post">
         <ul class="error" th:if="${#fields.hasAnyErrors()}"><li th:each="e:${#fields.allErrors()}" th:text="${e}"></li></ul><input type="hidden" th:field="*{productId}">
 
         <label>商品編號</label>
@@ -55,13 +55,14 @@
 
         <label for="status">商品狀態</label>
         <select id="status" th:field="*{status}">
-            <option value="0">下架</option>
-            <option value="1">上架</option><option value="2">缺貨</option><option value="3">即將下架</option>
-        </select>
+            <option th:disabled="${product.status == 2 and canRestoreDiscontinued != true}" value="0">下架</option>
+            <option th:disabled="${product.status == 2 and canRestoreDiscontinued != true}" value="1">上架</option>
+        <option value="2">永久停產</option></select>
 
         	<button type="submit">儲存修改</button>
         	<a class="back" th:href="@{/product/listAllProduct}">返回列表</a>
     </form>
 </div>
+<script th:src="@{/admin/js/product-status.js}"></script>
 </body>
 </html>

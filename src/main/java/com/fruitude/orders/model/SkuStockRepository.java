@@ -30,6 +30,16 @@ public interface SkuStockRepository extends Repository<ProductSku, Integer> {
 	@Query(value = "UPDATE product_sku SET "
 			+ "stock = CASE WHEN status = 2 THEN GREATEST(COALESCE(stock, 0) - :qty, 0) ELSE stock - :qty END, "
 			+ "outbound_qty = COALESCE(outbound_qty, 0) + :qty "
-			+ "WHERE sku_id = :skuId AND (status = 2 OR stock >= :qty)", nativeQuery = true)
+			+ "WHERE sku_id = :skuId AND status IN (1,2,3) AND EXISTS (SELECT 1 FROM product p WHERE p.product_id = product_sku.product_id AND p.status = 1) AND (status = 2 OR stock >= :qty)", nativeQuery = true)
 	int deductStock(@Param("skuId") Integer skuId, @Param("qty") Integer qty);
+    @Query(value = "SELECT product_id FROM product WHERE product_id IN (SELECT product_id FROM product_sku WHERE sku_id IN (:skuIds)) ORDER BY product_id FOR UPDATE", nativeQuery = true)
+    List<Integer> lockProducts(@Param("skuIds") Collection<Integer> skuIds);
+
+    @Modifying
+    @Query(value = "UPDATE product_sku SET status = 0, updated_at = CURRENT_TIMESTAMP WHERE sku_id IN (:skuIds) AND status = 3 AND COALESCE(stock,0) + COALESCE(inbound_qty,0) - COALESCE(outbound_qty,0) <= 0", nativeQuery = true)
+    int closeDepletedSkus(@Param("skuIds") Collection<Integer> skuIds);
+
+    @Modifying
+    @Query(value = "UPDATE product p SET p.status = 0, p.updated_at = CURRENT_TIMESTAMP WHERE p.product_id IN (SELECT s.product_id FROM product_sku s WHERE s.sku_id IN (:skuIds)) AND p.status = 1 AND NOT EXISTS (SELECT 1 FROM product_sku active WHERE active.product_id = p.product_id AND active.status IN (1,2,3))", nativeQuery = true)
+    int closeProductsWithoutListedSkus(@Param("skuIds") Collection<Integer> skuIds);
 }

@@ -175,6 +175,11 @@ public class ProductSku implements java.io.Serializable {
 		this.price = price;
 	}
 	
+    public String getStatusLabel() {
+        if (status == null) return "未設定";
+        return switch (status) { case 0 -> "下架"; case 1 -> "上架"; case 2 -> "缺貨"; case 3 -> "即將下架"; case 4 -> "永久停產"; case 5 -> "預備上架"; default -> "未設定"; };
+    }
+
 	public Byte getStatus() {
 		return status;
 	}

@@ -163,13 +163,11 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     java.util.List<ProductOverviewStock> findOverviewStock(
         @org.springframework.data.repository.query.Param("productIds") java.util.List<Integer> productIds);
 
-    long countByProductIdIn(java.util.Collection<Integer> productIds);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Product p WHERE p.productId = :id")
+    java.util.Optional<Product> lockForStatus(@org.springframework.data.repository.query.Param("id") Integer id);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Product p SET p.status = :status, p.updatedAt = :updatedAt WHERE p.productId IN :productIds")
-    int updatePageStatus(@org.springframework.data.repository.query.Param("productIds") java.util.Collection<Integer> productIds,
-        @org.springframework.data.repository.query.Param("status") Byte status,
-        @org.springframework.data.repository.query.Param("updatedAt") java.time.LocalDateTime updatedAt);
+    long countByProductIdIn(java.util.Collection<Integer> productIds);
 
     boolean existsByVendor_VendorIdAndProductNameIgnoreCase(Integer vendorId, String productName);
     boolean existsByVendor_VendorIdAndProductNameIgnoreCaseAndProductIdNot(Integer vendorId, String productName, Integer productId);

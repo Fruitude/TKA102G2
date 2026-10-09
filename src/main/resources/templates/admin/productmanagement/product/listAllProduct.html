@@ -195,7 +195,8 @@
             <td class="comment-count" th:text="${product.allCommentAmount}"> </td>
             <td class="score" th:classappend="${product.allCommentAmount == null or product.allCommentAmount == 0 ? 'score-unrated' : ''}" th:text="${product.allCommentAmount != null and product.allCommentAmount > 0 ? #numbers.formatDecimal((product.allCommentStar == null ? 0 : product.allCommentStar) * 1.0 / product.allCommentAmount, 1, 1) : '未評分'}"> </td>
 			<td>
-    			<label class="switch">
+                <span th:if="${product.status == 2}" class="status-discontinued" title="解除永久停產請由 ADMIN 修改商品">永久停產</span>
+                <label class="switch" th:if="${product.status != 2}">
        		 	<input
             		type="checkbox"
             		class="status-toggle"
@@ -261,18 +262,15 @@ async function changeProductStatus(toggleElement) {
     const status = toggleElement.checked ? 1 : 0;
     lockProductStatus(true);
     try {
-        const response = await fetch(/*[[@{/product/updateStatus}]]*/ "/product/updateStatus", {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({productId: toggleElement.dataset.productId, status})
-        });
+        const response = await window.requestProductStatus(/*[[@{/product/updateStatus}]]*/ "/product/updateStatus",
+            new URLSearchParams({productId: toggleElement.dataset.productId, status}));
         const result = await response.text();
         if (!response.ok || result !== 'success') throw new Error(result || '更新失敗');
         toggleElement.closest('tr').classList.toggle('product-off', status === 0);
         document.getElementById('page-status-message').hidden = true;
     } catch (error) {
         toggleElement.checked = !toggleElement.checked;
-        showProductStatusMessage('商品狀態更新失敗，已還原開關。', true);
+        showProductStatusMessage(error.message || '商品狀態更新失敗，已還原開關。', true);
     } finally { lockProductStatus(false); }
 }
 
@@ -289,9 +287,7 @@ async function changePageProductStatus(status) {
     lockProductStatus(true);
     showProductStatusMessage('正在更新本頁商品狀態…');
     try {
-        const response = await fetch(/*[[@{/product/updatePageStatus}]]*/ "/product/updatePageStatus", {
-            method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body
-        });
+        const response = await window.requestProductStatus(/*[[@{/product/updatePageStatus}]]*/ "/product/updatePageStatus", body);
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || '更新失敗');
         toggles.forEach(toggle => {
@@ -309,5 +305,6 @@ async function changePageProductStatus(status) {
 <script th:src="@{/admin/js/product-pagination.js}" defer></script>
 <script th:src="@{/admin/js/product-detail-modal.js}" defer></script>
 <script th:src="@{/admin/js/product-sku-switcher.js}" defer></script>
+<script th:src="@{/admin/js/product-status.js}"></script>
 </body>
 </html>

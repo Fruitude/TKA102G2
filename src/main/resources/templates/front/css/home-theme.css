@@ -90,7 +90,7 @@ body.home-orange-theme {
   color: var(--home-text);
 }
 .home-orange-theme .products-purchase-card { border-radius: 12px; }
-.home-orange-theme .products-purchase-card .products-item-image-wrapper { border-radius: 8px; }
+.home-orange-theme .products-purchase-card .products-item-image-wrapper { border-radius: 8px; aspect-ratio: 1 / 1; }
 .home-orange-theme .section.home-quality-section,
 .home-orange-theme .section.home-gifting-section {
   background-color: var(--home-reference-green);
@@ -171,7 +171,8 @@ body.home-orange-theme {
 .home-orange-theme .section .bottom-cta-content-wrapper .paragraph-18 {
   color: #fff;
 }
-/* Goose yellow for the gifting heading. */
+/* Matching yellow for the quality and gifting headings. */
+.home-orange-theme .section.home-quality-section h1,
 .home-orange-theme .section.home-gifting-section h2 { color: #FFE778; }
 
 /* Homepage product collection headings and labels. */
@@ -183,3 +184,29 @@ body.home-orange-theme {
 .home-orange-theme .section .bottom-cta-content-wrapper h1 { color: #FFE778; }
 
 .home-orange-theme .bottom-cta-image { filter: grayscale(1); }
+
+/* Keep the fruit banner title on one line at every screen size. */
+.home-orange-theme .bottom-cta-content-wrapper h1 {
+  font-size: clamp(.75rem, 3.6vw, 3rem);
+  white-space: nowrap;
+}
+.home-orange-theme .services-grid-homepage > .services-card:nth-child(1) { background-color: #FFE9EF; }
+.home-orange-theme .services-grid-homepage > .services-card:nth-child(2) { background-color: #FFFDD0; }
+.home-orange-theme .services-grid-homepage > .services-card:nth-child(3) { background-color: #F5CCAD	; }
+/* Match the hero label's clearance below the navigation. */
+.home-orange-theme { --home-section-heading-space: 5rem; }
+.home-orange-theme .section-black[data-record-id] {
+  padding-top: var(--home-section-heading-space);
+}
+@media screen and (max-width: 767px) {
+  .home-orange-theme { --home-section-heading-space: 2rem; }
+}
+@media screen and (max-width: 479px) {
+  .home-orange-theme { --home-section-heading-space: 1rem; }
+}
+/* Match the contact page's section, navigation and footer surfaces. */
+.home-orange-theme .homepage-hero-section,
+.home-orange-theme .home-services-section { background-color: #fff; }
+.home-orange-theme .nav-bar,
+.home-orange-theme .container.navigation-container { background-color: var(--home-paper); }
+.home-orange-theme .footer-section { background-color: #F7F9D7; }
