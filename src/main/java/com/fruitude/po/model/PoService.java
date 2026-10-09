@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,7 @@ import com.fruitude.employee.model.EmployeeRepository;
 import com.fruitude.podetail.model.PoDetailRepository;
 import com.fruitude.podetail.model.PoDetailVO;
 import com.fruitude.product.model.ProductSku;
-import com.fruitude.product.model.ProductSkuRepository;
+import com.fruitude.vendor.model.VendorVO;
 
 @Service
 public class PoService {
@@ -33,7 +35,7 @@ public class PoService {
 	private PoDetailRepository poDetailRepository;
 
 	@Autowired
-	private ProductSkuRepository productSkuRepository;
+	private PoSkuStockRepository poSkuStockRepository;
 
 	@Autowired
 	private EmployeeRepository employeeRepository;
@@ -125,7 +127,7 @@ public class PoService {
 
 		// 情況 2：規格是這張單原本沒有的
 		for (PoDetailVO formDetail : newSkuFormDetails) {
-			ProductSku productSku = productSkuRepository.findById(formDetail.getSkuId().getSkuId())
+			ProductSku productSku = poSkuStockRepository.findById(formDetail.getSkuId().getSkuId())
 					.orElseThrow(() -> new IllegalArgumentException("查無此商品規格"));
 
 			// 下拉選單只列這張單供應商的規格，這裡擋直接送出其他編號的情況
@@ -347,6 +349,28 @@ public class PoService {
 
 	public List<PoVO> getByPoEmployeeId(Integer employeeId) {
 		return repository.findByPoEmployeeId_EmployeeIdOrderByPoIdDesc(employeeId);
+	}
+
+	// 某供應商可採購的規格：status 0~3 都列入，4（永久停產）不列入；採購單的規格下拉選單使用
+	public List<ProductSku> getPurchasableByVendorId(Integer vendorId) {
+		return poSkuStockRepository.findByProduct_Vendor_VendorIdAndStatusNotOrderBySkuIdAsc(vendorId,
+				ProductSku.STATUS_DISCONTINUED);
+	}
+
+	// 需要採購的規格：上架（1）或缺貨（2），且低於安全庫存
+	public List<ProductSku> getBelowSafetyStock() {
+		return poSkuStockRepository.findBelowSafetyStockByStatusIn(List.of((byte) 1, (byte) 2));
+	}
+
+	// 需要採購的規格依供應商分組：key 為供應商編號（由小到大），沒有供應商的排最後
+	public Map<Integer, List<ProductSku>> getBelowSafetyStockByVendor() {
+		Map<Integer, List<ProductSku>> skusByVendorId = new TreeMap<>(Comparator.nullsLast(Comparator.naturalOrder()));
+		for (ProductSku productSku : getBelowSafetyStock()) {
+			VendorVO vendor = productSku.getProduct().getVendor();
+			Integer vendorId = vendor == null ? null : vendor.getVendorId();
+			skusByVendorId.computeIfAbsent(vendorId, key -> new ArrayList<>()).add(productSku);
+		}
+		return skusByVendorId;
 	}
 
 	// 各商品規格在待審核採購單裡的採購數量加總：key 為規格編號；沒有待審核明細的規格不會出現在裡面

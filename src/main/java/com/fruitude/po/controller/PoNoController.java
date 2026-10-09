@@ -20,7 +20,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.fruitude.po.model.PoService;
 import com.fruitude.po.model.PoVO;
 import com.fruitude.product.model.ProductSku;
-import com.fruitude.product.model.ProductSkuService;
 
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.constraints.Max;
@@ -35,14 +34,11 @@ public class PoNoController {
 	@Autowired
 	PoService poSvc;
 
-	@Autowired
-	ProductSkuService productSkuSvc;
-
 	// 這支 controller 的每個請求都會先執行，把低於安全庫存的規格放進 model，回首頁時顯示待採購商品
 	// key 是供應商編號、value 是該供應商的規格清單；例外處理（handleError）不會經過這裡，要自己再放一次
 	@ModelAttribute("belowSafetyStockByVendor")
 	public Map<Integer, List<ProductSku>> belowSafetyStockByVendor() {
-		return productSkuSvc.getBelowSafetyStockByVendor();
+		return poSvc.getBelowSafetyStockByVendor();
 	}
 
 	// 待採購商品的「待審核數量」欄：key 是規格編號、value 是待審核採購單裡的採購數量加總；handleError 一樣要自己再放一次
@@ -133,7 +129,7 @@ public class PoNoController {
 
 		ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
 		mav.addObject("errorMessage", String.join("\n", messages));
-		mav.addObject("belowSafetyStockByVendor", productSkuSvc.getBelowSafetyStockByVendor());
+		mav.addObject("belowSafetyStockByVendor", poSvc.getBelowSafetyStockByVendor());
 		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
 		return mav;
 	}

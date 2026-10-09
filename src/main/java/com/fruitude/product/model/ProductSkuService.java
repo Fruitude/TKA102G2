@@ -1,16 +1,10 @@
 package com.fruitude.product.model;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import com.fruitude.vendor.model.VendorVO;
 
 @Service
 public class ProductSkuService {
@@ -81,12 +75,6 @@ public class ProductSkuService {
 		return repository.findAll();
 	}
 
-	// 某供應商可採購的規格：status 0~3 都列入，4（永久停產）不列入
-	public List<ProductSku> getPurchasableByVendorId(Integer vendorId) {
-		return repository.findByProduct_Vendor_VendorIdAndStatusNotOrderBySkuIdAsc(vendorId,
-				ProductSku.STATUS_DISCONTINUED);
-	}
-
 	// 新增時檢查同商品是否已有相同規格名稱
 	public boolean isSkuNameExist(Integer productId, String skuName) {
 		return repository.existsByProduct_ProductIdAndSkuName(productId, skuName);
@@ -96,21 +84,5 @@ public class ProductSkuService {
 	public boolean isSkuNameExistExcludeSkuId(Integer productId, String skuName, Integer skuId) {
 
 		return repository.existsByProduct_ProductIdAndSkuNameAndSkuIdNot(productId, skuName, skuId);
-	}
-	
-	// 需要採購的規格：上架（1）或缺貨（2），且低於安全庫存
-	public List<ProductSku> getBelowSafetyStock() {
-	        return repository.findBelowSafetyStockByStatusIn(List.of((byte) 1, (byte) 2));
-	}
-
-	// 需要採購的規格依供應商分組：key 為供應商編號（由小到大），沒有供應商的排最後
-	public Map<Integer, List<ProductSku>> getBelowSafetyStockByVendor() {
-		Map<Integer, List<ProductSku>> skusByVendorId = new TreeMap<>(Comparator.nullsLast(Comparator.naturalOrder()));
-		for (ProductSku productSku : getBelowSafetyStock()) {
-			VendorVO vendor = productSku.getProduct().getVendor();
-			Integer vendorId = vendor == null ? null : vendor.getVendorId();
-			skusByVendorId.computeIfAbsent(vendorId, key -> new ArrayList<>()).add(productSku);
-		}
-		return skusByVendorId;
 	}
 }

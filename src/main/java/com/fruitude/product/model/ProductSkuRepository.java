@@ -2,11 +2,7 @@
 
 package com.fruitude.product.model;
 
-import java.util.List;
-
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface ProductSkuRepository extends JpaRepository<ProductSku, Integer> {
 
@@ -20,20 +16,4 @@ public interface ProductSkuRepository extends JpaRepository<ProductSku, Integer>
             Integer productId,
             String skuName,
             Integer skuId);
-
-    // 某供應商底下所有商品的規格，排除指定狀態（採購單修改頁用來排除永久停產）
-    List<ProductSku> findByProduct_Vendor_VendorIdAndStatusNotOrderBySkuIdAsc(
-            Integer vendorId,
-            Byte status);
-    
-    // 指定狀態、且低於安全庫存的規格：待出貨 + 安全庫存量 > 庫存量 + 待進貨
-    @Query("""
-            select s from ProductSku s
-            join fetch s.product
-            where s.status in :statuses
-              and coalesce(s.outboundQty, 0) + coalesce(s.safetyStock, 0)
-                > coalesce(s.stock, 0) + coalesce(s.inboundQty, 0)
-            order by s.skuId asc
-            """)
-    List<ProductSku> findBelowSafetyStockByStatusIn(@Param("statuses") List<Byte> statuses);
 }

@@ -64,7 +64,7 @@ public class PoController {
 	// key 是供應商編號、value 是該供應商的規格清單
 	@ModelAttribute("belowSafetyStockByVendor")
 	public Map<Integer, List<ProductSku>> belowSafetyStockByVendor() {
-		return productSkuSvc.getBelowSafetyStockByVendor();
+		return poSvc.getBelowSafetyStockByVendor();
 	}
 
 	// 待採購商品的「待審核數量」欄：key 是規格編號、value 是待審核採購單裡的採購數量加總
@@ -263,7 +263,7 @@ public class PoController {
 	@ResponseBody
 	public List<Map<String, Object>> skuOptions(@RequestParam("vendorId") Integer vendorId) {
 		List<Map<String, Object>> skuOptions = new ArrayList<>();
-		for (ProductSku productSku : productSkuSvc.getPurchasableByVendorId(vendorId)) {
+		for (ProductSku productSku : poSvc.getPurchasableByVendorId(vendorId)) {
 			Map<String, Object> skuOption = new LinkedHashMap<>();
 			skuOption.put("skuId", productSku.getSkuId());
 			skuOption.put("displayName", productSku.getDisplayName());
@@ -319,7 +319,7 @@ public class PoController {
 
 		model.addAttribute("poVO", poVO);
 		// 明細的商品規格下拉選單：這張單的供應商底下、未永久停產的規格
-		model.addAttribute("skuListData", productSkuSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
+		model.addAttribute("skuListData", poSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
 
 		return "admin/psi/purchase/updatePo"; //view
 	}
@@ -344,7 +344,7 @@ public class PoController {
 		checkUpdatePo(poVO, result);
 
 		if (result.hasErrors()) {
-			model.addAttribute("skuListData", productSkuSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
+			model.addAttribute("skuListData", poSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
 			return "admin/psi/purchase/updatePo";
 		}
 
@@ -460,7 +460,7 @@ public class PoController {
 	public ModelAndView handleError(Exception e) {
 		ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
 		mav.addObject("errorMessage", "網址的參數不正確，請從採購單管理重新操作");
-		mav.addObject("belowSafetyStockByVendor", productSkuSvc.getBelowSafetyStockByVendor());
+		mav.addObject("belowSafetyStockByVendor", poSvc.getBelowSafetyStockByVendor());
 		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
 		return mav;
 	}
