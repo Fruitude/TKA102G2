@@ -75,6 +75,14 @@ public class AdminPromoController {
 		return ResponseEntity.ok().header("Cache-Control", "no-store").body(view);
 	}
 
+	// 搶購物金活動的「重置購物金」（前端已經跳出確認視窗）：把測試帳號 test0001 ~ test1000 的購物金歸零
+	@PostMapping("/reset-test-credit")
+	@ResponseBody
+	public ResponseEntity<String> resetTestCredit() {
+		int count = promoGrabService.resetTestMemberCredit();
+		return ResponseEntity.ok("已將 " + count + " 個測試帳號的購物金歸零");
+	}
+
 	// 詳細頁「新增商品」對話框：可以加入這個活動的規格清單（含商品名稱與原價），可用關鍵字搜尋
 	@GetMapping("/sku-options")
 	@ResponseBody

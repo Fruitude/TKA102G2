@@ -145,6 +145,16 @@ public class PromoGrabService {
 		return new AdminView(promo.getQuota(), promo.getGrantedCount(), slots);
 	}
 
+	// 把壓力測試用的測試帳號 test0001 ~ test1000 的購物金歸零，回傳被歸零的會員數
+	@Transactional
+	public int resetTestMemberCredit() {
+		List<String> accounts = new ArrayList<>();
+		for (int i = 1; i <= 1000; i++) {
+			accounts.add(String.format("test%04d", i));
+		}
+		return memberRepository.resetShoppingCreditByAccounts(accounts);
+	}
+
 	private int balanceOf(Integer memberId) {
 		Integer credit = memberRepository.findShoppingCredit(memberId);
 		return credit == null ? 0 : credit;

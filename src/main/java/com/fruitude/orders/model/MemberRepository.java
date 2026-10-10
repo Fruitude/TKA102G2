@@ -21,6 +21,11 @@ public interface MemberRepository extends JpaRepository<MemberVO, Integer>{
 	@Query("UPDATE MemberVO m SET m.shoppingCredit = m.shoppingCredit + :amount WHERE m.memberId = :memberId")
 	int addShoppingCredit(@Param("memberId") Integer memberId, @Param("amount") Integer amount);
 
+	// 把指定帳號會員的購物金歸零（壓力測試用的測試帳號重置）。回傳被歸零的會員數
+	@Modifying
+	@Query("UPDATE MemberVO m SET m.shoppingCredit = 0 WHERE m.memberAccount IN :accounts")
+	int resetShoppingCreditByAccounts(@Param("accounts") java.util.Collection<String> accounts);
+
 	// 目前購物金餘額（純量查詢，不吃 persistence context 裡舊的 entity）
 	@Query("SELECT m.shoppingCredit FROM MemberVO m WHERE m.memberId = :memberId")
 	Integer findShoppingCredit(@Param("memberId") Integer memberId);

@@ -156,6 +156,9 @@
                                                 <button type="button" class="btn btn-info btn-sm btn-grab-status"
                                                     th:if="${promo.promoType == 'WALLET_GRAB'}"
                                                     th:attr="data-id=${promo.promoProjectId}, data-title=${promo.promoProjectTitle}">搶購狀況</button>
+                                                <!-- 壓力測試後清理：把測試帳號 test0001 ~ test1000 的購物金歸零 -->
+                                                <button type="button" class="btn btn-outline-danger btn-sm btn-reset-test-credit"
+                                                    th:if="${promo.promoType == 'WALLET_GRAB'}">重置購物金</button>
                                                 <button type="button" class="btn btn-warning btn-sm btn-edit-promo"
                                                     th:attr="data-id=${promo.promoProjectId},
                                                              data-title=${promo.promoProjectTitle},
@@ -226,6 +229,8 @@
         .grab-cell { min-height: 2.75rem; padding: .25rem; display: flex; flex-direction: column; align-items: center; justify-content: center;
             border: 1px solid #d1d3e2; border-radius: .25rem; background: #fff; font-size: .8125rem; font-variant-numeric: tabular-nums; }
         .grab-cell .grab-slot { font-size: .6875rem; color: #b7b9cc; }
+        .grab-cell.is-extra { border-style: dashed; background: #f8f9fc; }
+        .grab-cell.is-extra.is-taken { background: #ffebee; border-color: #e53935; color: #b71c1c; }
         .grab-cell.is-taken { background: #e8f5e9; border-color: #66bb6a; font-weight: 600; color: #1b5e20; }
         .grab-cell.is-taken .grab-slot { color: #66bb6a; }
     </style>
@@ -241,6 +246,7 @@
                 <div class="modal-body">
                     <p class="mb-3">已搶出 <strong id="grab-status-granted">0</strong> / <strong id="grab-status-quota">0</strong>
                         <span class="text-muted ml-2" id="grab-status-updated"></span></p>
+                    <p class="text-muted small mb-2">虛線格是名額之外多準備的 20 格，應該保持空白；若出現會員編號代表超額發放。</p>
                     <div class="grab-grid" id="grab-status-grid"></div>
                 </div>
                 <div class="modal-footer">
@@ -257,13 +263,16 @@
         var timer = null;
         var currentId = null;
         var polling = false; // 活動啟用中才每秒更新
+        var EXTRA_CELLS = 20; // 名額之外多準備的空格數
 
         function render(data) {
             var taken = {};
             (data.slots || []).forEach(function (slot) { taken[slot.slotNo] = slot.memberId; });
             var $grid = $('#grab-status-grid').empty();
-            for (var i = 1; i <= data.quota; i++) {
+            // 名額 X 個就準備 X + EXTRA_CELLS 格：多出來的格子應該一直是空白，用來確認沒有多給
+            for (var i = 1; i <= data.quota + EXTRA_CELLS; i++) {
                 var $cell = $('<div class="grab-cell"></div>');
+                if (i > data.quota) { $cell.addClass('is-extra'); }
                 $cell.append($('<span class="grab-slot"></span>').text('#' + i));
                 if (taken[i] != null) {
                     $cell.addClass('is-taken').append($('<span></span>').text(taken[i]));
@@ -293,6 +302,17 @@
             load();
             if (timer) clearInterval(timer);
             if (polling) timer = setInterval(load, 1000);
+        });
+        // 重置購物金：確認後把測試帳號 test0001 ~ test1000 的購物金歸零
+        $(document).on('click', '.btn-reset-test-credit', function () {
+            if (!confirm('這會將測試帳號 test0001 ~ test1000 的購物金全部歸零，且無法復原。\n是否同意？')) {
+                return;
+            }
+            var $btn = $(this).prop('disabled', true);
+            $.ajax({ url: url + 'reset-test-credit', method: 'POST' })
+                .done(function (message) { alert(message); })
+                .fail(function (xhr) { alert('重置失敗：' + (xhr.responseText || xhr.status)); })
+                .always(function () { $btn.prop('disabled', false); });
         });
         $('#grab-status-modal').on('hidden.bs.modal', function () {
             if (timer) { clearInterval(timer); timer = null; }
