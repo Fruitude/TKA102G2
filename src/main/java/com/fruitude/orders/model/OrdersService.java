@@ -39,9 +39,11 @@ public class OrdersService {
 	@Autowired
 	private MemberRepository memberRepository;
 
-	// 下單時鎖定規格、原子扣庫存（庫存夠才扣）
+	// 下單時鎖定規格、原子預留待出貨量
 	@Autowired
 	private SkuStockRepository skuStockRepository;
+    @Autowired private OrderInventoryService orderInventoryService;
+    @Autowired private com.fruitude.product.model.ProductLifecycleService lifecycle;
 
 	// 結帳頁「收件者同會員」：會員的預設電話、預設地址
 	@Autowired
@@ -196,21 +198,26 @@ public class OrdersService {
 		}
 	}
 
-	public boolean delete(Integer ordersId) {
+	@Transactional
+    public boolean delete(Integer ordersId) {
 		if (!ordersRepository.existsById(ordersId)) {
 			return false;
 		}
+        var order=ordersRepository.lockForInventory(ordersId).orElseThrow();
+        if(Integer.valueOf(1).equals(order.getInventoryState()))orderInventoryService.changeStatus(ordersId,4);
 		ordersRepository.deleteById(ordersId);
 		return true;
 	}
 
 	// 先查出既有的訂單，只覆蓋表單可以修改的欄位（ordersId、ordersDate 不動）
-	public boolean updateOrders(Integer ordersId, Orders form) {
-		Optional<Orders> optional = ordersRepository.findById(ordersId);
+	@Transactional
+    public boolean updateOrders(Integer ordersId, Orders form) {
+		Optional<Orders> optional = ordersRepository.lockForInventory(ordersId);
 		if (optional.isEmpty()) {
 			return false;
 		}
 		Orders orders = optional.get();
+        orderInventoryService.changeStatus(ordersId, form.getOrdersStatus());
 		orders.setMemberId(form.getMemberId());
 		orders.setShippingAddress(form.getShippingAddress());
 		orders.setPaymentMethod(form.getPaymentMethod());
@@ -230,28 +237,16 @@ public class OrdersService {
 		return true;
 	}
 
-	// 做法一：先查出既有的 entity，只改 ordersStatus，再存回去
-	public boolean updateStatusByLoad(Integer ordersId, Integer ordersStatus) {
-		Optional<Orders> optional = ordersRepository.findById(ordersId);
-		if (optional.isEmpty()) {
-			return false;
-		}
-		Orders orders = optional.get();
-		orders.setOrdersStatus(ordersStatus);
-		ordersRepository.save(orders);
-		releaseLimitedPromoIfRefunded(ordersId, ordersStatus);
-		return true;
-	}
-
-	// 做法二：直接下 JPQL UPDATE，只改 ordersStatus
-	@Transactional
-	public boolean updateStatusByQuery(Integer ordersId, Integer ordersStatus) {
-		int updatedRows = ordersRepository.updateStatus(ordersId, ordersStatus);
-		if (updatedRows > 0) {
-			releaseLimitedPromoIfRefunded(ordersId, ordersStatus);
-		}
-		return updatedRows > 0;
-	}
+    @Transactional
+    public boolean updateStatusByLoad(Integer ordersId,Integer ordersStatus) {
+        return updateStatusByQuery(ordersId,ordersStatus);
+    }
+    @Transactional
+    public boolean updateStatusByQuery(Integer ordersId,Integer ordersStatus) {
+        boolean changed=orderInventoryService.changeStatus(ordersId,ordersStatus);
+        if(changed)releaseLimitedPromoIfRefunded(ordersId,ordersStatus);
+        return changed;
+    }
 
 	// 訂單進入「待退款」或「已退款」（取消、退款作業中、金額已退還）時，把這筆訂單用掉的「限用一次」優惠（壽星優惠、新會員首購）
 	// 的使用資格還給會員（刪除 member_promo_usage 裡這筆訂單的紀錄），會員可以再用一次。判斷依據是狀態碼對應的金流狀態不是「已付款」（見 Utils.OrderStatus）
@@ -487,7 +482,7 @@ public class OrdersService {
 	// useBirthday：結帳時有沒有勾選「使用壽星優惠」。有勾選而且真的套用了壽星折扣，才會在同一個交易裡記錄今年已使用
 	public Orders placeOrder(CheckoutForm form, Integer storeCredit, Integer memberId, boolean useBirthday) {
 		// 第一步：先鎖定這次要買的規格（依 sku_id 由小到大），鎖會一直持有到這個交易結束。
-		// 之後的驗證與扣庫存都在鎖裡面進行：別的訂單不能同時改這些規格的庫存，
+		// 之後的驗證與預留待出貨都在鎖裡面進行：別的訂單不能同時改這些規格的庫存，
 		// 前台讀庫存（getLiveSkus 等，用 FOR SHARE）也要等這個交易結束才讀得到，不會讀到做到一半的數字
 		Map<Integer, Integer> qtyBySku = new TreeMap<>();
 		if (form.getItems() != null) {
@@ -506,15 +501,17 @@ public class OrdersService {
 		com.fruitude.promo.model.ProductDiscount productDiscount = findProductDiscount(memberId,
 				buildDiscountLines(form.getItems()), useBirthday);
 		Orders orders = toOrders(form, storeCredit, memberId, productDiscount);
-		// 第二步：原子扣庫存。stock 扣掉訂購數量、outbound_qty 加上訂購數量，「庫存夠才扣」的檢查寫在同一個 UPDATE 裡；
+        orders.setInventoryState(1);
+		// 下單僅增加待出貨，不扣實際庫存；即將售完規格以原子條件防止超賣。
 		// 任何一個規格扣不下去就丟例外，整筆交易回滾（先扣成功的規格、購物金都會還原，不會留下訂單）
 		for (Map.Entry<Integer, Integer> entry : qtyBySku.entrySet()) {
-			if (skuStockRepository.deductStock(entry.getKey(), entry.getValue()) == 0) {
+			if (skuStockRepository.reserveStock(entry.getKey(), entry.getValue()) == 0) {
 				throw new com.fruitude.product.model.ProductUnavailableException(
 						productNameOf(form.getItems(), entry.getKey()) + " 庫存不足，請返回購物車調整數量");
 			}
 		}
         if (!qtyBySku.isEmpty()) {
+            lifecycle.refreshSupplyStates(qtyBySku.keySet());
             skuStockRepository.closeDepletedSkus(qtyBySku.keySet());
             skuStockRepository.closeProductsWithoutListedSkus(qtyBySku.keySet());
         }

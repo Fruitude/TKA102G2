@@ -58,7 +58,7 @@ public class ProductPageStatusTest {
         assertEquals(400,mvc.perform(post("/product/updatePageStatus").param("productIds","42").param("status","2")).andReturn().getResponse().getStatus());
     }
     @Test public void preparedPageListsWithoutConfirmationAndSkipsRetiredRows() {
-        var prepared=p(42,0,5);var retired=p(43,2,4);var service=service(Map.of(42,prepared,43,retired),new ArrayList<>());
+        var prepared=p(42,0,6);var retired=p(43,2,4);var service=service(Map.of(42,prepared,43,retired),new ArrayList<>());
         assertEquals(1,service.updatePageStatus(List.of(42,43),(byte)1));
         assertEquals(Byte.valueOf((byte)1),prepared.getProductSkus().get(0).getStatus());
         assertEquals(Byte.valueOf((byte)2),retired.getStatus());

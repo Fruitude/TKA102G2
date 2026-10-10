@@ -78,6 +78,13 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 		registry.addResourceHandler("/front/js/**")
 				.addResourceLocations("classpath:/templates/front/js/")
 				.setCacheControl(CacheControl.noCache());
+        // 前台本機圖片由瀏覽器快取30分鐘；JS/CSS仍沿用各自更新規則。
+        registry.addResourceHandler("/front/img/**")
+            .addResourceLocations("classpath:/templates/front/img/")
+            .setCacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(30)));
+        registry.addResourceHandler("/front/6706de395f0ceac28687d464/*")
+            .addResourceLocations("classpath:/templates/front/6706de395f0ceac28687d464/")
+            .setCacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(30)));
 		for (String site : SITES) {
 			registry.addResourceHandler("/" + site + "/**")
 					.addResourceLocations("classpath:/templates/" + site + "/");

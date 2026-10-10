@@ -1,7 +1,5 @@
 package com.fruitude.product.model;
 
-import java.time.Clock;
-import java.time.Duration;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,7 +8,6 @@ import com.fruitude.orders.model.CheckoutItem;
 @Service
 public class FrontCatalogService {
     private final ProductRepository repository;
-    private final FrontCatalogCache cache = new FrontCatalogCache(Clock.systemUTC(), Duration.ofMinutes(10));
     public FrontCatalogService(ProductRepository repository) { this.repository = repository; }
 
     // 指定商品促銷的活動價查詢（promo 套件）。用選擇性欄位注入，沒有它（例如單元測試）就不套用活動價
@@ -23,7 +20,7 @@ public class FrontCatalogService {
         Integer skuId, Integer imageId, boolean giftBox, List<SkuView> skus, Integer stock) {}
     public record LiveSku(Integer skuId, String name, String skuName, Integer price, Integer originalPrice, int stock, boolean available, Integer skuStatus) {}
 
-    public List<ProductView> getProducts() { return cache.get(() -> loadProducts(null)); }
+    public List<ProductView> getProducts() { return loadProducts(null); }
 
     public ProductView getLiveProduct(Integer productId) {
         if (productId == null) return null;
@@ -46,10 +43,11 @@ public class FrontCatalogService {
             FrontCatalogRow product = group.get(0);
             List<SkuView> skus = group.stream().map(row -> {
                 List<Integer> ids = List.copyOf(images.getOrDefault(row.getSkuId(), List.of()));
-           return new SkuView(row.getSkuId(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty()),
+           return new SkuView(row.getSkuId(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()) + (Integer.valueOf(5).equals(row.getSkuStatus()) ? "（售完）" : ""), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty()),
                     ids.isEmpty() ? null : ids.get(0), ids, row.getSkuStatus());
             }).toList();
-            SkuView cheapest = skus.stream().min(Comparator.comparing(SkuView::price).thenComparing(SkuView::skuId)).orElseThrow();
+            SkuView cheapest = skus.stream().filter(s -> s.stock() > 0 && Set.of(1,2,3).contains(s.skuStatus())).min(Comparator.comparing(SkuView::price).thenComparing(SkuView::skuId)).orElse(null);
+            if (cheapest == null) continue;
             boolean giftBox = containsGift(product.getName()) || skus.stream().anyMatch(s -> containsGift(s.name())) || group.stream().anyMatch(row -> containsGift(row.getSkuName()));
             Set<Integer> visited = new HashSet<>();
             Integer categoryId = product.getCategoryId();
@@ -69,13 +67,13 @@ public class FrontCatalogService {
 
     // The stock view field is the order quantity limit, not physical stock.
     static int quantityLimit(Integer status, Integer stock, Integer inbound, Integer outbound) {
-        // 狀態 1：一次最多 10 箱，而且不能超過 stock 欄位（查不到 stock 時只套用 10 箱上限）
-        if (Integer.valueOf(1).equals(status)) return stock == null ? 10 : Math.min(10, Math.max(0, stock));
-        if (Integer.valueOf(2).equals(status)) return 10;
+        // 狀態 1 認定貨源充足，數量上限不讀取或受限於實際庫存。
+        if (Integer.valueOf(1).equals(status)) return 10;
+        if (Integer.valueOf(2).equals(status)) return 5;
         if (Integer.valueOf(3).equals(status)) {
             long expected = (stock == null ? 0L : stock.longValue())
                 + (inbound == null ? 0L : inbound.longValue()) - (outbound == null ? 0L : outbound.longValue());
-            return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, expected));
+            return (int) Math.min(10L, Math.max(0L, expected));
         }
         return 0;
     }
@@ -122,6 +120,6 @@ public class FrontCatalogService {
         return promoPriceService.findActivePrices(skuIds);
     }
 
-    /** 活動或活動商品有異動時呼叫，讓商品列表的快取馬上重新載入，不用等 10 分鐘快取過期。 */
-    public void clearCache() { cache.clear(); }
+    /** 保留既有活動／商品更新呼叫的介面；商品資料已取消快取，每次請求直接讀取。 */
+    public void clearCache() { }
 }

@@ -19,7 +19,7 @@ public class FrontCatalogTest {
             if (method.getName().equals("findFrontRows")) {
                 List<FrontCatalogRow> rows = new ArrayList<>();
                 for (Product p : products) if (args[0] == null || args[0].equals(p.getProductId()))
-                    for (ProductSku s : p.getProductSkus()) if (s.getStatus() >= 1 && s.getStatus() <= 3 && s.getPrice() != null && s.getPrice() > 0)
+                    for (ProductSku s : p.getProductSkus()) if (((s.getStatus() >= 1 && s.getStatus() <= 3) || s.getStatus()==5) && s.getPrice() != null && s.getPrice() > 0)
                         rows.add(projection(FrontCatalogRow.class, key -> switch (key) {
                             case "getProductId" -> p.getProductId(); case "getName" -> p.getProductName(); case "getDescription" -> p.getProductDesc();
                             case "getCategoryId" -> p.getProductCategory() == null ? null : p.getProductCategory().getProductCategoryId();
@@ -30,7 +30,7 @@ public class FrontCatalogTest {
             if (method.getName().equals("findFrontImages")) {
                 List<FrontImageRow> rows = new ArrayList<>();
                 for (Product p : products) if (((List<?>)args[0]).contains(p.getProductId()))
-                    for (ProductSku s : p.getProductSkus()) if (s.getStatus() >= 1 && s.getStatus() <= 3 && s.getPrice() != null && s.getPrice() > 0)
+                    for (ProductSku s : p.getProductSkus()) if (((s.getStatus() >= 1 && s.getStatus() <= 3) || s.getStatus()==5) && s.getPrice() != null && s.getPrice() > 0)
                         for (ProductImage i : s.getProductImages().stream().filter(i -> i.getImageData() != null && i.getImageData().length > 0)
                             .sorted(Comparator.comparing((ProductImage i) -> i.getSortOrder() == null ? 0 : i.getSortOrder()).thenComparing(ProductImage::getImageId)).toList())
                             rows.add(projection(FrontImageRow.class, key -> key.equals("getSkuId") ? s.getSkuId() : i.getImageId()));
@@ -115,7 +115,7 @@ public class FrontCatalogTest {
         assertTrue(html.contains("id=\"home-sku-5\""));
         assertTrue(html.contains("value=\"42\"")); assertTrue(html.contains("value=\"43\""));
         assertTrue(html.contains("data-sku-name=\"大盒\""));
-        assertTrue(html.contains("data-price=\"678\"")); assertTrue(html.contains("data-stock=\"7\"")); assertTrue(html.contains("data-stock=\"3\"")); // 狀態 1：可訂購數量 = min(10, stock)
+        assertTrue(html.contains("data-price=\"678\"")); assertTrue(html.contains("data-stock=\"10\"")); // 狀態 1：可訂購數量 = min(10, stock)
         assertTrue(html.contains("/shop/product/image/99"));
         assertTrue(html.contains("id=\"home-qty-5\""));
         assertTrue(html.contains("home-card-add")); assertFalse(html.contains("目前缺貨"));
@@ -127,11 +127,11 @@ public class FrontCatalogTest {
         ProductSku shortage = sku(p, 100, 100, 2); shortage.setStock(0);
         ProductSku retiring = sku(p, 101, 200, 3); retiring.setStock(4); retiring.setInboundQty(8); retiring.setOutboundQty(3);
         FrontCatalogService service = service(List.of(p));
-        assertEquals(Integer.valueOf(10), service.getProducts().get(0).skus().get(0).stock());
+        assertEquals(Integer.valueOf(5), service.getProducts().get(0).skus().get(0).stock());
         assertEquals(Integer.valueOf(9), service.getProducts().get(0).skus().get(1).stock());
         String html = mvc(service).perform(get("/front/")).andReturn().getResponse().getContentAsString();
         assertTrue(html.contains("data-sku-status=\"2\"")); assertTrue(html.contains("data-sku-status=\"3\""));
-        assertTrue(html.contains("（缺貨）")); assertTrue(html.contains("（即將下架）"));
+        assertTrue(html.contains("（缺貨）")); assertTrue(html.contains("（即將售完）"));
         String detail = mvc(service).perform(get("/front/product/view/").param("productId","22")).andReturn().getResponse().getContentAsString();
         assertTrue(detail.contains("data-sku-status=\"2\"")); assertTrue(detail.contains("data-stock=\"9\""));
     }
@@ -169,5 +169,15 @@ public class FrontCatalogTest {
         Product a = product(1, "同名水果"); sku(a, 10, 100, 1); Product b = product(2, "同名水果"); sku(b, 20, 200, 1);
         String html = mvc(service(List.of(a,b))).perform(get("/front/product/view/").param("productId", "2")).andReturn().getResponse().getContentAsString();
         assertTrue(html.contains("data-commerce-sku-id=\"20\"")); assertTrue(html.contains("NT$ 200")); assertFalse(html.contains("../../js/product-catalog.js"));
+    }
+
+    @Test public void mixedSoldOutSkuIsVisibleButCannotBecomeDefaultAndAllSoldOutIsHidden() throws Exception {
+        Product p=product(90,"售完顯示測試");sku(p,900,1,5).setSkuName("售完規格");sku(p,901,200,1).setSkuName("可購買規格");sku(p,902,100,0).setSkuName("下架規格");
+        Product all=product(91,"全售完商品");sku(all,903,100,5);
+        var service=service(List.of(p,all));assertEquals(1,service.getProducts().size());
+        assertEquals(Integer.valueOf(901),service.getProducts().get(0).skuId());
+        assertEquals(Integer.valueOf(0),service.getProducts().get(0).skus().get(0).stock());
+        String html=mvc(service).perform(get("/front/")).andReturn().getResponse().getContentAsString();
+        assertTrue(html.contains("售完規格（售完）"));assertFalse(html.contains("全售完商品"));assertFalse(html.contains("下架規格"));
     }
 }

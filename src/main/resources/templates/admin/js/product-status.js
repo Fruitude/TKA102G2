@@ -26,7 +26,7 @@
             }) : form.dataset.hasSellableSku === 'true';
             const ready = skuStates.length ? skuStates.some(s => s.value === '5') : form.dataset.hasReadySku === 'true';
             if (sellable || ready) return;
-            if (!window.confirm('商品沒有上架／缺貨／即將下架規格，是否將未永久停產的規格一併上架？')) {
+            if (!window.confirm('商品沒有上架／缺貨／即將售完規格，是否將未永久停產的規格一併上架？')) {
                 event.preventDefault(); return;
             }
             let confirmed = form.querySelector('input[name="activateSkus"]');

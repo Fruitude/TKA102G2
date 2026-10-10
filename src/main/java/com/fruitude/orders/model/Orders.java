@@ -66,6 +66,12 @@ public class Orders {
     @Column(name = "orders_status")
     private Integer ordersStatus;
 
+    // 0=舊訂單不重算；1=已預留待出貨；2=已扣出貨庫存；3=已釋放預留。
+    @Column(name="inventory_state", nullable=false, columnDefinition="tinyint not null default 0")
+    private Integer inventoryState=0;
+    public Integer getInventoryState(){return inventoryState;}
+    public void setInventoryState(Integer state){inventoryState=state;}
+
     @Column(name = "employee_id")
     private Integer employeeId;
 

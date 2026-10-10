@@ -27,7 +27,7 @@ public class ProductThumbnailTest {
         });
         var response = MockMvcBuilders.standaloneSetup(controller).build().perform(get("/product/image/7")).andReturn().getResponse();
         assertEquals(200, response.getStatus()); assertEquals("image/png", response.getContentType());
-        assertTrue(response.getHeader("Cache-Control").contains("max-age=600")); assertTrue(response.getHeader("Cache-Control").contains("private"));
+        assertTrue(response.getHeader("Cache-Control").contains("max-age=1800")); assertTrue(response.getHeader("Cache-Control").contains("private"));
     }
     private byte[] image(int width, int height) throws Exception {
         var output = new ByteArrayOutputStream();

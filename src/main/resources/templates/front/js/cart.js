@@ -245,7 +245,7 @@
     var price = document.createElement("div");
     price.textContent = formatMoney(item.price);
     if (!item.unavailable) appendOriginalPrice(price, item.originalPrice, item.price);
-    if (item.unavailable) price.textContent = "已下架或無可訂購數量，無法購買";
+    if (item.unavailable) price.textContent = Number(item.skuStatus) === 5 ? "規格已售完，無法購買" : "已下架或無可訂購數量，無法購買";
     var notice = quantityNotice(item.skuStatus, item.qty);
     if (notice && !item.unavailable) {
       var warning = document.createElement("p"); warning.textContent = notice; warning.style.cssText = "font-size:12px;color:#a65b00;margin:4px 0"; warning.setAttribute("role", "status"); info.appendChild(warning);
@@ -565,7 +565,8 @@
 
   function quantityNotice(status, quantity) {
     if (Number(status) === 1 && quantity >= 10) return "若數量需求超過10箱，請電話聯繫。";
-    if (Number(status) === 2 && quantity > 2) return "此商品規格目前需較長備貨時間，敬請見諒！";
+    if (Number(status) === 5) return "此商品規格已售完，請選擇其他規格。";
+    if (Number(status) === 2) return "此商品規格目前需較長備貨時間，敬請見諒！";
     return "";
   }
 
@@ -585,7 +586,7 @@
         if (ids.indexOf(String(item.skuId)) < 0) return item;
         var sku = byId[String(item.skuId)];
         if (!sku || !sku.available) {
-          item.unavailable = true; item.checked = false; changed = true;
+          item.unavailable = true; item.checked = false; item.skuStatus = sku ? sku.skuStatus : null; changed = true;
         } else {
           if (item.price !== sku.price || item.qty > sku.stock || item.unavailable) changed = true;
           item.unavailable = false; item.stock = sku.stock; item.skuStatus = sku.skuStatus;
@@ -620,6 +621,7 @@
       if (!sku) throw new Error("此商品已下架或已無可訂購數量，請選擇其他商品。");
       var existing = readCart().find(function (item) { return String(item.skuId) === String(sku.skuId); });
       var inCart = checkoutUrl ? 0 : (existing ? existing.qty : 0);
+      if (Number(sku.skuStatus) === 5) throw new Error("此商品規格已售完，請選擇其他規格。");
       if (sku.stock <= 0) throw stockShortageError(0, inCart);
       if (!sku.available) throw new Error("此商品已下架或已無可訂購數量，請選擇其他商品。");
       if (inCart + quantity > sku.stock) throw stockShortageError(sku.stock, inCart);
@@ -873,7 +875,7 @@
         qty.max = String(stock); qty.disabled = stock === 0;
         qty.value = String(Math.min(Math.max(1, Math.floor(Number(qty.value) || 1)), Math.max(1, stock)));
         button.disabled = stock === 0;
-        button.title = stock === 0 ? "目前缺貨" : "加入購物車";
+        button.title = Number(option.getAttribute("data-sku-status")) === 5 ? "售完" : (stock === 0 ? "目前無可訂購數量" : "加入購物車");
         button.setAttribute("aria-label", button.title);
         dropdown.querySelector(".home-sku-caption").textContent = option.textContent;
         trigger.title = option.textContent;

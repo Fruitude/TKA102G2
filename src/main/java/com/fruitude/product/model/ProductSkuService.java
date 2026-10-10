@@ -25,11 +25,14 @@ public class ProductSkuService {
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public void updateProductSku(ProductSku form) {
+    public void updateProductSku(ProductSku form) { updateProductSku(form, false); }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void updateProductSku(ProductSku form, boolean restockConfirmed) {
         ProductSku reference = repository.findById(form.getSkuId()).orElseThrow(() -> new IllegalArgumentException("規格不存在"));
         Product product = products.lockForStatus(reference.getProduct().getProductId()).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
         ProductSku sku = product.getProductSkus().stream().filter(s -> s.getSkuId().equals(form.getSkuId())).findFirst().orElseThrow();
-        lifecycle.validateSkuChange(sku.getStatus(), form.getStatus());
+        lifecycle.validateSkuChange(sku.getStatus(), form.getStatus(), restockConfirmed);
         sku.setSkuName(form.getSkuName().trim()); sku.setAnotherName(form.getAnotherName());
         sku.setPrice(form.getPrice()); sku.setStock(form.getStock()); sku.setSafetyStock(form.getSafetyStock());
         sku.setInboundQty(form.getInboundQty()); sku.setOutboundQty(form.getOutboundQty());
@@ -41,13 +44,16 @@ public class ProductSkuService {
     public record StatusResult(Integer productId, Byte productStatus, java.util.Map<Integer, Byte> skuStatuses) {}
 
     @org.springframework.transaction.annotation.Transactional
-    public StatusResult updateStatus(Integer skuId, Byte status) {
+    public StatusResult updateStatus(Integer skuId, Byte status) { return updateStatus(skuId, status, false); }
+
+    @org.springframework.transaction.annotation.Transactional
+    public StatusResult updateStatus(Integer skuId, Byte status, boolean restockConfirmed) {
         ProductSku reference = repository.findById(skuId).orElseThrow(() -> new java.util.NoSuchElementException("規格不存在"));
         Product product = products.lockForStatus(reference.getProduct().getProductId())
             .orElseThrow(() -> new java.util.NoSuchElementException("商品不存在"));
         ProductSku sku = product.getProductSkus().stream().filter(s -> s.getSkuId().equals(skuId))
             .findFirst().orElseThrow(() -> new java.util.NoSuchElementException("規格不存在"));
-        lifecycle.validateSkuChange(sku.getStatus(), status);
+        lifecycle.validateSkuChange(sku.getStatus(), status, restockConfirmed);
         sku.setStatus(status); sku.setUpdatedAt(java.time.LocalDateTime.now());
         lifecycle.synchronize(product);
         products.saveAndFlush(product);

@@ -20,6 +20,41 @@ public class ProductLifecycleTest {
         for (int value : states) { var s = new ProductSku(); s.setSkuId(p.getProductSkus().size()+1); s.setStatus((byte)value); s.setStock(20); s.setOutboundQty(0); s.setProduct(p); p.getProductSkus().add(s); }
         return p;
     }
+    @Test public void customBackorderAllowanceUsesStrictThresholdIncludingZero() {
+        var lifecycle = new ProductLifecycleService(access(false));
+        for (int allowance : new int[]{0, 3, 20}) {
+            var p = product(1, 1); var sku = p.getProductSkus().get(0);
+            sku.setStock(20); sku.setInboundQty(10); sku.setMaxBackorderQty(allowance);
+            sku.setPurchaseAddOnQty(1000); // 採購溢額量不影響缺貨門檻
+            sku.setOutboundQty(29 + allowance);
+            lifecycle.synchronize(p); assertEquals(Byte.valueOf((byte)1), sku.getStatus());
+            sku.setOutboundQty(30 + allowance);
+            lifecycle.synchronize(p); assertEquals(Byte.valueOf((byte)2), sku.getStatus());
+            assertEquals(Byte.valueOf((byte)1), p.getStatus());
+        }
+    }
+    @Test public void skuEditsPreserveExistingQuantitySettings() {
+        var p = product(1, 1); var original = p.getProductSkus().get(0);
+        original.setMaxBackorderQty(20); original.setPurchaseAddOnQty(35);
+        var skus = (ProductSkuRepository)Proxy.newProxyInstance(ProductSkuRepository.class.getClassLoader(), new Class<?>[]{ProductSkuRepository.class}, (proxy,m,a)->Optional.of(original));
+        var products = (ProductRepository)Proxy.newProxyInstance(ProductRepository.class.getClassLoader(), new Class<?>[]{ProductRepository.class}, (proxy,m,a)->m.getName().equals("lockForStatus") ? Optional.of(p) : p);
+        var service = new ProductSkuService(); ReflectionTestUtils.setField(service,"repository",skus); ReflectionTestUtils.setField(service,"products",products); ReflectionTestUtils.setField(service,"lifecycle",new ProductLifecycleService(access(false)));
+        var form = new ProductSku(); form.setSkuId(1); form.setSkuName("edited"); form.setStatus((byte)1);
+        form.setStock(20); form.setInboundQty(5); form.setOutboundQty(40);
+        service.updateProductSku(form);
+        assertEquals(Integer.valueOf(20), original.getMaxBackorderQty());
+        assertEquals(Integer.valueOf(35), original.getPurchaseAddOnQty());
+        assertEquals(Byte.valueOf((byte)1), original.getStatus());
+    }
+    @Test public void supplyRecoveryDoesNotRestoreOfflineOrRetiredParent() {
+        var lifecycle=new ProductLifecycleService(access(false));
+        for(int parentState:new int[]{0,2}) {
+            var p=product(parentState,2,4,5,6,0);p.getProductSkus().get(0).setStock(1000);
+            lifecycle.closeDepletedSkus(p);
+            assertEquals(List.of((byte)2,(byte)4,(byte)5,(byte)6,(byte)0),p.getProductSkus().stream().map(ProductSku::getStatus).toList());
+            assertEquals(Byte.valueOf((byte)parentState),p.getStatus());
+        }
+    }
     @After public void clearSession() { RequestContextHolder.resetRequestAttributes(); }
 
     @Test public void takingProductOfflineClosesAllThreeSaleStatesButPreservesRetirement() {
@@ -62,10 +97,10 @@ public class ProductLifecycleTest {
         var p=product(0,1,4); lifecycle.synchronize(p); assertEquals(Byte.valueOf((byte)1),p.getStatus());
         p.getProductSkus().get(0).setStatus((byte)0); lifecycle.synchronize(p); assertEquals(Byte.valueOf((byte)0),p.getStatus());
         for (int state : new int[]{1,2,3}) {
-            p=product(0,state,4,5); lifecycle.synchronize(p); assertEquals(Byte.valueOf((byte)1),p.getStatus());
+            p=product(0,state,4,6); lifecycle.synchronize(p); assertEquals(Byte.valueOf((byte)1),p.getStatus());
             lifecycle.changeProduct(p,(byte)1,false); lifecycle.synchronize(p); assertEquals(Byte.valueOf((byte)1),p.getStatus());
             p.getProductSkus().get(0).setStatus((byte)0); lifecycle.synchronize(p); assertEquals(Byte.valueOf((byte)0),p.getStatus());
-            assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(2).getStatus());
+            assertEquals(Byte.valueOf((byte)6),p.getProductSkus().get(2).getStatus());
         }
     }
     @Test public void endingSkuClosesAtExpectedStockZeroIncludingInbound() {
@@ -74,12 +109,12 @@ public class ProductLifecycleTest {
             var p=product(1,3,4); var sku=p.getProductSkus().get(0);
             sku.setStock(10); sku.setOutboundQty(outbound); sku.setInboundQty(5);
             lifecycle.synchronize(p);
-            assertEquals(Byte.valueOf((byte)(outbound>=15?0:3)),sku.getStatus());
+            assertEquals(Byte.valueOf((byte)(outbound>=15?5:3)),sku.getStatus());
             assertEquals(Byte.valueOf((byte)(outbound>=15?0:1)),p.getStatus());
             assertEquals(Byte.valueOf((byte)4),p.getProductSkus().get(1).getStatus());
         }
         var p=product(1,1,2,4); p.getProductSkus().forEach(s->{s.setStock(0);s.setOutboundQty(20);});
-        lifecycle.synchronize(p); assertEquals(List.of((byte)1,(byte)2,(byte)4),p.getProductSkus().stream().map(ProductSku::getStatus).toList());
+        lifecycle.synchronize(p); assertEquals(List.of((byte)2,(byte)2,(byte)4),p.getProductSkus().stream().map(ProductSku::getStatus).toList());
     }
     @Test public void permissionUsesLiveEmployeeAndPositionNotClientClaim() {
         var employee=new Employee(); employee.setEmployeeId(7); employee.setPositionId(3); employee.setEmployeeStatus((byte)1); employee.setEmployeeReviewStatus((byte)1);
@@ -101,42 +136,74 @@ public class ProductLifecycleTest {
         assertEquals(Byte.valueOf((byte)4),original.getStatus());
     }
     @Test public void preparedSkuNeverListsProductUntilProductIsExplicitlyListed() {
-        var lifecycle=new ProductLifecycleService(access(false));var p=product(0,5,0,4);
+        var lifecycle=new ProductLifecycleService(access(false));var p=product(0,6,0,4);
         lifecycle.synchronize(p);assertEquals(Byte.valueOf((byte)0),p.getStatus());
         lifecycle.changeProduct(p,(byte)1,false);
         assertEquals(List.of((byte)1,(byte)0,(byte)4),p.getProductSkus().stream().map(ProductSku::getStatus).toList());
         assertEquals(Byte.valueOf((byte)1),p.getStatus());
     }
     @Test public void preparedSkusStayPreparedWithSaleSkuButCloseWhenProductGoesOffline() {
-        var lifecycle=new ProductLifecycleService(access(false));var p=product(0,2,5,4);
-        lifecycle.changeProduct(p,(byte)1,false);assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(1).getStatus());
+        var lifecycle=new ProductLifecycleService(access(false));var p=product(0,2,6,4);
+        lifecycle.changeProduct(p,(byte)1,false);assertEquals(Byte.valueOf((byte)6),p.getProductSkus().get(1).getStatus());
         lifecycle.changeProduct(p,(byte)0,false);
         assertEquals(List.of((byte)0,(byte)0,(byte)4),p.getProductSkus().stream().map(ProductSku::getStatus).toList());
-        try { lifecycle.validateSkuChange((byte)4,(byte)5);fail(); } catch(ProductStatusAccessException expected) {}
+        try { lifecycle.validateSkuChange((byte)4,(byte)6);fail(); } catch(ProductStatusAccessException expected) {}
     }
     @Test public void skuServiceListsParentForSaleStatesAndNeverForPreparedState() {
         var parent=product(0);
         var products=(ProductRepository)Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),new Class<?>[]{ProductRepository.class},(proxy,m,a)-> m.getName().equals("lockForStatus") ? Optional.of(parent) : parent);
         var skus=(ProductSkuRepository)Proxy.newProxyInstance(ProductSkuRepository.class.getClassLoader(),new Class<?>[]{ProductSkuRepository.class},(proxy,m,a)->Optional.of(parent.getProductSkus().get(0)));
         var service=new ProductSkuService(); ReflectionTestUtils.setField(service,"repository",skus); ReflectionTestUtils.setField(service,"products",products); ReflectionTestUtils.setField(service,"lifecycle",new ProductLifecycleService(access(false)));
-        var sku=new ProductSku(); sku.setSkuId(1); sku.setSkuName("prepared"); sku.setStatus((byte)5); sku.setProduct(parent);
-        service.addProductSku(sku); assertEquals(Byte.valueOf((byte)0),parent.getStatus()); assertEquals(Byte.valueOf((byte)5),sku.getStatus());
+        var sku=new ProductSku(); sku.setSkuId(1); sku.setSkuName("prepared"); sku.setStatus((byte)6); sku.setProduct(parent);
+        service.addProductSku(sku); assertEquals(Byte.valueOf((byte)0),parent.getStatus()); assertEquals(Byte.valueOf((byte)6),sku.getStatus());
         var form=new ProductSku(); form.setSkuId(1); form.setSkuName("listed"); form.setStatus((byte)1);
         service.updateProductSku(form); assertEquals(Byte.valueOf((byte)1),parent.getStatus());
         form.setStatus((byte)2); service.updateProductSku(form); assertEquals(Byte.valueOf((byte)1),parent.getStatus());
         form.setStatus((byte)3); form.setStock(10); form.setOutboundQty(2); form.setInboundQty(1);
         service.updateProductSku(form); assertEquals(Byte.valueOf((byte)1),parent.getStatus());
-        form.setStatus((byte)5);
+        form.setStatus((byte)6);
         try { service.updateProductSku(form); fail(); } catch (IllegalArgumentException expected) {}
         assertEquals(Byte.valueOf((byte)1),parent.getStatus());
         form.setStatus((byte)0); service.updateProductSku(form); assertEquals(Byte.valueOf((byte)0),parent.getStatus());
     }
     @Test public void preparedStateCanBeCreatedOrKeptButNeverReenteredEvenByAdmin() {
         var lifecycle=new ProductLifecycleService(access(true));
-        lifecycle.validateSkuChange(null,(byte)5); lifecycle.validateSkuChange((byte)5,(byte)5);
-        lifecycle.validateSkuChange((byte)5,(byte)1);
-        for (byte previous=0;previous<=4;previous++) {
-            try { lifecycle.validateSkuChange(previous,(byte)5); fail(); } catch (IllegalArgumentException expected) {}
+        lifecycle.validateSkuChange(null,(byte)6); lifecycle.validateSkuChange((byte)6,(byte)6);
+        lifecycle.validateSkuChange((byte)6,(byte)1);
+        for (byte previous=0;previous<=5;previous++) {
+            try { lifecycle.validateSkuChange(previous,(byte)6); fail(); } catch (IllegalArgumentException expected) {}
+        }
+    }
+
+    @Test public void soldOutSkusSurviveProductTogglesAndDoNotCountAsSellable() {
+        var lifecycle=new ProductLifecycleService(access(false)); var p=product(0,5,6,4);
+        lifecycle.changeProduct(p,(byte)1,false);
+        assertEquals(List.of((byte)5,(byte)1,(byte)4),p.getProductSkus().stream().map(ProductSku::getStatus).toList());
+        lifecycle.changeProduct(p,(byte)0,false);
+        assertEquals(List.of((byte)5,(byte)0,(byte)4),p.getProductSkus().stream().map(ProductSku::getStatus).toList());
+        lifecycle.changeProduct(p,(byte)1,true); assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(0).getStatus());
+        p=product(1,5,4); lifecycle.synchronize(p);assertEquals(Byte.valueOf((byte)0),p.getStatus());
+        try {lifecycle.changeProduct(p,(byte)1,true);fail();}catch(IllegalArgumentException expected){}
+        assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(0).getStatus());
+    }
+    @Test public void soldOutRestockCannotBypassConfirmationInService() {
+        var lifecycle=new ProductLifecycleService(access(false));
+        try {lifecycle.validateSkuChange((byte)5,(byte)1);fail();}catch(SkuRestockConfirmationException expected){}
+        lifecycle.validateSkuChange((byte)5,(byte)1,true);
+        lifecycle.validateSkuChange((byte)6,(byte)1);
+        assertEquals("售完",product(0,5).getProductSkus().get(0).getStatusLabel());
+        assertEquals("預備上架",product(0,6).getProductSkus().get(0).getStatusLabel());
+    }
+
+    @Test public void supplyShortageUsesYieldAndRecoversOnlyAtAddOnThreshold() {
+        var lifecycle=new ProductLifecycleService(access(false));var p=product(1,1);var s=p.getProductSkus().get(0);
+        s.setStock(20);s.setInboundQty(10);s.setOutboundQty(39);lifecycle.synchronize(p);assertEquals(Byte.valueOf((byte)1),s.getStatus());
+        s.setOutboundQty(40);lifecycle.synchronize(p);assertEquals(Byte.valueOf((byte)2),s.getStatus());assertEquals(Byte.valueOf((byte)1),p.getStatus());
+        s.setStock(50);lifecycle.synchronize(p);assertEquals(Byte.valueOf((byte)2),s.getStatus());
+        s.setStock(51);lifecycle.synchronize(p);assertEquals(Byte.valueOf((byte)1),s.getStatus());
+        for(byte next:new byte[]{0,1,2,3,4}) {
+            try {lifecycle.validateSkuChange((byte)5,next);fail();}catch(SkuRestockConfirmationException expected){}
+            lifecycle.validateSkuChange((byte)5,next,true);
         }
     }
 }

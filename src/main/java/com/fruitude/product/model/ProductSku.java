@@ -53,6 +53,15 @@ public class ProductSku implements java.io.Serializable {
 	@Column(name = "outbound_qty")
 	private Integer outboundQty = 0;
 	
+    // 允許超賣量；採購溢額量（預設值與資料庫一致）
+    @Column(name = "max_backorder_qty", nullable = false, columnDefinition = "int not null default 10")
+    @jakarta.validation.constraints.Min(value=0, message="允許超賣量不可為負數")
+    private Integer maxBackorderQty = 10;
+
+    @Column(name = "purchase_add_on_qty", nullable = false, columnDefinition = "int not null default 20")
+    @jakarta.validation.constraints.Min(value=0, message="採購溢額量不可為負數")
+    private Integer purchaseAddOnQty = 20;
+
 	@Column(name = "price")
 	private Integer price;
 	
@@ -151,6 +160,12 @@ public class ProductSku implements java.io.Serializable {
 		this.outboundQty = outboundQty;
 	}
 	
+    public Integer getMaxBackorderQty() { return maxBackorderQty; }
+    public void setMaxBackorderQty(Integer maxBackorderQty) { this.maxBackorderQty = maxBackorderQty; }
+
+    public Integer getPurchaseAddOnQty() { return purchaseAddOnQty; }
+    public void setPurchaseAddOnQty(Integer purchaseAddOnQty) { this.purchaseAddOnQty = purchaseAddOnQty; }
+
     public Integer getExpectedStock() {
 
         int stock = this.stock == null ? 0 : this.stock;
@@ -198,7 +213,7 @@ public class ProductSku implements java.io.Serializable {
 	
     public String getStatusLabel() {
         if (status == null) return "未設定";
-        return switch (status) { case 0 -> "下架"; case 1 -> "上架"; case 2 -> "缺貨"; case 3 -> "即將下架"; case 4 -> "永久停產"; case 5 -> "預備上架"; default -> "未設定"; };
+        return switch (status) { case 0 -> "下架"; case 1 -> "上架"; case 2 -> "缺貨"; case 3 -> "即將售完"; case 4 -> "永久停產"; case 5 -> "售完"; case 6 -> "預備上架"; default -> "未設定"; };
     }
 
 	public Byte getStatus() {

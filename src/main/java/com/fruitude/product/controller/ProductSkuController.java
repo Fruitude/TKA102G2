@@ -141,6 +141,7 @@ public class ProductSkuController {
             BindingResult result,
             @RequestParam("skuId") Integer skuId,
             ModelMap model,
+            @RequestParam(defaultValue = "false") boolean restockConfirmed,
             RedirectAttributes redirectAttributes) {
 
         ProductSku originalSku = productSkuSvc.getOneProductSku(skuId);
@@ -170,6 +171,7 @@ public class ProductSkuController {
             formSku.setSkuId(skuId);
             formSku.setProduct(originalSku.getProduct());
             model.addAttribute("productSku", formSku);
+            model.addAttribute("originalSkuStatus", originalSku.getStatus());
             model.addAttribute("errorMsg", errorMsg);
             addProductList(model);
             return "admin/productmanagement/productsku/updateProductSkuInput";
@@ -177,9 +179,9 @@ public class ProductSkuController {
 
         formSku.setSkuId(skuId);
         formSku.setProduct(originalSku.getProduct());
-        try { productSkuSvc.updateProductSku(formSku); }
+        try { productSkuSvc.updateProductSku(formSku, restockConfirmed); }
         catch (IllegalArgumentException e) {
-            model.addAttribute("errorMsg", e.getMessage()); addProductList(model);
+            model.addAttribute("errorMsg", e.getMessage()); model.addAttribute("originalSkuStatus",originalSku.getStatus()); addProductList(model);
             return "admin/productmanagement/productsku/updateProductSkuInput";
         }
         catch (org.springframework.dao.DataIntegrityViolationException e) {
@@ -195,9 +197,11 @@ public class ProductSkuController {
 
     @PostMapping("/updateStatus")
     @org.springframework.web.bind.annotation.ResponseBody
-    public org.springframework.http.ResponseEntity<?> updateStatus(@RequestParam Integer skuId, @RequestParam Byte status) {
+    public org.springframework.http.ResponseEntity<?> updateStatus(@RequestParam Integer skuId, @RequestParam Byte status, @RequestParam(defaultValue="false") boolean restockConfirmed) {
         try {
-            return org.springframework.http.ResponseEntity.ok(productSkuSvc.updateStatus(skuId, status));
+            return org.springframework.http.ResponseEntity.ok(productSkuSvc.updateStatus(skuId, status, restockConfirmed));
+        } catch (com.fruitude.product.model.SkuRestockConfirmationException e) {
+            return org.springframework.http.ResponseEntity.status(409).body(java.util.Map.of("kind","restock","message",e.getMessage()));
         } catch (com.fruitude.product.model.ProductStatusAccessException e) {
             return org.springframework.http.ResponseEntity.status(403).body(java.util.Map.of("message", e.getMessage()));
         } catch (java.util.NoSuchElementException e) {
@@ -256,7 +260,7 @@ public class ProductSkuController {
 
         if (sku.getSkuName() != null && sku.getSkuName().trim().length() > 50) errors.append("規格名稱不可超過 50 字。");
         if (sku.getAnotherName() != null && sku.getAnotherName().length() > 50) errors.append("別稱不可超過 50 字。");
-        if (sku.getStatus() == null || sku.getStatus() < 0 || sku.getStatus() > 5) errors.append("狀態須為 0～5。");
+        if (sku.getStatus() == null || sku.getStatus() < 0 || sku.getStatus() > 6) errors.append("狀態須為 0～6。");
 
         if (sku.getSkuName() == null || sku.getSkuName().trim().isEmpty()) {
             errors.append("規格名稱不可空白。");

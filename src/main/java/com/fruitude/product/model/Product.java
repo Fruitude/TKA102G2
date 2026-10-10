@@ -106,7 +106,7 @@ public class Product implements java.io.Serializable {
     }
 
     public boolean isHasReadySku() {
-        return productSkus.stream().anyMatch(s -> Byte.valueOf((byte)5).equals(s.getStatus()));
+        return productSkus.stream().anyMatch(s -> Byte.valueOf((byte)6).equals(s.getStatus()));
     }
 
     public boolean isHasListedSku() {

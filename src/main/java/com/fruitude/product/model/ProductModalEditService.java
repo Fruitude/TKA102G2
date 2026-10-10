@@ -20,7 +20,14 @@ public class ProductModalEditService {
     public record Choice(Integer id, String label) {}
     public record SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
             Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
-            Integer originalStock, Integer originalInbound, Integer originalOutbound) {}
+            Integer originalStock, Integer originalInbound, Integer originalOutbound, boolean restockConfirmed) {
+        public SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
+                Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
+                Integer originalStock, Integer originalInbound, Integer originalOutbound) {
+            this(skuId,skuName,anotherName,price,stock,safetyStock,inboundQty,outboundQty,status,revision,
+                originalStock,originalInbound,originalOutbound,false);
+        }
+    }
     public record ProductForm(Integer productId, String productName, String productDesc, Integer categoryId,
             Integer vendorId, Byte status, String revision) {}
     public record EditData(ProductForm product, List<SkuForm> skus, List<Choice> categories, List<Choice> vendors, boolean canRestore) {}
@@ -67,7 +74,7 @@ public class ProductModalEditService {
             var existing=input.skuId()==null?null:p.getProductSkus().stream().filter(s->s.getSkuId().equals(input.skuId())).findFirst()
                 .orElseThrow(()->new IllegalArgumentException("規格不屬於此商品"));
             if(input.skuId()!=null && !usedIds.add(input.skuId())) throw new IllegalArgumentException("規格編號重複");
-            lifecycle.validateSkuChange(existing==null?null:existing.getStatus(),input.status());
+            lifecycle.validateSkuChange(existing==null?null:existing.getStatus(),input.status(),input.restockConfirmed());
             if(existing!=null && (!Objects.equals(input.revision(),revision(existing.getUpdatedAt()))
                 || !Objects.equals(input.originalStock(),zero(existing.getStock()))
                 || !Objects.equals(input.originalInbound(),zero(existing.getInboundQty()))

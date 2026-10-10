@@ -214,9 +214,10 @@
     qty.max = String(stock);
     qty.value = String(Math.min(Math.max(1, Number(qty.value) || 1), Math.max(stock, 1)));
     form.querySelector('[type="submit"]').disabled = stock === 0;
-    form.querySelector('[type="submit"]').value = stock === 0 ? "目前缺貨" : "加入購物車";
+    form.querySelector('[type="submit"]').value = Number(option.dataset.skuStatus) === 5 ? "售完" : (stock === 0 ? "目前無可訂購數量" : "加入購物車");
     var buy = form.querySelector('.w-commerce-commercebuynowbutton');
     buy.hidden = stock === 0;
+    buy.style.display = stock === 0 ? "none" : "";
   }
   function updateNotice() {
     var notice = document.getElementById("pv-quantity-notice");
@@ -228,7 +229,7 @@
     var qty = this; qty.value = String(Math.min(Number(qty.max), Math.max(1, Math.floor(Number(qty.value) || 1)))); updateNotice();
   });
   select.addEventListener("change", function () { updateSku(); updateNotice(); });
-  updateSku();
+  updateSku(); updateNotice();
 
   // 我的最愛愛心
   var fav = document.getElementById("pv-favorite");

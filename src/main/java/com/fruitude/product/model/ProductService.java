@@ -51,7 +51,7 @@ public class ProductService {
         for (Product product : products) {
             if (product.getStatus() == 2) continue;
             if (status == 1 && product.getProductSkus().stream().noneMatch(sku -> ProductLifecycleService.isSellable(sku.getStatus()) && !(sku.getStatus() == 3 && ProductLifecycleService.isDepleted(sku)))) {
-                if (product.getProductSkus().stream().noneMatch(sku -> sku.getStatus() != 4))
+                if (product.getProductSkus().stream().noneMatch(sku -> Byte.valueOf((byte)0).equals(sku.getStatus()) || Byte.valueOf((byte)6).equals(sku.getStatus())))
                     throw new IllegalArgumentException(product.getProductName() + " 沒有可上架規格");
                 if (!activateSkus && !product.isHasReadySku()) throw new ProductStatusConfirmationException();
             }
