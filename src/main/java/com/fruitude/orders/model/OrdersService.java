@@ -236,7 +236,8 @@ public class OrdersService {
 	// 做法一：先查出既有的 entity，只改 ordersStatus，再存回去
 	@Transactional
 	public boolean updateStatusByLoad(Integer ordersId, Integer ordersStatus) {
-		Optional<Orders> optional = ordersRepository.findById(ordersId);
+		// 先鎖訂單列再讀舊狀態：同一張訂單同時改狀態時，後來的等前一個 commit，不會重複處理庫存
+		Optional<Orders> optional = ordersRepository.findByIdForUpdate(ordersId);
 		if (optional.isEmpty()) {
 			return false;
 		}
@@ -252,7 +253,8 @@ public class OrdersService {
 	// 做法二：直接下 JPQL UPDATE，只改 ordersStatus
 	@Transactional
 	public boolean updateStatusByQuery(Integer ordersId, Integer ordersStatus) {
-		Integer previousStatus = ordersRepository.findById(ordersId).map(Orders::getOrdersStatus).orElse(null);
+		// 先鎖訂單列再讀舊狀態（同 updateStatusByLoad）
+		Integer previousStatus = ordersRepository.findByIdForUpdate(ordersId).map(Orders::getOrdersStatus).orElse(null);
 		int updatedRows = ordersRepository.updateStatus(ordersId, ordersStatus);
 		if (updatedRows > 0) {
 			releaseLimitedPromoIfRefunded(ordersId, ordersStatus);
