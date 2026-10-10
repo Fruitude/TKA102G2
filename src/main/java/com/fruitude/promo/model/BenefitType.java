@@ -29,7 +29,7 @@ public enum BenefitType {
 	}
 
 	// 把優惠方式加優惠值轉成人看得懂的文字，給列表的「優惠內容」欄用：
-	// 折扣 90 → 「9 折」、85 → 「8.5 折」；折抵 100 → 「折抵 100 元」；贈送購物金 500 → 「贈送 500 元」
+	// 折扣 90 → 「9 折」、85 → 「8.5 折」；折抵 100 → 「折抵 100 元」；贈送購物金 500 → 「贈送 500 點」
 	public static String describe(String code, Integer value) {
 		if (FREE_SHIPPING.name().equals(code)) {
 			return "免運費";
@@ -47,7 +47,7 @@ public enum BenefitType {
 			return "折抵 " + value + " 元";
 		}
 		if (WALLET_CREDIT.name().equals(code)) {
-			return "贈送 " + value + " 元";
+			return "贈送 " + value + " 點";
 		}
 		return String.valueOf(value);
 	}

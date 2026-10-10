@@ -70,6 +70,11 @@ public class Product implements java.io.Serializable {
 	@OrderBy("skuId ASC")
 	private List<ProductSku> productSkus = new ArrayList<>();
 	
+    @Column(name="auto_restock_enabled", nullable=false, columnDefinition="tinyint not null default 0")
+    private Boolean autoRestockEnabled = true;
+    public Boolean getAutoRestockEnabled() { return autoRestockEnabled; }
+    public void setAutoRestockEnabled(Boolean enabled) { autoRestockEnabled=enabled; }
+
 	public Integer getProductId() {
 		return productId;
 	}
@@ -106,7 +111,7 @@ public class Product implements java.io.Serializable {
     }
 
     public boolean isHasReadySku() {
-        return productSkus.stream().anyMatch(s -> Byte.valueOf((byte)6).equals(s.getStatus()));
+        return productSkus.stream().anyMatch(s -> Byte.valueOf((byte)5).equals(s.getStatus()));
     }
 
     public boolean isHasListedSku() {

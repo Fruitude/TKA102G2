@@ -407,6 +407,19 @@
                     </tr>
 
                     <tr>
+                        <th><label th:for="|maxBackorderQty${stat.index}|">預購額度</label></th>
+                        <td>
+                            <input th:id="|maxBackorderQty${stat.index}|"
+                                   type="number"
+                                   th:field="*{productSkus[__${stat.index}__].maxBackorderQty}"
+                                   value="10"
+                                   min="0"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+
+                    <tr>
                         <th><label th:for="|skuStatus${stat.index}|">規格狀態</label></th>
                         <td>
                             <select th:id="|skuStatus${stat.index}|"
@@ -415,7 +428,7 @@
                                 <option value="0">下架</option>
                                 <option value="1">上架</option>
                                 <option value="2">缺貨</option>
-                                <option value="3">即將售完</option><option value="4">永久停產</option><option value="5">售完</option><option value="6">預備上架</option>
+                                <option value="3">即將售完</option><option value="6">即將停產</option><option value="7">永久停產</option><option value="4">售完</option><option value="5">預備上架</option>
                             </select>
                         </td>
                     </tr>
@@ -521,6 +534,18 @@
                         </td>
                     </tr>
                     <tr>
+                        <th><label for="maxBackorderQty${index}">預購額度</label></th>
+                        <td>
+                            <input id="maxBackorderQty${index}"
+                                   type="number"
+                                   name="productSkus[${index}].maxBackorderQty"
+                                   value="10"
+                                   min="0"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+                    <tr>
                         <th><label for="skuStatus${index}">規格狀態</label></th>
                         <td>
                             <select id="skuStatus${index}"
@@ -529,7 +554,7 @@
                                 <option value="0">下架</option>
                                 <option value="1">上架</option>
                                 <option value="2">缺貨</option>
-                                <option value="3">即將售完</option><option value="4">永久停產</option><option value="5">售完</option><option value="6">預備上架</option>
+                                <option value="3">即將售完</option><option value="6">即將停產</option><option value="7">永久停產</option><option value="4">售完</option><option value="5">預備上架</option>
                             </select>
                         </td>
                     </tr>

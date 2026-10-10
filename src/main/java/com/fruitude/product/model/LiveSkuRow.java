@@ -9,6 +9,7 @@ public interface LiveSkuRow {
     Integer getStock();
     Integer getInboundQty();
     Integer getOutboundQty();
+    Integer getMaxBackorderQty();
     Integer getProductStatus();
     Integer getSkuStatus();
 }

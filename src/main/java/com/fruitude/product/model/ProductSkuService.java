@@ -36,12 +36,13 @@ public class ProductSkuService {
         sku.setSkuName(form.getSkuName().trim()); sku.setAnotherName(form.getAnotherName());
         sku.setPrice(form.getPrice()); sku.setStock(form.getStock()); sku.setSafetyStock(form.getSafetyStock());
         sku.setInboundQty(form.getInboundQty()); sku.setOutboundQty(form.getOutboundQty());
+        if (form.getMaxBackorderQty() != null && form.getMaxBackorderQty() >= 0) sku.setMaxBackorderQty(form.getMaxBackorderQty());
         sku.setStatus(form.getStatus()); sku.setUpdatedAt(java.time.LocalDateTime.now());
         lifecycle.synchronize(product);
         products.saveAndFlush(product);
     }
 
-    public record StatusResult(Integer productId, Byte productStatus, java.util.Map<Integer, Byte> skuStatuses) {}
+    public record StatusResult(Integer productId, Byte productStatus, java.util.Map<Integer, Byte> skuStatuses, String message) {}
 
     @org.springframework.transaction.annotation.Transactional
     public StatusResult updateStatus(Integer skuId, Byte status) { return updateStatus(skuId, status, false); }
@@ -59,7 +60,9 @@ public class ProductSkuService {
         products.saveAndFlush(product);
         var states = new java.util.LinkedHashMap<Integer, Byte>();
         product.getProductSkus().forEach(s -> states.put(s.getSkuId(), s.getStatus()));
-        return new StatusResult(product.getProductId(), product.getStatus(), states);
+        String message=Byte.valueOf((byte)1).equals(status) && Byte.valueOf((byte)2).equals(sku.getStatus())
+            ? "已設定上架，但預估供應量低於安全庫存，系統將依供應狀況調整為缺貨。" : null;
+        return new StatusResult(product.getProductId(), product.getStatus(), states,message);
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -79,12 +82,6 @@ public class ProductSkuService {
 
 	public List<ProductSku> getAll() {
 		return repository.findAll();
-	}
-
-	// 某供應商可採購的規格：status 0~3 都列入，4（永久停產）不列入
-	public List<ProductSku> getPurchasableByVendorId(Integer vendorId) {
-		return repository.findByProduct_Vendor_VendorIdAndStatusNotOrderBySkuIdAsc(vendorId,
-				ProductSku.STATUS_DISCONTINUED);
 	}
 
 	// 新增時檢查同商品是否已有相同規格名稱

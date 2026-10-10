@@ -8,6 +8,7 @@ import com.fruitude.orders.model.CheckoutItem;
 @Service
 public class FrontCatalogService {
     private final ProductRepository repository;
+    @org.springframework.beans.factory.annotation.Autowired(required=false) private SkuSupplyService supply;
     public FrontCatalogService(ProductRepository repository) { this.repository = repository; }
 
     // 指定商品促銷的活動價查詢（promo 套件）。用選擇性欄位注入，沒有它（例如單元測試）就不套用活動價
@@ -30,6 +31,7 @@ public class FrontCatalogService {
     private List<ProductView> loadProducts(Integer productId) {
         List<FrontCatalogRow> rows = repository.findFrontRows(productId);
         if (rows.isEmpty()) return List.of();
+        var rates=supply==null?Map.<Integer,java.math.BigDecimal>of():supply.yields(rows.stream().map(FrontCatalogRow::getSkuId).toList());
         Map<Integer, Integer> promoPrices = activePromoPrices(rows.stream().map(FrontCatalogRow::getSkuId).toList());
         Map<Integer, List<FrontCatalogRow>> groups = new LinkedHashMap<>();
         for (FrontCatalogRow row : rows) groups.computeIfAbsent(row.getProductId(), key -> new ArrayList<>()).add(row);
@@ -43,10 +45,10 @@ public class FrontCatalogService {
             FrontCatalogRow product = group.get(0);
             List<SkuView> skus = group.stream().map(row -> {
                 List<Integer> ids = List.copyOf(images.getOrDefault(row.getSkuId(), List.of()));
-           return new SkuView(row.getSkuId(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()) + (Integer.valueOf(5).equals(row.getSkuStatus()) ? "（售完）" : ""), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty()),
+           return new SkuView(row.getSkuId(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()) + (Integer.valueOf(4).equals(row.getSkuStatus()) ? "（售完）" : ""), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty(), row.getMaxBackorderQty(),rates.getOrDefault(row.getSkuId(),SkuSupplyService.DEFAULT_YIELD)),
                     ids.isEmpty() ? null : ids.get(0), ids, row.getSkuStatus());
             }).toList();
-            SkuView cheapest = skus.stream().filter(s -> s.stock() > 0 && Set.of(1,2,3).contains(s.skuStatus())).min(Comparator.comparing(SkuView::price).thenComparing(SkuView::skuId)).orElse(null);
+            SkuView cheapest = skus.stream().filter(s -> s.stock() > 0 && Set.of(1,2,3,6).contains(s.skuStatus())).min(Comparator.comparing(SkuView::price).thenComparing(SkuView::skuId)).orElse(null);
             if (cheapest == null) continue;
             boolean giftBox = containsGift(product.getName()) || skus.stream().anyMatch(s -> containsGift(s.name())) || group.stream().anyMatch(row -> containsGift(row.getSkuName()));
             Set<Integer> visited = new HashSet<>();
@@ -66,16 +68,15 @@ public class FrontCatalogService {
     }
 
     // The stock view field is the order quantity limit, not physical stock.
-    static int quantityLimit(Integer status, Integer stock, Integer inbound, Integer outbound) {
-        // 狀態 1 認定貨源充足，數量上限不讀取或受限於實際庫存。
-        if (Integer.valueOf(1).equals(status)) return 10;
-        if (Integer.valueOf(2).equals(status)) return 5;
-        if (Integer.valueOf(3).equals(status)) {
-            long expected = (stock == null ? 0L : stock.longValue())
-                + (inbound == null ? 0L : inbound.longValue()) - (outbound == null ? 0L : outbound.longValue());
-            return (int) Math.min(10L, Math.max(0L, expected));
-        }
-        return 0;
+    static int quantityLimit(Integer status,Integer stock,Integer inbound,Integer outbound) {
+        return quantityLimit(status,stock,inbound,outbound,10,SkuSupplyService.DEFAULT_YIELD);
+    }
+    static int quantityLimit(Integer status,Integer stock,Integer inbound,Integer outbound,Integer backorder) {
+        return quantityLimit(status,stock,inbound,outbound,backorder,SkuSupplyService.DEFAULT_YIELD);
+    }
+    static int quantityLimit(Integer status,Integer stock,Integer inbound,Integer outbound,Integer backorder,java.math.BigDecimal yield) {
+        return SkuSupplyService.quantityLimit(status==null?-1:status,stock==null?0:stock,inbound==null?0:inbound,
+            outbound==null?0:outbound,backorder==null?10:backorder,yield);
     }
 
     private boolean containsGift(String text) { return text != null && text.contains("禮盒"); }
@@ -85,9 +86,10 @@ public class FrontCatalogService {
         List<Integer> requested = ids.stream().filter(Objects::nonNull).distinct().toList();
         if (requested.isEmpty()) return List.of();
         Map<Integer, Integer> promoPrices = activePromoPrices(requested);
+        var rates=supply==null?Map.<Integer,java.math.BigDecimal>of():supply.yields(requested);
         return repository.findLiveSkus(requested).stream().map(row -> {
-            int stock = quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty());
-            boolean available = Integer.valueOf(1).equals(row.getProductStatus()) && row.getSkuStatus() != null && Set.of(1,2,3).contains(row.getSkuStatus())
+            int stock = quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty(), row.getMaxBackorderQty(),rates.getOrDefault(row.getSkuId(),SkuSupplyService.DEFAULT_YIELD));
+            boolean available = Integer.valueOf(1).equals(row.getProductStatus()) && row.getSkuStatus() != null && Set.of(1,2,3,6).contains(row.getSkuStatus())
                 && row.getPrice() != null && row.getPrice() > 0 && stock > 0;
             return new LiveSku(row.getSkuId(), row.getName(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), stock, available, row.getSkuStatus());
         }).toList();

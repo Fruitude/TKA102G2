@@ -19,6 +19,10 @@
             const skuStates = [...form.querySelectorAll('select[name^="productSkus["][name$=".status"]')];
             const sellable = skuStates.length ? skuStates.some(s => {
                 if (s.value === '1' || s.value === '2') return true;
+                if (s.value === '6') {
+                    const prefix=s.name.slice(0,-6);
+                    return Number(form.elements.namedItem(prefix+'stock')?.value||0)-Number(form.elements.namedItem(prefix+'outboundQty')?.value||0)>0;
+                }
                 if (s.value !== '3') return false;
                 const prefix = s.name.slice(0, -6);
                 const number = key => Number(form.elements.namedItem(prefix + key)?.value || 0);

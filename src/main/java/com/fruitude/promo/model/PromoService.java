@@ -18,6 +18,10 @@ public class PromoService {
 	@Autowired
 	private PromotionRepository promotionRepository;
 
+	// 搶購物金的參加紀錄（promo_grab），刪活動時要一併刪除
+	@Autowired
+	private PromoGrabRepository promoGrabRepository;
+
 	// 活動或活動商品異動時，要讓商品列表的快取重新載入，前台價格才會馬上跟著變
 	@Autowired
 	private com.fruitude.product.model.FrontCatalogService frontCatalogService;
@@ -374,6 +378,7 @@ public class PromoService {
 			promoRepository.deleteCreditTransactions(id);
 		}
 		promotionRepository.deleteByPromoProjectId(id);
+		promoGrabRepository.deleteByPromoProjectId(id);
 		promoRepository.deleteById(id);
 		frontCatalogService.clearCache();
 		return true;

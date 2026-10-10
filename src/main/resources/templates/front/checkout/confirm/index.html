@@ -45,6 +45,7 @@
     <div id="confirm-success-state" class="confirm-success-state" style="display:none">
       <h2 class="heading-h4">訂單已送出，感謝您的購買！</h2>
       <a class="primary-button w-button" href="../../" style="margin-top:1.5rem; display:inline-flex;">回首頁</a>
+      <a class="primary-button w-button" id="confirm-view-order-link" href="../../about/member/orders/" style="margin-top:1.5rem; margin-left:.75rem; display:inline-flex;">查看訂單</a>
     </div>
 
     <div id="confirm-order-ui" class="confirm-grid">
@@ -233,7 +234,12 @@
     bottomTotalEl.textContent = formatMoney(total);
   }
 
-  function showSuccess() {
+  // orderNote 是後端回的「訂單編號：123」，取出編號讓「查看訂單」導向購買清單裡這一筆訂單
+  function showSuccess(orderNote) {
+    var match = /(\d+)/.exec(orderNote || "");
+    if (match) {
+      document.getElementById("confirm-view-order-link").href = "../../about/member/orders/?ordersId=" + match[1];
+    }
     orderUi.style.display = "none";
     bottomBar.style.display = "none";
     successState.style.display = "";
@@ -329,7 +335,7 @@
           if (!res.ok) throw new Error(res.status);
           // only clear the cart once the backend has accepted the order
           window.SSXCart.removeItems(items.map(function (item) { return item.skuId; }));
-          showSuccess();
+          return res.text().then(showSuccess);
         })
         .catch(function (err) {
           if (err && err.message === "handled") return; // 上面已經提示過了

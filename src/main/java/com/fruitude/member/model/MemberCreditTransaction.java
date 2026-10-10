@@ -23,6 +23,7 @@ public class MemberCreditTransaction {
 	public static final byte TYPE_ADMIN_ADD = 3;
 	public static final byte TYPE_ADMIN_DEDUCT = 4;
 	public static final byte TYPE_ORDER_CANCEL_RETURN = 5;
+	public static final byte TYPE_WALLET_GRAB = 6;
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,6 +44,10 @@ public class MemberCreditTransaction {
 
 	@Column(name = "balance_after", nullable = false)
 	private Integer balanceAfter;
+
+	// 這筆異動是哪個活動發放的（搶購物金）；資料表上的外鍵指到 promo_project
+	@Column(name = "promo_project_id")
+	private Integer promoProjectId;
 
 	@Column(name = "orders_id")
 	private Integer ordersId;
@@ -76,6 +81,8 @@ public class MemberCreditTransaction {
 	public void setBalanceBefore(Integer balanceBefore) { this.balanceBefore = balanceBefore; }
 	public Integer getBalanceAfter() { return balanceAfter; }
 	public void setBalanceAfter(Integer balanceAfter) { this.balanceAfter = balanceAfter; }
+	public Integer getPromoProjectId() { return promoProjectId; }
+	public void setPromoProjectId(Integer promoProjectId) { this.promoProjectId = promoProjectId; }
 	public Integer getOrdersId() { return ordersId; }
 	public void setOrdersId(Integer ordersId) { this.ordersId = ordersId; }
 	public Integer getRefundOrderId() { return refundOrderId; }

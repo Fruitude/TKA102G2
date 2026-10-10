@@ -22,6 +22,11 @@
     display: flex;
 }
 
+.member-heading-counts {
+    display: flex;
+    gap: 1.5rem;
+}
+
 .member-heading-count {
     min-width: 108px;
     padding-left: 1rem;

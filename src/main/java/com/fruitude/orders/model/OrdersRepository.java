@@ -1,14 +1,17 @@
 package com.fruitude.orders.model;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Tuple;
 
 public interface OrdersRepository extends JpaRepository<Orders, Integer>{
@@ -46,6 +49,13 @@ public interface OrdersRepository extends JpaRepository<Orders, Integer>{
 			@Param("statusFilter") int statusFilter,
 			@Param("statuses") List<Integer> statuses,
 			Pageable pageable);
+
+	// 鎖住這張訂單的資料列（SELECT … FOR UPDATE）直到交易結束。
+	// 改訂單狀態並連動庫存時，要先用這個方法讀「改之前的狀態」：同一張訂單同時被兩個人改狀態，後來的會等前一個 commit，
+	// 再讀到新的狀態，就不會兩邊都看到「待出貨」而重複扣庫存。必須在交易裡呼叫
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT o FROM Orders o WHERE o.ordersId = :ordersId")
+	Optional<Orders> findByIdForUpdate(@Param("ordersId") Integer ordersId);
 
 	@Modifying
 	@Query("UPDATE Orders o SET o.ordersStatus = :ordersStatus WHERE o.ordersId = :ordersId")

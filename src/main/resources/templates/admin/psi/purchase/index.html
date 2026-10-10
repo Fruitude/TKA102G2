@@ -6,8 +6,22 @@
 
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<style>
+.search-toggle i {
+	transition: transform 0.2s;
+}
+
+/* 收合時箭頭轉向右邊 */
+.search-toggle[aria-expanded="false"] i {
+	transform: rotate(-90deg);
+}
+
+/* 條件查詢的欄位名稱縮小，跟小尺寸的輸入框、按鈕一致 */
+#poSearchBody label {
+	font-size: 0.875rem;
+}
+</style>
 </head>
-<body>
 <body id="page-top">
 
     <!-- Page Wrapper -->
@@ -37,42 +51,52 @@
 					    </button>
 					</div>
 
-					<!-- 條件查詢：依編號、名稱查單筆；依產地查多筆 -->
+					<!-- 條件查詢：依採購單狀態、供應商編號、採購員工編號查多筆，結果以 listAllPo.html 顯示；依採購單編號查單筆 -->
+					<!-- 進頁面時固定展開，可以按標題列右側的按鈕收合 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3 d-flex justify-content-between align-items-center">
-							
+
 							<h6 class="m-0 font-weight-bold text-primary">條件查詢</h6>
 
-							 <a th:href="@{/admin/psi/purchase/addPo}"
-								class="btn btn-success btn-icon-split"> <span
-								class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
-								class="text">新增採購單</span>
-							</a>
+							<!-- 收合按鈕：Bootstrap 會在點擊時自動切換 aria-expanded -->
+							<button type="button" class="btn btn-link btn-sm search-toggle"
+								data-toggle="collapse" data-target="#poSearchBody"
+								aria-controls="poSearchBody" aria-expanded="true">
+								<i class="fas fa-chevron-down"></i>
+							</button>
 
 						</div>
+						<div id="poSearchBody" class="collapse show">
 						<div class="card-body">
 						
-							<form th:action="@{/admin/psi/purchase/listAllPo}" method="post" class="form-inline mb-3">
+						 <div class="d-flex justify-content-between align-items-start mb-3">
+							<form th:action="@{/admin/psi/purchase/listAllPo}" method="post" class="form-inline">
 					            <label for="poStatus" class="mr-3" style="width: 120px;">採購單狀態</label>
-					            <select id="poStatus" name="poStatus" class="custom-select mr-2">
+					            <select id="poStatus" name="poStatus" class="custom-select custom-select-sm mr-2">
 					                <option value="">查詢全部</option>
 					                <option value="0" selected>待審核</option>
 					                <option value="1">申請通過</option>
 					                <option value="2">申請未通過</option>
 					                <option value="3">已取消</option>
 					            </select>
-					            <button type="submit" class="btn btn-primary">查詢</button>
+					            <button type="submit" class="btn btn-primary btn-sm">查詢</button>
 					        </form>
+							 <a th:href="@{/admin/psi/purchase/addPo}"
+								class="btn btn-success btn-icon-split btn-sm"> <span
+								class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
+								class="text">新增採購單</span>
+							</a>
+						</div>
 
-							<!-- 以下四個查詢由 PoNoController 處理，格式不符或查無資料時回到本頁，以上方的錯誤訊息顯示原因 -->
+							<!-- 以下三個查詢由 PoNoController 處理，格式不符或查無資料時回到本頁，以上方的錯誤訊息顯示原因 -->
 							<form method="post"
 								th:action="@{/admin/psi/purchase/getOneForDisplay}"
 								class="form-inline mb-3">
 								<label for="poNoInput" class="mr-3" style="width: 120px;">採購單編號</label>
 								<input type="text" id="poNoInput" name="poNo"
-									class="form-control mr-2" placeholder="PO202610090001" maxlength="15"
+									class="form-control form-control-sm mr-2" placeholder="PO202610090001" maxlength="15"
 									th:value="${param.poNo}">
-								<button type="submit" class="btn btn-primary">送出</button>
+								<button type="submit" class="btn btn-primary btn-sm">送出</button>
 							</form>
 
 							<form method="post"
@@ -80,9 +104,9 @@
 								class="form-inline mb-3">
 								<label for="vendorIdInput" class="mr-3" style="width: 120px;">供應商編號</label>
 								<input type="text" id="vendorIdInput" name="vendorId"
-									class="form-control mr-2" placeholder="請輸入供應商編號"
+									class="form-control form-control-sm mr-2" placeholder="請輸入供應商編號"
 									th:value="${param.vendorId}">
-								<button type="submit" class="btn btn-primary">送出</button>
+								<button type="submit" class="btn btn-primary btn-sm">送出</button>
 							</form>
 
 							<form method="post"
@@ -90,20 +114,62 @@
 								class="form-inline mb-3">
 								<label for="poEmployeeIdInput" class="mr-3" style="width: 120px;">採購員工編號</label>
 								<input type="text" id="poEmployeeIdInput" name="poEmployeeId"
-									class="form-control mr-2" placeholder="請輸入採購員工編號"
+									class="form-control form-control-sm mr-2" placeholder="請輸入採購員工編號"
 									th:value="${param.poEmployeeId}">
-								<button type="submit" class="btn btn-primary">送出</button>
+								<button type="submit" class="btn btn-primary btn-sm">送出</button>
 							</form>
+						</div>
+						</div>
+					</div>
 
-							<form method="post"
-								th:action="@{/admin/psi/purchase/listPosByVendorName}"
-								class="form-inline">
-								<label for="vendorNameInput" class="mr-3" style="width: 120px;">供應商名稱</label>
-								<input type="text" id="vendorNameInput" name="vendorName"
-									class="form-control mr-2" placeholder="請輸入供應商名稱（可只輸入部分）" maxlength="30"
-									th:value="${param.vendorName}">
-								<button type="submit" class="btn btn-primary">送出</button>
-							</form>
+					<!-- 待採購商品：低於安全庫存的規格，belowSafetyStockByVendor 由 PoController、PoNoController 放入 model，有資料才顯示 -->
+					<!-- key 是供應商編號、value 是該供應商的規格清單，一個供應商一個區塊 -->
+					<div class="card shadow mb-4" th:if="${belowSafetyStockByVendor != null and !belowSafetyStockByVendor.isEmpty()}">
+						<div class="card-header py-3">
+							<h6 class="m-0 font-weight-bold text-danger">待採購商品</h6>
+						</div>
+						<div class="card-body">
+							<div class="row">
+								<div class="col-12 mb-3" th:each="vendorEntry : ${belowSafetyStockByVendor}"
+									th:with="vendor=${vendorEntry.value[0].product.vendor}">
+									<div class="card">
+										<div class="card-body">
+											<div class="d-flex justify-content-between align-items-start mb-3">
+												<h6 class="font-weight-bold text-gray-800"
+													th:text="${vendor != null ? vendor.vendorId + ' - ' + vendor.vendorName : '未設定供應商'}"></h6>
+												<!-- 帶 vendorId 到新增頁，由 PoController 的 addPo 先選好供應商，明細由使用者自己填；未啟用的供應商無法採購，不顯示 -->
+												<a th:if="${vendor != null and vendor.isActive == 1}"
+													th:href="@{/admin/psi/purchase/addPo(vendorId=${vendor.vendorId})}"
+													class="btn btn-success btn-icon-split btn-sm"> <span
+													class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
+													class="text">新增採購單</span>
+												</a>
+											</div>
+											<div class="table-responsive">
+												<table class="table table-bordered table-sm mb-0" width="100%" cellspacing="0">
+													<thead>
+														<tr>
+															<th>商品規格編號</th>
+															<th>規格名稱</th>
+															<th>缺口數量</th>
+															<th>待審核數量</th>
+														</tr>
+													</thead>
+													<tbody>
+														<tr th:each="productSku : ${vendorEntry.value}">
+															<td th:text="${productSku.skuId}"></td>
+															<td th:text="${productSku.skuName}"></td>
+															<td th:text="${productSku.shortageQty != null ? productSku.shortageQty : '良率為0，請人工確認'}"></td>
+															<!-- pendingQuantityBySkuId 由 PoController、PoNoController 放入 model；沒有待審核明細的規格顯示 0 -->
+															<td th:text="${pendingQuantityBySkuId?.get(productSku.skuId) ?: 0}"></td>
+														</tr>
+													</tbody>
+												</table>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -123,8 +189,6 @@
     </span>
 		<!-- 	引入js資源     -->
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-
-</body>
 
 </body>
 </html>

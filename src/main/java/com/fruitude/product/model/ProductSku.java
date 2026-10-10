@@ -21,7 +21,7 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "product_sku")
 public class ProductSku implements java.io.Serializable {
-	public static final Byte STATUS_DISCONTINUED = 4; // 永久停產
+	public static final Byte STATUS_DISCONTINUED = 7; // 永久停產
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -52,7 +52,7 @@ public class ProductSku implements java.io.Serializable {
 
 	@Column(name = "outbound_qty")
 	private Integer outboundQty = 0;
-	
+
     // 允許超賣量；採購溢額量（預設值與資料庫一致）
     @Column(name = "max_backorder_qty", nullable = false, columnDefinition = "int not null default 10")
     @jakarta.validation.constraints.Min(value=0, message="允許超賣量不可為負數")
@@ -159,7 +159,7 @@ public class ProductSku implements java.io.Serializable {
 	public void setOutboundQty(Integer outboundQty) {
 		this.outboundQty = outboundQty;
 	}
-	
+
     public Integer getMaxBackorderQty() { return maxBackorderQty; }
     public void setMaxBackorderQty(Integer maxBackorderQty) { this.maxBackorderQty = maxBackorderQty; }
 
@@ -213,7 +213,7 @@ public class ProductSku implements java.io.Serializable {
 	
     public String getStatusLabel() {
         if (status == null) return "未設定";
-        return switch (status) { case 0 -> "下架"; case 1 -> "上架"; case 2 -> "缺貨"; case 3 -> "即將售完"; case 4 -> "永久停產"; case 5 -> "售完"; case 6 -> "預備上架"; default -> "未設定"; };
+        return switch (status) { case 0 -> "下架"; case 1 -> "上架"; case 2 -> "缺貨"; case 3 -> "即將售完"; case 4 -> "售完"; case 5 -> "預備上架"; case 6 -> "即將停產"; case 7 -> "永久停產"; default -> "未設定"; };
     }
 
 	public Byte getStatus() {
@@ -263,4 +263,9 @@ public class ProductSku implements java.io.Serializable {
 	public void setProductImages(List<ProductImage> productImages) {
 	    this.productImages = productImages;
 	}
+	
+    @jakarta.persistence.Transient
+    private java.math.BigDecimal purchaseYield = SkuSupplyService.DEFAULT_YIELD;
+    public void setPurchaseYield(java.math.BigDecimal value) { purchaseYield=value; }
+    public Integer getShortageQty() { return SkuSupplyService.suggestedPurchase(this,purchaseYield); }
 }

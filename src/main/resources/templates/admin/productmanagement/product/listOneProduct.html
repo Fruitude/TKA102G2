@@ -419,9 +419,9 @@
         .sku-status-value { white-space: normal; }
         .sku-status-select { max-width: 100%; border: 1px solid currentColor; border-radius: 4px; padding: 3px 6px; font: inherit; cursor: pointer; }
         .sku-status-select:disabled { opacity: .65; cursor: wait; }
-        .status-4 { background: #e8e4ee; color: #675373; }
-        .status-5 { background: #eee; color: #666; }
-        .status-6 { background: #e1f5fe; color: #306479; }
+        .status-7 { background: #e8e4ee; color: #675373; }
+        .status-4 { background: #eee; color: #666; }
+        .status-5 { background: #e1f5fe; color: #306479; }
         .sku-status-feedback { display: block; margin-top: 4px; color: #b42318; font-size: 12px; }
         .sku-status-feedback[hidden] { display: none; }
         /* Five 16px stars and four 2px gaps: the third star is centered at 44px. */
@@ -448,9 +448,11 @@
         .sku-panel.status-1 { background: #e5f4e9; }
         .sku-panel.status-2 { background: #fff0d9; }
         .sku-panel.status-3 { background: #fff0f0; }
-        .sku-panel.status-4 { background: #e8e4ee; }
-        .sku-panel.status-5 { background: #eee; }
-        .sku-panel.status-6 { background: #e1f5fe; }
+        .sku-panel.status-7 { background: #e8e4ee; }
+        .sku-panel.status-4 { background: #eee; }
+        .sku-panel.status-5 { background: #e1f5fe; }
+        .sku-panel.status-6 { background: #fff2d8; }
+        .status-6 { background: #fff2d8; color: #896337; }
         .sku-option { display: inline-flex; align-items: center; gap: 6px; }
         .sku-stock-warning {
             display: inline-flex; align-items: center; justify-content: center; flex: 0 0 15px;
@@ -605,10 +607,10 @@
                                     th:style="|--status-label-length: ${#strings.length(sku.statusLabel)}|"
                                     th:attr="data-sku-id=${sku.skuId},data-current-status=${sku.status},data-can-restore=${canRestoreDiscontinued == true},data-update-url=@{/productsku/updateStatus}"
                                     onchange="changeSkuStatus(this)">
-                                <option th:each="state : ${#numbers.sequence(0,6)}" th:value="${state}"
+                                <option th:each="state : ${#numbers.sequence(0,7)}" th:value="${state}"
                                         th:selected="${sku.status == state}"
-                                        th:disabled="${(state == 6 and sku.status != 6) or (sku.status == 4 and state != 4 and canRestoreDiscontinued != true)}"
-                                        th:text="${state == 0 ? '下架' : (state == 1 ? '上架' : (state == 2 ? '缺貨' : (state == 3 ? '即將售完' : (state == 4 ? '永久停產' : (state == 5 ? '售完' : '預備上架')))))}"></option>
+                                        th:disabled="${(state == 5 and sku.status != 5) or (sku.status == 7 and state != 7 and canRestoreDiscontinued != true)}"
+                                        th:text="${state == 0 ? '下架' : (state == 1 ? '上架' : (state == 2 ? '缺貨' : (state == 3 ? '即將售完' : (state == 4 ? '售完' : (state == 5 ? '預備上架' : (state == 6 ? '即將停產' : '永久停產'))))))}"></option>
                             </select>
                             <span class="sku-status-feedback" role="status" hidden></span>
                         </span>
@@ -647,6 +649,13 @@
                         </span>
                     </div>
 
+                    <div class="item">
+                        <span class="name">允許超賣量</span>
+                        <span class="value"
+                              th:text="${sku.maxBackorderQty != null ? sku.maxBackorderQty : 0}">
+                        </span>
+                    </div>
+
                 <div class="item" th:with="rating=${sku.allCommentAmount != null and sku.allCommentAmount > 0 and sku.allCommentStar != null ? sku.allCommentStar * 1.0 / sku.allCommentAmount : 0.0}">
                     <span class="name">規格均分</span><span class="value rating-value">
                         <span class="rating-stars" role="img" th:attr="aria-label=${#numbers.formatDecimal(rating, 1, 1) + '顆星，共5顆星'}">
@@ -681,13 +690,13 @@
         const requested = select.value;
         const previous = select.dataset.currentStatus;
         const feedback = select.parentElement.querySelector('.sku-status-feedback');
-        if (requested === '4' && previous !== '4'
+        if (requested === '7' && previous !== '7'
                 && !window.confirm('請確認該規格是否永久停產，永久停產後無法再調整規格狀態。')) {
             select.value = previous;
             return;
         }
         let restockConfirmed = false;
-        if (requested !== '5' && previous === '5') {
+        if (requested !== '4' && previous === '4') {
             restockConfirmed = window.confirm(requested === '1' ? '該商品規格原為售完商品，請確認是否有貨源' : '該商品規格原為售完商品，請確認是否變更規格狀態。');
             if (!restockConfirmed) { select.value = previous; return; }
         }
@@ -699,17 +708,18 @@
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || '規格狀態更新失敗');
+            if(result.message) { feedback.textContent=result.message;feedback.hidden=false; }
             document.querySelectorAll('.sku-status-select').forEach(control => {
                 const actual = result.skuStatuses[control.dataset.skuId];
                 if (actual == null) return;
                 control.value = String(actual); control.dataset.currentStatus = String(actual);
                 control.style.setProperty('--status-label-length', control.selectedOptions[0].textContent.trim().length);
                 const panel = control.closest('.sku-panel');
-                for (let state = 0; state <= 6; state++) panel.classList.remove('status-' + state);
+                for (let state = 0; state <= 7; state++) panel.classList.remove('status-' + state);
                 panel.classList.add('status-' + actual);
                 Array.from(control.options).forEach(option => {
-                    option.disabled = (option.value === '6' && actual !== 6)
-                        || (actual === 4 && option.value !== '4' && control.dataset.canRestore !== 'true');
+                    option.disabled = (option.value === '5' && actual !== 5)
+                        || (actual === 7 && option.value !== '7' && control.dataset.canRestore !== 'true');
                 });
             });
             const toggle = document.getElementById('detail-product-status');
@@ -718,7 +728,7 @@
                 toggle.closest('label').setAttribute('aria-label', toggle.checked ? '上架' : '下架');
             }
             if (requested !== select.value) {
-                feedback.textContent = select.value === '2' ? '待出貨已超過庫存＋待進貨＋10，規格已自動轉為缺貨。' : '庫存＋待進貨－待出貨已小於或等於 0，規格已自動轉為售完。'; feedback.hidden = false;
+                feedback.textContent = select.value === '2' ? '預估供應量低於安全庫存，規格已自動轉為缺貨。' : '可訂購量不足，規格已依供應狀況調整。'; feedback.hidden = false;
             }
             document.dispatchEvent(new CustomEvent('product-status-updated', {
                 detail: {productId: result.productId, status: result.productStatus}

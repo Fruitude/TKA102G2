@@ -32,12 +32,12 @@
 						<span class="text">回採購單管理</span>
 					</a>
 
-					<!-- 新增、修改成功的提示（VendorController 的 insert、update） -->
+					<!-- 新增、修改成功的提示（PoController 的 insert、update） -->
 					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
 					<!-- 修改失敗的提示（PoController 的 update） -->
 					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
 
-					<!-- 供應商單筆資料：vendorVO 由 VendorNoController 的 getOne_For_Display，或 VendorController 的 listOneVendor 放入 model -->
+					<!-- 採購單單筆資料：poVO 由 PoController 的 listOnePo 放入 model -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
 							<h6 class="m-0 font-weight-bold text-primary">採購單資料</h6>

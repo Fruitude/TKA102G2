@@ -4,6 +4,8 @@ import com.fruitude.product.model.ProductLifecycleService;
 import com.fruitude.utils.Utils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+/** Legacy compatibility; current OrdersService uses its remote status-change path. */
+@Deprecated
 @Service
 public class OrderInventoryService {
     private final OrdersRepository orders;
@@ -36,7 +38,7 @@ public class OrderInventoryService {
                     if(changed!=1)throw new IllegalArgumentException(shipping?"庫存不足或待出貨量不一致，請先確認進貨與庫存後再出貨":"待出貨量不一致，請先確認庫存");
                 }
                 order.setInventoryState(shipping?2:3);
-                lifecycle.refreshSupplyStates(qty.keySet());stock.closeDepletedSkus(qty.keySet());stock.closeProductsWithoutListedSkus(qty.keySet());
+                lifecycle.refreshSupplyStates(qty.keySet());stock.closeProductsWithoutListedSkus(qty.keySet());
                 lifecycle.clearFrontCacheAfterCommit();
             }
         } else if(inventory==2 && next==0)throw new IllegalArgumentException("已出貨訂單不可改回待出貨，以免重複處理庫存");

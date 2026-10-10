@@ -39,11 +39,14 @@ public class OrdersService {
 	@Autowired
 	private MemberRepository memberRepository;
 
-	// 下單時鎖定規格、原子預留待出貨量
+	@Autowired
+	private com.fruitude.product.model.ProductSkuRepository productSkuRepository;
+
+	// 下單時鎖定規格、原子扣庫存（庫存夠才扣）
 	@Autowired
 	private SkuStockRepository skuStockRepository;
-    @Autowired private OrderInventoryService orderInventoryService;
     @Autowired private com.fruitude.product.model.ProductLifecycleService lifecycle;
+    @Autowired private com.fruitude.product.model.SkuSupplyService supply;
 
 	// 結帳頁「收件者同會員」：會員的預設電話、預設地址
 	@Autowired
@@ -204,7 +207,7 @@ public class OrdersService {
 			return false;
 		}
         var order=ordersRepository.lockForInventory(ordersId).orElseThrow();
-        if(Integer.valueOf(1).equals(order.getInventoryState()))orderInventoryService.changeStatus(ordersId,4);
+        if(Integer.valueOf(0).equals(order.getOrdersStatus()))updateStatusByLoad(ordersId,4);
 		ordersRepository.deleteById(ordersId);
 		return true;
 	}
@@ -217,7 +220,7 @@ public class OrdersService {
 			return false;
 		}
 		Orders orders = optional.get();
-        orderInventoryService.changeStatus(ordersId, form.getOrdersStatus());
+        updateStatusByLoad(ordersId, form.getOrdersStatus());
 		orders.setMemberId(form.getMemberId());
 		orders.setShippingAddress(form.getShippingAddress());
 		orders.setPaymentMethod(form.getPaymentMethod());
@@ -237,16 +240,70 @@ public class OrdersService {
 		return true;
 	}
 
-    @Transactional
-    public boolean updateStatusByLoad(Integer ordersId,Integer ordersStatus) {
-        return updateStatusByQuery(ordersId,ordersStatus);
-    }
-    @Transactional
-    public boolean updateStatusByQuery(Integer ordersId,Integer ordersStatus) {
-        boolean changed=orderInventoryService.changeStatus(ordersId,ordersStatus);
-        if(changed)releaseLimitedPromoIfRefunded(ordersId,ordersStatus);
-        return changed;
-    }
+	// 做法一：先查出既有的 entity，只改 ordersStatus，再存回去
+	@Transactional
+	public boolean updateStatusByLoad(Integer ordersId, Integer ordersStatus) {
+		// 先鎖訂單列再讀舊狀態：同一張訂單同時改狀態時，後來的等前一個 commit，不會重複處理庫存
+		Optional<Orders> optional = ordersRepository.findByIdForUpdate(ordersId);
+		if (optional.isEmpty()) {
+			return false;
+		}
+		Orders orders = optional.get();
+		Integer previousStatus = orders.getOrdersStatus();
+		orders.setOrdersStatus(ordersStatus);
+		ordersRepository.save(orders);
+		releaseLimitedPromoIfRefunded(ordersId, ordersStatus);
+		applyStockForStatusChange(ordersId, previousStatus, ordersStatus);
+		return true;
+	}
+
+	// 做法二：直接下 JPQL UPDATE，只改 ordersStatus
+	@Transactional
+	public boolean updateStatusByQuery(Integer ordersId, Integer ordersStatus) {
+		// 先鎖訂單列再讀舊狀態（同 updateStatusByLoad）
+		Integer previousStatus = ordersRepository.findByIdForUpdate(ordersId).map(Orders::getOrdersStatus).orElse(null);
+		int updatedRows = ordersRepository.updateStatus(ordersId, ordersStatus);
+		if (updatedRows > 0) {
+			releaseLimitedPromoIfRefunded(ordersId, ordersStatus);
+			applyStockForStatusChange(ordersId, previousStatus, ordersStatus);
+		}
+		return updatedRows > 0;
+	}
+
+	// 訂單狀態改變時的庫存處理（只處理「待出貨（0）」這張單第一次離開待出貨的那一次，重複設定同一狀態不會重複計算）：
+	// 改成出貨（1）→ 實體庫存與待出貨各減掉訂購數量；改成取消（2 非客戶端問題、4 客戶端主動）→ 把待出貨還回去。
+	// 其他狀態（配送失敗、退款相關）定案文件沒有規定，不處理
+	private void applyStockForStatusChange(Integer ordersId, Integer previousStatus, Integer newStatus) {
+		if (previousStatus == null || newStatus == null || previousStatus.equals(newStatus)
+				|| previousStatus != Utils.OrderStatus.PREPARING_SHIPMENT.getCode()) {
+			return;
+		}
+		boolean ship = newStatus == Utils.OrderStatus.SHIPPED.getCode();
+		boolean cancel = newStatus == Utils.OrderStatus.CANCELLED_NON_CUSTOMER.getCode()
+				|| newStatus == Utils.OrderStatus.CANCELLED_BY_CUSTOMER.getCode();
+		if (!ship && !cancel) {
+			return;
+		}
+		Map<Integer, Integer> qtyBySku = new TreeMap<>(); // 依 sku_id 由小到大處理，避免和下單交易鎖定順序相反
+		for (OrdersDetail d : ordersDetailRepository.findByOrdersIdIn(List.of(ordersId))) {
+			if (d.getSkuId() != null && d.getOrdersQuantity() != null && d.getOrdersQuantity() > 0) {
+				qtyBySku.merge(d.getSkuId(), d.getOrdersQuantity(), Integer::sum);
+			}
+		}
+		if (qtyBySku.isEmpty()) {
+			return;
+		}
+		skuStockRepository.lockSkus(qtyBySku.keySet());
+		for (Map.Entry<Integer, Integer> entry : qtyBySku.entrySet()) {
+			if (ship) {
+				skuStockRepository.shipStock(entry.getKey(), entry.getValue());
+			} else {
+				skuStockRepository.releaseOutbound(entry.getKey(), entry.getValue());
+			}
+		}
+		lifecycle.refreshSupplyStates(qtyBySku.keySet());
+		clearCatalogCacheAfterCommit();
+	}
 
 	// 訂單進入「待退款」或「已退款」（取消、退款作業中、金額已退還）時，把這筆訂單用掉的「限用一次」優惠（壽星優惠、新會員首購）
 	// 的使用資格還給會員（刪除 member_promo_usage 裡這筆訂單的紀錄），會員可以再用一次。判斷依據是狀態碼對應的金流狀態不是「已付款」（見 Utils.OrderStatus）
@@ -258,6 +315,12 @@ public class OrdersService {
 		if (status != null && status.getExpectedPaymentStatus() != Utils.PaymentStatus.PAID) {
 			memberPromoUsageRepository.deleteByOrdersId(ordersId);
 		}
+	}
+
+	// 可以評論的訂單：客戶已收件（7）、客戶驗收成功（8）
+	public static boolean isCommentableStatus(Integer ordersStatus) {
+		return ordersStatus != null && (ordersStatus == Utils.OrderStatus.DELIVERED.getCode()
+				|| ordersStatus == Utils.OrderStatus.ACCEPTED.getCode());
 	}
 
 	// 會員「購買清單」頁：查出會員的訂單與商品明細。
@@ -274,10 +337,28 @@ public class OrdersService {
 			ordersIds.add(o.getOrdersId());
 		}
 		// 一次查出全部明細，再依訂單編號分組，避免每張訂單各查一次
+		List<OrdersDetail> details = ordersDetailRepository.findByOrdersIdIn(ordersIds);
+		// 顯示規格名稱（例如「香水草莓250g一般盒」）；查不到規格才退回訂單明細上的品名
+		List<Integer> skuIds = new ArrayList<>();
+		for (OrdersDetail d : details) {
+			skuIds.add(d.getSkuId());
+		}
+		Map<Integer, String> skuNames = new HashMap<>();
+		for (com.fruitude.product.model.ProductSku sku : productSkuRepository.findAllById(skuIds)) {
+			skuNames.put(sku.getSkuId(), com.fruitude.product.model.ProductSku.resolveDisplayName(
+					sku.getSkuName(), sku.getAnotherName()));
+		}
 		Map<Integer, List<MemberOrderView.Item>> itemsByOrders = new HashMap<>();
-		for (OrdersDetail d : ordersDetailRepository.findByOrdersIdIn(ordersIds)) {
+		for (OrdersDetail d : details) {
+			// 每張訂單的每個商品各可評論一次：這筆明細已有評論內容就算已評論
+			boolean reviewed = d.getCommentText() != null && !d.getCommentText().isBlank();
+			String itemName = skuNames.get(d.getSkuId());
+			if (itemName == null || itemName.isBlank()) {
+				itemName = d.getProductName();
+			}
 			itemsByOrders.computeIfAbsent(d.getOrdersId(), k -> new ArrayList<>())
-					.add(new MemberOrderView.Item(d.getSkuId(), d.getProductName(), d.getOrdersQuantity()));
+					.add(new MemberOrderView.Item(d.getOrdersDetailId(), d.getSkuId(), itemName,
+							d.getOrdersQuantity(), reviewed));
 		}
 		for (Orders o : ordersList) {
 			Utils.OrderStatus orderStatus = o.getOrdersStatus() == null ? null
@@ -288,7 +369,7 @@ public class OrdersService {
 			String status = Utils.getOrderStatus(orderStatus, orderStatus.getExpectedPaymentStatus());
 			List<MemberOrderView.Item> items = itemsByOrders.getOrDefault(o.getOrdersId(), List.of());
 			result.add(new MemberOrderView(o.getOrdersId(), o.getOrdersDate(), orderStatus.getMemberTab().getKey(),
-					status, o.getActualPaymentAmount(), items));
+					status, o.getActualPaymentAmount(), isCommentableStatus(o.getOrdersStatus()), items));
 		}
 		return result;
 	}
@@ -501,18 +582,18 @@ public class OrdersService {
 		com.fruitude.promo.model.ProductDiscount productDiscount = findProductDiscount(memberId,
 				buildDiscountLines(form.getItems()), useBirthday);
 		Orders orders = toOrders(form, storeCredit, memberId, productDiscount);
-        orders.setInventoryState(1);
-		// 下單僅增加待出貨，不扣實際庫存；即將售完規格以原子條件防止超賣。
-		// 任何一個規格扣不下去就丟例外，整筆交易回滾（先扣成功的規格、購物金都會還原，不會留下訂單）
+		// 第二步：原子保留庫存。只把 outbound_qty（待出貨）加上訂購數量，stock 到出貨時才扣；
+		// 「可售量夠才加」（缺貨規格可用到預購額度）的檢查寫在同一個 UPDATE 裡，
+		// 任何一個規格加不下去就丟例外，整筆交易回滾（先加成功的規格、購物金都會還原，不會留下訂單）
+		var rates = supply.yields(qtyBySku.keySet());
 		for (Map.Entry<Integer, Integer> entry : qtyBySku.entrySet()) {
-			if (skuStockRepository.reserveStock(entry.getKey(), entry.getValue()) == 0) {
+			if (skuStockRepository.deductStock(entry.getKey(), entry.getValue(), rates.getOrDefault(entry.getKey(), com.fruitude.product.model.SkuSupplyService.DEFAULT_YIELD)) == 0) {
 				throw new com.fruitude.product.model.ProductUnavailableException(
-						productNameOf(form.getItems(), entry.getKey()) + " 庫存不足，請返回購物車調整數量");
+						productNameOf(form.getItems(), entry.getKey()) + " 庫存不足或已達預購上限，請返回購物車調整數量");
 			}
 		}
         if (!qtyBySku.isEmpty()) {
             lifecycle.refreshSupplyStates(qtyBySku.keySet());
-            skuStockRepository.closeDepletedSkus(qtyBySku.keySet());
             skuStockRepository.closeProductsWithoutListedSkus(qtyBySku.keySet());
         }
 		// 實際折抵的購物金要從會員餘額扣掉；餘額不足就丟例外，整筆交易回滾，不會留下訂單

@@ -2,11 +2,13 @@ package com.fruitude.po.controller;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +19,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.fruitude.po.model.PoService;
 import com.fruitude.po.model.PoVO;
+import com.fruitude.product.model.ProductSku;
 
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.constraints.Max;
@@ -30,6 +33,19 @@ public class PoNoController {
 
 	@Autowired
 	PoService poSvc;
+
+	// 這支 controller 的每個請求都會先執行，把低於安全庫存的規格放進 model，回首頁時顯示待採購商品
+	// key 是供應商編號、value 是該供應商的規格清單；例外處理（handleError）不會經過這裡，要自己再放一次
+	@ModelAttribute("belowSafetyStockByVendor")
+	public Map<Integer, List<ProductSku>> belowSafetyStockByVendor() {
+		return poSvc.getBelowSafetyStockByVendor();
+	}
+
+	// 待採購商品的「待審核數量」欄：key 是規格編號、value 是待審核採購單裡的採購數量加總；handleError 一樣要自己再放一次
+	@ModelAttribute("pendingQuantityBySkuId")
+	public Map<Integer, Long> pendingQuantityBySkuId() {
+		return poSvc.getPendingQuantityBySkuId();
+	}
 
 	// 依採購單編號查單筆，查到後交給 PoController 的 listOnePo 顯示
 	@PostMapping("/getOneForDisplay")
@@ -79,28 +95,6 @@ public class PoNoController {
 				"採購員工編號 " + poEmployeeId + " 的採購單");
 	}
 
-	// 依供應商名稱模糊查詢採購單，結果以 listAllPo.html 顯示
-	@PostMapping("/listPosByVendorName")
-	public String listPosByVendorName(Model model,
-			@RequestParam(value = "vendorName", required = false) String vendorName) {
-
-		String errorMessage = null;
-		if (vendorName == null || vendorName.isBlank()) {
-			errorMessage = "供應商名稱，請勿空白";
-		} else if (vendorName.trim().length() > 30) {
-			// VendorVO 的品牌名稱最長 30 個字
-			errorMessage = "供應商名稱: 長度不可超過30個字";
-		}
-
-		if (errorMessage != null) {
-			model.addAttribute("errorMessage", errorMessage);
-			return "admin/psi/purchase/index";
-		}
-
-		String keyword = vendorName.trim();
-		return showSearchResult(model, poSvc.getByVendorName(keyword), "供應商名稱包含「" + keyword + "」的採購單");
-	}
-
 	// 列表搜尋共用：查無資料時回首頁，否則以 listAllPo.html 顯示
 	private String showSearchResult(Model model, List<PoVO> pos, String searchTitle) {
 		if (pos.isEmpty()) {
@@ -135,6 +129,8 @@ public class PoNoController {
 
 		ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
 		mav.addObject("errorMessage", String.join("\n", messages));
+		mav.addObject("belowSafetyStockByVendor", poSvc.getBelowSafetyStockByVendor());
+		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
 		return mav;
 	}
 

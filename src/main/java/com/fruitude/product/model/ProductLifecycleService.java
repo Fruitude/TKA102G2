@@ -7,9 +7,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProductLifecycleService {
     public static final byte PRODUCT_DISCONTINUED = 2;
-    public static final byte SKU_DISCONTINUED = 4;
-    public static final byte SKU_SOLD_OUT = 5;
-    public static final byte SKU_PREPARED = 6;
+    public static final byte SKU_DISCONTINUED = 7;
+    public static final byte SKU_SOLD_OUT = 4;
+    public static final byte SKU_PREPARED = 5;
     private final ProductStatusAccess access;
     public ProductLifecycleService(ProductStatusAccess access) { this.access = access; }
 
@@ -21,8 +21,8 @@ public class ProductLifecycleService {
         if (status == 1 && skus.stream().noneMatch(s -> isSellable(s.getStatus()))) {
             if (skus.stream().noneMatch(s -> Byte.valueOf((byte)0).equals(s.getStatus()) || Byte.valueOf(SKU_PREPARED).equals(s.getStatus())))
                 throw new IllegalArgumentException("此商品沒有可自動上架規格，請先新增規格；售完規格需確認貨源後手動上架，永久停產規格需由 ADMIN 解除");
-            if (skus.stream().anyMatch(s -> Byte.valueOf((byte)6).equals(s.getStatus()))) {
-                skus.stream().filter(s -> Byte.valueOf((byte)6).equals(s.getStatus())).forEach(s -> setSkuStatus(s, (byte)1));
+            if (skus.stream().anyMatch(s -> Byte.valueOf(SKU_PREPARED).equals(s.getStatus()))) {
+                skus.stream().filter(s -> Byte.valueOf(SKU_PREPARED).equals(s.getStatus())).forEach(s -> setSkuStatus(s, (byte)1));
             } else {
                 if (!activateSkus) throw new ProductStatusConfirmationException();
                 skus.stream().filter(s -> Byte.valueOf((byte)0).equals(s.getStatus())).forEach(s -> setSkuStatus(s, (byte)1));
@@ -30,6 +30,7 @@ public class ProductLifecycleService {
         }
         if (status == 0) skus.stream().filter(s -> isSellable(s.getStatus()) || Byte.valueOf(SKU_PREPARED).equals(s.getStatus()))
             .forEach(s -> setSkuStatus(s, (byte)0));
+        product.setAutoRestockEnabled(status == 1);
         product.setStatus(status);
         product.setUpdatedAt(LocalDateTime.now());
         clearFrontCacheAfterCommit();
@@ -40,11 +41,11 @@ public class ProductLifecycleService {
     }
 
     public void validateSkuChange(Byte previous, Byte next, boolean restockConfirmed) {
-        if (next == null || next < 0 || next > 6) throw new IllegalArgumentException("規格狀態須為 0～6");
+        if (next == null || next < 0 || next > 7) throw new IllegalArgumentException("規格狀態須為 0～7");
         access.requireRestorePermission(previous, next, SKU_DISCONTINUED);
         if (Byte.valueOf(SKU_SOLD_OUT).equals(previous) && !Byte.valueOf(SKU_SOLD_OUT).equals(next) && !restockConfirmed)
             throw new SkuRestockConfirmationException(next);
-        if (Byte.valueOf((byte)6).equals(next) && previous != null && !Byte.valueOf((byte)6).equals(previous))
+        if (Byte.valueOf(SKU_PREPARED).equals(next) && previous != null && !Byte.valueOf(SKU_PREPARED).equals(previous))
             throw new IllegalArgumentException("預備上架僅能於新增規格時設定，離開後不可再切回。");
     }
 
@@ -56,6 +57,7 @@ public class ProductLifecycleService {
         if (!Byte.valueOf(status).equals(product.getStatus())) {
             product.setStatus(status); product.setUpdatedAt(LocalDateTime.now());
         }
+        if(status==1)product.setAutoRestockEnabled(true);
         clearFrontCacheAfterCommit();
     }
     public static boolean isDepleted(ProductSku sku) {
@@ -79,18 +81,21 @@ public class ProductLifecycleService {
                 });
         } else frontCatalog.clearCache();
     }
-    public static boolean isSellable(Byte status) { return status != null && status >= 1 && status <= 3; }
+    public static boolean isSellable(Byte status) { return status != null && ((status >= 1 && status <= 3) || status == 6); }
     public void closeDepletedSkus(Product product) {
-        if (!Byte.valueOf(PRODUCT_DISCONTINUED).equals(product.getStatus())) {
-            var candidates=product.getProductSkus().stream().filter(s -> Byte.valueOf((byte)1).equals(s.getStatus())
-                || (Byte.valueOf((byte)1).equals(product.getStatus()) && Byte.valueOf((byte)2).equals(s.getStatus()))).toList();
-            var ids=candidates.stream().map(ProductSku::getSkuId).filter(java.util.Objects::nonNull).toList();
-            var rates=supply==null?java.util.Map.<Integer,java.math.BigDecimal>of():supply.yields(ids);
-            for (var sku:candidates) setSkuStatus(sku,SkuSupplyService.nextStatus(sku,
-                sku.getSkuId()==null?SkuSupplyService.DEFAULT_YIELD:rates.getOrDefault(sku.getSkuId(),SkuSupplyService.DEFAULT_YIELD)));
-        }
-        product.getProductSkus().stream().filter(s -> Byte.valueOf((byte)3).equals(s.getStatus())
-            && isDepleted(s)).forEach(s -> setSkuStatus(s, SKU_SOLD_OUT));
+        if (Byte.valueOf(PRODUCT_DISCONTINUED).equals(product.getStatus())) return;
+        var candidates=product.getProductSkus().stream().filter(s -> isSellable(s.getStatus())).toList();
+        var ids=candidates.stream().map(ProductSku::getSkuId).filter(java.util.Objects::nonNull).toList();
+        var rates=supply==null?java.util.Map.<Integer,java.math.BigDecimal>of():supply.yields(ids);
+        for(var sku:candidates) setSkuStatus(sku,SkuSupplyService.nextStatus(sku,
+            sku.getSkuId()==null?SkuSupplyService.DEFAULT_YIELD:rates.getOrDefault(sku.getSkuId(),SkuSupplyService.DEFAULT_YIELD),false));
+    }
+    public void afterReceipt(Product product, java.util.Set<Integer> receivedSkuIds) {
+        if (product.getStatus()==2 || !Boolean.TRUE.equals(product.getAutoRestockEnabled())) return;
+        var rates=supply==null?java.util.Map.<Integer,java.math.BigDecimal>of():supply.yields(receivedSkuIds);
+        for(var sku:product.getProductSkus()) if(receivedSkuIds.contains(sku.getSkuId()))
+            setSkuStatus(sku,SkuSupplyService.nextStatus(sku,rates.getOrDefault(sku.getSkuId(),SkuSupplyService.DEFAULT_YIELD),true));
+        synchronize(product);
     }
     private void setSkuStatus(ProductSku sku, byte status) {
         if (!Byte.valueOf(status).equals(sku.getStatus())) {

@@ -91,7 +91,8 @@
         2: { text: '訂單折抵', className: 'is-use' },
         3: { text: '後台增加', className: 'is-add' },
         4: { text: '後台扣除', className: 'is-deduct' },
-        5: { text: '訂單取消退回', className: 'is-return' }
+        5: { text: '訂單取消退回', className: 'is-return' },
+        6: { text: '搶購物金', className: 'is-add' }
     };
 
     // 將當頁會員資料轉成表格列，所有文字都使用 textContent 避免插入不安全的 HTML。
@@ -160,6 +161,7 @@
             state.totalElements = Number(result.totalElements || 0);
             state.totalPages = Number(result.totalPages || 0);
             renderMembers();
+            byId('member-online-count').textContent = String(result.onlineCount || 0);
             showFeedback('', '');
         } catch (error) {
             state.members = [];

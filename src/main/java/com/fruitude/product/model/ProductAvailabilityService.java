@@ -16,7 +16,7 @@ public class ProductAvailabilityService {
         var before=product.getProductSkus().stream().map(ProductSku::getStatus).toList();
         var due=new HashSet<>(skus.findDueSkuIds(id,now));int activated=0;
         for(var sku:product.getProductSkus()) {
-            if(Byte.valueOf((byte)6).equals(sku.getStatus())&&due.contains(sku.getSkuId())) {
+            if(Byte.valueOf((byte)5).equals(sku.getStatus())&&due.contains(sku.getSkuId())) {
                 sku.setStatus((byte)1);sku.setUpdatedAt(now);activated++;
             }
         }

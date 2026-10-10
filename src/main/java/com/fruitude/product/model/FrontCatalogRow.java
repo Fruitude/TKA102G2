@@ -12,5 +12,6 @@ public interface FrontCatalogRow {
     Integer getStock();
     Integer getInboundQty();
     Integer getOutboundQty();
+    Integer getMaxBackorderQty();
     Integer getSkuStatus();
 }

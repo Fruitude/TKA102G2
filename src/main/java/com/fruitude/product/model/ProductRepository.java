@@ -14,13 +14,13 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = """
         SELECT p.product_id AS productId, p.product_name AS name, p.product_desc AS description,
                p.product_category_id AS categoryId, s.sku_id AS skuId, s.sku_name AS skuName, s.another_name AS anotherName,
-               s.status AS skuStatus, s.price AS price, CASE WHEN s.status = 3 THEN s.stock ELSE NULL END AS stock,
-               CASE WHEN s.status = 3 THEN s.inbound_qty ELSE NULL END AS inboundQty,
-               CASE WHEN s.status = 3 THEN s.outbound_qty ELSE NULL END AS outboundQty
+               s.status AS skuStatus, s.price AS price, s.stock AS stock,
+               s.inbound_qty AS inboundQty, s.outbound_qty AS outboundQty,
+               s.max_backorder_qty AS maxBackorderQty
         FROM product p JOIN product_sku s ON s.product_id = p.product_id
-        WHERE p.status = 1 AND s.status IN (1,2,3,5) AND s.price > 0
+        WHERE p.status = 1 AND s.status IN (1,2,3,4,6) AND s.price > 0
           AND EXISTS (SELECT 1 FROM product_sku sale WHERE sale.product_id = p.product_id AND sale.price > 0
-              AND (sale.status IN (1,2) OR (sale.status = 3 AND COALESCE(sale.stock,0) + COALESCE(sale.inbound_qty,0) - COALESCE(sale.outbound_qty,0) > 0)))
+              AND sale.status IN (1,2,3,6))
           AND (:productId IS NULL OR p.product_id = :productId)
         ORDER BY p.product_id, s.sku_id
         FOR SHARE OF s
@@ -30,7 +30,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = """
         SELECT i.sku_id AS skuId, i.image_id AS imageId
         FROM product_image i JOIN product_sku s ON s.sku_id = i.sku_id
-        WHERE s.product_id IN (:productIds) AND s.status IN (1,2,3,5) AND s.price > 0
+        WHERE s.product_id IN (:productIds) AND s.status IN (1,2,3,4,6) AND s.price > 0
           AND OCTET_LENGTH(i.image_data) > 0
         ORDER BY s.sku_id, COALESCE(i.sort_order,0), i.image_id
         """, nativeQuery = true)
@@ -41,9 +41,8 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     @Query(value = """
         SELECT s.sku_id AS skuId, p.product_name AS name, s.sku_name AS skuName, s.another_name AS anotherName,
-               s.price AS price, CASE WHEN s.status = 3 THEN s.stock ELSE NULL END AS stock,
-               CASE WHEN s.status = 3 THEN s.inbound_qty ELSE NULL END AS inboundQty,
-               CASE WHEN s.status = 3 THEN s.outbound_qty ELSE NULL END AS outboundQty, p.status AS productStatus, s.status AS skuStatus
+               s.price AS price, s.stock AS stock, s.inbound_qty AS inboundQty, s.outbound_qty AS outboundQty,
+               s.max_backorder_qty AS maxBackorderQty, p.status AS productStatus, s.status AS skuStatus
         FROM product_sku s JOIN product p ON p.product_id = s.product_id
         WHERE s.sku_id IN (:skuIds)
         FOR SHARE OF s

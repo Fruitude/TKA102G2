@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>會員管理</title>
     <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
-    <link th:href="@{/css/member-admin.css?v=6}" rel="stylesheet">
+    <link th:href="@{/css/member-admin.css(v=${@appVersion.value})}" rel="stylesheet">
 </head>
 <body id="page-top">
 <div id="wrapper">
@@ -18,9 +18,15 @@
             <main class="container-fluid member-admin" id="member-admin-root">
                 <header class="member-page-heading">
                     <h1 class="h3 text-gray-800 mb-0">會員管理</h1>
-                    <div class="member-heading-count" aria-live="polite">
-                        <strong id="member-total-count">--</strong>
-                        <span>位會員</span>
+                    <div class="member-heading-counts">
+                        <div class="member-heading-count" aria-live="polite">
+                            <strong id="member-online-count">--</strong>
+                            <span>位會員登入</span>
+                        </div>
+                        <div class="member-heading-count" aria-live="polite">
+                            <strong id="member-total-count">--</strong>
+                            <span>位會員</span>
+                        </div>
                     </div>
                 </header>
 
@@ -261,6 +267,6 @@
 
 <span class="scroll-to-top rounded"><i class="fas fa-angle-up"></i></span>
 <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-<script th:src="@{/js/member-admin.js?v=6}"></script>
+<script th:src="@{/js/member-admin.js(v=${@appVersion.value})}"></script>
 </body>
 </html>

@@ -260,7 +260,7 @@ public class ProductSkuController {
 
         if (sku.getSkuName() != null && sku.getSkuName().trim().length() > 50) errors.append("規格名稱不可超過 50 字。");
         if (sku.getAnotherName() != null && sku.getAnotherName().length() > 50) errors.append("別稱不可超過 50 字。");
-        if (sku.getStatus() == null || sku.getStatus() < 0 || sku.getStatus() > 6) errors.append("狀態須為 0～6。");
+        if (sku.getStatus() == null || sku.getStatus() < 0 || sku.getStatus() > 7) errors.append("狀態須為 0～7。");
 
         if (sku.getSkuName() == null || sku.getSkuName().trim().isEmpty()) {
             errors.append("規格名稱不可空白。");
