@@ -36,6 +36,24 @@ public interface PromoRepository extends JpaRepository<PromoProject, Integer> {
 			+ "ORDER BY promoProjectEnd ASC, promoProjectId ASC")
 	List<PromoProject> findActive(@Param("now") LocalDateTime now);
 
+	// 某類型、已啟用、還沒結束的活動（含尚未開始），開始早的排前面（搶購物金的倒數與搶購用）
+	@Query("FROM PromoProject WHERE promoType = :type AND status = 1 AND promoProjectEnd >= :now "
+			+ "ORDER BY promoProjectStart ASC, promoProjectId ASC")
+	List<PromoProject> findUpcomingOrActiveByType(@Param("type") String type, @Param("now") LocalDateTime now);
+
+	// 搶名額：只有「搶購物金、已啟用、在活動期間內、名額還沒滿」才 +1，檢查與增加在同一個 UPDATE，
+	// 同時進來的請求靠資料列鎖排隊，不會超賣。回傳 0 代表沒搶到（名額滿或不在活動期間）
+	@Modifying
+	@Query("UPDATE PromoProject p SET p.grantedCount = p.grantedCount + 1 "
+			+ "WHERE p.promoProjectId = :id AND p.promoType = 'WALLET_GRAB' AND p.status = 1 "
+			+ "AND p.quota IS NOT NULL AND p.grantedCount < p.quota "
+			+ "AND p.promoProjectStart <= :now AND p.promoProjectEnd >= :now")
+	int claimSlot(@Param("id") Integer id, @Param("now") LocalDateTime now);
+
+	// 目前已搶出的名額數（用純量查詢，不吃 persistence context 裡舊的 entity）
+	@Query("SELECT p.grantedCount FROM PromoProject p WHERE p.promoProjectId = :id")
+	Integer findGrantedCount(@Param("id") Integer id);
+
 	@Query("FROM PromoProject WHERE promoProjectId = :id ORDER BY promoProjectStart DESC")
 	List<PromoProject> searchById(@Param("id") Integer id);
 
