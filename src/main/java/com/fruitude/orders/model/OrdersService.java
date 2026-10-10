@@ -293,6 +293,7 @@ public class OrdersService {
 		if (qtyBySku.isEmpty()) {
 			return;
 		}
+        skuStockRepository.lockProducts(qtyBySku.keySet());
 		skuStockRepository.lockSkus(qtyBySku.keySet());
 		for (Map.Entry<Integer, Integer> entry : qtyBySku.entrySet()) {
 			if (ship) {
@@ -301,7 +302,9 @@ public class OrdersService {
 				skuStockRepository.releaseOutbound(entry.getKey(), entry.getValue());
 			}
 		}
-		lifecycle.refreshSupplyStates(qtyBySku.keySet());
+        lifecycle.refreshSupplyStates(qtyBySku.keySet(), cancel);
+        if (cancel) skuStockRepository.reopenProductsWithListedSkus(qtyBySku.keySet());
+        skuStockRepository.closeProductsWithoutListedSkus(qtyBySku.keySet());
 		clearCatalogCacheAfterCommit();
 	}
 

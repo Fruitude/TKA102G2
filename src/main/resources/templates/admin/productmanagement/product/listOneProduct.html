@@ -609,7 +609,7 @@
                                     onchange="changeSkuStatus(this)">
                                 <option th:each="state : ${#numbers.sequence(0,7)}" th:value="${state}"
                                         th:selected="${sku.status == state}"
-                                        th:disabled="${(state == 5 and sku.status != 5) or (sku.status == 7 and state != 7 and canRestoreDiscontinued != true)}"
+                                        th:disabled="${(state == 5 and sku.status != 5) or (((sku.status == 7 and state != 7) or (sku.status == 6 and state != 6 and state != 7)) and canRestoreDiscontinued != true)}"
                                         th:text="${state == 0 ? '下架' : (state == 1 ? '上架' : (state == 2 ? '缺貨' : (state == 3 ? '即將售完' : (state == 4 ? '售完' : (state == 5 ? '預備上架' : (state == 6 ? '即將停產' : '永久停產'))))))}"></option>
                             </select>
                             <span class="sku-status-feedback" role="status" hidden></span>
@@ -709,19 +709,7 @@
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || '規格狀態更新失敗');
             if(result.message) { feedback.textContent=result.message;feedback.hidden=false; }
-            document.querySelectorAll('.sku-status-select').forEach(control => {
-                const actual = result.skuStatuses[control.dataset.skuId];
-                if (actual == null) return;
-                control.value = String(actual); control.dataset.currentStatus = String(actual);
-                control.style.setProperty('--status-label-length', control.selectedOptions[0].textContent.trim().length);
-                const panel = control.closest('.sku-panel');
-                for (let state = 0; state <= 7; state++) panel.classList.remove('status-' + state);
-                panel.classList.add('status-' + actual);
-                Array.from(control.options).forEach(option => {
-                    option.disabled = (option.value === '5' && actual !== 5)
-                        || (actual === 7 && option.value !== '7' && control.dataset.canRestore !== 'true');
-                });
-            });
+            applySkuStatuses(result.skuStatuses);
             const toggle = document.getElementById('detail-product-status');
             if (toggle) {
                 toggle.checked = result.productStatus === 1;
@@ -738,6 +726,22 @@
         } finally { select.disabled = false; }
     }
 
+    function applySkuStatuses(states) {
+            document.querySelectorAll('.sku-status-select').forEach(control => {
+                const actual = states[control.dataset.skuId];
+                if (actual == null) return;
+                control.value = String(actual); control.dataset.currentStatus = String(actual);
+                control.style.setProperty('--status-label-length', control.selectedOptions[0].textContent.trim().length);
+                const panel = control.closest('.sku-panel');
+                for (let state = 0; state <= 7; state++) panel.classList.remove('status-' + state);
+                panel.classList.add('status-' + actual);
+                Array.from(control.options).forEach(option => {
+                    option.disabled = (option.value === '5' && actual !== 5)
+                        || (((actual === 7 && option.value !== '7') || (actual === 6 && !['6','7'].includes(option.value))) && control.dataset.canRestore !== 'true');
+                });
+            });
+    }
+
     async function changeDetailProductStatus(toggle) {
         const status = toggle.checked ? 1 : 0;
         const error = document.getElementById('detail-status-error');
@@ -747,9 +751,13 @@
                 new URLSearchParams({productId: toggle.dataset.productId, status}));
             const result = await response.text();
             if (!response.ok || result !== 'success') throw new Error(result || '更新失敗');
-            toggle.closest('label').setAttribute('aria-label', status === 1 ? '上架' : '下架');
+            const actual = Number(response.headers.get('X-Product-Status') ?? status);
+            applySkuStatuses(JSON.parse(response.headers.get('X-Sku-Statuses') || '{}'));
+            toggle.checked = actual === 1;
+            toggle.closest('label').setAttribute('aria-label', actual === 1 ? '上架' : '下架');
+            if(status === 1 && actual === 0) { error.textContent = '可供應量不足，商品已依規格判斷維持下架。'; error.hidden = false; }
             document.dispatchEvent(new CustomEvent('product-status-updated', {
-                detail: {productId: Number(toggle.dataset.productId), status}
+                detail: {productId: Number(toggle.dataset.productId), status: actual}
             }));
         } catch (failure) {
             toggle.checked = !toggle.checked;

@@ -18,4 +18,13 @@ public class ProductAvailabilityTest {
         assertEquals(Byte.valueOf((byte)1),p.getStatus());assertEquals(0,svc.refresh(1,LocalDateTime.now()));
         p.setStatus((byte)2);assertEquals(0,svc.refresh(1,LocalDateTime.now()));assertEquals(Byte.valueOf((byte)2),p.getStatus());
     }
+    @Test public void unchangedStoppingSkuCanRecoverAutomaticOfflineButNotManualOffline(){
+        var p=new Product();p.setProductId(1);p.setStatus((byte)0);p.setAutoRestockEnabled(true);
+        var s=new ProductSku();s.setSkuId(2);s.setStatus((byte)6);s.setStock(10);s.setProduct(p);p.getProductSkus().add(s);
+        var repo=proxy(ProductRepository.class,(o,m,a)->m.getName().equals("lockForStatus")?Optional.of(p):p);
+        var skus=proxy(ProductSkuRepository.class,(o,m,a)->List.of());var lifecycle=new ProductLifecycleService(new ProductStatusAccess(null,null));
+        var svc=new ProductAvailabilityService(repo,skus,lifecycle);
+        svc.refresh(1,LocalDateTime.now());assertEquals(Byte.valueOf((byte)1),p.getStatus());
+        lifecycle.changeProduct(p,(byte)0,false);svc.refresh(1,LocalDateTime.now());assertEquals(Byte.valueOf((byte)0),p.getStatus());assertEquals(Byte.valueOf((byte)6),s.getStatus());
+    }
 }

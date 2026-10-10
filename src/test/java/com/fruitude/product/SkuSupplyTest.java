@@ -33,7 +33,9 @@ public class SkuSupplyTest {
         var r=new BigDecimal(".8");
         assertEquals(10,SkuSupplyService.quantityLimit(1,0,10,0,10,r));
         assertEquals(5,SkuSupplyService.quantityLimit(2,0,10,0,10,r));
-        assertEquals(8,SkuSupplyService.quantityLimit(3,0,10,0,10,r));
+        assertEquals(5,SkuSupplyService.quantityLimit(3,0,10,0,10,r));
+        assertEquals(3,SkuSupplyService.quantityLimit(3,0,4,0,10,r));
+        assertEquals(5,SkuSupplyService.quantityLimit(3,100,0,0,10,r));
         assertEquals(0,SkuSupplyService.quantityLimit(6,0,10,0,10,r));
         assertEquals(0,SkuSupplyService.quantityLimit(3,0,1,0,10,r));
     }

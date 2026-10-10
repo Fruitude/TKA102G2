@@ -128,12 +128,12 @@ public class FrontCatalogTest {
         ProductSku retiring = sku(p, 101, 200, 3); retiring.setStock(4); retiring.setInboundQty(8); retiring.setOutboundQty(3);
         FrontCatalogService service = service(List.of(p));
         assertEquals(Integer.valueOf(5), service.getProducts().get(0).skus().get(0).stock());
-        assertEquals(Integer.valueOf(8), service.getProducts().get(0).skus().get(1).stock());
+        assertEquals(Integer.valueOf(5), service.getProducts().get(0).skus().get(1).stock());
         String html = mvc(service).perform(get("/front/")).andReturn().getResponse().getContentAsString();
         assertTrue(html.contains("data-sku-status=\"2\"")); assertTrue(html.contains("data-sku-status=\"3\""));
         assertTrue(html.contains("（缺貨）")); assertTrue(html.contains("（即將售完）"));
         String detail = mvc(service).perform(get("/front/product/view/").param("productId","22")).andReturn().getResponse().getContentAsString();
-        assertTrue(detail.contains("data-sku-status=\"2\"")); assertTrue(detail.contains("data-stock=\"8\""));
+        assertTrue(detail.contains("data-sku-status=\"2\"")); assertTrue(detail.contains("data-stock=\"5\""));
     }
     @Test public void aliasIsPreferredAndBlankAliasFallsBackAcrossFrontPages() throws Exception {
         Product p = product(22, "測試水果");

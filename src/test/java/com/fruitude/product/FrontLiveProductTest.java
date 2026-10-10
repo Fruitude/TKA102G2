@@ -45,7 +45,7 @@ public class FrontLiveProductTest {
         rejects(service, List.of(item(6,199), item(5,199)));
         status[0] = 0; rejects(service, List.of(item(1,199)));
         // 狀態 1：不能超過 stock，也不能超過一次 10 箱；stock 為 0 時不能訂購
-        status[0] = 1; stock[0] = 8; service.validateCheckoutItems(List.of(item(8,199))); service.validateCheckoutItems(List.of(item(8,199)));
+        status[0] = 1; stock[0] = 8; service.validateCheckoutItems(List.of(item(5,199))); service.validateCheckoutItems(List.of(item(5,199)));
         stock[0] = 50; service.validateCheckoutItems(List.of(item(10,199)));
         rejects(service, List.of(item(11,199)));
         stock[0] = 0; service.validateCheckoutItems(List.of(item(10,199)));
@@ -64,8 +64,8 @@ public class FrontLiveProductTest {
     @Test public void retiringSkuUsesExpectedStockAndCombinesDuplicateRows() {
         status[0] = 3; stock[0] = 5; inbound[0] = 8; outbound[0] = 4;
         FrontCatalogService service = service();
-        assertEquals(8, service.getLiveSkus(List.of(6)).get(0).stock());
-        service.validateCheckoutItems(List.of(item(8,199)));
+        assertEquals(5, service.getLiveSkus(List.of(6)).get(0).stock());
+        service.validateCheckoutItems(List.of(item(5,199)));
         rejects(service, List.of(item(5,199),item(5,199)));
         outbound[0] = 20; assertFalse(service.getLiveSkus(List.of(6)).get(0).available());
         // 狀態 1：可售量 = 5 + 8 − 20 = −7，沒有貨不能買
@@ -73,13 +73,13 @@ public class FrontLiveProductTest {
         status[0] = 2; assertTrue(service.getLiveSkus(List.of(6)).get(0).available()); // −7 + 預購額度 10 = 3
         assertEquals(2, service.getLiveSkus(List.of(6)).get(0).stock());
     }
-    @Test public void retiringSkuIsCappedAtTenOrTheRemainingSupply() {
+    @Test public void retiringSkuIsCappedAtFiveOrTheRemainingSupply() {
         status[0] = 3; stock[0] = 30; inbound[0] = 10; outbound[0] = 3;
         FrontCatalogService service = service();
-        assertEquals(10, service.getLiveSkus(List.of(6)).get(0).stock());
-        service.validateCheckoutItems(List.of(item(10,199)));
-        rejects(service, List.of(item(11,199)));
-        rejects(service, List.of(item(6,199),item(5,199)));
+        assertEquals(5, service.getLiveSkus(List.of(6)).get(0).stock());
+        service.validateCheckoutItems(List.of(item(5,199)));
+        rejects(service, List.of(item(6,199)));
+        rejects(service, List.of(item(3,199),item(3,199)));
         outbound[0] = 36;
         assertEquals(3, service.getLiveSkus(List.of(6)).get(0).stock());
         service.validateCheckoutItems(List.of(item(3,199)));

@@ -31,7 +31,7 @@
     function stateOptions(entry, select) {
         [...select.options].forEach(option => {
             option.disabled = (option.value === '5' && entry.status !== 5)
-                || (entry.status === 7 && option.value !== '7' && !data.canRestore);
+                || (((entry.status === 7 && option.value !== '7') || (entry.status === 6 && !['6','7'].includes(option.value))) && !data.canRestore);
         });
     }
     function updateState(entry, panel, select) {

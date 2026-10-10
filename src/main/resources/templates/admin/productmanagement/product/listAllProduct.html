@@ -264,8 +264,11 @@ async function changeProductStatus(toggleElement) {
             new URLSearchParams({productId: toggleElement.dataset.productId, status}));
         const result = await response.text();
         if (!response.ok || result !== 'success') throw new Error(result || '更新失敗');
-        toggleElement.closest('tr').classList.toggle('product-off', status === 0);
-        document.getElementById('page-status-message').hidden = true;
+        const actual = Number(response.headers.get('X-Product-Status') ?? status);
+        toggleElement.checked = actual === 1;
+        toggleElement.closest('tr').classList.toggle('product-off', actual === 0);
+        if(status === 1 && actual === 0) showProductStatusMessage('可供應量不足，商品已依規格判斷維持下架。', true);
+        if(toggleElement.checked === (status === 1)) document.getElementById('page-status-message').hidden = true;
     } catch (error) {
         toggleElement.checked = !toggleElement.checked;
         showProductStatusMessage(error.message || '商品狀態更新失敗，已還原開關。', true);
@@ -289,10 +292,12 @@ async function changePageProductStatus(status) {
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || '更新失敗');
         toggles.forEach(toggle => {
-            toggle.checked = status === 1;
-            toggle.closest('tr').classList.toggle('product-off', status === 0);
+            const actual = Number(result.statuses?.[toggle.dataset.productId] ?? status);
+            toggle.checked = actual === 1;
+            toggle.closest('tr').classList.toggle('product-off', actual === 0);
         });
-        showProductStatusMessage('本頁 ' + result.updated + ' 個商品已全部' + (status === 1 ? '上架' : '下架') + '。', false, status === 0);
+        const offCount = status === 1 ? toggles.filter(toggle => !toggle.checked).length : 0;
+        showProductStatusMessage(offCount ? '本頁已完成供應量判斷，其中 ' + offCount + ' 個商品因無可販售規格維持下架。' : '本頁 ' + result.updated + ' 個商品已全部' + (status === 1 ? '上架' : '下架') + '。', offCount > 0, status === 0);
     } catch (error) {
         showProductStatusMessage('本頁商品更新失敗：' + error.message, true);
     } finally { lockProductStatus(false); }

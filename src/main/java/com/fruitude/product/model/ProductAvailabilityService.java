@@ -14,14 +14,16 @@ public class ProductAvailabilityService {
         var product=products.lockForStatus(id).orElse(null);
         if(product==null||Byte.valueOf((byte)2).equals(product.getStatus()))return 0;
         var before=product.getProductSkus().stream().map(ProductSku::getStatus).toList();
+        var productBefore=product.getStatus();
         var due=new HashSet<>(skus.findDueSkuIds(id,now));int activated=0;
         for(var sku:product.getProductSkus()) {
             if(Byte.valueOf((byte)5).equals(sku.getStatus())&&due.contains(sku.getSkuId())) {
                 sku.setStatus((byte)1);sku.setUpdatedAt(now);activated++;
             }
         }
-        lifecycle.closeDepletedSkus(product);
-        if (before.equals(product.getProductSkus().stream().map(ProductSku::getStatus).toList())) return activated;
-        lifecycle.synchronize(product);products.saveAndFlush(product);return activated;
+        lifecycle.synchronize(product);
+        if (before.equals(product.getProductSkus().stream().map(ProductSku::getStatus).toList())
+            && java.util.Objects.equals(productBefore,product.getStatus())) return activated;
+        products.saveAndFlush(product);return activated;
     }
 }

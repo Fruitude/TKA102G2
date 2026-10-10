@@ -21,14 +21,23 @@ public class SkuSupplyService {
         var now = LocalDateTime.now(ZoneId.of("Asia/Taipei"));
         String sql = """
             SELECT sku_id, arrived_pcs, defect_pcs FROM (
-                SELECT d.sku_id, d.arrived_pcs, d.defect_pcs,
-                  ROW_NUMBER() OVER (PARTITION BY d.sku_id ORDER BY po.inbound_date DESC, po.id DESC, d.id DESC) AS rn
-                FROM purchaseorder_details d JOIN purchaseorder po ON po.id=d.po_id
-                JOIN product_sku s ON s.sku_id=d.sku_id JOIN product p ON p.product_id=s.product_id
-                WHERE d.sku_id IN (:ids) AND po.vendor_id=p.vendor_id
-                  AND po.po_status=1 AND po.inbound_status IN (1,2)
-                  AND po.inbound_date>=:since AND po.inbound_date<=:now
-                  AND d.arrived_pcs>0 AND d.defect_pcs>=0 AND d.defect_pcs<=d.arrived_pcs
+                SELECT valid.*, ROW_NUMBER() OVER (
+                    PARTITION BY sku_id ORDER BY sample_date DESC, po_id DESC, detail_id DESC) AS rn
+                FROM (
+                    SELECT d.sku_id, po.id AS po_id, d.id AS detail_id,
+                        CASE WHEN po.po_status=3 OR po.inbound_status IN (2,3)
+                            THEN d.quantity ELSE d.arrived_pcs END AS arrived_pcs,
+                        CASE WHEN po.po_status=3 OR po.inbound_status IN (2,3)
+                            THEN d.quantity ELSE d.defect_pcs END AS defect_pcs,
+                        CASE WHEN po.po_status=3 OR po.inbound_status=3
+                            THEN COALESCE(po.inbound_date,po.order_date) ELSE po.inbound_date END AS sample_date
+                    FROM purchaseorder_details d JOIN purchaseorder po ON po.id=d.po_id
+                    JOIN product_sku s ON s.sku_id=d.sku_id JOIN product p ON p.product_id=s.product_id
+                    WHERE d.sku_id IN (:ids) AND po.vendor_id=p.vendor_id
+                        AND (po.po_status=3 OR po.inbound_status=3 OR (po.po_status=1 AND po.inbound_status IN (1,2)))
+                ) valid
+                WHERE sample_date>=:since AND sample_date<=:now
+                    AND arrived_pcs>0 AND defect_pcs>=0 AND defect_pcs<=arrived_pcs
             ) receipts WHERE rn<=30 ORDER BY sku_id,rn
             """;
         Map<Integer, List<Receipt>> history = new HashMap<>();
@@ -66,7 +75,7 @@ public class SkuSupplyService {
         return switch(status) {
             case 1 -> Math.min(10,boxes(a.add(BigDecimal.valueOf(Math.max(0,backorder)))));
             case 2 -> Math.min(5,boxes(a.add(BigDecimal.valueOf(Math.max(0,backorder)))));
-            case 3 -> Math.min(10,boxes(a));
+            case 3 -> Math.min(5,boxes(a));
             case 6 -> Math.min(10,boxes(BigDecimal.valueOf(stock-outgoing)));
             default -> 0;
         };
@@ -112,16 +121,21 @@ public class SkuSupplyService {
         return deficit.divide(yield,0,java.math.RoundingMode.CEILING).min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
     }
     @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public int refreshLocked(Collection<Integer> ids) {
+    public int refreshLocked(Collection<Integer> ids) { return refreshLocked(ids, false); }
+    @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public int refreshLocked(Collection<Integer> ids, boolean allowSoldOutRecovery) {
         if(ids.isEmpty())return 0;
         var rates=yields(ids);
-        var rows=jdbc.queryForList("SELECT s.* FROM product_sku s JOIN product p ON p.product_id=s.product_id WHERE s.sku_id IN (:ids) AND p.status=1 AND s.status IN (1,2,3,6)",Map.of("ids",ids));
+        String eligibility=allowSoldOutRecovery
+            ? "p.status<>2 AND (p.status=1 OR p.auto_restock_enabled=1) AND s.status IN (1,2,3,4,6)"
+            : "p.status=1 AND s.status IN (1,2,3,6)";
+        var rows=jdbc.queryForList("SELECT s.* FROM product_sku s JOIN product p ON p.product_id=s.product_id WHERE s.sku_id IN (:ids) AND "+eligibility,Map.of("ids",ids));
         int changed=0;
         for(var row:rows) {
             int id=((Number)row.get("sku_id")).intValue();byte old=((Number)row.get("status")).byteValue();
             byte next=nextStatus(old,number(row,"stock",0),number(row,"inbound_qty",0),number(row,"outbound_qty",0),
                 (int)number(row,"safety_stock",0),(int)number(row,"max_backorder_qty",10),(int)number(row,"purchase_add_on_qty",20),
-                rates.getOrDefault(id,DEFAULT_YIELD),false);
+                rates.getOrDefault(id,DEFAULT_YIELD),allowSoldOutRecovery);
             if(next!=old)changed+=jdbc.update("UPDATE product_sku SET status=:next,updated_at=CURRENT_TIMESTAMP WHERE sku_id=:id AND status=:old",Map.of("id",id,"old",old,"next",next));
         }
         return changed;

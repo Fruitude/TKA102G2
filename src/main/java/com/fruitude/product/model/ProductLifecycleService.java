@@ -16,7 +16,7 @@ public class ProductLifecycleService {
     public void changeProduct(Product product, Byte status, boolean activateSkus) {
         if (status == null || status < 0 || status > 2) throw new IllegalArgumentException("商品狀態須為 0～2");
         access.requireRestorePermission(product.getStatus(), status, PRODUCT_DISCONTINUED);
-        closeDepletedSkus(product);
+        if (status != 0) closeDepletedSkus(product);
         var skus = product.getProductSkus();
         if (status == 1 && skus.stream().noneMatch(s -> isSellable(s.getStatus()))) {
             if (skus.stream().noneMatch(s -> Byte.valueOf((byte)0).equals(s.getStatus()) || Byte.valueOf(SKU_PREPARED).equals(s.getStatus())))
@@ -28,10 +28,15 @@ public class ProductLifecycleService {
                 skus.stream().filter(s -> Byte.valueOf((byte)0).equals(s.getStatus())).forEach(s -> setSkuStatus(s, (byte)1));
             }
         }
-        if (status == 0) skus.stream().filter(s -> isSellable(s.getStatus()) || Byte.valueOf(SKU_PREPARED).equals(s.getStatus()))
+        if (status == 0) skus.stream().filter(s -> isAutomaticListingSku(s.getStatus()) || Byte.valueOf(SKU_PREPARED).equals(s.getStatus()))
             .forEach(s -> setSkuStatus(s, (byte)0));
         product.setAutoRestockEnabled(status == 1);
-        product.setStatus(status);
+        if (status == 1) {
+            product.setStatus((byte)1);
+            closeDepletedSkus(product);
+        }
+        byte actual = status == 1 && skus.stream().noneMatch(s -> isSellable(s.getStatus())) ? (byte)0 : status;
+        product.setStatus(actual);
         product.setUpdatedAt(LocalDateTime.now());
         clearFrontCacheAfterCommit();
     }
@@ -43,6 +48,8 @@ public class ProductLifecycleService {
     public void validateSkuChange(Byte previous, Byte next, boolean restockConfirmed) {
         if (next == null || next < 0 || next > 7) throw new IllegalArgumentException("規格狀態須為 0～7");
         access.requireRestorePermission(previous, next, SKU_DISCONTINUED);
+        // Moving 6 to 7 keeps the retirement restriction; restoring general states requires ADMIN.
+        if (!Byte.valueOf(SKU_DISCONTINUED).equals(next)) access.requireRestorePermission(previous, next, 6);
         if (Byte.valueOf(SKU_SOLD_OUT).equals(previous) && !Byte.valueOf(SKU_SOLD_OUT).equals(next) && !restockConfirmed)
             throw new SkuRestockConfirmationException(next);
         if (Byte.valueOf(SKU_PREPARED).equals(next) && previous != null && !Byte.valueOf(SKU_PREPARED).equals(previous))
@@ -53,7 +60,10 @@ public class ProductLifecycleService {
         // Status 3 ends when stock plus inbound minus outbound reaches zero. Permanent retirement is untouched.
         closeDepletedSkus(product);
         if (Byte.valueOf(PRODUCT_DISCONTINUED).equals(product.getStatus())) { clearFrontCacheAfterCommit(); return; }
-        byte status = (byte)(product.getProductSkus().stream().anyMatch(s -> isSellable(s.getStatus())) ? 1 : 0);
+        boolean automaticListing = product.getProductSkus().stream().anyMatch(s -> isAutomaticListingSku(s.getStatus()));
+        boolean keepStoppingSupplyListed = (Byte.valueOf((byte)1).equals(product.getStatus()) || Boolean.TRUE.equals(product.getAutoRestockEnabled()))
+            && product.getProductSkus().stream().anyMatch(s -> Byte.valueOf((byte)6).equals(s.getStatus()));
+        byte status = (byte)(automaticListing || keepStoppingSupplyListed ? 1 : 0);
         if (!Byte.valueOf(status).equals(product.getStatus())) {
             product.setStatus(status); product.setUpdatedAt(LocalDateTime.now());
         }
@@ -69,8 +79,9 @@ public class ProductLifecycleService {
     private FrontCatalogService frontCatalog;
     @org.springframework.beans.factory.annotation.Autowired(required=false)
     private SkuSupplyService supply;
-    public void refreshSupplyStates(java.util.Collection<Integer> ids) {
-        if (supply != null && supply.refreshLocked(ids)>0) clearFrontCacheAfterCommit();
+    public void refreshSupplyStates(java.util.Collection<Integer> ids) { refreshSupplyStates(ids, false); }
+    public void refreshSupplyStates(java.util.Collection<Integer> ids, boolean reservationReleased) {
+        if (supply != null && supply.refreshLocked(ids, reservationReleased)>0) clearFrontCacheAfterCommit();
     }
     public void clearFrontCacheAfterCommit() {
         if (frontCatalog == null) return;
@@ -81,6 +92,7 @@ public class ProductLifecycleService {
                 });
         } else frontCatalog.clearCache();
     }
+    public static boolean isAutomaticListingSku(Byte status) { return status != null && status >= 1 && status <= 3; }
     public static boolean isSellable(Byte status) { return status != null && ((status >= 1 && status <= 3) || status == 6); }
     public void closeDepletedSkus(Product product) {
         if (Byte.valueOf(PRODUCT_DISCONTINUED).equals(product.getStatus())) return;
