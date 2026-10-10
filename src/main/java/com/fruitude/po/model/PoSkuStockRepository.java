@@ -26,5 +26,7 @@ public interface PoSkuStockRepository extends JpaRepository<ProductSku, Integer>
             order by s.skuId asc
             """)
     List<ProductSku> findBelowSafetyStockByStatusIn(@Param("statuses") List<Byte> statuses);
+    @Query("select s from ProductSku s join fetch s.product p where s.status in (1,2,3,4) and p.status<>2 and p.autoRestockEnabled=true order by s.skuId")
+    List<ProductSku> findSupplyMonitoringCandidates();
 
 }

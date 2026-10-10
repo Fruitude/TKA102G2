@@ -16,6 +16,10 @@ import jakarta.persistence.Tuple;
 
 public interface OrdersRepository extends JpaRepository<Orders, Integer>{
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Orders o where o.ordersId=:id")
+    java.util.Optional<Orders> lockForInventory(@Param("id") Integer id);
+
 	// 會員自己的訂單，新的在前（購買清單頁用）
 	List<Orders> findByMemberIdOrderByOrdersIdDesc(Integer memberId);
 	//注意，不用寫 SessionFactory/Session 下 HQL，Spring 已經包裝好，

@@ -18,7 +18,9 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
                s.inbound_qty AS inboundQty, s.outbound_qty AS outboundQty,
                s.max_backorder_qty AS maxBackorderQty
         FROM product p JOIN product_sku s ON s.product_id = p.product_id
-        WHERE p.status = 1 AND s.status IN (1,2,3) AND s.price > 0
+        WHERE p.status = 1 AND s.status IN (1,2,3,4,6) AND s.price > 0
+          AND EXISTS (SELECT 1 FROM product_sku sale WHERE sale.product_id = p.product_id AND sale.price > 0
+              AND sale.status IN (1,2,3,6))
           AND (:productId IS NULL OR p.product_id = :productId)
         ORDER BY p.product_id, s.sku_id
         FOR SHARE OF s
@@ -28,7 +30,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = """
         SELECT i.sku_id AS skuId, i.image_id AS imageId
         FROM product_image i JOIN product_sku s ON s.sku_id = i.sku_id
-        WHERE s.product_id IN (:productIds) AND s.status IN (1,2,3) AND s.price > 0
+        WHERE s.product_id IN (:productIds) AND s.status IN (1,2,3,4,6) AND s.price > 0
           AND OCTET_LENGTH(i.image_data) > 0
         ORDER BY s.sku_id, COALESCE(i.sort_order,0), i.image_id
         """, nativeQuery = true)

@@ -20,6 +20,10 @@ public class ReceivingService {
 
 	@Autowired
 	private PoRepository poRepository;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
+    @Autowired private com.fruitude.product.model.ProductRepository products;
+    @Autowired private com.fruitude.product.model.ProductLifecycleService lifecycle;
+    @Autowired private com.fruitude.orders.model.SkuStockRepository stockLocks;
 
 	@Autowired
 	private PoDetailRepository poDetailRepository;
@@ -137,7 +141,7 @@ public class ReceivingService {
 	// 驗收員工由 ReceivingController 從 session 取得，驗收日期為存檔當下的時間，金額由這裡重算
 	@Transactional
 	public void receive(PoVO formPo, Employee inboundEmployee) {
-		PoVO dbPo = poRepository.findById(formPo.getPoId())
+		PoVO dbPo = poRepository.lockForReceiving(formPo.getPoId())
 				.orElseThrow(() -> new IllegalArgumentException("查無此採購單"));
 
 		if (!dbPo.isReceivable()) {
@@ -162,6 +166,13 @@ public class ReceivingService {
 			}
 		}
 
+        var productIds=dbPo.getPoDetails().stream().map(d->d.getSkuId().getProduct().getProductId()).distinct().sorted().toList();
+        var lockedProducts=new java.util.LinkedHashMap<Integer,com.fruitude.product.model.Product>();
+        for(var id:productIds) lockedProducts.put(id,products.lockForStatus(id).orElseThrow());
+        stockLocks.lockSkus(dbPo.getPoDetails().stream().map(d->d.getSkuId().getSkuId()).sorted().toList());
+        // Reload managed SKU quantities after acquiring locks; checkout may have updated them.
+        dbPo.getPoDetails().stream().map(PoDetailVO::getSkuId).distinct().forEach(entityManager::refresh);
+        var received=new java.util.HashSet<Integer>();
 		int inboundAmount = 0;
 		for (PoDetailVO dbDetail : dbPo.getPoDetails()) {
 			PoDetailVO formDetail = formDetailsById.get(dbDetail.getPoDetailId());
@@ -178,12 +189,24 @@ public class ReceivingService {
 				throw new IllegalArgumentException("到貨數量或不良品數量不正確，請重新進入驗收頁");
 			}
 			inboundAmount += fillInbound(dbDetail);
+            var sku=dbDetail.getSkuId();
+            int good=dbDetail.getInboundPcs();
+            sku.setStock(Math.addExact(sku.getStock()==null?0:sku.getStock(),good));
+            // This single-use receipt closes the PO line, including short delivery and rejected units.
+            sku.setInboundQty(Math.max(0,(sku.getInboundQty()==null?0:sku.getInboundQty())-dbDetail.getQuantity()));
+            sku.setUpdatedAt(LocalDateTime.now());
+            if(good>0) received.add(sku.getSkuId());
 		}
 
 		dbPo.setInboundStatus(inboundStatus);
 		dbPo.setInboundEmployeeId(inboundEmployee);
 		dbPo.setInboundDate(LocalDateTime.now());
 		dbPo.setInboundAmount(inboundAmount);
+        poRepository.flush(); // Persist receipt history before calculating its updated yield.
+        for(var product:lockedProducts.values()) {
+            lifecycle.afterReceipt(product,received);
+            products.saveAndFlush(product);
+        }
 	}
 
 }

@@ -45,6 +45,8 @@ public class OrdersService {
 	// 下單時鎖定規格、原子扣庫存（庫存夠才扣）
 	@Autowired
 	private SkuStockRepository skuStockRepository;
+    @Autowired private com.fruitude.product.model.ProductLifecycleService lifecycle;
+    @Autowired private com.fruitude.product.model.SkuSupplyService supply;
 
 	// 結帳頁「收件者同會員」：會員的預設電話、預設地址
 	@Autowired
@@ -199,21 +201,26 @@ public class OrdersService {
 		}
 	}
 
-	public boolean delete(Integer ordersId) {
+	@Transactional
+    public boolean delete(Integer ordersId) {
 		if (!ordersRepository.existsById(ordersId)) {
 			return false;
 		}
+        var order=ordersRepository.lockForInventory(ordersId).orElseThrow();
+        if(Integer.valueOf(0).equals(order.getOrdersStatus()))updateStatusByLoad(ordersId,4);
 		ordersRepository.deleteById(ordersId);
 		return true;
 	}
 
 	// 先查出既有的訂單，只覆蓋表單可以修改的欄位（ordersId、ordersDate 不動）
-	public boolean updateOrders(Integer ordersId, Orders form) {
-		Optional<Orders> optional = ordersRepository.findById(ordersId);
+	@Transactional
+    public boolean updateOrders(Integer ordersId, Orders form) {
+		Optional<Orders> optional = ordersRepository.lockForInventory(ordersId);
 		if (optional.isEmpty()) {
 			return false;
 		}
 		Orders orders = optional.get();
+        updateStatusByLoad(ordersId, form.getOrdersStatus());
 		orders.setMemberId(form.getMemberId());
 		orders.setShippingAddress(form.getShippingAddress());
 		orders.setPaymentMethod(form.getPaymentMethod());
@@ -286,6 +293,7 @@ public class OrdersService {
 		if (qtyBySku.isEmpty()) {
 			return;
 		}
+        skuStockRepository.lockProducts(qtyBySku.keySet());
 		skuStockRepository.lockSkus(qtyBySku.keySet());
 		for (Map.Entry<Integer, Integer> entry : qtyBySku.entrySet()) {
 			if (ship) {
@@ -294,6 +302,9 @@ public class OrdersService {
 				skuStockRepository.releaseOutbound(entry.getKey(), entry.getValue());
 			}
 		}
+        lifecycle.refreshSupplyStates(qtyBySku.keySet(), cancel);
+        if (cancel) skuStockRepository.reopenProductsWithListedSkus(qtyBySku.keySet());
+        skuStockRepository.closeProductsWithoutListedSkus(qtyBySku.keySet());
 		clearCatalogCacheAfterCommit();
 	}
 
@@ -555,7 +566,7 @@ public class OrdersService {
 	// useBirthday：結帳時有沒有勾選「使用壽星優惠」。有勾選而且真的套用了壽星折扣，才會在同一個交易裡記錄今年已使用
 	public Orders placeOrder(CheckoutForm form, Integer storeCredit, Integer memberId, boolean useBirthday) {
 		// 第一步：先鎖定這次要買的規格（依 sku_id 由小到大），鎖會一直持有到這個交易結束。
-		// 之後的驗證與扣庫存都在鎖裡面進行：別的訂單不能同時改這些規格的庫存，
+		// 之後的驗證與預留待出貨都在鎖裡面進行：別的訂單不能同時改這些規格的庫存，
 		// 前台讀庫存（getLiveSkus 等，用 FOR SHARE）也要等這個交易結束才讀得到，不會讀到做到一半的數字
 		Map<Integer, Integer> qtyBySku = new TreeMap<>();
 		if (form.getItems() != null) {
@@ -577,16 +588,15 @@ public class OrdersService {
 		// 第二步：原子保留庫存。只把 outbound_qty（待出貨）加上訂購數量，stock 到出貨時才扣；
 		// 「可售量夠才加」（缺貨規格可用到預購額度）的檢查寫在同一個 UPDATE 裡，
 		// 任何一個規格加不下去就丟例外，整筆交易回滾（先加成功的規格、購物金都會還原，不會留下訂單）
+		var rates = supply.yields(qtyBySku.keySet());
 		for (Map.Entry<Integer, Integer> entry : qtyBySku.entrySet()) {
-			if (skuStockRepository.deductStock(entry.getKey(), entry.getValue()) == 0) {
+			if (skuStockRepository.deductStock(entry.getKey(), entry.getValue(), rates.getOrDefault(entry.getKey(), com.fruitude.product.model.SkuSupplyService.DEFAULT_YIELD)) == 0) {
 				throw new com.fruitude.product.model.ProductUnavailableException(
 						productNameOf(form.getItems(), entry.getKey()) + " 庫存不足或已達預購上限，請返回購物車調整數量");
 			}
 		}
         if (!qtyBySku.isEmpty()) {
-            // 狀態自動切換：上架 → 缺貨（可售量低於安全庫存），再把即將售完／預購額度用完的規格轉為售完
-            skuStockRepository.markOutOfStock(qtyBySku.keySet());
-            skuStockRepository.markSoldOut(qtyBySku.keySet());
+            lifecycle.refreshSupplyStates(qtyBySku.keySet());
             skuStockRepository.closeProductsWithoutListedSkus(qtyBySku.keySet());
         }
 		// 實際折抵的購物金要從會員餘額扣掉；餘額不足就丟例外，整筆交易回滾，不會留下訂單

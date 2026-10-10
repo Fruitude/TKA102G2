@@ -21,7 +21,7 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "product_sku")
 public class ProductSku implements java.io.Serializable {
-	public static final Byte STATUS_DISCONTINUED = 4; // 永久停產
+	public static final Byte STATUS_DISCONTINUED = 7; // 永久停產
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -53,10 +53,15 @@ public class ProductSku implements java.io.Serializable {
 	@Column(name = "outbound_qty")
 	private Integer outboundQty = 0;
 
-	// 缺貨（status 2）時最多可接的預購量；NULL 或 0 代表不接預購。預設 10
-	@Column(name = "max_backorder_qty", columnDefinition = "INT DEFAULT 10")
-	private Integer maxBackorderQty = 10;
-	
+    // 允許超賣量；採購溢額量（預設值與資料庫一致）
+    @Column(name = "max_backorder_qty", nullable = false, columnDefinition = "int not null default 10")
+    @jakarta.validation.constraints.Min(value=0, message="允許超賣量不可為負數")
+    private Integer maxBackorderQty = 10;
+
+    @Column(name = "purchase_add_on_qty", nullable = false, columnDefinition = "int not null default 20")
+    @jakarta.validation.constraints.Min(value=0, message="採購溢額量不可為負數")
+    private Integer purchaseAddOnQty = 20;
+
 	@Column(name = "price")
 	private Integer price;
 	
@@ -155,14 +160,12 @@ public class ProductSku implements java.io.Serializable {
 		this.outboundQty = outboundQty;
 	}
 
-	public Integer getMaxBackorderQty() {
-		return maxBackorderQty;
-	}
+    public Integer getMaxBackorderQty() { return maxBackorderQty; }
+    public void setMaxBackorderQty(Integer maxBackorderQty) { this.maxBackorderQty = maxBackorderQty; }
 
-	public void setMaxBackorderQty(Integer maxBackorderQty) {
-		this.maxBackorderQty = maxBackorderQty;
-	}
-	
+    public Integer getPurchaseAddOnQty() { return purchaseAddOnQty; }
+    public void setPurchaseAddOnQty(Integer purchaseAddOnQty) { this.purchaseAddOnQty = purchaseAddOnQty; }
+
     public Integer getExpectedStock() {
 
         int stock = this.stock == null ? 0 : this.stock;
@@ -210,7 +213,7 @@ public class ProductSku implements java.io.Serializable {
 	
     public String getStatusLabel() {
         if (status == null) return "未設定";
-        return switch (status) { case 0 -> "下架"; case 1 -> "上架"; case 2 -> "缺貨"; case 3 -> "即將下架"; case 4 -> "永久停產"; case 5 -> "預備上架"; default -> "未設定"; };
+        return switch (status) { case 0 -> "下架"; case 1 -> "上架"; case 2 -> "缺貨"; case 3 -> "即將售完"; case 4 -> "售完"; case 5 -> "預備上架"; case 6 -> "即將停產"; case 7 -> "永久停產"; default -> "未設定"; };
     }
 
 	public Byte getStatus() {
@@ -261,11 +264,8 @@ public class ProductSku implements java.io.Serializable {
 	    this.productImages = productImages;
 	}
 	
-	// 缺口數量：待出貨 + 安全庫存量 - 庫存量 - 待進貨
-	public Integer getShortageQty() {
-
-	    int safetyStock = this.safetyStock == null ? 0 : this.safetyStock;
-
-	    return safetyStock - getExpectedStock();
-	}
+    @jakarta.persistence.Transient
+    private java.math.BigDecimal purchaseYield = SkuSupplyService.DEFAULT_YIELD;
+    public void setPurchaseYield(java.math.BigDecimal value) { purchaseYield=value; }
+    public Integer getShortageQty() { return SkuSupplyService.suggestedPurchase(this,purchaseYield); }
 }

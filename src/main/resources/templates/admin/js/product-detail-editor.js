@@ -4,7 +4,7 @@
     const changed = new Map();
     const productId = new URLSearchParams(location.search).get('productId');
     const base = location.pathname.replace(/getOne_For_Display$/, '');
-    const labels = ['下架', '上架', '缺貨', '即將下架', '永久停產', '預備上架'];
+    const labels = ['下架', '上架', '缺貨', '即將售完', '售完', '預備上架', '即將停產', '永久停產'];
     function node(tag, cls, text) {
         const element = document.createElement(tag);
         if (cls) element.className = cls;
@@ -31,16 +31,22 @@
     function stateOptions(entry, select) {
         [...select.options].forEach(option => {
             option.disabled = (option.value === '5' && entry.status !== 5)
-                || (entry.status === 4 && option.value !== '4' && !data.canRestore);
+                || (((entry.status === 7 && option.value !== '7') || (entry.status === 6 && !['6','7'].includes(option.value))) && !data.canRestore);
         });
     }
     function updateState(entry, panel, select) {
         const next = Number(select.value);
-        if (next === 4 && entry.status !== 4 && !window.confirm('請確認該規格是否永久停產，永久停產後無法再調整規格狀態。')) {
+        if (next === 7 && entry.status !== 7 && !window.confirm('請確認該規格是否永久停產，永久停產後無法再調整規格狀態。')) {
             select.value = String(entry.status); return;
         }
+        if (next !== 4 && (entry.status === 4 || entry.wasSoldOut) && !entry.restockConfirmed) {
+            if (!window.confirm(next === 1 ? '該商品規格原為售完商品，請確認是否有貨源' : '該商品規格原為售完商品，請確認是否變更規格狀態。')) {
+                select.value = String(entry.status); return;
+            }
+            entry.restockConfirmed = true;
+        }
         entry.status = next; mark(entry);
-        for (let state = 0; state <= 5; state++) panel.classList.remove('status-' + state);
+        for (let state = 0; state <= 7; state++) panel.classList.remove('status-' + state);
         panel.classList.add('status-' + next);
         select.style.setProperty('--status-label-length', labels[next].length);
         stateOptions(entry, select);
@@ -73,7 +79,7 @@
         if (isNew) begin();
     }
     function prepareSku(entry, panel, button, isNew = false) {
-        for (const [label, field] of [['規格價格','price'],['庫存量','stock'],['安全庫存量','safetyStock'],['待進貨','inboundQty'],['待出貨','outboundQty'],['預購額度','maxBackorderQty']]) numeric(entry, panel, label, field);
+        for (const [label, field] of [['規格價格','price'],['庫存量','stock'],['安全庫存量','safetyStock'],['待進貨','inboundQty'],['待出貨','outboundQty'],['允許超賣量','maxBackorderQty']]) numeric(entry, panel, label, field);
         const select = panel.querySelector('.sku-status-select');
         select.onchange = () => updateState(entry, panel, select);
         stateOptions(entry, select);
@@ -98,7 +104,7 @@
         const key = 'new-' + (++sequence);
         const entry = {key, skuId:null, skuName:'', anotherName:null, price:null, stock:0, safetyStock:0, inboundQty:0, outboundQty:0, maxBackorderQty:10, status:5};
         const panel = node('div', 'sku-panel status-5'); panel.id = 'sku-panel-' + key;
-        for (const label of ['規格價格','規格狀態','庫存量','安全庫存量','待進貨','待出貨','預購額度']) {
+        for (const label of ['規格價格','規格狀態','庫存量','安全庫存量','待進貨','待出貨','允許超賣量']) {
             const row = node('div','item'); row.appendChild(node('span','name',label)); const value = node('span','value'); row.appendChild(value);
             if (label === '規格狀態') {
                 value.classList.add('sku-status-value'); const select = node('select','sku-status-select');
@@ -128,7 +134,7 @@
         const h1=document.querySelector('h1');h1.contentEditable='true';h1.addEventListener('input',()=>window.detailEditor.setName(h1.textContent));
         window.changeDetailProductStatus = toggle => {data.product.status=toggle.checked?1:0;statusChanged=true;mark();};
         data.skus.forEach(sku=>{
-            const entry={...sku,key:String(sku.skuId)};const panel=document.getElementById('sku-panel-'+sku.skuId);
+            const entry={...sku,key:String(sku.skuId),wasSoldOut:sku.status===4};const panel=document.getElementById('sku-panel-'+sku.skuId);
             const button=document.querySelector('.sku-option[data-sku-id="'+sku.skuId+'"]'); if(panel&&button)prepareSku(entry,panel,button);
         });
         let options=document.querySelector('.sku-options');
@@ -144,11 +150,11 @@
         async save() {
             if (!data.product.productName?.trim()) throw new Error('請填寫商品名稱');
             if (!data.product.categoryId || !data.product.vendorId) throw new Error('請從分類與廠商的下拉選項中選取有效項目');
-            const skus=[...changed.values()].map(({key,...sku})=>sku);
+            const skus=[...changed.values()].map(({key,wasSoldOut,...sku})=>sku);
             for(const sku of skus){
                 if(sku.skuId==null&&!sku.skuName?.trim())throw new Error('請填寫新增規格名稱');
                 if(!Number.isInteger(sku.price)||sku.price<=0)throw new Error('規格價格須為大於0的整數');
-                for(const field of ['stock','safetyStock','inboundQty','outboundQty','maxBackorderQty'])if(!Number.isInteger(sku[field])||sku[field]<0)throw new Error('庫存、進出貨數量及預購額度須為0以上整數');
+                for(const field of ['stock','safetyStock','inboundQty','outboundQty','maxBackorderQty'])if(!Number.isInteger(sku[field])||sku[field]<0)throw new Error('庫存、進出貨數量及允許超賣量須為0以上整數');
             }
             const payload={product:data.product,skus,productStatusChanged:statusChanged,activateSkus:false};
             const send=()=>fetch(base+'saveModal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});

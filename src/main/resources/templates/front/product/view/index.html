@@ -213,11 +213,12 @@
     var qty = document.getElementById("pv-qty");
     qty.max = String(stock);
     qty.value = String(Math.min(Math.max(1, Number(qty.value) || 1), Math.max(stock, 1)));
-    var soldOut = Number(option.dataset.skuStatus) === 5;
+    var soldOut = Number(option.dataset.skuStatus) === 4;
     form.querySelector('[type="submit"]').disabled = stock === 0;
     form.querySelector('[type="submit"]').value = stock === 0 ? (soldOut ? "已售完" : "目前缺貨") : "加入購物車";
     var buy = form.querySelector('.w-commerce-commercebuynowbutton');
     buy.hidden = stock === 0;
+    buy.style.display = stock === 0 ? "none" : "";
   }
   function updateNotice() {
     var notice = document.getElementById("pv-quantity-notice");

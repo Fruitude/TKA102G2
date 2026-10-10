@@ -19,6 +19,10 @@
             const skuStates = [...form.querySelectorAll('select[name^="productSkus["][name$=".status"]')];
             const sellable = skuStates.length ? skuStates.some(s => {
                 if (s.value === '1' || s.value === '2') return true;
+                if (s.value === '6') {
+                    const prefix=s.name.slice(0,-6);
+                    return Number(form.elements.namedItem(prefix+'stock')?.value||0)-Number(form.elements.namedItem(prefix+'outboundQty')?.value||0)>0;
+                }
                 if (s.value !== '3') return false;
                 const prefix = s.name.slice(0, -6);
                 const number = key => Number(form.elements.namedItem(prefix + key)?.value || 0);
@@ -26,7 +30,7 @@
             }) : form.dataset.hasSellableSku === 'true';
             const ready = skuStates.length ? skuStates.some(s => s.value === '5') : form.dataset.hasReadySku === 'true';
             if (sellable || ready) return;
-            if (!window.confirm('商品沒有上架／缺貨／即將下架規格，是否將未永久停產的規格一併上架？')) {
+            if (!window.confirm('商品沒有上架／缺貨／即將售完規格，是否將未永久停產的規格一併上架？')) {
                 event.preventDefault(); return;
             }
             let confirmed = form.querySelector('input[name="activateSkus"]');

@@ -25,7 +25,8 @@ public class FrontProductController {
     public String canonicalHome() { return "redirect:/front/"; }
 
     @GetMapping({"/front/", "/front/index", "/front/index.html"})
-    public String homePage(Model model, HttpSession session) {
+    public String homePage(Model model, HttpSession session, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
         home(model);
         // 首頁活動區塊：限時活動與會員專屬福利。會員身分只信任 session，用來標示目前符合資格的福利（壽星月、新會員首購）
         Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;

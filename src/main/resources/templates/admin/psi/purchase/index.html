@@ -159,7 +159,7 @@
 														<tr th:each="productSku : ${vendorEntry.value}">
 															<td th:text="${productSku.skuId}"></td>
 															<td th:text="${productSku.skuName}"></td>
-															<td th:text="${productSku.shortageQty}"></td>
+															<td th:text="${productSku.shortageQty != null ? productSku.shortageQty : '良率為0，請人工確認'}"></td>
 															<!-- pendingQuantityBySkuId 由 PoController、PoNoController 放入 model；沒有待審核明細的規格顯示 0 -->
 															<td th:text="${pendingQuantityBySkuId?.get(productSku.skuId) ?: 0}"></td>
 														</tr>

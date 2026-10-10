@@ -6,7 +6,7 @@
 .product-edit-mode .sku-add { align-self:center; border:1px dashed #4e73df; border-radius:5px; background:white; color:#4e73df; font-size:22px; width:34px; height:32px; cursor:pointer; }
 .product-edit-mode .sku-option [contenteditable="true"] { outline:2px solid #4e73df; border-radius:2px; min-width:5em; background:white; color:#333; cursor:text; }
 .product-edit-mode .new-sku-name { display:inline-block; min-width:5em; min-height:1.3em; }
-.product-edit-mode .edit-remove-sku { grid-column:1/-1; justify-self:end; border:1px solid #dc3545; color:#b42318; background:white; border-radius:4px; font:inherit; padding:3px 8px; cursor:pointer; }
+.product-edit-mode .edit-remove-sku { grid-column:1/-1; justify-self:end; margin-top:1.5em; border:1px solid #dc3545; color:#b42318; background:white; border-radius:4px; font:inherit; padding:3px 8px; cursor:pointer; }
 .product-edit-mode .sku-status-select { margin-left:0; width:calc(6em + 32px); min-width:calc(6em + 32px); }
 .product-edit-mode .sku-panel .value.sku-status-value { flex:1; }
 .product-edit-mode h1[contenteditable="true"]:focus { outline:2px solid #4e73df; }

@@ -358,9 +358,15 @@ public class PoService {
 	}
 
 	// 需要採購的規格：上架（1）或缺貨（2），且低於安全庫存
-	public List<ProductSku> getBelowSafetyStock() {
-		return poSkuStockRepository.findBelowSafetyStockByStatusIn(List.of((byte) 1, (byte) 2));
-	}
+    @Autowired private com.fruitude.product.model.SkuSupplyService supply;
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    public List<ProductSku> getBelowSafetyStock() {
+        var candidates=poSkuStockRepository.findSupplyMonitoringCandidates();
+        var rates=supply.yields(candidates.stream().map(ProductSku::getSkuId).toList());
+        candidates.forEach(s->s.setPurchaseYield(rates.getOrDefault(s.getSkuId(),com.fruitude.product.model.SkuSupplyService.DEFAULT_YIELD)));
+        return candidates.stream().filter(s->com.fruitude.product.model.SkuSupplyService.needsPurchase(s,
+            rates.getOrDefault(s.getSkuId(),com.fruitude.product.model.SkuSupplyService.DEFAULT_YIELD))).toList();
+    }
 
 	// 需要採購的規格依供應商分組：key 為供應商編號（由小到大），沒有供應商的排最後
 	public Map<Integer, List<ProductSku>> getBelowSafetyStockByVendor() {
