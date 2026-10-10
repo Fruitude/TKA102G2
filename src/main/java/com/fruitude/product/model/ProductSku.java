@@ -272,15 +272,6 @@ public class ProductSku implements java.io.Serializable {
 	    return safetyStock - getExpectedStock();
 	}
 	
-	public Integer getPurchaseAddOnQty() {
-		return purchaseAddOnQty;
-	}
 
-	public void setPurchaseAddOnQty(Integer purchaseAddOnQty) {
-		this.purchaseAddOnQty = purchaseAddOnQty;
-	}
-    @jakarta.persistence.Transient
-    private java.math.BigDecimal purchaseYield = SkuSupplyService.DEFAULT_YIELD;
-    public void setPurchaseYield(java.math.BigDecimal value) { purchaseYield=value; }
-    public Integer getShortageQty() { return SkuSupplyService.suggestedPurchase(this,purchaseYield); }
+ 
 }
