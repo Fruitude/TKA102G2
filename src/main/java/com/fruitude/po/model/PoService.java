@@ -362,7 +362,7 @@ public class PoService {
 				ProductSku.STATUS_DISCONTINUED);
 	}
 
-	// 需要採購的規格：上架（1）或缺貨（2），且低於安全庫存
+	// 需要採購的規格：上架（1）或缺貨（2）,即將售完(3),售完(4),，且低於安全庫存
 	public List<ProductSku> getBelowSafetyStock() {
 		return poSkuStockRepository.findBelowSafetyStockByStatusIn(List.of((byte) 1, (byte) 2,(byte) 3,(byte) 4));
 	}
