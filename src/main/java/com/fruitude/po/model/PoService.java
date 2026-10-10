@@ -64,6 +64,11 @@ public class PoService {
 	// 這樣新增的一定是這張單原本沒有的規格、有新增就不會有刪除，任何時候都不會重複
 	@Transactional
 	public void updatePoWithDetails(PoVO formPo) {
+		// 先鎖住這張採購單並確認還是待審核：編輯期間已經被審核掉的單在這裡擋下，存檔期間也不會被審核插進來
+		if (formPo.getPoId() == null || repository.lockPendingPo(formPo.getPoId()).isEmpty()) {
+			throw new IllegalArgumentException("此採購單不存在，或已經審核過，無法修改");
+		}
+
 		PoVO dbPo = repository.findById(formPo.getPoId())
 				.orElseThrow(() -> new IllegalArgumentException("查無此採購單"));
 
@@ -357,16 +362,10 @@ public class PoService {
 				ProductSku.STATUS_DISCONTINUED);
 	}
 
-	// 需要採購的規格：上架（1）或缺貨（2），且低於安全庫存
-    @Autowired private com.fruitude.product.model.SkuSupplyService supply;
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
-    public List<ProductSku> getBelowSafetyStock() {
-        var candidates=poSkuStockRepository.findSupplyMonitoringCandidates();
-        var rates=supply.yields(candidates.stream().map(ProductSku::getSkuId).toList());
-        candidates.forEach(s->s.setPurchaseYield(rates.getOrDefault(s.getSkuId(),com.fruitude.product.model.SkuSupplyService.DEFAULT_YIELD)));
-        return candidates.stream().filter(s->com.fruitude.product.model.SkuSupplyService.needsPurchase(s,
-            rates.getOrDefault(s.getSkuId(),com.fruitude.product.model.SkuSupplyService.DEFAULT_YIELD))).toList();
-    }
+	// 需要採購的規格：上架（1）或缺貨（2）,即將售完(3),售完(4),，且低於安全庫存
+	public List<ProductSku> getBelowSafetyStock() {
+		return poSkuStockRepository.findBelowSafetyStockByStatusIn(List.of((byte) 1, (byte) 2,(byte) 3,(byte) 4));
+	}
 
 	// 需要採購的規格依供應商分組：key 為供應商編號（由小到大），沒有供應商的排最後
 	public Map<Integer, List<ProductSku>> getBelowSafetyStockByVendor() {
@@ -377,6 +376,132 @@ public class PoService {
 			skusByVendorId.computeIfAbsent(vendorId, key -> new ArrayList<>()).add(productSku);
 		}
 		return skusByVendorId;
+	}
+
+	// 從待採購商品的供應商區塊新增採購單時預先帶入的明細：該供應商每個有建議採購量的規格一筆
+	// 只帶入規格，採購數量、進貨單價由使用者自己填；建議採購量由新增頁另外顯示（getSuggestedQuantityBySkuId）
+	// 這些明細只是表單的預設值，使用者可以修改或刪除
+	public List<PoDetailVO> getShortageDetailsByVendorId(Integer vendorId) {
+		Map<Integer, Integer> suggestedQuantityBySkuId = getSuggestedQuantityBySkuId(vendorId, null);
+		List<PoDetailVO> poDetails = new ArrayList<>();
+		for (ProductSku productSku : getBelowSafetyStockByVendor().getOrDefault(vendorId, List.of())) {
+			if (!suggestedQuantityBySkuId.containsKey(productSku.getSkuId())) {
+				continue;
+			}
+			PoDetailVO poDetailVO = new PoDetailVO();
+			poDetailVO.setSkuId(productSku);
+			poDetails.add(poDetailVO);
+		}
+		return poDetails;
+	}
+
+	// 某供應商各商品規格的建議採購量：key 為規格編號，新增頁、修改頁顯示在採購數量左邊供參考，不會自動填進採購數量
+	// 只算低於安全庫存的規格；建議採購量 = 缺口數量 + 規格的採購預設多買數量（purchaseAddOnQty，沒有設定時當成 0）
+	//   - 其他待審核採購單裡同一規格的採購數量
+	// poId 是正在修改的採購單，它自己的數量不算在「其他待審核採購單」裡；新增採購單時傳 null
+	// 算出來不大於 0 的規格（已經被其他待審核採購單涵蓋）不會出現在裡面；超過 9999 時以 9999 計
+	@Transactional(readOnly = true)
+	public Map<Integer, Integer> getSuggestedQuantityBySkuId(Integer vendorId, Integer poId) {
+		Map<Integer, Integer> quantityInPoBySkuId = new HashMap<>();
+		PoVO currentPo = poId == null ? null : repository.findById(poId).orElse(null);
+		// 只有待審核的採購單，數量才會算在待審核的加總裡
+		if (currentPo != null && currentPo.isEditable()) {
+			for (PoDetailVO poDetailVO : currentPo.getPoDetails()) {
+				quantityInPoBySkuId.put(poDetailVO.getSkuId().getSkuId(), poDetailVO.getQuantity());
+			}
+		}
+
+		Map<Integer, Long> pendingQuantityBySkuId = getPendingQuantityBySkuId();
+		Map<Integer, Integer> suggestedQuantityBySkuId = new HashMap<>();
+		for (ProductSku productSku : getBelowSafetyStockByVendor().getOrDefault(vendorId, List.of())) {
+			int purchaseAddOnQty = productSku.getPurchaseAddOnQty() == null ? 0 : productSku.getPurchaseAddOnQty();
+			long otherPendingQuantity = pendingQuantityBySkuId.getOrDefault(productSku.getSkuId(), 0L)
+					- quantityInPoBySkuId.getOrDefault(productSku.getSkuId(), 0);
+			long suggestedQuantity = productSku.getShortageQty() + purchaseAddOnQty - otherPendingQuantity;
+			if (suggestedQuantity > 0) {
+				suggestedQuantityBySkuId.put(productSku.getSkuId(), (int) Math.min(suggestedQuantity, 9999));
+			}
+		}
+		return suggestedQuantityBySkuId;
+	}
+
+	// 待採購商品的各供應商區塊要更新的待審核採購單：key 為供應商編號、value 為採購單系統編號
+	// 區塊裡只要有一個規格已經在待審核的採購單裡，這個供應商就會出現在裡面（首頁改顯示「更新採購單」）；
+	// 區塊裡的規格分別在不同的待審核採購單時，取系統編號最大（最新）的那一張
+	public Map<Integer, Integer> getPendingPoIdByVendorId() {
+		Map<Integer, Integer> pendingPoIdBySkuId = new HashMap<>();
+		for (Object[] row : poDetailRepository.findLatestPendingPoIdBySkuId()) {
+			pendingPoIdBySkuId.put((Integer) row[0], (Integer) row[1]);
+		}
+
+		Map<Integer, Integer> pendingPoIdByVendorId = new HashMap<>();
+		for (Map.Entry<Integer, List<ProductSku>> vendorEntry : getBelowSafetyStockByVendor().entrySet()) {
+			if (vendorEntry.getKey() == null) {
+				continue;
+			}
+			for (ProductSku productSku : vendorEntry.getValue()) {
+				Integer pendingPoId = pendingPoIdBySkuId.get(productSku.getSkuId());
+				if (pendingPoId != null) {
+					pendingPoIdByVendorId.merge(vendorEntry.getKey(), pendingPoId, Math::max);
+				}
+			}
+		}
+		return pendingPoIdByVendorId;
+	}
+
+	// 從待採購商品的「更新採購單」進修改頁時使用的表單資料：以這張採購單為底，
+	// 把有建議採購量（getSuggestedQuantityBySkuId）、但還不在這張單裡的規格各加一筆明細
+	// 新加的明細只帶入規格，採購數量、進貨單價由使用者自己填；原本的明細不會被改動，建議採購量由修改頁另外顯示
+	// 回傳的是另外建立的表單物件，不是資料庫查出來的那一筆，新加的明細要等使用者送出修改才會存檔
+	// 查不到採購單時回傳 null；不是待審核的採購單不加明細，由 PoController 的 getOne_For_Update 擋下
+	@Transactional(readOnly = true)
+	public PoVO getPoWithShortageDetails(Integer poId) {
+		PoVO dbPo = repository.findById(poId).orElse(null);
+		if (dbPo == null) {
+			return null;
+		}
+
+		PoVO formPo = new PoVO();
+		formPo.setPoId(dbPo.getPoId());
+		formPo.setPoNo(dbPo.getPoNo());
+		formPo.setVendor(dbPo.getVendor());
+		formPo.setPoEmployeeId(dbPo.getPoEmployeeId());
+		formPo.setOrderDate(dbPo.getOrderDate());
+		formPo.setPoStatus(dbPo.getPoStatus());
+		formPo.setTotalAmount(dbPo.getTotalAmount());
+
+		List<PoDetailVO> formDetails = new ArrayList<>();
+		Set<Integer> skuIdsInPo = new HashSet<>();
+		for (PoDetailVO dbDetail : dbPo.getPoDetails()) {
+			PoDetailVO formDetail = new PoDetailVO();
+			formDetail.setPoDetailId(dbDetail.getPoDetailId());
+			formDetail.setPoId(formPo);
+			formDetail.setSkuId(dbDetail.getSkuId());
+			formDetail.setQuantity(dbDetail.getQuantity());
+			formDetail.setUnitPrice(dbDetail.getUnitPrice());
+			formDetail.setSubtotal(dbDetail.getSubtotal());
+			formDetails.add(formDetail);
+			skuIdsInPo.add(dbDetail.getSkuId().getSkuId());
+		}
+
+		if (dbPo.isEditable()) {
+			Integer vendorId = dbPo.getVendor().getVendorId();
+			Map<Integer, Integer> suggestedQuantityBySkuId = getSuggestedQuantityBySkuId(vendorId, poId);
+			for (ProductSku productSku : getBelowSafetyStockByVendor().getOrDefault(vendorId, List.of())) {
+				if (skuIdsInPo.contains(productSku.getSkuId())
+						|| !suggestedQuantityBySkuId.containsKey(productSku.getSkuId())) {
+					continue;
+				}
+				PoDetailVO formDetail = new PoDetailVO();
+				formDetail.setPoId(formPo);
+				formDetail.setSkuId(productSku);
+				formDetail.setSubtotal(0);
+				formDetails.add(formDetail);
+			}
+		}
+
+		formPo.setPoDetails(formDetails);
+		return formPo;
 	}
 
 	// 各商品規格在待審核採購單裡的採購數量加總：key 為規格編號；沒有待審核明細的規格不會出現在裡面

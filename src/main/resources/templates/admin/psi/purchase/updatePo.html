@@ -26,19 +26,41 @@
 }
 
 #po_detail_table thead th:nth-child(2) {
-	width: 120px; /* 採購數量：最窄 */
+	width: 72px; /* 建議採購量：剛好放得下標題的五個字 */
 }
 
 #po_detail_table thead th:nth-child(3) {
-	width: 150px; /* 進貨單價 */
+	width: 120px; /* 採購數量：最窄 */
 }
 
 #po_detail_table thead th:nth-child(4) {
-	width: 180px; /* 小計：最寬 */
+	width: 150px; /* 進貨單價 */
 }
 
 #po_detail_table thead th:nth-child(5) {
+	width: 180px; /* 小計：最寬 */
+}
+
+#po_detail_table thead th:nth-child(6) {
 	width: 90px; /* 操作 */
+}
+
+/* 建議採購量只是參考用的提示，顏色比其他欄位淺、字比較小；靠右貼近採購數量的輸入框 */
+#po_detail_table .detail-suggested {
+	color: #b7b9cc;
+	font-size: 0.8rem;
+	text-align: right;
+	border-right: 0;
+	/* 左右只留一點空隙，格子的邊界貼著文字 */
+	padding-left: 4px;
+	padding-right: 4px;
+	white-space: nowrap;
+}
+
+/* 建議採購量和右邊的採購數量之間不畫框線，看起來像同一格 */
+#po_detail_table .detail-suggested + th,
+#po_detail_table .detail-suggested + td {
+	border-left: 0;
 }
 </style>
 </head>
@@ -65,6 +87,9 @@
 					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3">
 						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> 
 						<span class="text">回採購單管理</span></a>
+
+					<!-- 從首頁待採購商品的「更新採購單」進來時的提示（PoController 的 getOne_For_Update 放入 model） -->
+					<div class="alert alert-info" th:if="${infoMessage != null}" th:text="${infoMessage}"></div>
 
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
@@ -109,6 +134,7 @@
 										<input type="text" th:case="1" value="申請通過" class="form-control-plaintext" readonly />
 										<input type="text" th:case="2" value="申請未通過" class="form-control-plaintext" readonly />
 										<input type="text" th:case="3" value="已取消" class="form-control-plaintext" readonly />
+										<input type="text" th:case="4" value="已結案" class="form-control-plaintext" readonly />
 									</th:block>
 								</div>
 
@@ -131,6 +157,7 @@
 									<thead>
 										<tr>
 											<th class="required">商品規格</th>
+											<th class="detail-suggested">建議採購量</th>
 											<th class="required">採購數量</th>
 											<th class="required">進貨單價</th>
 											<th>小計</th>
@@ -156,6 +183,8 @@
 													th:errors="*{poDetails[__${stat.index}__].skuId}"
 													class="text-danger d-block mt-1"></span>
 											</td>
+											<!-- 建議採購量：只是提示，不會送出；由 script 的 updateSuggested 依這一列選的規格填入 -->
+											<td class="detail-suggested"></td>
 											<td>
 												<!-- type="number" 只是讓瀏覽器擋掉文字輸入；空白、範圍由 PoDetailVO 的註解檢查。th:field 會保留使用者輸入的內容 -->
 												<input type="number" class="form-control detail-quantity"
@@ -201,6 +230,7 @@
 												th:text="${productSku.skuId + ' - ' + productSku.displayName}"></option>
 										</select>
 									</td>
+									<td class="detail-suggested"></td>
 									<td><input type="number" class="form-control detail-quantity" /></td>
 									<td><input type="number" class="form-control detail-unit-price" /></td>
 									<td><span class="detail-subtotal">0</span></td>
@@ -226,6 +256,11 @@
 
 	<!-- 引入js資源 -->
 	<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+	<!-- 各規格的建議採購量（PoController 的 addUpdateFormData 放入 model）：key 是規格編號，沒有在裡面的規格不需要採購 -->
+	<script th:inline="javascript">
+		var suggestedQuantityBySkuId = /*[[${suggestedQuantityBySkuId}]]*/ {};
+	</script>
 
 	<script>
 		//採購數量或進貨單價變動時，重算該列小計與整張單的總金額
@@ -279,6 +314,19 @@
 				errorSpan.remove();
 			});
 		}
+
+		//建議採購量：依這一列選的規格，從 suggestedQuantityBySkuId 找出數量顯示在採購數量左邊；沒有選規格或該規格不需要採購時留空
+		function updateSuggested(row) {
+			var suggestedQuantity = suggestedQuantityBySkuId[row.querySelector(".detail-sku").value];
+			row.querySelector(".detail-suggested").textContent = suggestedQuantity == null ? "" : suggestedQuantity;
+		}
+		detailBody.querySelectorAll("tr").forEach(updateSuggested);
+		//改選規格時，建議採購量跟著換成新規格的
+		detailBody.addEventListener("change", function(event) {
+			if (event.target.classList.contains("detail-sku")) {
+				updateSuggested(event.target.closest("tr"));
+			}
+		});
 
 		document.getElementById("add_detail_row").addEventListener("click", function() {
 			clearDetailErrors();

@@ -39,6 +39,9 @@
                 <!-- 這裡放頁面自己的內容 -->
                 <div class="container-fluid">
 
+					<!-- 查無採購單等提示：由 PoReviewController 的 updatePurchaseReview redirect 回來時顯示 -->
+					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
+
 					<!-- 待審核（poStatus = 0）的採購單：poListData 由 PoReviewController 的 purchasereview 放入 model -->
 					<!-- 表格比照 psi/receiving/index.html；清單裡都是待審核的單，所以不列採購單狀態，驗收相關的欄位此時也還沒有資料 -->
 					<div class="card shadow mb-4">
@@ -58,16 +61,6 @@
 											<th>總金額</th>
 										</tr>
 									</thead>
-									<tfoot>
-										<tr>
-											<th>操作</th>
-											<th>編號</th>
-											<th>供應商</th>
-											<th>採購員工</th>
-											<th>採購日期</th>
-											<th>總金額</th>
-										</tr>
-									</tfoot>
 									<tbody>
 										<tr th:each="poVO : ${poListData}">
 											<td>
@@ -75,7 +68,7 @@
 												<a th:href="@{/admin/account/purchasereview/updatePurchaseReview(poId=${poVO.poId})}"
 													class="btn btn-primary btn-sm">詳細</a>
 											</td>
-											<td th:text="${poVO.poNo}" style="text-align: center"></td>
+											<td th:text="${poVO.poNo}"></td>
 											<td th:text="${poVO.vendor.vendorId + ' - ' + poVO.vendor.vendorName}"></td>
 											<td th:text="${poVO.poEmployeeId.employeeId + ' - ' + poVO.poEmployeeId.employeeName}"></td>
 											<td th:text="${{poVO.orderDate}}"></td>

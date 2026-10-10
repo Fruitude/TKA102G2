@@ -78,6 +78,7 @@
 					                <option value="1">申請通過</option>
 					                <option value="2">申請未通過</option>
 					                <option value="3">已取消</option>
+					                <option value="4">已結案</option>
 					            </select>
 					            <button type="submit" class="btn btn-primary btn-sm">查詢</button>
 					        </form>
@@ -122,14 +123,16 @@
 						</div>
 					</div>
 
-					<!-- 待採購商品：低於安全庫存的規格，belowSafetyStockByVendor 由 PoController、PoNoController 放入 model，有資料才顯示 -->
-					<!-- key 是供應商編號、value 是該供應商的規格清單，一個供應商一個區塊 -->
-					<div class="card shadow mb-4" th:if="${belowSafetyStockByVendor != null and !belowSafetyStockByVendor.isEmpty()}">
+					<!-- 待採購商品：低於安全庫存的規格，belowSafetyStockByVendor 由 PoController、PoNoController 放入 model -->
+					<!-- key 是供應商編號、value 是該供應商的規格清單，一個供應商一個區塊；沒有資料時區塊照樣顯示，改顯示「沒有待採購商品」 -->
+					<div class="card shadow mb-4">
 						<div class="card-header py-3">
 							<h6 class="m-0 font-weight-bold text-danger">待採購商品</h6>
 						</div>
 						<div class="card-body">
-							<div class="row">
+							<p class="mb-0 text-gray-800"
+								th:if="${belowSafetyStockByVendor == null or belowSafetyStockByVendor.isEmpty()}">沒有待採購商品</p>
+							<div class="row" th:unless="${belowSafetyStockByVendor == null or belowSafetyStockByVendor.isEmpty()}">
 								<div class="col-12 mb-3" th:each="vendorEntry : ${belowSafetyStockByVendor}"
 									th:with="vendor=${vendorEntry.value[0].product.vendor}">
 									<div class="card">
@@ -137,13 +140,25 @@
 											<div class="d-flex justify-content-between align-items-start mb-3">
 												<h6 class="font-weight-bold text-gray-800"
 													th:text="${vendor != null ? vendor.vendorId + ' - ' + vendor.vendorName : '未設定供應商'}"></h6>
-												<!-- 帶 vendorId 到新增頁，由 PoController 的 addPo 先選好供應商，明細由使用者自己填；未啟用的供應商無法採購，不顯示 -->
-												<a th:if="${vendor != null and vendor.isActive == 1}"
+												<!-- 帶 vendorId 到新增頁，由 PoController 的 addPo 先選好供應商，並把這個區塊的規格帶入明細（只帶入規格，新增頁另外顯示建議採購量）；未啟用的供應商無法採購，不顯示 -->
+												<!-- 區塊裡已經有規格在待審核的採購單裡時（pendingPoIdByVendorId 有這個供應商），不能再新增，改顯示下方的「更新採購單」 -->
+												<a th:if="${vendor != null and vendor.isActive == 1 and pendingPoIdByVendorId?.get(vendor.vendorId) == null}"
 													th:href="@{/admin/psi/purchase/addPo(vendorId=${vendor.vendorId})}"
 													class="btn btn-success btn-icon-split btn-sm"> <span
 													class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
 													class="text">新增採購單</span>
 												</a>
+												<!-- 更新採購單：以 POST 把待審核採購單的 poId 送到 PoController 的 getOne_For_Update；送出時已經被審核的單會被擋下 -->
+												<form method="post" th:action="@{/admin/psi/purchase/getOne_For_Update}"
+													th:if="${vendor != null and pendingPoIdByVendorId?.get(vendor.vendorId) != null}">
+													<input type="hidden" name="poId" th:value="${pendingPoIdByVendorId.get(vendor.vendorId)}">
+													<!-- fillShortage：把待採購、但還不在這張單裡的規格先加進修改頁的明細（只帶入規格，修改頁另外顯示建議採購量） -->
+													<input type="hidden" name="fillShortage" value="true">
+													<button type="submit" class="btn btn-warning btn-icon-split btn-sm">
+														<span class="icon text-white-50"><i class="fas fa-edit"></i></span>
+														<span class="text">更新採購單</span>
+													</button>
+												</form>
 											</div>
 											<div class="table-responsive">
 												<table class="table table-bordered table-sm mb-0" width="100%" cellspacing="0">

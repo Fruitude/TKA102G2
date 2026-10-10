@@ -42,8 +42,10 @@
 					<!-- 申請通過（poStatus = 1）且尚未驗收（inboundStatus = 0）的採購單：poListData 由 ReceivingController 的 receiving 放入 model -->
 					<!-- 表格比照 purchase/listAllPo.html；清單裡都是申請通過、尚未驗收的單，所以不列採購單狀態與驗收相關的欄位 -->
 					<div class="card shadow mb-4">
-						<div class="card-header py-3">
+						<div class="card-header py-3 d-flex justify-content-between align-items-center">
 							<h6 class="m-0 font-weight-bold text-primary">待驗收採購單</h6>
+							<!-- 連到 ReceivingController 的 listAllReceiving，列出已結案（驗收過）的採購單，可以查看或修改驗收紀錄 -->
+							<a th:href="@{/admin/psi/receiving/listAllReceiving}" class="btn btn-info btn-sm">查詢驗收紀錄</a>
 						</div>
 						<div class="card-body">
 							<div class="table-responsive">
@@ -58,16 +60,6 @@
 											<th>總金額</th>
 										</tr>
 									</thead>
-									<tfoot>
-										<tr>
-											<th>操作</th>
-											<th>編號</th>
-											<th>供應商</th>
-											<th>採購員工</th>
-											<th>採購日期</th>
-											<th>總金額</th>
-										</tr>
-									</tfoot>
 									<tbody>
 										<tr th:each="poVO : ${poListData}">
 											<td>

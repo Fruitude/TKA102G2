@@ -32,11 +32,11 @@
 						<span class="text">回進貨系統管理</span>
 					</a>
 
-					<!-- 驗收完成、驗收失敗的提示：由 ReceivingController 的 update redirect 回來時顯示 -->
+					<!-- 驗收完成、修改完成或被擋下的提示：由 ReceivingController 的 update redirect 回來時顯示 -->
 					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
 					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
 
-					<!-- 採購單與驗收資料：poVO 由 ReceivingController 的 listOneReceiving 放入 model，一定是申請通過的採購單 -->
+					<!-- 採購單與驗收資料：poVO 由 ReceivingController 的 listOneReceiving 放入 model，是申請通過或已結案的採購單 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
 							<h6 class="m-0 font-weight-bold text-primary">進貨驗收</h6>
@@ -72,6 +72,7 @@
 												<span th:case="0">尚未驗收</span>
 												<span th:case="1">驗收成功</span>
 												<span th:case="2">驗收失敗</span>
+												<span th:case="3">已取消</span>
 											</td>
 										</tr>
 										<tr>
@@ -101,6 +102,12 @@
 								th:if="${poVO.receivable}">
 								<input type="hidden" name="poId" th:value="${poVO.poId}">
 								<button type="submit" class="btn btn-primary btn-sm">驗收</button>
+							</form>
+							<!-- 已結案（驗收過）的採購單顯示修改按鈕，同樣進入 getOneForUpdate，驗收頁會帶入上次存的內容 -->
+							<form method="post" th:action="@{/admin/psi/receiving/getOneForUpdate}" class="m-0"
+								th:if="${poVO.closed}">
+								<input type="hidden" name="poId" th:value="${poVO.poId}">
+								<button type="submit" class="btn btn-danger btn-sm">修改</button>
 							</form>
 						</div>
 						<div class="card-body">

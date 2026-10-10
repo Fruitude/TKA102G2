@@ -47,6 +47,12 @@ public class PoNoController {
 		return poSvc.getPendingQuantityBySkuId();
 	}
 
+	// 待採購商品的各供應商區塊要更新的待審核採購單：key 是供應商編號、value 是採購單系統編號；有值的區塊顯示「更新採購單」而不是「新增採購單」
+	@ModelAttribute("pendingPoIdByVendorId")
+	public Map<Integer, Integer> pendingPoIdByVendorId() {
+		return poSvc.getPendingPoIdByVendorId();
+	}
+
 	// 依採購單編號查單筆，查到後交給 PoController 的 listOnePo 顯示
 	@PostMapping("/getOneForDisplay")
 	public String getOneForDisplay(Model model, @RequestParam(value = "poNo", required = false) String poNo,
@@ -131,6 +137,7 @@ public class PoNoController {
 		mav.addObject("errorMessage", String.join("\n", messages));
 		mav.addObject("belowSafetyStockByVendor", poSvc.getBelowSafetyStockByVendor());
 		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
+		mav.addObject("pendingPoIdByVendorId", poSvc.getPendingPoIdByVendorId());
 		return mav;
 	}
 

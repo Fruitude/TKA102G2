@@ -61,9 +61,9 @@ public class PoVO implements java.io.Serializable{
 
     @NotNull(message = "採購單狀態，請勿空白")
     @Min(value = 0, message = "採購單狀態值不正確")
-    @Max(value = 3, message = "採購單狀態值不正確")
+    @Max(value = 4, message = "採購單狀態值不正確")
     @Column(name = "po_status", nullable = false)
-    private Byte poStatus = 0;                // 採購單狀態 0=待審核,1=申請通過,2=申請未通過,3=已取消
+    private Byte poStatus = 0;                // 採購單狀態 0=待審核,1=申請通過,2=申請未通過,3=已取消,4=已結案
 
     @NotNull(message = "採購單總金額，請勿空白")
     @Min(value = 0, message = "總金額不可為負數")
@@ -83,7 +83,7 @@ public class PoVO implements java.io.Serializable{
     @Min(value = 0, message = "驗收狀態值不正確")
     @Max(value = 3, message = "驗收狀態值不正確")
     @Column(name = "inbound_status", nullable = false)
-    private Byte inboundStatus = 0;           // 驗收狀態 0=尚未驗收,1=驗收成功,2=驗收失敗
+    private Byte inboundStatus = 0;           // 驗收狀態 0=尚未驗收,1=驗收成功,2=驗收失敗,3=已取消
 
     @NotNull(message = "驗收實付金額，請勿空白")
     @Min(value = 0, message = "驗收實付金額不可為負數")
@@ -100,6 +100,11 @@ public class PoVO implements java.io.Serializable{
 	// 待審核（poStatus = 0）的採購單才能修改，頁面以 poVO.editable 判斷
 	public boolean isEditable() {
 		return poStatus != null && poStatus == 0;
+	}
+
+	// 已結案（poStatus = 4）的採購單已經驗收過，可以修改驗收紀錄，頁面以 poVO.closed 判斷
+	public boolean isClosed() {
+		return poStatus != null && poStatus == 4;
 	}
 
 	// 申請通過（poStatus = 1）且尚未驗收（inboundStatus = 0）的採購單才能驗收，頁面以 poVO.receivable 判斷

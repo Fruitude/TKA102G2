@@ -72,10 +72,13 @@
 
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
-							<h6 class="m-0 font-weight-bold text-primary">進貨驗收</h6>
+							<!-- 已結案的採購單（poVO.closed）是修改驗收紀錄，待驗收的是第一次驗收 -->
+							<h6 class="m-0 font-weight-bold text-primary" th:text="${poVO.closed ? '修改驗收紀錄' : '進貨驗收'}">進貨驗收</h6>
 						</div>
 						<div class="card-body">
 							<p class="text-muted"><span class="text-danger">*</span> 為必填欄位</p>
+							<!-- 修改驗收紀錄時，庫存只調整入庫數量和原本的差額；差額是負的而庫存不夠扣時，後端會擋下 -->
+							<p class="text-muted" th:if="${poVO.closed}">送出後，庫存會依入庫數量和原本的差額調整；驗收員工與驗收日期維持第一次驗收的紀錄。</p>
 
 							<!-- poVO、inboundEmployee、inboundDateNow 由 ReceivingController 的 getOneForUpdate 放入 model；檢查失敗時由 update 放入 -->
 							<!-- 頁面不做驗證（novalidate），檢查都在 ReceivingController 的 update；錯誤以 th:errors 顯示在對應欄位下方 -->
@@ -84,6 +87,8 @@
 								th:object="${poVO}" novalidate>
 
 								<input type="hidden" th:field="*{poId}" />
+								<!-- 這次看到的驗收內容摘要（ReceivingController 放入 model），存檔時比對；期間被別人驗收或修改過就不存檔 -->
+								<input type="hidden" name="receivedContent" th:value="${receivedContent}" />
 
 								<div class="form-group">
 									<label for="poNo">採購單編號</label>
@@ -113,30 +118,39 @@
 								<hr>
 
 								<!-- 驗收狀態由使用者選擇；尚未驗收（0）不是可以選的結果，所以第一個選項是空白 -->
-								<!-- 選驗收失敗時，下方明細的到貨數量、不良品數量會歸零並鎖住，存檔時後端也一律存 0 -->
+								<!-- 驗收失敗：只填到貨數量，不良品數量鎖住並跟著到貨數量；已取消（廠商的貨沒有來）：到貨、不良品數量歸零並鎖住 -->
+								<!-- 存檔時後端的 ReceivingService 也照同樣的規則決定這些數量，不採信表單送來的值 -->
 								<div class="form-group">
 									<label for="inboundStatus" class="required">驗收狀態</label>
 									<select th:field="*{inboundStatus}" class="custom-select" style="max-width: 240px;">
 										<option value="">請選擇驗收狀態</option>
 										<option value="1">驗收成功</option>
 										<option value="2">驗收失敗</option>
+										<option value="3">已取消</option>
 									</select>
 									<span th:if="${#fields.hasErrors('inboundStatus')}" th:errors="*{inboundStatus}"
 										class="text-danger d-block mt-1"></span>
 								</div>
 
-								<!-- 驗收員工固定為登入的員工，只顯示不送出；實際存入的員工由 ReceivingController 的 update 從 session 取得 -->
+								<!-- 驗收員工只顯示不送出，顯示的內容和存檔結果一致： -->
+								<!-- 第一次驗收：登入的員工，實際存入的員工由 ReceivingController 的 update 從 session 取得 -->
+								<!-- 修改驗收紀錄（poVO.closed）：第一次驗收的員工，修改不會更動，由 ReceivingService 補進 poVO -->
 								<div class="form-group">
 									<label>驗收員工</label>
-									<input type="text" class="form-control-plaintext" readonly
+									<input type="text" class="form-control-plaintext" readonly th:unless="${poVO.closed}"
 										th:value="${inboundEmployee != null ? inboundEmployee.employeeId + ' - ' + inboundEmployee.employeeName : '尚未登入'}" />
+									<input type="text" class="form-control-plaintext" readonly th:if="${poVO.closed}"
+										th:value="${poVO.inboundEmployeeId != null ? poVO.inboundEmployeeId.employeeId + ' - ' + poVO.inboundEmployeeId.employeeName : ''}" />
 								</div>
 
-								<!-- 驗收日期固定為現在，只顯示不送出；實際存入的時間由 ReceivingService 的 receive 在存檔時決定 -->
+								<!-- 驗收日期只顯示不送出：第一次驗收是現在的時間，實際存入的時間由 ReceivingService 的 receive 在存檔時決定； -->
+								<!-- 修改驗收紀錄是第一次驗收的日期，修改不會更動 -->
 								<div class="form-group">
 									<label>驗收日期</label>
-									<input type="text" class="form-control-plaintext" readonly
+									<input type="text" class="form-control-plaintext" readonly th:unless="${poVO.closed}"
 										th:value="${#temporals.format(inboundDateNow, 'yyyy-MM-dd HH:mm')}" />
+									<input type="text" class="form-control-plaintext" readonly th:if="${poVO.closed}"
+										th:value="${poVO.inboundDate != null ? #temporals.format(poVO.inboundDate, 'yyyy-MM-dd HH:mm') : ''}" />
 								</div>
 
 								<!-- 驗收實付金額是所有明細入庫小計的加總，不能手動輸入；由下方 script 即時計算，存檔時由後端重算 -->
@@ -147,7 +161,12 @@
 
 								<!-- 採購明細：不能增刪，只填每筆的到貨數量與不良品數量 -->
 								<!-- 入庫數量 = 到貨數量 - 不良品數量、入庫小計 = 入庫數量 x 進貨單價，由下方 script 即時計算，存檔時由 ReceivingService 重算 -->
-								<label>採購明細</label>
+								<!-- 數量的錯誤訊息（detailErrorMessage，ReceivingController 的 update 放入 model）顯示在標題的同一行，紅字、沒有外框，一筆錯誤一行 -->
+								<div class="d-flex align-items-start mb-2">
+									<label class="mb-0 text-nowrap">採購明細</label>
+									<span id="detail_error" class="text-danger ml-3" style="white-space: pre-line;"
+										th:if="${detailErrorMessage != null}" th:text="${detailErrorMessage}"></span>
+								</div>
 								<div class="table-responsive">
 									<table class="table table-bordered" id="po_detail_table">
 										<thead>
@@ -173,19 +192,14 @@
 												<td th:text="${poDetailVO.quantity}"></td>
 												<td th:text="${poDetailVO.unitPrice}"></td>
 												<td>
-													<!-- type="number" 只是讓瀏覽器擋掉文字輸入；空白、範圍由 ReceivingController 的 checkReceiving 檢查。th:field 會保留使用者輸入的內容 -->
-													<input type="number" class="form-control detail-arrived"
+													<!-- type="number"、min、step 只是讓瀏覽器先擋掉文字、負數、小數；空白、範圍由 ReceivingService 的 checkReceiving 檢查 -->
+													<!-- 第一次驗收時是空白的；th:field 會保留使用者輸入的內容。錯誤訊息統一顯示在「採購明細」標題旁邊 -->
+													<input type="number" min="0" step="1" class="form-control detail-arrived"
 														th:field="*{poDetails[__${stat.index}__].arrivedPcs}" />
-													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].arrivedPcs')}"
-														th:errors="*{poDetails[__${stat.index}__].arrivedPcs}"
-														class="text-danger d-block mt-1"></span>
 												</td>
 												<td>
-													<input type="number" class="form-control detail-defect"
+													<input type="number" min="0" step="1" class="form-control detail-defect"
 														th:field="*{poDetails[__${stat.index}__].defectPcs}" />
-													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].defectPcs')}"
-														th:errors="*{poDetails[__${stat.index}__].defectPcs}"
-														class="text-danger d-block mt-1"></span>
 												</td>
 												<td><span class="detail-inbound" th:text="${poDetailVO.inboundPcs}"></span></td>
 												<td><span class="detail-inbound-subtotal" th:text="${poDetailVO.inboundSubtotal}"></span></td>
@@ -194,7 +208,7 @@
 									</table>
 								</div>
 
-								<button type="submit" id="submit" class="btn btn-primary">送出驗收</button>
+								<button type="submit" id="submit" class="btn btn-primary" th:text="${poVO.closed ? '送出修改' : '送出驗收'}">送出驗收</button>
 							</form>
 						</div>
 					</div>
@@ -247,42 +261,67 @@
 
 		detailBody.addEventListener("input", updateAmounts);
 
-		//使用者開始修改某一格時，清掉該格下方的錯誤訊息
-		detailBody.addEventListener("input", function(event) {
-			var cell = event.target.closest("td");
-			if (!cell) {
-				return;
+		//使用者開始修改數量或改選驗收狀態時，清掉「採購明細」旁邊的錯誤訊息（訊息是照送出當時的內容寫的，改過之後就不準了）
+		function clearDetailError() {
+			var detailError = document.getElementById("detail_error");
+			if (detailError) {
+				detailError.remove();
 			}
-			cell.querySelectorAll(".text-danger").forEach(function(errorSpan) {
-				errorSpan.remove();
-			});
-		});
+		}
+		detailBody.addEventListener("input", clearDetailError);
 
-		//選了驗收失敗時，到貨數量、不良品數量歸零並鎖住不能改（readonly 仍會送出 0）；改選其他狀態時解鎖讓使用者重填
-		//後端的 ReceivingService 在驗收失敗時也會把數量歸零，這裡只是讓畫面和存檔結果一致
+		//依驗收狀態鎖住不由使用者決定的數量（readonly 仍會送出）；改選其他狀態時解鎖讓使用者重填
+		//驗收失敗（2）：只填到貨數量，不良品數量鎖住並等於到貨數量，入庫數量就會是 0
+		//已取消（3）：到貨數量、不良品數量都歸零並鎖住
+		//後端的 ReceivingService 存檔時也照同樣的規則決定這些數量，這裡只是讓畫面和存檔結果一致
 		var inboundStatusSelect = document.getElementById("inboundStatus");
+		//改選之前的驗收狀態：從驗收失敗、已取消改選別的狀態時，要把當時自動填的數量清掉
+		var previousInboundStatus = inboundStatusSelect.value;
 
-		function applyInboundStatus() {
+		//statusChanged：使用者改選驗收狀態時是 true；剛進頁面、檢查失敗回來時是 false，不清掉已經填的數量
+		function applyInboundStatus(statusChanged) {
 			var inboundFailed = inboundStatusSelect.value === "2";
-			detailBody.querySelectorAll(".detail-arrived, .detail-defect").forEach(function(input) {
-				if (inboundFailed) {
-					input.value = 0;
+			var inboundCancelled = inboundStatusSelect.value === "3";
+			detailBody.querySelectorAll("tr").forEach(function(row) {
+				var arrivedInput = row.querySelector(".detail-arrived");
+				var defectInput = row.querySelector(".detail-defect");
+				if (inboundCancelled) {
+					arrivedInput.value = 0;
+					defectInput.value = 0;
+				} else {
+					if (statusChanged && previousInboundStatus === "3") {
+						//原本是已取消：到貨、不良品的 0 是自動填的，清空讓使用者重填
+						arrivedInput.value = "";
+						defectInput.value = "";
+					}
+					if (inboundFailed) {
+						defectInput.value = arrivedInput.value;
+					} else if (statusChanged && previousInboundStatus === "2") {
+						//原本是驗收失敗：不良品數量是自動跟著到貨數量的，清空讓使用者重填
+						defectInput.value = "";
+					}
 				}
-				input.readOnly = inboundFailed;
+				arrivedInput.readOnly = inboundCancelled;
+				defectInput.readOnly = inboundFailed || inboundCancelled;
 			});
-			if (inboundFailed) {
-				//數量已經歸零，原本顯示在數量欄位下方的錯誤訊息不再適用
-				detailBody.querySelectorAll(".text-danger").forEach(function(errorSpan) {
-					errorSpan.remove();
-				});
-			}
+			previousInboundStatus = inboundStatusSelect.value;
 			updateAmounts();
 		}
 
-		inboundStatusSelect.addEventListener("change", applyInboundStatus);
+		inboundStatusSelect.addEventListener("change", function() {
+			clearDetailError();
+			applyInboundStatus(true);
+		});
+		//驗收失敗時，使用者每改一次到貨數量，不良品數量就跟著變
+		detailBody.addEventListener("input", function(event) {
+			if (inboundStatusSelect.value === "2" && event.target.classList.contains("detail-arrived")) {
+				event.target.closest("tr").querySelector(".detail-defect").value = event.target.value;
+				updateAmounts();
+			}
+		});
 
 		//進頁面時依驗收狀態與輸入框的數量算一次；檢查失敗回來時，畫面上的入庫數量與金額才會和使用者填的內容一致
-		applyInboundStatus();
+		applyInboundStatus(false);
 
 		//送出後鎖住按鈕，避免連按重複送出
 		document.querySelector(".update_form").addEventListener("submit", function() {
