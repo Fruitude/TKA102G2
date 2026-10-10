@@ -46,7 +46,7 @@ public class FrontCatalogService {
             FrontCatalogRow product = group.get(0);
             List<SkuView> skus = group.stream().map(row -> {
                 List<Integer> ids = List.copyOf(images.getOrDefault(row.getSkuId(), List.of()));
-           return new SkuView(row.getSkuId(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty()),
+           return new SkuView(row.getSkuId(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty(), row.getMaxBackorderQty()),
                     ids.isEmpty() ? null : ids.get(0), ids, row.getSkuStatus());
             }).toList();
             SkuView cheapest = skus.stream().min(Comparator.comparing(SkuView::price).thenComparing(SkuView::skuId)).orElseThrow();
@@ -68,16 +68,17 @@ public class FrontCatalogService {
     }
 
     // The stock view field is the order quantity limit, not physical stock.
-    static int quantityLimit(Integer status, Integer stock, Integer inbound, Integer outbound) {
-        // 狀態 1：一次最多 10 箱，而且不能超過 stock 欄位（查不到 stock 時只套用 10 箱上限）
-        if (Integer.valueOf(1).equals(status)) return stock == null ? 10 : Math.min(10, Math.max(0, stock));
-        if (Integer.valueOf(2).equals(status)) return 10;
-        if (Integer.valueOf(3).equals(status)) {
-            long expected = (stock == null ? 0L : stock.longValue())
-                + (inbound == null ? 0L : inbound.longValue()) - (outbound == null ? 0L : outbound.longValue());
-            return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, expected));
-        }
-        return 0;
+    // 可售量 = stock + inbound_qty − outbound_qty（下單只增加 outbound_qty，出貨時才扣 stock）
+    static int quantityLimit(Integer status, Integer stock, Integer inbound, Integer outbound, Integer maxBackorder) {
+        long sellable = (stock == null ? 0L : stock.longValue())
+            + (inbound == null ? 0L : inbound.longValue()) - (outbound == null ? 0L : outbound.longValue());
+        long limit;
+        if (Integer.valueOf(1).equals(status)) limit = Math.min(10L, sellable);               // 上架：一次最多 10 箱，有貨才賣
+        else if (Integer.valueOf(2).equals(status))                                         // 缺貨：可售量再加預購額度，一次最多 10 箱
+            limit = Math.min(10L, sellable + (maxBackorder == null ? 0L : Math.max(0, maxBackorder)));
+        else if (Integer.valueOf(3).equals(status)) limit = sellable;                       // 即將售完：賣完為止
+        else limit = 0L;                                                                    // 下架、永久停產、售完
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, limit));
     }
 
     private boolean containsGift(String text) { return text != null && text.contains("禮盒"); }
@@ -88,7 +89,7 @@ public class FrontCatalogService {
         if (requested.isEmpty()) return List.of();
         Map<Integer, Integer> promoPrices = activePromoPrices(requested);
         return repository.findLiveSkus(requested).stream().map(row -> {
-            int stock = quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty());
+            int stock = quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty(), row.getMaxBackorderQty());
             boolean available = Integer.valueOf(1).equals(row.getProductStatus()) && row.getSkuStatus() != null && Set.of(1,2,3).contains(row.getSkuStatus())
                 && row.getPrice() != null && row.getPrice() > 0 && stock > 0;
             return new LiveSku(row.getSkuId(), row.getName(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), stock, available, row.getSkuStatus());

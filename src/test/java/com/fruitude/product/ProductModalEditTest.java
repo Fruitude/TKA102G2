@@ -29,7 +29,7 @@ public class ProductModalEditTest {
         service=new ProductModalEditService(products,categories,vendors,new ProductLifecycleService(access),access);
     }
     private ProductModalEditService.SkuForm sku(Integer id, byte status, int originalStock) {
-        return new ProductModalEditService.SkuForm(id,"New SKU","Alias",199,20,10,0,0,status,null,originalStock,0,0);
+        return new ProductModalEditService.SkuForm(id,"New SKU","Alias",199,20,10,0,0,status,null,originalStock,0,0,10);
     }
     private void save(ProductModalEditService.SkuForm form) {
         service.save(new ProductModalEditService.SaveRequest(new ProductModalEditService.ProductForm(10,"Changed","Description",2,3,(byte)0,null),List.of(form),false,false));

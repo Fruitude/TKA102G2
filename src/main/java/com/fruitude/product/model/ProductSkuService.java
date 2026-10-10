@@ -33,6 +33,7 @@ public class ProductSkuService {
         sku.setSkuName(form.getSkuName().trim()); sku.setAnotherName(form.getAnotherName());
         sku.setPrice(form.getPrice()); sku.setStock(form.getStock()); sku.setSafetyStock(form.getSafetyStock());
         sku.setInboundQty(form.getInboundQty()); sku.setOutboundQty(form.getOutboundQty());
+        if (form.getMaxBackorderQty() != null && form.getMaxBackorderQty() >= 0) sku.setMaxBackorderQty(form.getMaxBackorderQty());
         sku.setStatus(form.getStatus()); sku.setUpdatedAt(java.time.LocalDateTime.now());
         lifecycle.synchronize(product);
         products.saveAndFlush(product);

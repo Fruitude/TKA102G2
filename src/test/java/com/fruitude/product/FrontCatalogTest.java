@@ -23,7 +23,7 @@ public class FrontCatalogTest {
                         rows.add(projection(FrontCatalogRow.class, key -> switch (key) {
                             case "getProductId" -> p.getProductId(); case "getName" -> p.getProductName(); case "getDescription" -> p.getProductDesc();
                             case "getCategoryId" -> p.getProductCategory() == null ? null : p.getProductCategory().getProductCategoryId();
-                            case "getSkuId" -> s.getSkuId(); case "getSkuName" -> s.getSkuName(); case "getAnotherName" -> s.getAnotherName(); case "getPrice" -> s.getPrice(); case "getSkuStatus" -> (int)s.getStatus(); case "getStock" -> s.getStock(); case "getInboundQty" -> s.getInboundQty(); case "getOutboundQty" -> s.getOutboundQty(); default -> null;
+                            case "getSkuId" -> s.getSkuId(); case "getSkuName" -> s.getSkuName(); case "getAnotherName" -> s.getAnotherName(); case "getPrice" -> s.getPrice(); case "getSkuStatus" -> (int)s.getStatus(); case "getStock" -> s.getStock(); case "getInboundQty" -> s.getInboundQty(); case "getOutboundQty" -> s.getOutboundQty(); case "getMaxBackorderQty" -> s.getMaxBackorderQty(); default -> null;
                         }));
                 return rows;
             }

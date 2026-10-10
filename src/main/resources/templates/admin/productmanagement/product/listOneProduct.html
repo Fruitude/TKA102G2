@@ -645,6 +645,13 @@
                         </span>
                     </div>
 
+                    <div class="item">
+                        <span class="name">預購額度</span>
+                        <span class="value"
+                              th:text="${sku.maxBackorderQty != null ? sku.maxBackorderQty : 0}">
+                        </span>
+                    </div>
+
                 <div class="item" th:with="rating=${sku.allCommentAmount != null and sku.allCommentAmount > 0 and sku.allCommentStar != null ? sku.allCommentStar * 1.0 / sku.allCommentAmount : 0.0}">
                     <span class="name">規格均分</span><span class="value rating-value">
                         <span class="rating-stars" role="img" th:attr="aria-label=${#numbers.formatDecimal(rating, 1, 1) + '顆星，共5顆星'}">
