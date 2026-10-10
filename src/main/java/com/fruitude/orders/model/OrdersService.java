@@ -39,6 +39,9 @@ public class OrdersService {
 	@Autowired
 	private MemberRepository memberRepository;
 
+	@Autowired
+	private com.fruitude.product.model.ProductSkuRepository productSkuRepository;
+
 	// 下單時鎖定規格、原子扣庫存（庫存夠才扣）
 	@Autowired
 	private SkuStockRepository skuStockRepository;
@@ -265,6 +268,12 @@ public class OrdersService {
 		}
 	}
 
+	// 可以評論的訂單：客戶已收件（7）、客戶驗收成功（8）
+	public static boolean isCommentableStatus(Integer ordersStatus) {
+		return ordersStatus != null && (ordersStatus == Utils.OrderStatus.DELIVERED.getCode()
+				|| ordersStatus == Utils.OrderStatus.ACCEPTED.getCode());
+	}
+
 	// 會員「購買清單」頁：查出會員的訂單與商品明細。
 	// 分頁與顯示文字由「訂單出貨狀態碼」合併金流狀態決定（OrderStatus 的對照表）；
 	// 狀態碼不在對照表內的訂單不顯示
@@ -279,10 +288,28 @@ public class OrdersService {
 			ordersIds.add(o.getOrdersId());
 		}
 		// 一次查出全部明細，再依訂單編號分組，避免每張訂單各查一次
+		List<OrdersDetail> details = ordersDetailRepository.findByOrdersIdIn(ordersIds);
+		// 顯示規格名稱（例如「香水草莓250g一般盒」）；查不到規格才退回訂單明細上的品名
+		List<Integer> skuIds = new ArrayList<>();
+		for (OrdersDetail d : details) {
+			skuIds.add(d.getSkuId());
+		}
+		Map<Integer, String> skuNames = new HashMap<>();
+		for (com.fruitude.product.model.ProductSku sku : productSkuRepository.findAllById(skuIds)) {
+			skuNames.put(sku.getSkuId(), com.fruitude.product.model.ProductSku.resolveDisplayName(
+					sku.getSkuName(), sku.getAnotherName()));
+		}
 		Map<Integer, List<MemberOrderView.Item>> itemsByOrders = new HashMap<>();
-		for (OrdersDetail d : ordersDetailRepository.findByOrdersIdIn(ordersIds)) {
+		for (OrdersDetail d : details) {
+			// 每張訂單的每個商品各可評論一次：這筆明細已有評論內容就算已評論
+			boolean reviewed = d.getCommentText() != null && !d.getCommentText().isBlank();
+			String itemName = skuNames.get(d.getSkuId());
+			if (itemName == null || itemName.isBlank()) {
+				itemName = d.getProductName();
+			}
 			itemsByOrders.computeIfAbsent(d.getOrdersId(), k -> new ArrayList<>())
-					.add(new MemberOrderView.Item(d.getSkuId(), d.getProductName(), d.getOrdersQuantity()));
+					.add(new MemberOrderView.Item(d.getOrdersDetailId(), d.getSkuId(), itemName,
+							d.getOrdersQuantity(), reviewed));
 		}
 		for (Orders o : ordersList) {
 			Utils.OrderStatus orderStatus = o.getOrdersStatus() == null ? null
@@ -293,7 +320,7 @@ public class OrdersService {
 			String status = Utils.getOrderStatus(orderStatus, orderStatus.getExpectedPaymentStatus());
 			List<MemberOrderView.Item> items = itemsByOrders.getOrDefault(o.getOrdersId(), List.of());
 			result.add(new MemberOrderView(o.getOrdersId(), o.getOrdersDate(), orderStatus.getMemberTab().getKey(),
-					status, o.getActualPaymentAmount(), items));
+					status, o.getActualPaymentAmount(), isCommentableStatus(o.getOrdersStatus()), items));
 		}
 		return result;
 	}

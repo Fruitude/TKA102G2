@@ -12,6 +12,7 @@
   <link href="../../../css/member-assets.css?v=1" rel="stylesheet" type="text/css" />
   <style>
     .order-card { border: 1px solid #e5e5e5; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+    .order-card.is-target { border-color: #b4462b; box-shadow: 0 0 0 2px rgba(180, 70, 43, .25); }
     .order-card-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; font-weight: 600; }
     .order-card-status { color: #b4462b; }
     .order-card-date { color: #777; font-size: .875rem; margin: .25rem 0 .75rem; }
@@ -19,6 +20,7 @@
     .order-item > span:first-child { flex: 1; }
     .order-item-actions { display: flex; gap: .5rem; }
     .order-item-actions .asset-row-button { min-height: 34px; padding: 4px 12px; }
+    .order-card-comment { justify-content: flex-end; margin-top: .75rem; }
     .order-card-total { text-align: right; font-weight: 600; margin-top: .75rem; }
   </style>
   <script src="../../../ajax/libs/webfont/1.6.26/webfont.js" type="text/javascript"></script>
@@ -246,6 +248,7 @@
       function renderOrder(order) {
         var card = document.createElement("div");
         card.className = "order-card";
+        card.id = "order-" + order.ordersId;
         var head = document.createElement("div");
         head.className = "order-card-head";
         head.appendChild(text("span", "", "訂單 #" + order.ordersId));
@@ -257,24 +260,33 @@
           row.className = "order-item";
           row.appendChild(text("span", "", order.items[i].productName));
           row.appendChild(text("span", "", "× " + order.items[i].quantity));
-          // 已完成的訂單，每個商品多「再買一次」「評論」兩個按鈕；不成立的訂單只有「再買一次」（評論功能之後再接）
+          // 已完成與不成立的訂單，每個商品有「再買一次」按鈕
           if (order.tab === "completed" || order.tab === "canceled") {
             var actions = document.createElement("span");
             actions.className = "order-item-actions";
-            var actionNames = order.tab === "completed" ? ["rebuy", "comment"] : ["rebuy"];
-            var actionLabels = ["再買一次", "評論"];
-            for (var j = 0; j < actionNames.length; j++) {
-              var button = text("button", "asset-row-button", actionLabels[j]);
-              button.type = "button";
-              button.setAttribute("data-action", actionNames[j]);
-              button.setAttribute("data-orders-id", order.ordersId);
-              button.setAttribute("data-sku-id", order.items[i].skuId);
-              button.setAttribute("data-quantity", order.items[i].quantity);
-              actions.appendChild(button);
-            }
+            var button = text("button", "asset-row-button", "再買一次");
+            button.type = "button";
+            button.setAttribute("data-action", "rebuy");
+            button.setAttribute("data-orders-id", order.ordersId);
+            button.setAttribute("data-sku-id", order.items[i].skuId);
+            button.setAttribute("data-quantity", order.items[i].quantity);
+            actions.appendChild(button);
             row.appendChild(actions);
           }
           card.appendChild(row);
+        }
+        // 每張訂單只有一個「評論」按鈕：開新頁面評論這張訂單的商品；全部商品都評論過就顯示「已評論」
+        if (order.tab === "completed" && order.canComment && order.items.length > 0) {
+          var allReviewed = order.items.every(function(item) { return item.reviewed; });
+          var commentBar = document.createElement("div");
+          commentBar.className = "order-item-actions order-card-comment";
+          var commentButton = text("button", "asset-row-button", allReviewed ? "已評論" : "評論");
+          commentButton.type = "button";
+          commentButton.setAttribute("data-action", "comment");
+          commentButton.setAttribute("data-orders-id", order.ordersId);
+          if (allReviewed) commentButton.disabled = true;
+          commentBar.appendChild(commentButton);
+          card.appendChild(commentBar);
         }
         card.appendChild(text("div", "order-card-total", "訂單金額 NT$ " + Number(order.amount || 0).toLocaleString("zh-TW")));
         return card;
@@ -290,6 +302,14 @@
         }
         window.SSXCart.addProduct({ skuId: button.getAttribute("data-sku-id"), image: "" },
           Number(button.getAttribute("data-quantity")) || 1, button, null);
+      });
+
+      // 評論：開新頁面，列出這張訂單的商品讓會員評星與留言
+      document.addEventListener("click", function(event) {
+        var button = event.target.closest('button[data-action="comment"]');
+        if (!button || button.disabled) return;
+        window.location.href = contextPath + "/front/about/member/review/?ordersId="
+          + encodeURIComponent(button.getAttribute("data-orders-id"));
       });
 
       fetch(contextPath + "/api/members/me/orders", { credentials: "same-origin", headers: { "Accept": "application/json" } })
@@ -309,6 +329,15 @@
           document.querySelectorAll(".asset-panel[data-panel]").forEach(function(panel) {
             panel.querySelector("[data-order-empty]").hidden = !!counts[panel.getAttribute("data-panel")];
           });
+          // ?ordersId=：從結帳完成頁「查看訂單」進來，切到該訂單所在分頁並捲動、標示這一筆
+          var targetId = new URLSearchParams(window.location.search).get("ordersId");
+          var target = targetId && document.getElementById("order-" + targetId);
+          if (target) {
+            var targetTab = document.querySelector('.asset-tab[data-view="' + target.closest(".asset-panel").getAttribute("data-panel") + '"]');
+            if (targetTab) targetTab.click();
+            target.classList.add("is-target");
+            target.scrollIntoView({ block: "center" });
+          }
         })
         .catch(function() {
           document.querySelectorAll("[data-order-empty]").forEach(function(p) { p.hidden = false; });
