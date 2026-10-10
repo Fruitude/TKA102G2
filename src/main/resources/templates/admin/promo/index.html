@@ -230,6 +230,8 @@
             border: 1px solid #d1d3e2; border-radius: .25rem; background: #fff; font-size: .8125rem; font-variant-numeric: tabular-nums; }
         .grab-cell .grab-slot { font-size: .6875rem; color: #b7b9cc; }
         .grab-cell.is-extra { border-style: dashed; background: #f8f9fc; }
+        /* 多出來的空格打 X：不會有人搶到，沒有被填上會員編號才是正確結果 */
+        .grab-cell.is-extra:not(.is-taken)::after { content: "\2715"; color: #b7b9cc; font-size: 1rem; line-height: 1; }
         .grab-cell.is-extra.is-taken { background: #ffebee; border-color: #e53935; color: #b71c1c; }
         .grab-cell.is-taken { background: #e8f5e9; border-color: #66bb6a; font-weight: 600; color: #1b5e20; }
         .grab-cell.is-taken .grab-slot { color: #66bb6a; }
