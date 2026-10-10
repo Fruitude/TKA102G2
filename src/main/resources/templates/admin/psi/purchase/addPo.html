@@ -27,19 +27,41 @@
 }
 
 #po_detail_table thead th:nth-child(2) {
-	width: 120px; /* 採購數量：最窄 */
+	width: 72px; /* 建議採購量：剛好放得下標題的五個字 */
 }
 
 #po_detail_table thead th:nth-child(3) {
-	width: 150px; /* 進貨單價 */
+	width: 120px; /* 採購數量：最窄 */
 }
 
 #po_detail_table thead th:nth-child(4) {
-	width: 180px; /* 小計：最寬 */
+	width: 150px; /* 進貨單價 */
 }
 
 #po_detail_table thead th:nth-child(5) {
+	width: 180px; /* 小計：最寬 */
+}
+
+#po_detail_table thead th:nth-child(6) {
 	width: 90px; /* 操作 */
+}
+
+/* 建議採購量只是參考用的提示，顏色比其他欄位淺、字比較小；靠右貼近採購數量的輸入框 */
+#po_detail_table .detail-suggested {
+	color: #b7b9cc;
+	font-size: 0.8rem;
+	border-right: 0;
+	/* 左右只留一點空隙，格子的邊界貼著文字 */
+	padding-left: 10px;
+	padding-right: 4px;
+	white-space: nowrap;
+	text-align: center
+}
+
+/* 建議採購量和右邊的採購數量之間不畫框線，看起來像同一格 */
+#po_detail_table .detail-suggested + th,
+#po_detail_table .detail-suggested + td {
+	border-left: 0;
 }
 </style>
 </head>
@@ -126,13 +148,14 @@
 										<thead>
 											<tr>
 												<th class="required">商品規格</th>
+												<th class="detail-suggested">建議採購量</th>
 												<th class="required">採購數量</th>
 												<th class="required">進貨單價</th>
 												<th>小計</th>
 												<th>操作</th>
 											</tr>
 										</thead>
-										<!-- 檢查失敗回來時，由這裡把送出的明細連同錯誤訊息畫出來；剛進頁面時沒有明細，由 script 補一列空白 -->
+										<!-- 檢查失敗回來時，由這裡把送出的明細連同錯誤訊息畫出來；從待採購商品連過來時，PoController 的 addPo 已經帶入明細；其餘情況剛進頁面時沒有明細，由 script 補一列空白 -->
 										<tbody>
 											<tr th:each="poDetailVO, stat : *{poDetails}">
 												<td>
@@ -145,6 +168,8 @@
 														th:errors="*{poDetails[__${stat.index}__].skuId}"
 														class="text-danger d-block mt-1 detail-error"></span>
 												</td>
+												<!-- 建議採購量：只是提示，不會送出；由 script 的 updateSuggested 依這一列選的規格填入 -->
+												<td class="detail-suggested"></td>
 												<td>
 													<!-- type="number" 只是讓瀏覽器擋掉文字輸入；空白、範圍由 PoDetailVO 的註解檢查。th:field 會保留使用者輸入的內容 -->
 													<input type="number" class="form-control detail-quantity"
@@ -171,7 +196,7 @@
 										</tbody>
 										<tfoot>
 											<tr>
-												<th colspan="3" class="text-right">總金額</th>
+												<th colspan="4" class="text-right">總金額</th>
 												<th>
 													<span id="totalAmount">0</span>
 													<span th:if="${#fields.hasErrors('totalAmount')}" th:errors="*{totalAmount}"
@@ -201,6 +226,7 @@
 									<option value="">請先選擇供應商</option>
 								</select>
 							</td>
+							<td class="detail-suggested"></td>
 							<td><input type="number" class="form-control detail-quantity" /></td>
 							<td><input type="number" class="form-control detail-unit-price" /></td>
 							<td><span class="detail-subtotal">0</span></td>
@@ -272,6 +298,19 @@
 			if (skuSelect.selectedIndex < 0) {
 				skuSelect.value = "";
 			}
+			updateSuggested(skuSelect.closest("tr"));
+		}
+
+		//建議採購量：依這一列選的規格，從 skuOptions 找出 suggestedQuantity 顯示在採購數量左邊；沒有選規格或該規格不需要採購時留空
+		function updateSuggested(row) {
+			var skuId = row.querySelector(".detail-sku").value;
+			var suggestedQuantity = null;
+			skuOptions.forEach(function(skuOption) {
+				if (String(skuOption.skuId) === skuId) {
+					suggestedQuantity = skuOption.suggestedQuantity;
+				}
+			});
+			row.querySelector(".detail-suggested").textContent = suggestedQuantity == null ? "" : suggestedQuantity;
 		}
 
 		function renderAllSkuOptions() {
@@ -359,6 +398,12 @@
 		}
 		detailBody.addEventListener("input", clearCellError);
 		detailBody.addEventListener("change", clearCellError);
+		//改選規格時，建議採購量跟著換成新規格的
+		detailBody.addEventListener("change", function(event) {
+			if (event.target.classList.contains("detail-sku")) {
+				updateSuggested(event.target.closest("tr"));
+			}
+		});
 		detailTable.addEventListener("input", updateAmounts);
 
 		//刪除明細列；至少保留一列
@@ -375,7 +420,7 @@
 			updateAmounts();
 		});
 
-		//剛進頁面時沒有明細，先放一列空白；檢查失敗回來時伺服器已經畫好明細列，補齊規格選項並算出金額
+		//剛進頁面時沒有明細，先放一列空白；檢查失敗回來、或從待採購商品帶入明細時，伺服器已經畫好明細列，補齊規格選項並算出金額
 		if (detailBody.querySelectorAll("tr").length === 0) {
 			addDetailRow();
 		} else {

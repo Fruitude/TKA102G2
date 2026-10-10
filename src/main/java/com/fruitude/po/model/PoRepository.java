@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 
 public interface PoRepository  extends JpaRepository<PoVO, Integer>  {
@@ -15,6 +18,20 @@ public interface PoRepository  extends JpaRepository<PoVO, Integer>  {
 	// 同時符合採購單狀態與驗收狀態；ReceivingService 用來查申請通過、尚未驗收的採購單
 	List<PoVO> findByPoStatusAndInboundStatus(Byte poStatus, Byte inboundStatus);
 	
+	// 審核用：採購單還是待審核（poStatus = 0）時才改成新的狀態，回傳更新的筆數
+	// 回傳 0 代表採購單不存在或已經審核過；條件和更新是同一個 UPDATE，兩個人同時審核時只有一個會成功
+	// 必須在交易裡呼叫（PoReviewService 的審核方法）；更新後清掉已經查出來的舊資料，之後再查才會是新的狀態
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("update PoVO p set p.poStatus = :newStatus where p.poId = :poId and p.poStatus = 0")
+	int updateStatusIfPending(@Param("poId") Integer poId, @Param("newStatus") Byte newStatus);
+
+	// 修改採購單存檔前鎖住這張採購單的資料列（FOR UPDATE），一直到交易結束才放開；只有還是待審核（po_status = 0）的單才查得到
+	// 回傳空的代表採購單不存在或已經審核過。鎖住期間審核（updateStatusIfPending）要等修改的交易結束才能改狀態，
+	// 審核先改了狀態的話這裡就查不到，所以不會發生「存檔存到一半被審核通過」
+	// 必須在交易裡呼叫（PoService 的 updatePoWithDetails）
+	@Query(value = "SELECT id FROM purchaseorder WHERE id = :poId AND po_status = 0 FOR UPDATE", nativeQuery = true)
+	List<Integer> lockPendingPo(@Param("poId") Integer poId);
+
 	// 以下三個給 PoNoController 的條件查詢使用
 	Optional<PoVO> findByPoNo(String poNo);
 

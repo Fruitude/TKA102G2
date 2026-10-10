@@ -27,12 +27,19 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
-					<a th:href="@{/admin/account/purchasereview}" class="btn btn-secondary btn-icon-split mb-3">
-						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
-						<span class="text">回採購單審核</span>
-					</a>
+					<!-- 左邊是回首頁的按鈕，右上角是審核結果的提示：由 PoReviewController 的 approve、reject、cancel redirect 回來時顯示 -->
+					<div class="d-flex justify-content-between align-items-start mb-3">
+						<a th:href="@{/admin/account/purchasereview}" class="btn btn-secondary btn-icon-split">
+							<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
+							<span class="text">回採購單審核</span>
+						</a>
+						<div>
+							<div class="alert alert-success mb-0" th:if="${success != null}" th:text="${success}"></div>
+							<div class="alert alert-danger mb-0" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
+						</div>
+					</div>
 
-					<!-- 採購單資料：poVO 由 PoReviewController 的 updatePurchaseReview 放入 model，一定是待審核的採購單 -->
+					<!-- 採購單資料：poVO 由 PoReviewController 的 updatePurchaseReview 放入 model，審核完回到這頁時已經不是待審核 -->
 					<!-- 這頁只顯示不能編輯，審核的人只決定通過、不通過或取消 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
@@ -57,6 +64,16 @@
 										<tr>
 											<th class="bg-light">採購日期</th>
 											<td th:text="${{poVO.orderDate}}"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">採購單狀態</th>
+											<td th:switch="${poVO.poStatus}">
+												<span th:case="0">待審核</span>
+												<span th:case="1">申請通過</span>
+												<span th:case="2">申請未通過</span>
+												<span th:case="3">已取消</span>
+												<span th:case="4">已結案</span>
+											</td>
 										</tr>
 										<tr>
 											<th class="bg-light">總金額</th>
@@ -98,15 +115,26 @@
 						</div>
 					</div>
 
-					<!-- 審核：獨立的區塊；三個按鈕先保留，還沒有接任何動作 -->
-					<div class="card shadow mb-4">
+					<!-- 審核：獨立的區塊，待審核（poStatus = 0）的採購單才顯示，審核完就不再顯示 -->
+					<!-- 三個按鈕共用一個表單送出 poId，各自以 formaction 送到 PoReviewController 的 approve、reject、cancel -->
+					<div class="card shadow mb-4" th:if="${poVO.editable}">
 						<div class="card-header py-3">
 							<h6 class="m-0 font-weight-bold text-primary">審核結果</h6>
 						</div>
 						<div class="card-body">
-							<button type="button" class="btn btn-success mr-2">通過</button>
-							<button type="button" class="btn btn-danger mr-2">不通過</button>
-							<button type="button" class="btn btn-secondary">取消採購</button>
+							<form method="post" th:action="@{/admin/account/purchasereview/approve}">
+								<input type="hidden" name="poId" th:value="${poVO.poId}">
+								<!-- 這次看到的內容摘要（PoReviewController 的 updatePurchaseReview 放入 model），只有通過會比對；期間採購單被修改過就不通過 -->
+								<input type="hidden" name="reviewedContent" th:value="${reviewedContent}">
+								<button type="submit" class="btn btn-success mr-2"
+									onclick="return confirm('確定要通過這張採購單嗎？');">通過</button>
+								<button type="submit" class="btn btn-danger mr-2"
+									th:formaction="@{/admin/account/purchasereview/reject}"
+									onclick="return confirm('確定要將這張採購單審核為不通過嗎？');">不通過</button>
+								<button type="submit" class="btn btn-secondary"
+									th:formaction="@{/admin/account/purchasereview/cancel}"
+									onclick="return confirm('確定要取消這張採購單嗎？');">取消採購</button>
+							</form>
 						</div>
 					</div>
 

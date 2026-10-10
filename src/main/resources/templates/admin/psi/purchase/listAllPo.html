@@ -46,6 +46,7 @@
 					    <span th:case="1">申請通過</span>
 					    <span th:case="2">申請未通過</span>
 					    <span th:case="3">已取消</span>
+					    <span th:case="4">已結案</span>
 					    <span th:case="*">顯示全部採購單</span>
 					</h4>
 
@@ -72,10 +73,10 @@
 											<th>採購日期</th>
 											<th>採購單狀態</th>
 											<th>總金額</th>
-											<th th:if="${poStatus == 1}">驗收員工</th>
-											<th th:if="${poStatus == 1}">驗收日期</th>
-											<th th:if="${poStatus == 1}">驗收狀態</th>
-											<th th:if="${poStatus == 1}">驗收實付金額</th>
+											<th th:if="${poStatus == 1 or poStatus == 4}">驗收員工</th>
+											<th th:if="${poStatus == 1 or poStatus == 4}">驗收日期</th>
+											<th th:if="${poStatus == 1 or poStatus == 4}">驗收狀態</th>
+											<th th:if="${poStatus == 1 or poStatus == 4}">驗收實付金額</th>
 										</tr>
 									</thead>
 									<tfoot>
@@ -87,10 +88,10 @@
 											<th>採購日期</th>
 											<th>採購單狀態</th>
 											<th>總金額</th>
-											<th th:if="${poStatus == 1}">驗收員工</th>
-											<th th:if="${poStatus == 1}">驗收日期</th>
-											<th th:if="${poStatus == 1}">驗收狀態</th>
-											<th th:if="${poStatus == 1}">驗收實付金額</th>
+											<th th:if="${poStatus == 1 or poStatus == 4}">驗收員工</th>
+											<th th:if="${poStatus == 1 or poStatus == 4}">驗收日期</th>
+											<th th:if="${poStatus == 1 or poStatus == 4}">驗收狀態</th>
+											<th th:if="${poStatus == 1 or poStatus == 4}">驗收實付金額</th>
 										</tr>
 									</tfoot>
 									<tbody>
@@ -116,17 +117,18 @@
 												<span th:case="1">申請通過</span>
 												<span th:case="2">申請未通過</span>
 												<span th:case="3">已取消</span>
+												<span th:case="4">已結案</span>
 											</td>
 											<td th:text="${poVO.totalAmount}"></td>
-											<!-- 只有篩選「申請通過」時才顯示驗收相關的四欄（表頭、表尾同樣以 poStatus 判斷） -->
-											<td th:if="${poStatus == 1}" th:text="${poVO.inboundEmployeeId != null ? poVO.inboundEmployeeId.employeeId + ' - ' + poVO.inboundEmployeeId.employeeName : ''}"></td>
-											<td th:if="${poStatus == 1}" th:text="${{poVO.inboundDate}}"></td>
-											<td th:if="${poStatus == 1}">
+											<!-- 只有篩選「申請通過」或「已結案」時才顯示驗收相關的四欄（表頭、表尾同樣以 poStatus 判斷） -->
+											<td th:if="${poStatus == 1 or poStatus == 4}" th:text="${poVO.inboundEmployeeId != null ? poVO.inboundEmployeeId.employeeId + ' - ' + poVO.inboundEmployeeId.employeeName : ''}"></td>
+											<td th:if="${poStatus == 1 or poStatus == 4}" th:text="${{poVO.inboundDate}}"></td>
+											<td th:if="${poStatus == 1 or poStatus == 4}">
 												<span th:if="${poVO.inboundStatus == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">尚未驗收</span>
 												<span th:if="${poVO.inboundStatus == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">驗收成功</span>
 												<span th:if="${poVO.inboundStatus == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">驗收失敗</span>
 											</td>
-											<td th:if="${poStatus == 1}" th:text="${poVO.inboundAmount}"></td>
+											<td th:if="${poStatus == 1 or poStatus == 4}" th:text="${poVO.inboundAmount}"></td>
 										</tr>
 									</tbody>
 								</table>

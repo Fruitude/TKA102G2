@@ -63,7 +63,7 @@ public class PoVO implements java.io.Serializable{
     @Min(value = 0, message = "採購單狀態值不正確")
     @Max(value = 3, message = "採購單狀態值不正確")
     @Column(name = "po_status", nullable = false)
-    private Byte poStatus = 0;                // 採購單狀態 0=待審核,1=申請通過,2=申請未通過,3=已取消
+    private Byte poStatus = 0;                // 採購單狀態 0=待審核,1=申請通過,2=申請未通過,3=已取消,4=已結案
 
     @NotNull(message = "採購單總金額，請勿空白")
     @Min(value = 0, message = "總金額不可為負數")

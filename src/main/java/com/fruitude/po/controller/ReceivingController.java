@@ -43,7 +43,7 @@ public class ReceivingController {
 	public String listOneReceiving(@RequestParam("poId") Integer poId, Model model) {
 		PoVO poVO = receivingSvc.getOneApprovedPo(poId);
 
-		// 查不到，或不是申請通過的採購單時回首頁
+		// 查不到，或不是申請通過、已結案的採購單時回首頁
 		if (poVO == null) {
 			return "redirect:/admin/psi/receiving";
 		}
@@ -57,7 +57,7 @@ public class ReceivingController {
 	public String getOneForUpdate(@RequestParam("poId") Integer poId, Model model, HttpSession session) {
 		PoVO poVO = receivingSvc.getOneApprovedPo(poId);
 
-		// 查不到，或不是申請通過的採購單時回首頁
+		// 查不到，或不是申請通過、已結案的採購單時回首頁
 		if (poVO == null) {
 			return "redirect:/admin/psi/receiving";
 		}

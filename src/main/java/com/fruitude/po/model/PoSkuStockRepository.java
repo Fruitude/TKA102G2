@@ -3,6 +3,7 @@ package com.fruitude.po.model;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,5 +27,16 @@ public interface PoSkuStockRepository extends JpaRepository<ProductSku, Integer>
             order by s.skuId asc
             """)
     List<ProductSku> findBelowSafetyStockByStatusIn(@Param("statuses") List<Byte> statuses);
+
+    // 採購單審核通過時，把採購數量加到規格的待進貨，回傳更新的筆數（查無此規格時為 0）
+    // 直接在資料庫加，不先讀出來再存，才不會和訂單下單、出貨對同一筆規格的更新互相覆蓋
+    // 必須在交易裡呼叫（PoReviewService 的 approve）
+    @Modifying
+    @Query("""
+            update ProductSku s
+            set s.inboundQty = coalesce(s.inboundQty, 0) + :quantity
+            where s.skuId = :skuId
+            """)
+    int addInboundQty(@Param("skuId") Integer skuId, @Param("quantity") Integer quantity);
 
 }

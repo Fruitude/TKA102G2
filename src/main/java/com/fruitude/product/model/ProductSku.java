@@ -57,6 +57,10 @@ public class ProductSku implements java.io.Serializable {
 	@Column(name = "max_backorder_qty", columnDefinition = "INT DEFAULT 10")
 	private Integer maxBackorderQty = 10;
 	
+	//採購預設購買數量，0表示預設不多買，20表示購買大於缺口數量20個
+	@Column(name="purchase_add_on_qty",columnDefinition = "INT DEFAULT 20")
+	private Integer purchaseAddOnQty=20;
+
 	@Column(name = "price")
 	private Integer price;
 	
@@ -267,5 +271,13 @@ public class ProductSku implements java.io.Serializable {
 	    int safetyStock = this.safetyStock == null ? 0 : this.safetyStock;
 
 	    return safetyStock - getExpectedStock();
+	}
+	
+	public Integer getPurchaseAddOnQty() {
+		return purchaseAddOnQty;
+	}
+
+	public void setPurchaseAddOnQty(Integer purchaseAddOnQty) {
+		this.purchaseAddOnQty = purchaseAddOnQty;
 	}
 }

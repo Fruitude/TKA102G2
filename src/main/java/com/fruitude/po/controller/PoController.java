@@ -73,6 +73,12 @@ public class PoController {
 		return poSvc.getPendingQuantityBySkuId();
 	}
 
+	// 待採購商品的各供應商區塊要更新的待審核採購單：key 是供應商編號、value 是採購單系統編號；有值的區塊顯示「更新採購單」而不是「新增採購單」
+	@ModelAttribute("pendingPoIdByVendorId")
+	public Map<Integer, Integer> pendingPoIdByVendorId() {
+		return poSvc.getPendingPoIdByVendorId();
+	}
+
 	// 採購單首頁：待採購商品由上方的 belowSafetyStockByVendor 放入 model
 	@GetMapping("")
 	public String purchase() {
@@ -80,7 +86,7 @@ public class PoController {
 	}
 
 	// 新增採購單頁面：由 purchase/index 的「新增採購單」連過來
-	// 從待採購商品的供應商區塊連過來時會帶 vendorId，只先選好供應商，明細仍是空白的
+	// 從待採購商品的供應商區塊連過來時會帶 vendorId，先選好供應商，並把該供應商的待採購商品規格帶入明細（採購數量不帶入，頁面另外顯示建議採購量）
 	@GetMapping("/addPo")
 	public String addPo(Model model, HttpSession session,
 			@RequestParam(value = "vendorId", required = false) Integer vendorId) {
@@ -91,6 +97,13 @@ public class PoController {
 			VendorVO vendorVO = vendorSvc.getOneVendor(vendorId);
 			if (vendorVO != null && Byte.valueOf((byte) 1).equals(vendorVO.getIsActive())) {
 				poVO.setVendor(vendorVO);
+				if (poSvc.getPendingPoIdByVendorId().containsKey(vendorId)) {
+					// 這個供應商的待採購商品已經在待審核的採購單裡（首頁停留太久、期間別人新增了採購單）：不帶入明細，提醒改用更新
+					model.addAttribute("errorMessage", "此供應商的待採購商品已有待審核的採購單，請回採購單管理改用「更新採購單」");
+				} else {
+					// 該供應商有建議採購量的規格先帶入明細，只帶入規格，採購數量由使用者參考建議採購量自己填
+					poVO.setPoDetails(poSvc.getShortageDetailsByVendorId(vendorId));
+				}
 			}
 		}
 		model.addAttribute("poVO", poVO);
@@ -257,16 +270,28 @@ public class PoController {
 		return employeeId instanceof Number ? poSvc.getOneEmployee(((Number) employeeId).intValue()) : null;
 	}
 
+	// 修改頁需要的資料，getOne_For_Update 與 update 檢查失敗重新顯示時共用
+	private void addUpdateFormData(Model model, PoVO poVO) {
+		Integer vendorId = poVO.getVendor().getVendorId();
+		// 明細的商品規格下拉選單：這張單的供應商底下、未永久停產的規格
+		model.addAttribute("skuListData", poSvc.getPurchasableByVendorId(vendorId));
+		// 各規格的建議採購量：key 是規格編號，頁面顯示在採購數量左邊供參考
+		model.addAttribute("suggestedQuantityBySkuId", poSvc.getSuggestedQuantityBySkuId(vendorId, poVO.getPoId()));
+	}
+
 	// 新增採購單頁面選了供應商後以 fetch 呼叫，回傳該供應商可採購的商品規格（JSON）
 	// 只回傳下拉選單需要的 skuId、displayName，不直接回傳 ProductSku（有 LAZY 關聯，不適合直接轉 JSON）
+	// suggestedQuantity 是建議採購量，頁面顯示在採購數量左邊供參考；不需要採購的規格是 null
 	@GetMapping("/skuOptions")
 	@ResponseBody
 	public List<Map<String, Object>> skuOptions(@RequestParam("vendorId") Integer vendorId) {
+		Map<Integer, Integer> suggestedQuantityBySkuId = poSvc.getSuggestedQuantityBySkuId(vendorId, null);
 		List<Map<String, Object>> skuOptions = new ArrayList<>();
 		for (ProductSku productSku : poSvc.getPurchasableByVendorId(vendorId)) {
 			Map<String, Object> skuOption = new LinkedHashMap<>();
 			skuOption.put("skuId", productSku.getSkuId());
 			skuOption.put("displayName", productSku.getDisplayName());
+			skuOption.put("suggestedQuantity", suggestedQuantityBySkuId.get(productSku.getSkuId()));
 			skuOptions.add(skuOption);
 		}
 		return skuOptions;
@@ -303,23 +328,29 @@ public class PoController {
 		return "admin/psi/purchase/listOnePo"; //view
 	}
 
+	// 修改頁：由列表、單筆頁的「修改」，或首頁待採購商品的「更新採購單」連過來
+	// 從「更新採購單」過來時會帶 fillShortage=true，把待採購、但還不在這張單裡的規格先加進明細（只帶入規格），送出修改才會存檔
 	@PostMapping("/getOne_For_Update")
-	public String getOne_For_Update(@RequestParam("poId") Integer poId, Model model) {
-		PoVO poVO = poSvc.getOnePo(poId);
+	public String getOne_For_Update(@RequestParam("poId") Integer poId,
+			@RequestParam(value = "fillShortage", defaultValue = "false") boolean fillShortage, Model model,
+			RedirectAttributes redirectAttributes) {
+		PoVO poVO = fillShortage ? poSvc.getPoWithShortageDetails(poId) : poSvc.getOnePo(poId);
 
 		// 資料已被刪除時回到列表
 		if (poVO == null) {
 			return "redirect:/admin/psi/purchase/listAllPo";
 		}
 
-		// 不是待審核的採購單不進修改頁，改顯示單筆資料
+		// 不是待審核的採購單不進修改頁（例如停在首頁或列表太久，期間已經被審核），改顯示單筆資料並說明原因
 		if (!poVO.isEditable()) {
-			return redirectToListOnePo(poId);
+			return redirectWithError(poId, "此採購單已經審核過，無法更新", redirectAttributes);
 		}
 
 		model.addAttribute("poVO", poVO);
-		// 明細的商品規格下拉選單：這張單的供應商底下、未永久停產的規格
-		model.addAttribute("skuListData", poSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
+		if (fillShortage) {
+			model.addAttribute("infoMessage", "已帶入待採購的商品規格，採購數量請參考「建議採購量」填寫；確認後按「送出修改」才會儲存");
+		}
+		addUpdateFormData(model, poVO);
 
 		return "admin/psi/purchase/updatePo"; //view
 	}
@@ -344,7 +375,7 @@ public class PoController {
 		checkUpdatePo(poVO, result);
 
 		if (result.hasErrors()) {
-			model.addAttribute("skuListData", poSvc.getPurchasableByVendorId(poVO.getVendor().getVendorId()));
+			addUpdateFormData(model, poVO);
 			return "admin/psi/purchase/updatePo";
 		}
 
@@ -462,6 +493,7 @@ public class PoController {
 		mav.addObject("errorMessage", "網址的參數不正確，請從採購單管理重新操作");
 		mav.addObject("belowSafetyStockByVendor", poSvc.getBelowSafetyStockByVendor());
 		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
+		mav.addObject("pendingPoIdByVendorId", poSvc.getPendingPoIdByVendorId());
 		return mav;
 	}
 

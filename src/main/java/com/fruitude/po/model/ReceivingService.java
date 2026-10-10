@@ -32,10 +32,10 @@ public class ReceivingService {
 		return poRepository.findByPoStatusAndInboundStatus((byte) 1, (byte) 0);
 	}
 
-	// 進貨系統的單筆資料：只取申請通過的採購單，查不到或不是申請通過時回傳 null
+	// 進貨系統的單筆資料：取申請通過（1）或已結案（4，驗收完成）的採購單，查不到或是其他狀態時回傳 null
 	public PoVO getOneApprovedPo(Integer poId) {
 		PoVO poVO = poRepository.findById(poId).orElse(null);
-		if (poVO == null || !Byte.valueOf((byte) 1).equals(poVO.getPoStatus())) {
+		if (poVO == null || poVO.getPoStatus() == null || (poVO.getPoStatus() != 1 && poVO.getPoStatus() != 4)) {
 			return null;
 		}
 		return poVO;
@@ -132,7 +132,7 @@ public class ReceivingService {
 				&& arrivedPcs <= poDetailVO.getQuantity() && defectPcs <= arrivedPcs;
 	}
 
-	// 驗收存檔：一張採購單只驗收一次，存檔後驗收狀態就不再是尚未驗收
+	// 驗收存檔：一張採購單只驗收一次，存檔後驗收狀態就不再是尚未驗收，採購單狀態改為已結案（4），驗收成功或失敗都一樣
 	// 不直接 save(formPo)，只把驗收相關的欄位寫進資料庫查出來的採購單，其餘欄位不會被動到
 	// 驗收員工由 ReceivingController 從 session 取得，驗收日期為存檔當下的時間，金額由這裡重算
 	@Transactional
@@ -180,6 +180,7 @@ public class ReceivingService {
 			inboundAmount += fillInbound(dbDetail);
 		}
 
+		dbPo.setPoStatus((byte) 4); // 已結案
 		dbPo.setInboundStatus(inboundStatus);
 		dbPo.setInboundEmployeeId(inboundEmployee);
 		dbPo.setInboundDate(LocalDateTime.now());
