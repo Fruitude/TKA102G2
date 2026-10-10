@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.fruitude.promo.model.BenefitType;
+import com.fruitude.promo.model.PromoGrabService;
 import com.fruitude.promo.model.PromoProject;
 import com.fruitude.promo.model.PromoService;
 import com.fruitude.promo.model.PromoType;
@@ -32,6 +33,9 @@ import com.fruitude.promo.model.PromotionRepository;
 public class AdminPromoController {
 	@Autowired
 	private PromoService promoService;
+
+	@Autowired
+	private PromoGrabService promoGrabService;
 
 	// 新增與修改共用：通過檢查、並依活動類型整理過的欄位（用不到的欄位一律是 null）
 	private record PromoInput(String title, String context, LocalDateTime start, LocalDateTime end,
@@ -58,6 +62,17 @@ public class AdminPromoController {
 		model.addAttribute("promo", promo);
 		model.addAttribute("promotions", promoService.findPromotionRows(promoProjectId));
 		return "admin/promo/detail/index";
+	}
+
+	// 搶購物金活動的搶購狀況（列表的「搶購狀況」對話框每幾秒輪詢）：名額、已搶出數、每個已搶到名額的序號與會員編號
+	@GetMapping("/{promoProjectId}/grabs")
+	@ResponseBody
+	public ResponseEntity<?> grabs(@org.springframework.web.bind.annotation.PathVariable Integer promoProjectId) {
+		PromoGrabService.AdminView view = promoGrabService.adminView(promoProjectId);
+		if (view == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("找不到這場搶購物金活動");
+		}
+		return ResponseEntity.ok().header("Cache-Control", "no-store").body(view);
 	}
 
 	// 詳細頁「新增商品」對話框：可以加入這個活動的規格清單（含商品名稱與原價），可用關鍵字搜尋
@@ -122,6 +137,12 @@ public class AdminPromoController {
 					benefitType, benefitValue, minOrderAmount, quota);
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest().body(e.getMessage());
+		}
+		// 搶購物金已經搶出的名額不能被改到比它還少
+		PromoProject current = promoService.findById(promoProjectId);
+		if (current != null && in.quota() != null && PromoType.WALLET_GRAB.name().equals(in.promoType())
+				&& in.quota() < current.getGrantedCount()) {
+			return ResponseEntity.badRequest().body("名額不可小於已搶出的數量（" + current.getGrantedCount() + "）");
 		}
 		if (!promoService.update(promoProjectId, in.title(), in.context(), in.start(), in.end(), in.promoType(),
 				in.benefitType(), in.benefitValue(), in.minOrderAmount(), in.quota())) {

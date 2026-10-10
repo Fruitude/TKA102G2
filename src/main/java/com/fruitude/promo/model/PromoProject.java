@@ -55,6 +55,14 @@ public class PromoProject {
     @Column(name = "status")
     private Integer status;
 
+    // 已搶出的名額（搶購物金用）；只由 PromoRepository.claimSlot 原子 +1，不要用 setter 改
+    @Column(name = "granted_count", nullable = false, columnDefinition = "INT NOT NULL DEFAULT 0")
+    private Integer grantedCount = 0;
+
+	public Integer getGrantedCount() {
+		return grantedCount == null ? 0 : grantedCount;
+	}
+
 	public String getPromoType() {
 		return promoType;
 	}

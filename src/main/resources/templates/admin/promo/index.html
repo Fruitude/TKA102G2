@@ -152,6 +152,10 @@
                                                     th:if="${promo.promoType == 'SKU'}"
                                                     th:disabled="${promo.status != 1}"
                                                     th:onclick="|location.href='@{/admin/promo/detail(promoProjectId=${promo.promoProjectId})}'|">詳細</button>
+                                                <!-- 搶購物金：看每個名額被哪位會員搶到（啟用中對話框每秒更新，停用只顯示最後結果） -->
+                                                <button type="button" class="btn btn-info btn-sm btn-grab-status"
+                                                    th:if="${promo.promoType == 'WALLET_GRAB'}"
+                                                    th:attr="data-id=${promo.promoProjectId}, data-title=${promo.promoProjectTitle}">搶購狀況</button>
                                                 <button type="button" class="btn btn-warning btn-sm btn-edit-promo"
                                                     th:attr="data-id=${promo.promoProjectId},
                                                              data-title=${promo.promoProjectTitle},
@@ -215,6 +219,87 @@
 
     <!-- 引入js資源 -->
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+    <!-- 搶購物金狀況：每個名額一格（一列 10 格），一開始空白，有會員搶到就顯示會員編號 -->
+    <style>
+        .grab-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: .375rem; }
+        .grab-cell { min-height: 2.75rem; padding: .25rem; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border: 1px solid #d1d3e2; border-radius: .25rem; background: #fff; font-size: .8125rem; font-variant-numeric: tabular-nums; }
+        .grab-cell .grab-slot { font-size: .6875rem; color: #b7b9cc; }
+        .grab-cell.is-taken { background: #e8f5e9; border-color: #66bb6a; font-weight: 600; color: #1b5e20; }
+        .grab-cell.is-taken .grab-slot { color: #66bb6a; }
+    </style>
+    <div class="modal fade" id="grab-status-modal" tabindex="-1" role="dialog" aria-labelledby="grab-status-title" aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="grab-status-title">搶購狀況</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="關閉">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">已搶出 <strong id="grab-status-granted">0</strong> / <strong id="grab-status-quota">0</strong>
+                        <span class="text-muted ml-2" id="grab-status-updated"></span></p>
+                    <div class="grab-grid" id="grab-status-grid"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script th:inline="javascript">
+    // 搶購狀況對話框：活動啟用中，開啟期間每 1 秒讀一次 /admin/promo/{id}/grabs，關閉就停止輪詢；
+    // 活動停用時不輪詢，只讀一次並顯示最後結果
+    $(function () {
+        var url = /*[[@{/admin/promo/}]]*/ '/admin/promo/';
+        var timer = null;
+        var currentId = null;
+        var polling = false; // 活動啟用中才每秒更新
+
+        function render(data) {
+            var taken = {};
+            (data.slots || []).forEach(function (slot) { taken[slot.slotNo] = slot.memberId; });
+            var $grid = $('#grab-status-grid').empty();
+            for (var i = 1; i <= data.quota; i++) {
+                var $cell = $('<div class="grab-cell"></div>');
+                $cell.append($('<span class="grab-slot"></span>').text('#' + i));
+                if (taken[i] != null) {
+                    $cell.addClass('is-taken').append($('<span></span>').text(taken[i]));
+                }
+                $grid.append($cell);
+            }
+            $('#grab-status-granted').text(data.granted);
+            $('#grab-status-quota').text(data.quota);
+            $('#grab-status-updated').text((polling ? '每秒更新，' : '活動已停用，顯示最後結果，') + '更新時間 ' + new Date().toLocaleTimeString());
+        }
+
+        function load() {
+            if (currentId == null) return;
+            $.ajax({ url: url + currentId + '/grabs', method: 'GET', cache: false })
+                .done(render)
+                .fail(function (xhr) { $('#grab-status-updated').text('讀取失敗：' + (xhr.responseText || xhr.status)); });
+        }
+
+        $(document).on('click', '.btn-grab-status', function () {
+            currentId = $(this).data('id');
+            // 這一列的啟用／停用開關：啟用才每秒更新
+            polling = $(this).closest('tr').find('.promo-status-switch').prop('checked') === true;
+            $('#grab-status-title').text('搶購狀況：' + ($(this).data('title') || ('活動 ' + currentId)));
+            $('#grab-status-grid').empty();
+            $('#grab-status-granted, #grab-status-quota').text('0');
+            $('#grab-status-modal').modal('show');
+            load();
+            if (timer) clearInterval(timer);
+            if (polling) timer = setInterval(load, 1000);
+        });
+        $('#grab-status-modal').on('hidden.bs.modal', function () {
+            if (timer) { clearInterval(timer); timer = null; }
+            currentId = null;
+        });
+    });
+    </script>
 
     <!-- 修改活動：按列上的「修改」跳出這個對話框，欄位先帶入目前的值 -->
     <div class="modal fade" id="edit-promo-modal" tabindex="-1" role="dialog"
@@ -380,7 +465,7 @@
         var VALUE_HINTS = {
             PERCENT_OFF: { label: '折扣（填 90 代表 9 折、85 代表 8.5 折，可填 1～99）', placeholder: '例如 90' },
             AMOUNT_OFF: { label: '折抵金額（元）', placeholder: '例如 100' },
-            WALLET_CREDIT: { label: '贈送購物金額（元）', placeholder: '例如 500' }
+            WALLET_CREDIT: { label: '贈送購物金點數（點）', placeholder: '例如 500' }
         };
         function syncValueLabel() {
             var rule = RULES[$('#edit-promo-input-type').val()];
