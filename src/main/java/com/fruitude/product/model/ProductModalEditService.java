@@ -20,7 +20,7 @@ public class ProductModalEditService {
     public record Choice(Integer id, String label) {}
     public record SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
             Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
-            Integer originalStock, Integer originalInbound, Integer originalOutbound) {}
+            Integer originalStock, Integer originalInbound, Integer originalOutbound, Integer maxBackorderQty) {}
     public record ProductForm(Integer productId, String productName, String productDesc, Integer categoryId,
             Integer vendorId, Byte status, String revision) {}
     public record EditData(ProductForm product, List<SkuForm> skus, List<Choice> categories, List<Choice> vendors, boolean canRestore) {}
@@ -38,7 +38,7 @@ public class ProductModalEditService {
             p.getVendor()==null?null:p.getVendor().getVendorId(),p.getStatus(),revision(p.getUpdatedAt()));
         var skus=p.getProductSkus().stream().map(s->new SkuForm(s.getSkuId(),s.getSkuName(),s.getAnotherName(),s.getPrice(),
             zero(s.getStock()),zero(s.getSafetyStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),s.getStatus(),revision(s.getUpdatedAt()),
-            zero(s.getStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()))).toList();
+            zero(s.getStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),zero(s.getMaxBackorderQty()))).toList();
         var categoryOptions=categories.findAll().stream().map(c->new Choice(c.getProductCategoryId(),
             (c.getParentCategory()==null?"":c.getParentCategory().getCategoryName()+" / ")+c.getCategoryName())).toList();
         var vendorOptions=vendors.findAll().stream().map(v->new Choice(v.getVendorId(),v.getVendorName())).toList();
@@ -76,6 +76,9 @@ public class ProductModalEditService {
             if(input.price()==null || input.price()<=0) throw new IllegalArgumentException("規格價格必須大於0");
             nonnegative(input.stock(),"庫存量");nonnegative(input.safetyStock(),"安全庫存量");
             nonnegative(input.inboundQty(),"待進貨");nonnegative(input.outboundQty(),"待出貨");
+            // 預購額度：前端沒送（舊版畫面）就沿用原值，新規格預設 10
+            Integer maxBackorder=input.maxBackorderQty()!=null?input.maxBackorderQty():existing!=null?existing.getMaxBackorderQty():Integer.valueOf(10);
+            nonnegative(maxBackorder,"預購額度");
             if(input.anotherName()!=null && input.anotherName().length()>50) throw new IllegalArgumentException("規格別名不可超過50字");
             if(existing==null) {
                 String skuName=required(input.skuName(),50,"規格名稱");
@@ -86,6 +89,7 @@ public class ProductModalEditService {
             existing.setAnotherName(input.anotherName()==null?null:input.anotherName().trim());
             existing.setPrice(input.price());existing.setStock(input.stock());existing.setSafetyStock(input.safetyStock());
             existing.setInboundQty(input.inboundQty());existing.setOutboundQty(input.outboundQty());existing.setStatus(input.status());
+            existing.setMaxBackorderQty(maxBackorder);
             existing.setUpdatedAt(LocalDateTime.now());
         }
         p.setProductName(name);p.setProductDesc(f.productDesc());p.setProductCategory(category);p.setVendor(vendor);

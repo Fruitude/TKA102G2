@@ -73,7 +73,7 @@
         if (isNew) begin();
     }
     function prepareSku(entry, panel, button, isNew = false) {
-        for (const [label, field] of [['規格價格','price'],['庫存量','stock'],['安全庫存量','safetyStock'],['待進貨','inboundQty'],['待出貨','outboundQty']]) numeric(entry, panel, label, field);
+        for (const [label, field] of [['規格價格','price'],['庫存量','stock'],['安全庫存量','safetyStock'],['待進貨','inboundQty'],['待出貨','outboundQty'],['預購額度','maxBackorderQty']]) numeric(entry, panel, label, field);
         const select = panel.querySelector('.sku-status-select');
         select.onchange = () => updateState(entry, panel, select);
         stateOptions(entry, select);
@@ -96,9 +96,9 @@
     }
     function addSku() {
         const key = 'new-' + (++sequence);
-        const entry = {key, skuId:null, skuName:'', anotherName:null, price:null, stock:0, safetyStock:0, inboundQty:0, outboundQty:0, status:5};
+        const entry = {key, skuId:null, skuName:'', anotherName:null, price:null, stock:0, safetyStock:0, inboundQty:0, outboundQty:0, maxBackorderQty:10, status:5};
         const panel = node('div', 'sku-panel status-5'); panel.id = 'sku-panel-' + key;
-        for (const label of ['規格價格','規格狀態','庫存量','安全庫存量','待進貨','待出貨']) {
+        for (const label of ['規格價格','規格狀態','庫存量','安全庫存量','待進貨','待出貨','預購額度']) {
             const row = node('div','item'); row.appendChild(node('span','name',label)); const value = node('span','value'); row.appendChild(value);
             if (label === '規格狀態') {
                 value.classList.add('sku-status-value'); const select = node('select','sku-status-select');
@@ -148,7 +148,7 @@
             for(const sku of skus){
                 if(sku.skuId==null&&!sku.skuName?.trim())throw new Error('請填寫新增規格名稱');
                 if(!Number.isInteger(sku.price)||sku.price<=0)throw new Error('規格價格須為大於0的整數');
-                for(const field of ['stock','safetyStock','inboundQty','outboundQty'])if(!Number.isInteger(sku[field])||sku[field]<0)throw new Error('庫存及進出貨數量須為0以上整數');
+                for(const field of ['stock','safetyStock','inboundQty','outboundQty','maxBackorderQty'])if(!Number.isInteger(sku[field])||sku[field]<0)throw new Error('庫存、進出貨數量及預購額度須為0以上整數');
             }
             const payload={product:data.product,skus,productStatusChanged:statusChanged,activateSkus:false};
             const send=()=>fetch(base+'saveModal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});

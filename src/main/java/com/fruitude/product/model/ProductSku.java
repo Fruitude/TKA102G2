@@ -52,6 +52,10 @@ public class ProductSku implements java.io.Serializable {
 
 	@Column(name = "outbound_qty")
 	private Integer outboundQty = 0;
+
+	// 缺貨（status 2）時最多可接的預購量；NULL 或 0 代表不接預購。預設 10
+	@Column(name = "max_backorder_qty", columnDefinition = "INT DEFAULT 10")
+	private Integer maxBackorderQty = 10;
 	
 	@Column(name = "price")
 	private Integer price;
@@ -149,6 +153,14 @@ public class ProductSku implements java.io.Serializable {
 	
 	public void setOutboundQty(Integer outboundQty) {
 		this.outboundQty = outboundQty;
+	}
+
+	public Integer getMaxBackorderQty() {
+		return maxBackorderQty;
+	}
+
+	public void setMaxBackorderQty(Integer maxBackorderQty) {
+		this.maxBackorderQty = maxBackorderQty;
 	}
 	
     public Integer getExpectedStock() {

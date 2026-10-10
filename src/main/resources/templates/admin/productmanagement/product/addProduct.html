@@ -407,6 +407,19 @@
                     </tr>
 
                     <tr>
+                        <th><label th:for="|maxBackorderQty${stat.index}|">預購額度</label></th>
+                        <td>
+                            <input th:id="|maxBackorderQty${stat.index}|"
+                                   type="number"
+                                   th:field="*{productSkus[__${stat.index}__].maxBackorderQty}"
+                                   value="10"
+                                   min="0"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+
+                    <tr>
                         <th><label th:for="|skuStatus${stat.index}|">規格狀態</label></th>
                         <td>
                             <select th:id="|skuStatus${stat.index}|"
@@ -515,6 +528,18 @@
                                    type="number"
                                    name="productSkus[${index}].safetyStock"
                                    value="0"
+                                   min="0"
+                                   step="1"
+                                   required>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="maxBackorderQty${index}">預購額度</label></th>
+                        <td>
+                            <input id="maxBackorderQty${index}"
+                                   type="number"
+                                   name="productSkus[${index}].maxBackorderQty"
+                                   value="10"
                                    min="0"
                                    step="1"
                                    required>
