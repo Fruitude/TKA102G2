@@ -2,19 +2,19 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>採購單列表</title>
+<title>驗收紀錄</title>
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
 <!-- DataTables 樣式 -->
 <link th:href="@{/vendor/datatables/dataTables.bootstrap4.min.css}" rel="stylesheet">
 <style>
-#po_list_all th, #po_list_all td {
+#receiving_list_all th, #receiving_list_all td {
 	white-space: nowrap; /* 不換行 */
 	vertical-align: middle; /* 內容上下置中 */
 }
 
-#po_list_all {
+#receiving_list_all {
 	font-size: 0.9rem;
 }
 
@@ -39,31 +39,23 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
-					<!-- 從 PoNoController 的條件查詢進來時顯示搜尋條件（searchTitle），否則顯示狀態篩選 -->
-					<h4 class="h4 mb-4 text-gray-800" th:if="${searchTitle != null}" th:text="${searchTitle}"></h4>
-					<h4 class="h4 mb-4 text-gray-800" th:unless="${searchTitle != null}" th:switch="${poStatus}">
-					    <span th:case="0">待審核</span>
-					    <span th:case="1">申請通過</span>
-					    <span th:case="2">申請未通過</span>
-					    <span th:case="3">已取消</span>
-					    <span th:case="4">已結案</span>
-					    <span th:case="*">顯示全部採購單</span>
-					</h4>
+					<h4 class="h4 mb-4 text-gray-800">驗收紀錄</h4>
 
-					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3"> 
+					<a th:href="@{/admin/psi/receiving}" class="btn btn-secondary btn-icon-split mb-3">
 						<span class="icon text-white-50">
-						<i class="fas fa-arrow-left"></i></span> 
-						<span class="text">回採購單管理</span>
+						<i class="fas fa-arrow-left"></i></span>
+						<span class="text">回進貨系統管理</span>
 					</a>
 
-					<!-- 採購單列表：poListData 由 PoController 的 listAllPo 或 PoNoController 的條件查詢放入 model -->
+					<!-- 驗收紀錄：已結案（poStatus = 4，驗收過）的採購單，poListData 由 ReceivingController 的 listAllReceiving 放入 model -->
+					<!-- 表格比照 purchase/listAllPo.html；清單裡都是驗收過的單，所以驗收相關的四欄固定顯示 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
-							<h6 class="m-0 font-weight-bold text-primary">採購單列表</h6>
+							<h6 class="m-0 font-weight-bold text-primary">已結案採購單</h6>
 						</div>
 						<div class="card-body">
 							<div class="table-responsive">
-								<table class="table table-bordered" id="po_list_all" width="100%" cellspacing="0">
+								<table class="table table-bordered" id="receiving_list_all" width="100%" cellspacing="0">
 									<thead>
 										<tr>
 											<th>操作</th>
@@ -71,12 +63,11 @@
 											<th>供應商</th>
 											<th>採購員工</th>
 											<th>採購日期</th>
-											<th>採購單狀態</th>
 											<th>總金額</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收員工</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收日期</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收狀態</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收實付金額</th>
+											<th>驗收員工</th>
+											<th>驗收日期</th>
+											<th>驗收狀態</th>
+											<th>驗收金額</th>
 										</tr>
 									</thead>
 									<tfoot>
@@ -86,23 +77,23 @@
 											<th>供應商</th>
 											<th>採購員工</th>
 											<th>採購日期</th>
-											<th>採購單狀態</th>
 											<th>總金額</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收員工</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收日期</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收狀態</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收實付金額</th>
+											<th>驗收員工</th>
+											<th>驗收日期</th>
+											<th>驗收狀態</th>
+											<th>驗收金額</th>
 										</tr>
 									</tfoot>
 									<tbody>
 										<tr th:each="poVO : ${poListData}">
 											<td>
-												<a th:href="@{/admin/psi/purchase/listOnePo(poId=${poVO.poId})}"
+												<!-- 連到 ReceivingController 的 listOneReceiving，以 listOneReceiving.html 顯示單筆資料 -->
+												<a th:href="@{/admin/psi/receiving/listOneReceiving(poId=${poVO.poId})}"
 												class="btn btn-primary btn-sm mb-1">詳細</a>
 
-												<!-- 待審核（poStatus = 0）的採購單才顯示修改按鈕 -->
-												<form method="post" th:action="@{/admin/psi/purchase/getOne_For_Update}" class="d-inline"
-													th:if="${poVO.editable}">
+												<!-- 修改驗收紀錄：以 POST 把 poId 送到 ReceivingController 的 getOneForUpdate，驗收頁會帶入上次存的內容 -->
+												<form method="post" th:action="@{/admin/psi/receiving/getOneForUpdate}" class="d-inline"
+													th:if="${poVO.closed}">
 													<br>
 													<input type="hidden" name="poId" th:value="${poVO.poId}">
 													<button type="submit" class="btn btn-danger btn-sm">修改</button>
@@ -110,26 +101,18 @@
 											</td>
 											<td th:text="${poVO.poNo}" style="text-align: center"></td>
 											<td th:text="${poVO.vendor.vendorId + ' - ' + poVO.vendor.vendorName}"></td>
-										 	<td th:text="${poVO.poEmployeeId.employeeId + ' - ' + poVO.poEmployeeId.employeeName}"></td>										
+											<td th:text="${poVO.poEmployeeId.employeeId + ' - ' + poVO.poEmployeeId.employeeName}"></td>
 											<td th:text="${{poVO.orderDate}}"></td>
-											<td th:switch="${poVO.poStatus}">
-												<span th:case="0">待審核</span>
-												<span th:case="1">申請通過</span>
-												<span th:case="2">申請未通過</span>
-												<span th:case="3">已取消</span>
-												<span th:case="4">已結案</span>
-											</td>
 											<td th:text="${poVO.totalAmount}"></td>
-											<!-- 只有篩選「申請通過」或「已結案」時才顯示驗收相關的四欄（表頭、表尾同樣以 poStatus 判斷） -->
-											<td th:if="${poStatus == 1 or poStatus == 4}" th:text="${poVO.inboundEmployeeId != null ? poVO.inboundEmployeeId.employeeId + ' - ' + poVO.inboundEmployeeId.employeeName : ''}"></td>
-											<td th:if="${poStatus == 1 or poStatus == 4}" th:text="${{poVO.inboundDate}}"></td>
-											<td th:if="${poStatus == 1 or poStatus == 4}">
-												<span th:if="${poVO.inboundStatus == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">尚未驗收</span>
-												<span th:if="${poVO.inboundStatus == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">驗收成功</span>
-												<span th:if="${poVO.inboundStatus == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">驗收失敗</span>
-												<span th:if="${poVO.inboundStatus == 3}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">已取消</span>
+											<td th:text="${poVO.inboundEmployeeId != null ? poVO.inboundEmployeeId.employeeId + ' - ' + poVO.inboundEmployeeId.employeeName : ''}"></td>
+											<td th:text="${{poVO.inboundDate}}"></td>
+											<td>
+												<span th:if="${poVO.inboundStatus == 0}" class="alert alert-secondary d-inline-block py-1 px-2 mb-0">尚未驗收</span>
+												<span th:if="${poVO.inboundStatus == 1}" class="alert alert-success d-inline-block py-1 px-2 mb-0">驗收成功</span>
+												<span th:if="${poVO.inboundStatus == 2}" class="alert alert-warning d-inline-block py-1 px-2 mb-0">驗收失敗</span>
+												<span th:if="${poVO.inboundStatus == 3}" class="alert alert-secondary d-inline-block py-1 px-2 mb-0">已取消</span>
 											</td>
-											<td th:if="${poStatus == 1 or poStatus == 4}" th:text="${poVO.inboundAmount}"></td>
+											<td th:text="${poVO.inboundAmount}"></td>
 										</tr>
 									</tbody>
 								</table>
@@ -159,7 +142,7 @@
 	<script th:src="@{/vendor/datatables/dataTables.bootstrap4.min.js}"></script>
 	<script>
 		$(document).ready(function() {
-			var table = $('#po_list_all').DataTable({
+			var table = $('#receiving_list_all').DataTable({
 				searching : true, // 顯示右上角的搜尋欄位
 				lengthMenu : [ 5, 10, 25, 50, 100 ], // 每頁顯示筆數的選項
 				pageLength : 5, // 預設每頁顯示筆數
@@ -183,12 +166,12 @@
 					}
 				}
 			});
-			
-			var searchInput = $('#po_list_all_filter input');
+
+			var searchInput = $('#receiving_list_all_filter input');
 			var searchButton = $('<button type="button" class="btn btn-primary btn-sm ml-2">搜尋</button>');
-			
+
 			searchInput.off('.DT'); // 移除 DataTables 內建的即時搜尋
-			$('#po_list_all_filter').append(searchButton); // 把按鈕放在搜尋欄位後面
+			$('#receiving_list_all_filter').append(searchButton); // 把按鈕放在搜尋欄位後面
 
 			searchButton.on('click', function() {
 			    table.search(searchInput.val()).draw();
@@ -200,7 +183,7 @@
 			        table.search(searchInput.val()).draw();
 			    }
 			});
-			
+
 			// 搜尋欄位被清空時，自動還原成全部資料
 			searchInput.on('input', function() {
 			    if (searchInput.val().trim() === '') {

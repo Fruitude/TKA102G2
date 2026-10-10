@@ -32,6 +32,18 @@ public interface PoRepository  extends JpaRepository<PoVO, Integer>  {
 	@Query(value = "SELECT id FROM purchaseorder WHERE id = :poId AND po_status = 0 FOR UPDATE", nativeQuery = true)
 	List<Integer> lockPendingPo(@Param("poId") Integer poId);
 
+	// 驗收存檔前鎖住這張採購單的資料列（FOR UPDATE），一直到交易結束才放開；只有申請通過（po_status = 1）且尚未驗收（inbound_status = 0）的單才查得到
+	// 回傳空的代表採購單不存在或已經驗收過。兩個人同時驗收同一張單時，後到的要等前一個存完，這時已經查不到，庫存不會被加兩次
+	// 必須在交易裡呼叫（ReceivingService 的 receive）
+	@Query(value = "SELECT id FROM purchaseorder WHERE id = :poId AND po_status = 1 AND inbound_status = 0 FOR UPDATE", nativeQuery = true)
+	List<Integer> lockReceivablePo(@Param("poId") Integer poId);
+
+	// 修改驗收紀錄存檔前鎖住這張採購單的資料列（FOR UPDATE），一直到交易結束才放開；只有已結案（po_status = 4）的單才查得到
+	// 兩個人同時修改同一張單的驗收紀錄時，後到的要等前一個存完，庫存的差額才不會算錯
+	// 必須在交易裡呼叫（ReceivingService 的 receive）
+	@Query(value = "SELECT id FROM purchaseorder WHERE id = :poId AND po_status = 4 FOR UPDATE", nativeQuery = true)
+	List<Integer> lockClosedPo(@Param("poId") Integer poId);
+
 	// 以下三個給 PoNoController 的條件查詢使用
 	Optional<PoVO> findByPoNo(String poNo);
 

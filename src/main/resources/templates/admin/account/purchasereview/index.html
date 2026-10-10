@@ -68,7 +68,7 @@
 												<a th:href="@{/admin/account/purchasereview/updatePurchaseReview(poId=${poVO.poId})}"
 													class="btn btn-primary btn-sm">詳細</a>
 											</td>
-											<td th:text="${poVO.poNo}" style="text-align: center"></td>
+											<td th:text="${poVO.poNo}"></td>
 											<td th:text="${poVO.vendor.vendorId + ' - ' + poVO.vendor.vendorName}"></td>
 											<td th:text="${poVO.poEmployeeId.employeeId + ' - ' + poVO.poEmployeeId.employeeName}"></td>
 											<td th:text="${{poVO.orderDate}}"></td>
