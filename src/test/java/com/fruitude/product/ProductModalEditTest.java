@@ -47,9 +47,18 @@ public class ProductModalEditTest {
         try {save(sku(1,(byte)1,19));fail();}catch(ProductModalEditService.Conflict expected){} assertNull(s.getAnotherName());
     }
     @Test public void cannotRestoreRetiredSkuThroughModal() {
-        s.setStatus((byte)4); try {save(sku(1,(byte)1,20));fail();}catch(ProductStatusAccessException expected){} assertEquals(Byte.valueOf((byte)4),s.getStatus());
+        s.setStatus((byte)7); try {save(sku(1,(byte)1,20));fail();}catch(ProductStatusAccessException expected){} assertEquals(Byte.valueOf((byte)7),s.getStatus());
     }
     @Test public void cannotReturnExistingSkuToPreparedState() {
         try {save(sku(1,(byte)5,20));fail();}catch(IllegalArgumentException expected){} assertEquals(Byte.valueOf((byte)1),s.getStatus());
+    }
+
+    @Test public void soldOutModalCannotListUntilRestockWasConfirmed() {
+        s.setStatus((byte)4);
+        try {save(sku(1,(byte)1,20));fail();}catch(SkuRestockConfirmationException expected){}
+        assertEquals(Byte.valueOf((byte)4),s.getStatus());
+        var f=sku(1,(byte)1,20);
+        save(new ProductModalEditService.SkuForm(f.skuId(),f.skuName(),f.anotherName(),f.price(),f.stock(),f.safetyStock(),f.inboundQty(),f.outboundQty(),f.status(),f.revision(),f.originalStock(),f.originalInbound(),f.originalOutbound(),true));
+        assertEquals(Byte.valueOf((byte)1),p.getStatus());
     }
 }

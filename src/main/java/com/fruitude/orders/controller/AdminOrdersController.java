@@ -80,10 +80,12 @@ public class AdminOrdersController {
 		if (!validStatus) {
 			return ResponseEntity.badRequest().body("狀態不正確");
 		}
+		try {
 		if (!ordersService.updateStatusByQuery(ordersId, ordersStatus)) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("找不到這筆訂單");
 		}
 		return ResponseEntity.ok("更新成功");
+        } catch(IllegalArgumentException e) { return ResponseEntity.badRequest().body(e.getMessage()); }
 	}
 
 	@GetMapping("/orderDetail")

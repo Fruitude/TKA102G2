@@ -33,7 +33,7 @@ public class ProductImageController {
         if (image == null || image.getImageData() == null) return ResponseEntity.notFound().build();
         String type = image.getImageType();
         if (!java.util.Set.of("image/png", "image/jpeg", "image/gif").contains(type == null ? "" : type)) type = "application/octet-stream";
-        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(10)).cachePrivate())
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(30)).cachePrivate())
             .header("X-Content-Type-Options", "nosniff")
             .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename("image-" + imageId).build().toString())
             .contentType(MediaType.parseMediaType(type)).body(image.getImageData());

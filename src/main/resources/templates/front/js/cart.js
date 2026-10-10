@@ -246,8 +246,8 @@
     price.textContent = formatMoney(item.price);
     if (!item.unavailable) appendOriginalPrice(price, item.originalPrice, item.price);
     if (item.unavailable) {
-      // 狀態 5（售完）顯示「該商品已售罄」，其他情況沿用原本的說明
-      price.textContent = Number(item.skuStatus) === 5 ? "該商品已售罄，無法購買" : "已下架或無可訂購數量，無法購買";
+      // 狀態 4（售完）顯示「該商品已售罄」，其他情況沿用原本的說明
+      price.textContent = Number(item.skuStatus) === 4 ? "該商品已售罄，無法購買" : "已下架或無可訂購數量，無法購買";
     }
     var notice = quantityNotice(item.skuStatus, item.qty);
     if (notice && !item.unavailable) {
@@ -630,7 +630,7 @@
       if (!sku) throw new Error("此商品已下架或已無可訂購數量，請選擇其他商品。");
       var existing = readCart().find(function (item) { return String(item.skuId) === String(sku.skuId); });
       var inCart = checkoutUrl ? 0 : (existing ? existing.qty : 0);
-      if (Number(sku.skuStatus) === 5) throw new Error("該商品已售罄，無法加入購物車。");
+      if (Number(sku.skuStatus) === 4) throw new Error("該商品已售罄，無法加入購物車。");
       if (sku.stock <= 0 && Number(sku.skuStatus) === 2) throw new Error("目前缺貨，已達預購上限，無法再加入購物車。");
       if (sku.stock <= 0) throw stockShortageError(0, inCart, sku.skuStatus);
       if (!sku.available) throw new Error("此商品已下架或已無可訂購數量，請選擇其他商品。");
@@ -885,7 +885,7 @@
         qty.max = String(stock); qty.disabled = stock === 0;
         qty.value = String(Math.min(Math.max(1, Math.floor(Number(qty.value) || 1)), Math.max(1, stock)));
         button.disabled = stock === 0;
-        button.title = stock === 0 ? "目前缺貨" : "加入購物車";
+        button.title = Number(option.getAttribute("data-sku-status")) === 4 ? "售完" : (stock === 0 ? "目前無可訂購數量" : "加入購物車");
         button.setAttribute("aria-label", button.title);
         dropdown.querySelector(".home-sku-caption").textContent = option.textContent;
         trigger.title = option.textContent;

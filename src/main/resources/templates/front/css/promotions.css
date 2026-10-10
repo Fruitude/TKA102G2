@@ -31,3 +31,25 @@
 /* 壽星月今年已使用：灰色「已使用」標籤，卡片不再有「本月適用」的強調框 */
 .promo-page-badge.is-used { background: #8c9a90; }
 .promo-page-card.is-used { opacity: .85; }
+
+/* 搶購物金：活動卡片裡的搶購區塊，與右上角的小標籤（wallet-grab.js 產生） */
+.wallet-grab-chip { position: fixed; top: 5.5rem; right: 1rem; z-index: 50; padding: .5rem .875rem; border: 1px solid var(--text--default--black, #302f2d); background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, .15); font-size: .875rem; }
+.wallet-grab-credit-value { font-size: 1.125rem; color: #b4462b; }
+.wallet-grab-login { color: #b4462b; text-decoration: underline; }
+.wallet-grab-chip-countdown { margin-top: .125rem; font-variant-numeric: tabular-nums; font-weight: 600; color: #b4462b; }
+.wallet-grab-box { margin-top: 1rem; padding: 1rem 1.125rem; border: 1px dashed #b4462b; background: #fff8f5; }
+.wallet-grab-box-title { font-weight: 600; }
+.wallet-grab-info { margin-top: .125rem; font-size: .8125rem; color: var(--text--default--black-light, #7a7a7a); }
+.wallet-grab-countdown { margin-top: .5rem; font-variant-numeric: tabular-nums; font-weight: 600; color: #b4462b; }
+.wallet-grab-button { min-width: 10rem; margin-top: .75rem; cursor: pointer; }
+.wallet-grab-button:disabled { opacity: .55; cursor: not-allowed; }
+.wallet-grab-message { min-height: 1.25rem; margin: .5rem 0 0; font-size: .875rem; }
+.wallet-grab-message.is-won { color: #2e7d32; font-weight: 600; }
+.wallet-grab-message.is-lost { color: #7a7a7a; }
+.wallet-grab-message.is-error { color: #c0392b; }
+.wallet-grab-message.is-pending { color: #b4462b; }
+.wallet-grab-message.is-pending::after { content: ""; display: inline-block; width: .75em; height: .75em; margin-left: .4em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: wallet-grab-spin .7s linear infinite; vertical-align: -.1em; }
+.wallet-grab-box.is-drawing .wallet-grab-button { animation: wallet-grab-pulse .6s ease-in-out infinite alternate; }
+@keyframes wallet-grab-spin { to { transform: rotate(360deg); } }
+@keyframes wallet-grab-pulse { from { transform: scale(1); } to { transform: scale(1.04); } }
+@media (max-width: 767px) { .wallet-grab-chip { top: auto; bottom: 1rem; right: 1rem; } }

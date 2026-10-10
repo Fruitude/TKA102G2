@@ -27,6 +27,8 @@ public interface PoSkuStockRepository extends JpaRepository<ProductSku, Integer>
             order by s.skuId asc
             """)
     List<ProductSku> findBelowSafetyStockByStatusIn(@Param("statuses") List<Byte> statuses);
+    @Query("select s from ProductSku s join fetch s.product p where s.status in (1,2,3,4) and p.status<>2 and p.autoRestockEnabled=true order by s.skuId")
+    List<ProductSku> findSupplyMonitoringCandidates();
 
     // 採購單審核通過時，把採購數量加到規格的待進貨，回傳更新的筆數（查無此規格時為 0）
     // 直接在資料庫加，不先讀出來再存，才不會和訂單下單、出貨對同一筆規格的更新互相覆蓋

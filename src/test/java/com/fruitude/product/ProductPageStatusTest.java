@@ -19,6 +19,7 @@ public class ProductPageStatusTest {
     private ProductService service(Map<Integer,Product> data,List<Integer> locks) {
         var repo=(ProductRepository)Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),new Class<?>[]{ProductRepository.class},(proxy,m,args)->{
             if(m.getName().equals("lockForStatus")){locks.add((Integer)args[0]);return Optional.ofNullable(data.get(args[0]));}
+            if(m.getName().equals("findById"))return Optional.ofNullable(data.get(args[0]));
             if(m.getName().equals("flush"))return null;
             if(m.getName().equals("saveAndFlush"))return args[0];
             throw new AssertionError(m.getName());
@@ -27,11 +28,11 @@ public class ProductPageStatusTest {
         ReflectionTestUtils.setField(service,"lifecycle",new ProductLifecycleService(new ProductStatusAccess(null,null){@Override public boolean canRestoreDiscontinued(){return false;}}));return service;
     }
     @Test public void onlyChangesSubmittedPageAndSkipsPermanentProducts() {
-        var first=p(42,1,1);var retired=p(43,2,4);var other=p(44,1,1);var locks=new ArrayList<Integer>();
+        var first=p(42,1,1);var retired=p(43,2,7);var other=p(44,1,1);var locks=new ArrayList<Integer>();
         var service=service(Map.of(42,first,43,retired,44,other),locks);
         assertEquals(1,service.updatePageStatus(List.of(43,42,42),(byte)0));assertEquals(List.of(42,43),locks);
         assertEquals(Byte.valueOf((byte)0),first.getProductSkus().get(0).getStatus());
-        assertEquals(Byte.valueOf((byte)2),retired.getStatus());assertEquals(Byte.valueOf((byte)4),retired.getProductSkus().get(0).getStatus());assertEquals(Byte.valueOf((byte)1),other.getStatus());
+        assertEquals(Byte.valueOf((byte)2),retired.getStatus());assertEquals(Byte.valueOf((byte)7),retired.getProductSkus().get(0).getStatus());assertEquals(Byte.valueOf((byte)1),other.getStatus());
     }
     @Test public void rejectsInvalidOrMissingPageBeforeWriting() {
         var first=p(42,1,1);var service=service(Map.of(42,first),new ArrayList<>());
@@ -46,7 +47,7 @@ public class ProductPageStatusTest {
         assertEquals(2,service.updatePageStatus(List.of(42,43),(byte)1,true));assertEquals(Byte.valueOf((byte)1),second.getProductSkus().get(0).getStatus());
     }
     @Test public void endpointsRequireConfirmationAndDenyUnauthorizedRestore() throws Exception {
-        var controller=new ProductController();ReflectionTestUtils.setField(controller,"productSvc",service(Map.of(42,p(42,0,0),43,p(43,2,4)),new ArrayList<>()));
+        var controller=new ProductController();ReflectionTestUtils.setField(controller,"productSvc",service(Map.of(42,p(42,0,0),43,p(43,2,7)),new ArrayList<>()));
         ReflectionTestUtils.setField(controller,"productCategorySvc",new ProductCategoryService(){@Override public List<ProductCategory> getAll(){return List.of();}});
         ReflectionTestUtils.setField(controller,"vendorSvc",new VendorService(){@Override public List<VendorVO> getAll(){return List.of();}});
         var mvc=MockMvcBuilders.standaloneSetup(controller).build();
@@ -58,9 +59,18 @@ public class ProductPageStatusTest {
         assertEquals(400,mvc.perform(post("/product/updatePageStatus").param("productIds","42").param("status","2")).andReturn().getResponse().getStatus());
     }
     @Test public void preparedPageListsWithoutConfirmationAndSkipsRetiredRows() {
-        var prepared=p(42,0,5);var retired=p(43,2,4);var service=service(Map.of(42,prepared,43,retired),new ArrayList<>());
+        var prepared=p(42,0,5);var retired=p(43,2,7);var service=service(Map.of(42,prepared,43,retired),new ArrayList<>());
         assertEquals(1,service.updatePageStatus(List.of(42,43),(byte)1));
         assertEquals(Byte.valueOf((byte)1),prepared.getProductSkus().get(0).getStatus());
         assertEquals(Byte.valueOf((byte)2),retired.getStatus());
+    }
+    @Test public void activationResponseReportsActualOfflineStatusInsteadOfRequestedOn() throws Exception {
+        var prepared=p(42,0,5);prepared.getProductSkus().get(0).setStock(0);prepared.getProductSkus().get(0).setMaxBackorderQty(0);
+        var svc=service(Map.of(42,prepared),new ArrayList<>());var controller=new ProductController();ReflectionTestUtils.setField(controller,"productSvc",svc);
+        ReflectionTestUtils.setField(controller,"productCategorySvc",new ProductCategoryService(){@Override public List<ProductCategory> getAll(){return List.of();}});
+        ReflectionTestUtils.setField(controller,"vendorSvc",new VendorService(){@Override public List<VendorVO> getAll(){return List.of();}});
+        var mvc=MockMvcBuilders.standaloneSetup(controller).build();
+        var response=mvc.perform(post("/product/updateStatus").param("productId","42").param("status","1")).andReturn().getResponse();
+        assertEquals(200,response.getStatus());assertEquals("0",response.getHeader("X-Product-Status"));assertEquals(Byte.valueOf((byte)4),prepared.getProductSkus().get(0).getStatus());
     }
 }

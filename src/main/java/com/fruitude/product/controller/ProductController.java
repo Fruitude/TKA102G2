@@ -352,9 +352,14 @@ public class ProductController {
             @RequestParam Integer productId, @RequestParam Byte status,
             @RequestParam(defaultValue = "false") boolean activateSkus) {
         try {
-            return productSvc.updateStatus(productId, status, activateSkus)
-                ? org.springframework.http.ResponseEntity.ok("success")
-                : org.springframework.http.ResponseEntity.status(404).body("商品不存在");
+            if (!productSvc.updateStatus(productId, status, activateSkus))
+                return org.springframework.http.ResponseEntity.status(404).body("商品不存在");
+            var actual = productSvc.getOneProduct(productId);
+            return org.springframework.http.ResponseEntity.ok()
+                .header("X-Product-Status", String.valueOf(actual.getStatus()))
+                .header("X-Sku-Statuses", actual.getProductSkus().stream()
+                    .map(sku -> "\"" + sku.getSkuId() + "\":" + sku.getStatus())
+                    .collect(java.util.stream.Collectors.joining(",", "{", "}"))).body("success");
         } catch (com.fruitude.product.model.ProductStatusConfirmationException e) {
             return org.springframework.http.ResponseEntity.status(409).body(e.getMessage());
         } catch (com.fruitude.product.model.ProductStatusAccessException e) {
@@ -372,7 +377,9 @@ public class ProductController {
         try {
             int updated = productSvc.updatePageStatus(productIds, status, activateSkus);
             int skipped = (int)productIds.stream().distinct().count() - updated;
-            return org.springframework.http.ResponseEntity.ok(java.util.Map.of("updated", updated, "skipped", skipped));
+            var states = new java.util.LinkedHashMap<Integer, Byte>();
+            productIds.stream().distinct().forEach(id -> states.put(id, productSvc.getOneProduct(id).getStatus()));
+            return org.springframework.http.ResponseEntity.ok(java.util.Map.of("updated", updated, "skipped", skipped, "statuses", states));
         } catch (com.fruitude.product.model.ProductStatusConfirmationException e) {
             return org.springframework.http.ResponseEntity.status(409).body(java.util.Map.of("message", e.getMessage()));
         } catch (IllegalArgumentException | IllegalStateException e) {

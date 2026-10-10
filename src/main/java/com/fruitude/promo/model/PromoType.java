@@ -69,9 +69,10 @@ public enum PromoType {
 		return this == BIRTHDAY_MONTH || this == NEW_MEMBER_FIRST_ORDER || this == REVIEW_REWARD;
 	}
 
-	// 首頁是否顯示：評論送購物金、搶購物金還沒有發放購物金的功能，先不宣傳，做好之後從這裡拿掉
+	// 首頁與活動總覽頁是否顯示：評論送購物金還沒有發放購物金的功能，先不宣傳，做好之後從這裡拿掉。
+	// 搶購物金是限時活動，會顯示在「限時活動」（活動總覽頁會帶出名額）
 	public boolean isShownOnFront() {
-		return this != REVIEW_REWARD && this != WALLET_GRAB;
+		return this != REVIEW_REWARD;
 	}
 
 	// 代碼轉活動類型；空值或不認識的代碼回傳 null

@@ -20,7 +20,26 @@ public class ProductModalEditService {
     public record Choice(Integer id, String label) {}
     public record SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
             Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
-            Integer originalStock, Integer originalInbound, Integer originalOutbound, Integer maxBackorderQty) {}
+            Integer originalStock, Integer originalInbound, Integer originalOutbound, boolean restockConfirmed, Integer maxBackorderQty) {
+        public SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
+                Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
+                Integer originalStock, Integer originalInbound, Integer originalOutbound, Integer maxBackorderQty) {
+            this(skuId,skuName,anotherName,price,stock,safetyStock,inboundQty,outboundQty,status,revision,
+                originalStock,originalInbound,originalOutbound,false,maxBackorderQty);
+        }
+        public SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
+                Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
+                Integer originalStock, Integer originalInbound, Integer originalOutbound, boolean restockConfirmed) {
+            this(skuId,skuName,anotherName,price,stock,safetyStock,inboundQty,outboundQty,status,revision,
+                originalStock,originalInbound,originalOutbound,restockConfirmed,null);
+        }
+        public SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
+                Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
+                Integer originalStock, Integer originalInbound, Integer originalOutbound) {
+            this(skuId,skuName,anotherName,price,stock,safetyStock,inboundQty,outboundQty,status,revision,
+                originalStock,originalInbound,originalOutbound,false,null);
+        }
+    }
     public record ProductForm(Integer productId, String productName, String productDesc, Integer categoryId,
             Integer vendorId, Byte status, String revision) {}
     public record EditData(ProductForm product, List<SkuForm> skus, List<Choice> categories, List<Choice> vendors, boolean canRestore) {}
@@ -38,7 +57,7 @@ public class ProductModalEditService {
             p.getVendor()==null?null:p.getVendor().getVendorId(),p.getStatus(),revision(p.getUpdatedAt()));
         var skus=p.getProductSkus().stream().map(s->new SkuForm(s.getSkuId(),s.getSkuName(),s.getAnotherName(),s.getPrice(),
             zero(s.getStock()),zero(s.getSafetyStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),s.getStatus(),revision(s.getUpdatedAt()),
-            zero(s.getStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),zero(s.getMaxBackorderQty()))).toList();
+            zero(s.getStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),false,zero(s.getMaxBackorderQty()))).toList();
         var categoryOptions=categories.findAll().stream().map(c->new Choice(c.getProductCategoryId(),
             (c.getParentCategory()==null?"":c.getParentCategory().getCategoryName()+" / ")+c.getCategoryName())).toList();
         var vendorOptions=vendors.findAll().stream().map(v->new Choice(v.getVendorId(),v.getVendorName())).toList();
@@ -67,7 +86,7 @@ public class ProductModalEditService {
             var existing=input.skuId()==null?null:p.getProductSkus().stream().filter(s->s.getSkuId().equals(input.skuId())).findFirst()
                 .orElseThrow(()->new IllegalArgumentException("規格不屬於此商品"));
             if(input.skuId()!=null && !usedIds.add(input.skuId())) throw new IllegalArgumentException("規格編號重複");
-            lifecycle.validateSkuChange(existing==null?null:existing.getStatus(),input.status());
+            lifecycle.validateSkuChange(existing==null?null:existing.getStatus(),input.status(),input.restockConfirmed());
             if(existing!=null && (!Objects.equals(input.revision(),revision(existing.getUpdatedAt()))
                 || !Objects.equals(input.originalStock(),zero(existing.getStock()))
                 || !Objects.equals(input.originalInbound(),zero(existing.getInboundQty()))

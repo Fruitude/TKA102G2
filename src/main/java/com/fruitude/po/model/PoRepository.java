@@ -10,6 +10,9 @@ import org.springframework.data.repository.query.Param;
 
 
 public interface PoRepository  extends JpaRepository<PoVO, Integer>  {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from PoVO p where p.poId=:id")
+    java.util.Optional<PoVO> lockForReceiving(@org.springframework.data.repository.query.Param("id") Integer id);
 	
 	boolean existsByPoNo(String poNo);
 	

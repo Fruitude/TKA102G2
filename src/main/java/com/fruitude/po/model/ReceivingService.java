@@ -24,6 +24,10 @@ public class ReceivingService {
 
 	@Autowired
 	private PoRepository poRepository;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
+    @Autowired private com.fruitude.product.model.ProductRepository products;
+    @Autowired private com.fruitude.product.model.ProductLifecycleService lifecycle;
+    @Autowired private com.fruitude.orders.model.SkuStockRepository stockLocks;
 
 	@Autowired
 	private PoSkuStockRepository poSkuStockRepository;
