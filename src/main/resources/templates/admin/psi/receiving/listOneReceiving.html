@@ -27,10 +27,24 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
-					<a th:href="@{/admin/psi/receiving}" class="btn btn-secondary btn-icon-split mb-3"> 
-						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span> 
-						<span class="text">回進貨系統管理</span>
-					</a>
+					<div class="d-flex justify-content-between align-items-center mb-3">
+						<a th:href="@{/admin/psi/receiving}" class="btn btn-secondary btn-icon-split">
+							<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
+							<span class="text">回進貨系統管理</span>
+						</a>
+						<!-- 申請通過且尚未驗收的採購單才顯示驗收按鈕（PoVO 的 isReceivable），進入 ReceivingController 的 getOneForUpdate 顯示驗收頁 -->
+						<form method="post" th:action="@{/admin/psi/receiving/getOneForUpdate}" class="m-0"
+							th:if="${poVO.receivable}">
+							<input type="hidden" name="poId" th:value="${poVO.poId}">
+							<button type="submit" class="btn btn-primary">驗收</button>
+						</form>
+						<!-- 已結案（驗收過）的採購單顯示修改按鈕，同樣進入 getOneForUpdate，驗收頁會帶入上次存的內容 -->
+						<form method="post" th:action="@{/admin/psi/receiving/getOneForUpdate}" class="m-0"
+							th:if="${poVO.closed}">
+							<input type="hidden" name="poId" th:value="${poVO.poId}">
+							<button type="submit" class="btn btn-danger">修改</button>
+						</form>
+					</div>
 
 					<!-- 驗收完成、修改完成或被擋下的提示：由 ReceivingController 的 update redirect 回來時顯示 -->
 					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
@@ -95,20 +109,8 @@
 
 					<!-- 採購明細：poVO.poDetails 由 PoVO 的 @OneToMany 帶出 -->
 					<div class="card shadow mb-4">
-						<div class="card-header py-3 d-flex justify-content-between align-items-center">
+						<div class="card-header py-3">
 							<h6 class="m-0 font-weight-bold text-primary">採購明細</h6>
-							<!-- 申請通過且尚未驗收的採購單才顯示驗收按鈕（PoVO 的 isReceivable），進入 ReceivingController 的 getOneForUpdate 顯示驗收頁 -->
-							<form method="post" th:action="@{/admin/psi/receiving/getOneForUpdate}" class="m-0"
-								th:if="${poVO.receivable}">
-								<input type="hidden" name="poId" th:value="${poVO.poId}">
-								<button type="submit" class="btn btn-primary btn-sm">驗收</button>
-							</form>
-							<!-- 已結案（驗收過）的採購單顯示修改按鈕，同樣進入 getOneForUpdate，驗收頁會帶入上次存的內容 -->
-							<form method="post" th:action="@{/admin/psi/receiving/getOneForUpdate}" class="m-0"
-								th:if="${poVO.closed}">
-								<input type="hidden" name="poId" th:value="${poVO.poId}">
-								<button type="submit" class="btn btn-danger btn-sm">修改</button>
-							</form>
 						</div>
 						<div class="card-body">
 							<div class="table-responsive">

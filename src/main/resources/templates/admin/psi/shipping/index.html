@@ -7,7 +7,6 @@
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
 </head>
-<body>
 <body id="page-top">
 
     <!-- Page Wrapper -->
@@ -27,7 +26,68 @@
 
                 <!-- 這裡放頁面自己的內容 -->
                 <div class="container-fluid">
-                    <h1 class="h3 mb-4 text-gray-800">出貨系統</h1>
+					<!-- 錯誤訊息：由 ShippingController 的 handleError 放入 model -->
+					<div class="alert alert-danger alert-dismissible fade show" role="alert"
+					     th:if="${errorMessage != null}">
+					    <span th:text="${errorMessage}" style="white-space: pre-line;"></span>
+					    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+					        <span aria-hidden="true">&times;</span>
+					    </button>
+					</div>
+                    <div class="card shadow mb-4">
+						<div class="card-header py-3 d-flex justify-content-between align-items-center">
+							<h6 class="m-0 font-weight-bold text-primary">待出貨訂單</h6>
+							<!-- 出貨紀錄頁還沒做，按鈕先不連結 -->
+							<button type="button" class="btn btn-info btn-sm">查看歷史出貨紀錄</button>
+						</div>
+						<div class="card-body">
+							<div class="table-responsive">
+								<!-- 待出貨訂單（ordersStatus = 0），ordersPage 由 ShippingController 的 shipping 放入 model，訂單日期由舊到新，每頁 10 筆 -->
+								<table class="table table-bordered" id="shipping_list_all" width="100%" cellspacing="0">
+									<thead>
+										<tr>
+											<th>操作</th>
+											<th>訂單編號</th>
+											<th>訂單日期</th>
+											<th>收件人姓名</th>
+											<th>訂單備註</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr th:each="orders : ${ordersPage.content}">
+											<td>
+												<!-- 連到 ShippingController 的 listOneShipping，以 listOneShipping.html 顯示單筆資料 -->
+												<a th:href="@{/admin/psi/shipping/listOneShipping(ordersId=${orders.ordersId})}"
+													class="btn btn-primary btn-sm">查看訂單</a>
+											</td>
+											<td th:text="${orders.ordersId}" style="text-align: center"></td>
+											<td th:text="${orders.ordersDate != null ? #temporals.format(orders.ordersDate, 'yyyy-MM-dd HH:mm') : ''}"></td>
+											<td th:text="${orders.receiverName}"></td>
+											<td th:text="${orders.ordersNote}"></td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+
+							<!-- 分頁：ordersPage.number 是從 0 開始的頁碼，畫面與網址的 page 從 1 開始 -->
+							<div class="d-flex justify-content-between align-items-center mt-3">
+								<span th:text="${'共 ' + ordersPage.totalElements + ' 筆'}"></span>
+								<!-- 只有一頁時不顯示頁碼 -->
+								<ul class="pagination mb-0" th:if="${ordersPage.totalPages > 1}">
+									<li class="page-item" th:classappend="${ordersPage.first} ? 'disabled'">
+										<a class="page-link" th:href="@{/admin/psi/shipping(page=${ordersPage.number})}">上一頁</a>
+									</li>
+									<li class="page-item" th:each="pageNumber : ${#numbers.sequence(1, ordersPage.totalPages)}"
+										th:classappend="${pageNumber == ordersPage.number + 1} ? 'active'">
+										<a class="page-link" th:href="@{/admin/psi/shipping(page=${pageNumber})}" th:text="${pageNumber}"></a>
+									</li>
+									<li class="page-item" th:classappend="${ordersPage.last} ? 'disabled'">
+										<a class="page-link" th:href="@{/admin/psi/shipping(page=${ordersPage.number + 2})}">下一頁</a>
+									</li>
+								</ul>
+							</div>
+						</div>
+					</div>
                     
                     
                     
@@ -52,8 +112,6 @@
     </span>
 		<!-- 	引入js資源     -->
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-
-</body>
 
 </body>
 </html>
