@@ -36,9 +36,12 @@
 					</div>
                     <div class="card shadow mb-4">
 						<div class="card-header py-3 d-flex justify-content-between align-items-center">
-							<h6 class="m-0 font-weight-bold text-primary">待出貨訂單</h6>
-							<!-- 出貨紀錄頁還沒做，按鈕先不連結 -->
-							<button type="button" class="btn btn-info btn-sm">查看歷史出貨紀錄</button>
+							<h6 class="m-0 font-weight-bold text-danger">待出貨訂單</h6>
+							<!-- 連到 ShippingController 的 listAllShipping，列出已經出貨的訂單 -->
+							<a th:href="@{/admin/psi/shipping/listAllShipping}" class="btn btn-info btn-icon-split">
+								<span class="icon text-white-50"><i class="fas fa-history"></i></span>
+								<span class="text">歷史出貨紀錄</span>
+							</a>
 						</div>
 						<div class="card-body">
 							<div class="table-responsive">
@@ -58,7 +61,7 @@
 											<td>
 												<!-- 連到 ShippingController 的 listOneShipping，以 listOneShipping.html 顯示單筆資料 -->
 												<a th:href="@{/admin/psi/shipping/listOneShipping(ordersId=${orders.ordersId})}"
-													class="btn btn-primary btn-sm">查看訂單</a>
+													class="btn btn-primary btn-sm">詳細</a>
 											</td>
 											<td th:text="${orders.ordersId}" style="text-align: center"></td>
 											<td th:text="${orders.ordersDate != null ? #temporals.format(orders.ordersDate, 'yyyy-MM-dd HH:mm') : ''}"></td>

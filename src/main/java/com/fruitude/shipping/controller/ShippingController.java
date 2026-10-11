@@ -36,15 +36,14 @@ public class ShippingController {
 	}
 
 	// 單筆資料：由首頁列表的「詳細」連過來，依 ordersId 顯示訂單與出貨明細
-	// 只顯示待出貨（ordersStatus = 0）的訂單；例外是剛出貨完由 ship redirect 回來的那一次（model 裡有 shipped），顯示「出貨完成」
+	// 只顯示待出貨（ordersStatus = 0）的訂單
 	@GetMapping("/listOneShipping")
 	public String listOneShipping(@RequestParam("ordersId") Integer ordersId, Model model,
 			RedirectAttributes redirectAttributes) {
 		Orders orders = shippingSvc.getOneOrders(ordersId);
 
 		// 查不到訂單、或不是待出貨的訂單時回首頁；ship 被擋下帶過來的錯誤訊息繼續帶到首頁顯示
-		boolean pending = orders != null && Integer.valueOf(0).equals(orders.getOrdersStatus());
-		if (orders == null || (!pending && !model.containsAttribute("shipped"))) {
+		if (orders == null || !Integer.valueOf(0).equals(orders.getOrdersStatus())) {
 			if (model.containsAttribute("errorMessage")) {
 				redirectAttributes.addFlashAttribute("errorMessage", model.getAttribute("errorMessage"));
 			}
@@ -59,17 +58,41 @@ public class ShippingController {
 		return "admin/psi/shipping/listOneShipping"; //view
 	}
 
-	// 確認出貨：由單筆頁的「確認出貨」按鈕送過來，成功或被擋下都 redirect 回單筆頁
+	// 確認出貨：由單筆頁的「確認出貨」按鈕送過來
+	// 成功時 redirect 到出貨紀錄的單筆頁（updateShipping）顯示「出貨完成」；被擋下時 redirect 回待出貨的單筆頁顯示原因
 	@PostMapping("/ship")
 	public String ship(@RequestParam("ordersId") Integer ordersId, RedirectAttributes redirectAttributes) {
 		try {
 			shippingSvc.shipOrders(ordersId);
-			// 單筆頁看到 shipped 才會顯示已出貨的訂單，並在右上角顯示「出貨完成」
-			redirectAttributes.addFlashAttribute("shipped", true);
 		} catch (IllegalArgumentException e) {
 			redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+			return "redirect:/admin/psi/shipping/listOneShipping?ordersId=" + ordersId;
 		}
-		return "redirect:/admin/psi/shipping/listOneShipping?ordersId=" + ordersId;
+		// updateShipping.html 看到 shipped 會顯示「出貨完成」，返回按鈕改成回出貨管理
+		redirectAttributes.addFlashAttribute("shipped", true);
+		return "redirect:/admin/psi/shipping/updateShipping?ordersId=" + ordersId;
+	}
+
+	// 歷史出貨紀錄：由首頁的「查看歷史出貨紀錄」連過來，列出狀態不是待出貨、也不是取消的訂單，每頁 10 筆
+	@GetMapping("/listAllShipping")
+	public String listAllShipping(@RequestParam(value = "page", defaultValue = "1") int page, Model model) {
+		model.addAttribute("ordersPage", shippingSvc.getHistoryOrders(page));
+		return "admin/psi/shipping/listAllShipping"; //view
+	}
+
+	// 歷史出貨紀錄的單筆資料：由歷史出貨紀錄的「詳細」連過來，或剛出貨完由 ship redirect 過來，依 ordersId 顯示訂單與出貨明細
+	@GetMapping("/updateShipping")
+	public String updateShipping(@RequestParam("ordersId") Integer ordersId, Model model) {
+		Orders orders = shippingSvc.getOneOrders(ordersId);
+
+		// 查不到訂單、或不是歷史出貨紀錄會列出的訂單（待出貨、取消）時回歷史出貨紀錄
+		if (orders == null || !shippingSvc.isHistoryOrders(orders)) {
+			return "redirect:/admin/psi/shipping/listAllShipping";
+		}
+		model.addAttribute("orders", orders);
+		model.addAttribute("shippingDetails", shippingSvc.getShippingDetails(ordersId));
+
+		return "admin/psi/shipping/updateShipping"; //view
 	}
 
 	// 網址的參數型別不對（例如 page=abc）或少了必要的參數時，回首頁第 1 頁並顯示錯誤訊息

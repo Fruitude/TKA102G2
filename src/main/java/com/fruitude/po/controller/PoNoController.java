@@ -30,9 +30,6 @@ import jakarta.validation.constraints.NotNull;
 @Controller
 @RequestMapping("/admin/psi/purchase")
 public class PoNoController {
-	@Autowired
-	com.fruitude.product.model.ProductProcurementService productProcurement;
-
 
 	@Autowired
 	PoService poSvc;
@@ -41,7 +38,7 @@ public class PoNoController {
 	// key 是供應商編號、value 是該供應商的規格清單；例外處理（handleError）不會經過這裡，要自己再放一次
 	@ModelAttribute("belowSafetyStockByVendor")
 	public Map<Integer, List<ProductSku>> belowSafetyStockByVendor() {
-		return productProcurement.getBelowSafetyStockByVendor();
+		return poSvc.getBelowSafetyStockByVendor();
 	}
 
 	// 待採購商品的「待審核數量」欄：key 是規格編號、value 是待審核採購單裡的採購數量加總；handleError 一樣要自己再放一次
@@ -53,7 +50,7 @@ public class PoNoController {
 	// 待採購商品的各供應商區塊要更新的待審核採購單：key 是供應商編號、value 是採購單系統編號；有值的區塊顯示「更新採購單」而不是「新增採購單」
 	@ModelAttribute("pendingPoIdByVendorId")
 	public Map<Integer, Integer> pendingPoIdByVendorId() {
-		return productProcurement.getPendingPoIdByVendorId();
+		return poSvc.getPendingPoIdByVendorId();
 	}
 
 	// 依採購單編號查單筆，查到後交給 PoController 的 listOnePo 顯示
@@ -138,9 +135,9 @@ public class PoNoController {
 
 		ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
 		mav.addObject("errorMessage", String.join("\n", messages));
-		mav.addObject("belowSafetyStockByVendor", productProcurement.getBelowSafetyStockByVendor());
+		mav.addObject("belowSafetyStockByVendor", poSvc.getBelowSafetyStockByVendor());
 		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
-		mav.addObject("pendingPoIdByVendorId", productProcurement.getPendingPoIdByVendorId());
+		mav.addObject("pendingPoIdByVendorId", poSvc.getPendingPoIdByVendorId());
 		return mav;
 	}
 

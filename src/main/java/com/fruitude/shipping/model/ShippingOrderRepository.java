@@ -1,5 +1,6 @@
 package com.fruitude.shipping.model;
 
+import java.util.Collection;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -18,6 +19,9 @@ public interface ShippingOrderRepository extends JpaRepository<Orders,Integer>{
 
 	// 指定狀態的訂單，只查 pageable 指定的那一頁；排序也由 pageable 帶入
 	Page<Orders> findByOrdersStatus(Integer ordersStatus, Pageable pageable);
+
+	// 狀態不在指定清單裡的訂單（歷史出貨紀錄用來排除待出貨與取消），只查 pageable 指定的那一頁；排序也由 pageable 帶入
+	Page<Orders> findByOrdersStatusNotIn(Collection<Integer> ordersStatuses, Pageable pageable);
 
 	// 出貨前鎖住這張訂單的資料列（FOR UPDATE）並取出，一直到交易結束才放開
 	// 鎖住期間別人對同一張訂單出貨、改狀態都要等這個交易結束，所以鎖住之後讀到的狀態才是準的

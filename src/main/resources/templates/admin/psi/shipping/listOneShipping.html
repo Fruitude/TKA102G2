@@ -40,8 +40,6 @@
 							<button type="submit" class="btn btn-primary" th:disabled="${!shippable}"
 								th:title="${!shippable} ? '沒有明細或庫存不足，無法出貨'">確認出貨</button>
 						</form>
-						<!-- 剛出貨完由 ship redirect 回來的那一次才有 shipped -->
-						<span class="text-danger font-weight-bold" th:if="${shipped != null}">出貨完成</span>
 					</div>
 
 					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>

@@ -26,6 +26,12 @@ public class ShippingService {
 	// 訂單日期由舊到新，同一時間的再依訂單編號由小到大
 	private static final Sort PENDING_ORDERS_SORT = Sort.by("ordersDate", "ordersId");
 
+	// 歷史出貨紀錄不列的狀態：0 待出貨、2 非客戶端問題取消、4 客戶端主動取消
+	private static final List<Integer> HISTORY_EXCLUDED_STATUSES = List.of(0, 2, 4);
+
+	// 歷史出貨紀錄的排序：訂單日期由新到舊，同一時間的再依訂單編號由大到小
+	private static final Sort HISTORY_ORDERS_SORT = Sort.by(Sort.Direction.DESC, "ordersDate", "ordersId");
+
 	@Autowired
 	private ShippingOrderRepository ordersRepository;
 
@@ -45,6 +51,25 @@ public class ShippingService {
 			ordersPage = ordersRepository.findByOrdersStatus(0, PageRequest.of(lastPageIndex, PAGE_SIZE, PENDING_ORDERS_SORT));
 		}
 		return ordersPage;
+	}
+
+	// 歷史出貨紀錄的其中一頁：狀態不是待出貨（0）、也不是取消（2、4）的訂單，訂單日期由新到舊
+	// page 的規則和 getPendingOrders 相同
+	public Page<Orders> getHistoryOrders(int page) {
+		int pageIndex = Math.max(page, 1) - 1; // PageRequest 的頁碼從 0 開始
+		Page<Orders> ordersPage = ordersRepository.findByOrdersStatusNotIn(HISTORY_EXCLUDED_STATUSES,
+				PageRequest.of(pageIndex, PAGE_SIZE, HISTORY_ORDERS_SORT));
+		if (pageIndex > 0 && pageIndex >= ordersPage.getTotalPages()) {
+			int lastPageIndex = Math.max(ordersPage.getTotalPages() - 1, 0);
+			ordersPage = ordersRepository.findByOrdersStatusNotIn(HISTORY_EXCLUDED_STATUSES,
+					PageRequest.of(lastPageIndex, PAGE_SIZE, HISTORY_ORDERS_SORT));
+		}
+		return ordersPage;
+	}
+
+	// 這張訂單會不會出現在歷史出貨紀錄：條件和 getHistoryOrders 相同，歷史單筆頁用來擋下不該顯示的訂單
+	public boolean isHistoryOrders(Orders orders) {
+		return orders.getOrdersStatus() != null && !HISTORY_EXCLUDED_STATUSES.contains(orders.getOrdersStatus());
 	}
 
 	// 單筆訂單，查不到回傳 null
