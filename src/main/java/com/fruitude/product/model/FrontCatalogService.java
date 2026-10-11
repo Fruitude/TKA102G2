@@ -21,8 +21,10 @@ public class FrontCatalogService {
         Integer skuId, Integer imageId, boolean giftBox, List<SkuView> skus, Integer stock) {}
     public record LiveSku(Integer skuId, String name, String skuName, Integer price, Integer originalPrice, int stock, boolean available, Integer skuStatus) {}
 
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public List<ProductView> getProducts() { return loadProducts(null); }
 
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public ProductView getLiveProduct(Integer productId) {
         if (productId == null) return null;
         return loadProducts(productId).stream().findFirst().orElse(null);

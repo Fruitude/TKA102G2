@@ -9,6 +9,7 @@ public class ProductModalEditTest {
     private final Product p = new Product();
     private final ProductSku s = new ProductSku();
     private final ProductModalEditService service;
+    private int productLocks, productFlushes;
     @SuppressWarnings("unchecked") private static <T> T proxy(Class<T> type, java.lang.reflect.InvocationHandler handler) {
         return (T)Proxy.newProxyInstance(type.getClassLoader(),new Class<?>[]{type},handler);
     }
@@ -16,9 +17,10 @@ public class ProductModalEditTest {
         p.setProductId(10); p.setStatus((byte)0); p.setProductName("Original");
         s.setSkuId(1); s.setProduct(p); s.setSkuName("Canonical"); s.setStatus((byte)1); s.setStock(20); s.setInboundQty(0); s.setOutboundQty(0); p.getProductSkus().add(s);
         var products=proxy(ProductRepository.class,(o,m,a)->switch(m.getName()) {
-            case "lockForStatus", "findById" -> Optional.of(p);
+            case "lockForStatus" -> { productLocks++; yield Optional.of(p); }
+            case "findById" -> Optional.of(p);
             case "existsByVendor_VendorIdAndProductNameIgnoreCaseAndProductIdNot" -> false;
-            case "saveAndFlush" -> p;
+            case "saveAndFlush" -> { productFlushes++; yield p; }
             default -> throw new UnsupportedOperationException(m.getName());
         });
         var parent=new ProductCategory();parent.setProductCategoryId(9);parent.setCategoryName("大分類");
@@ -143,5 +145,31 @@ public class ProductModalEditTest {
         assertEquals(Byte.valueOf((byte)1),s.getStatus());
         p.setUpdatedAt(null);s.setUpdatedAt(null);s.setStatus((byte)0);
         save(sku(null,(byte)7,0));assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(1).getStatus());
+    }
+    @Test public void combinedProductSkuAndImageEditDoesNotReloadAndDiscardEdits() {
+        var old=image(7);var upload=new ProductImage();upload.setImageData(new byte[]{3,4});upload.setFileSize(2);
+        var request=new ProductModalEditService.SaveRequest(
+            new ProductModalEditService.ProductForm(10,"Changed","New description",2,3,(byte)0,null),
+            List.of(sku(1,(byte)1,20)),false,false);
+        service.saveWithImages(new ProductModalEditService.ImageRequest(request,
+            List.of(new ProductModalEditService.ImageChange(7,1,null,2,null,0,false))),List.of(upload));
+        assertEquals(1,productLocks);assertEquals(1,productFlushes);
+        assertEquals("Changed",p.getProductName());assertEquals("Alias",s.getAnotherName());
+        assertEquals(Integer.valueOf(199),s.getPrice());assertArrayEquals(new byte[]{3,4},old.getImageData());
+    }
+    @Test public void badUploadReferenceIsRejectedBeforeLockingProduct() {
+        try {service.saveWithImages(new ProductModalEditService.ImageRequest(unchanged(),
+            List.of(new ProductModalEditService.ImageChange(null,1,null,0,null,5,false))),List.of());fail();}
+        catch(IllegalArgumentException expected){assertTrue(expected.getMessage().contains("檔案資料不完整"));}
+        assertEquals(0,productLocks);assertEquals(0,productFlushes);
+    }
+    @Test public void newSkuAndItsImageAreSavedTogetherAtTheOnlyFlush() {
+        var upload=new ProductImage();upload.setImageData(new byte[]{5});upload.setFileSize(1);
+        var request=new ProductModalEditService.SaveRequest(unchanged().product(),List.of(sku(null,(byte)5,0)),false,false);
+        service.saveWithImages(new ProductModalEditService.ImageRequest(request,
+            List.of(new ProductModalEditService.ImageChange(null,null,"New SKU",0,null,0,false))),List.of(upload));
+        assertEquals(1,productLocks);assertEquals(1,productFlushes);
+        var added=p.getProductSkus().get(1);assertSame(added,added.getProductImages().get(0).getProductSku());
+        assertArrayEquals(new byte[]{5},added.getProductImages().get(0).getImageData());
     }
 }

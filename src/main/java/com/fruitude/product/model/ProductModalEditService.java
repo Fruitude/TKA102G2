@@ -79,10 +79,21 @@ public class ProductModalEditService {
 
     @Transactional
     public Saved save(SaveRequest request) {
+        validateEditRequest(request);
+        var p=lockProduct(request.product().productId()).orElseThrow(()->new NoSuchElementException("商品不存在"));
+        applyEditToLockedProduct(request,p);
+        products.saveAndFlush(p);
+        return new Saved(p.getProductId(),p.getStatus());
+    }
+
+    private static void validateEditRequest(SaveRequest request) {
         if(request==null || request.product()==null) throw new IllegalArgumentException("缺少商品資料");
+        if(request.product().productId()==null) throw new IllegalArgumentException("缺少商品編號");
+    }
+
+    // Both transactional entry points reuse this managed product; no second lock, refresh or intermediate flush.
+    private void applyEditToLockedProduct(SaveRequest request,Product p) {
         var f=request.product();
-        if(f.productId()==null) throw new IllegalArgumentException("缺少商品編號");
-        var p=lockProduct(f.productId()).orElseThrow(()->new NoSuchElementException("商品不存在"));
         if(!Objects.equals(f.revision(),revision(p.getUpdatedAt()))) throw new Conflict("商品已被其他操作更新，請取消並重新開啟修改。");
         String name=required(f.productName(),100,"商品名稱");
         if(f.productDesc()!=null && f.productDesc().length()>255) throw new IllegalArgumentException("商品描述不可超過255字");
@@ -126,47 +137,51 @@ public class ProductModalEditService {
         p.setProductName(name);p.setProductDesc(f.productDesc());p.setProductCategory(category);p.setVendor(vendor);
         if(request.productStatusChanged()) lifecycle.changeProduct(p,f.status(),request.activateSkus());
         else if(!request.skus().isEmpty()) lifecycle.synchronize(p);
-        p.setUpdatedAt(LocalDateTime.now());products.saveAndFlush(p);
-        return new Saved(p.getProductId(),p.getStatus());
+        p.setUpdatedAt(LocalDateTime.now());
     }
     @Transactional
     public Saved saveWithImages(ImageRequest request, List<ProductImage> uploads) {
-        if(request==null || request.edit()==null || request.edit().product()==null || request.images()==null)
-            throw new IllegalArgumentException("缺少商品或圖片資料");
+        if(request==null || request.images()==null) throw new IllegalArgumentException("缺少商品或圖片資料");
+        validateEditRequest(request.edit());
         if(request.images().size()>100) throw new IllegalArgumentException("一次最多調整100張圖片");
-        var p=lockProduct(request.edit().product().productId()).orElseThrow(()->new NoSuchElementException("商品不存在"));
+        var files=uploads==null?List.<ProductImage>of():uploads;
         var ids=new HashSet<Integer>();
+        // Request-only checks are cheap and do not need a database lock.
         for(var change:request.images()) {
             if(change==null) throw new IllegalArgumentException("圖片資料不可空白");
-            if(change.imageId()!=null) {
-                if(!ids.add(change.imageId())) throw new IllegalArgumentException("圖片編號重複");
-                var image=p.getProductSkus().stream().flatMap(s->s.getProductImages().stream())
-                    .filter(i->change.imageId().equals(i.getImageId())).findFirst().orElseThrow(()->new IllegalArgumentException("圖片不屬於此商品"));
-                if(!Objects.equals(change.skuId(),image.getProductSku().getSkuId())) throw new IllegalArgumentException("圖片不屬於此規格");
-                if(!Objects.equals(change.revision(),revision(image.getUpdatedAt()))) throw new Conflict("圖片已被其他操作修改，請重新開啟修改。");
-            }
+            if(change.imageId()!=null && !ids.add(change.imageId())) throw new IllegalArgumentException("圖片編號重複");
             if(!Boolean.TRUE.equals(change.remove())) {
                 if(change.sortOrder()==null || change.sortOrder()<0) throw new IllegalArgumentException("圖片排序不可小於0");
-                if(change.fileIndex()!=null && (change.fileIndex()<0 || change.fileIndex()>=uploads.size())) throw new IllegalArgumentException("圖片檔案資料不完整");
+                if(change.fileIndex()!=null && (change.fileIndex()<0 || change.fileIndex()>=files.size())) throw new IllegalArgumentException("圖片檔案資料不完整");
                 if(change.imageId()==null && change.fileIndex()==null) throw new IllegalArgumentException("請選擇新增圖片");
             }
         }
-        var saved=save(request.edit());
+        var p=lockProduct(request.edit().product().productId()).orElseThrow(()->new NoSuchElementException("商品不存在"));
+        var imagesById=new HashMap<Integer,ProductImage>();
+        if(!ids.isEmpty()) p.getProductSkus().forEach(sku->sku.getProductImages().forEach(image->imagesById.put(image.getImageId(),image)));
+        for(var change:request.images()) {
+            if(change.imageId()==null) continue;
+            var image=imagesById.get(change.imageId());
+            if(image==null) throw new IllegalArgumentException("圖片不屬於此商品");
+            if(!Objects.equals(change.skuId(),image.getProductSku().getSkuId())) throw new IllegalArgumentException("圖片不屬於此規格");
+            if(!Objects.equals(change.revision(),revision(image.getUpdatedAt()))) throw new Conflict("圖片已被其他操作修改，請重新開啟修改。");
+        }
+        applyEditToLockedProduct(request.edit(),p);
         for(var change:request.images()) {
             var sku=p.getProductSkus().stream().filter(s->change.skuId()!=null ? change.skuId().equals(s.getSkuId()) : Objects.equals(change.skuName(),s.getSkuName()))
                 .findFirst().orElseThrow(()->new IllegalArgumentException("圖片所屬規格不存在"));
-            var image=change.imageId()==null ? null : sku.getProductImages().stream().filter(i->change.imageId().equals(i.getImageId())).findFirst().orElseThrow();
+            var image=change.imageId()==null ? null : imagesById.get(change.imageId());
             if(Boolean.TRUE.equals(change.remove())) { if(image!=null) sku.getProductImages().remove(image); continue; }
             if(image==null) { image=new ProductImage();image.setProductSku(sku);image.setCreatedAt(LocalDateTime.now());sku.getProductImages().add(image); }
             if(change.fileIndex()!=null) {
-                var upload=uploads.get(change.fileIndex());
+                var upload=files.get(change.fileIndex());
                 image.setImageData(upload.getImageData());image.setImageName(upload.getImageName());
                 image.setImageType(upload.getImageType());image.setFileSize(upload.getFileSize());
             }
             image.setSortOrder(change.sortOrder());image.setUpdatedAt(LocalDateTime.now());
         }
         products.saveAndFlush(p);
-        return saved;
+        return new Saved(p.getProductId(),p.getStatus());
     }
 
     private static String required(String value,int limit,String label) {

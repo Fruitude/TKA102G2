@@ -42,33 +42,18 @@ public class ProductService {
         return true;
     }
 
-    @org.springframework.transaction.annotation.Transactional
-    public int updatePageStatus(List<Integer> productIds, Byte status) { return updatePageStatus(productIds, status, false); }
-
-    @org.springframework.transaction.annotation.Transactional
-    public int updatePageStatus(List<Integer> productIds, Byte status, boolean activateSkus) {
-        if (status == null || (status != 0 && status != 1)) throw new IllegalArgumentException("狀態須為上架或下架");
-        if (productIds == null || productIds.isEmpty() || productIds.size() > 100
-                || productIds.stream().anyMatch(id -> id == null || id <= 0))
-            throw new IllegalArgumentException("請提供本頁有效的商品編號（最多100筆）");
-        var products = productIds.stream().distinct().sorted().map(id -> lockProduct(id)
-            .orElseThrow(() -> new IllegalArgumentException("本頁商品已變更，請重新整理後再操作"))).toList();
-        // Preflight the entire page before modifying anything; a confirmation never partially updates a page.
-        for (Product product : products) {
-            if (product.getStatus() == 2) continue;
-            if (status == 1 && product.getProductSkus().stream().noneMatch(sku -> ProductLifecycleService.isSellable(sku.getStatus()) && !(sku.getStatus() == 3 && ProductLifecycleService.isDepleted(sku)))) {
-                if (product.getProductSkus().stream().noneMatch(sku -> Byte.valueOf((byte)0).equals(sku.getStatus()) || Byte.valueOf((byte)5).equals(sku.getStatus())))
-                    throw new IllegalArgumentException(product.getProductName() + " 沒有可上架規格");
-                if (!activateSkus && !product.isHasReadySku()) throw new ProductStatusConfirmationException();
-            }
-        }
-        int updated = 0;
-        for (Product product : products) {
-            if (product.getStatus() == 2) continue;
-            lifecycle.changeProduct(product, status, activateSkus); updated++;
-        }
-        repository.flush();
-        return updated;
+    // Each page item commits independently; the batch coordinator calls this Spring bean through its proxy.
+    @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public ProductPageStatusService.Item updatePageItemStatus(Integer id, Byte status, boolean activateSkus) {
+        if(status==null || (status!=0 && status!=1)) throw new IllegalArgumentException("狀態須為上架或下架");
+        var product=lockProduct(id).orElseThrow(()->new IllegalArgumentException("商品不存在，可能已被刪除"));
+        if(Byte.valueOf((byte)2).equals(product.getStatus()))
+            return new ProductPageStatusService.Item(id,product.getProductName(),product.getStatus(),"SKIPPED","商品已永久停產，批次操作略過");
+        lifecycle.changeProduct(product,status,activateSkus);
+        repository.saveAndFlush(product);
+        String message=status==1 && !Byte.valueOf((byte)1).equals(product.getStatus())
+            ? "無可販售規格，依供應狀況維持下架" : null;
+        return new ProductPageStatusService.Item(id,product.getProductName(),product.getStatus(),"UPDATED",message);
     }
 
     public boolean isNameUsed(Integer vendorId, String name, Integer excludedId) {
