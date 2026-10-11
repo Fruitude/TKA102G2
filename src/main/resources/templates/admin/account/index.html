@@ -11,6 +11,8 @@
     .psi-scroll-viewport { overflow-x: auto; }
     .psi-scroll-content { width: 100%; min-width: var(--psi-content-min-width, 700px); }
     .psi-tabs-header { overflow: hidden; border-bottom: 0; }
+    /* admin-system-tabs.css 把每個分頁固定成 100px 寬，「訂單退款審核」加上圖示放不下會擠在一起；這裡改成寬度跟著文字走，最少 100px */
+    .psi-tabs.management-tabs.nav-tabs .nav-link { flex: 0 0 auto; width: auto; min-width: 100px; }
     #psi-frame { display: block; width: 100%; min-height: 400px; height: 400px; border: 0; background: white; }
     #psi-panel[aria-busy="true"] #psi-frame { visibility: hidden; }
 </style>
@@ -43,12 +45,12 @@
                                 <button class="nav-link active" type="button" role="tab" 
                                 id="tab-purchasereview" aria-selected="true" aria-controls="psi-panel" 
                                 data-psi-tab data-key="purchasereview" th:attr="data-url=@{/admin/account/purchasereview}">
-                                    <i class="fas fa-truck" aria-hidden="true"></i>採購單審核
+                                    <i class="fas fa-clipboard-check" aria-hidden="true"></i>採購單審核
                                 </button>
                                 <button class="nav-link" type="button" role="tab" id="tab-refundreview"
                                 aria-selected="false" aria-controls="psi-panel" tabindex="-1" 
                                 data-psi-tab data-key="refundreview" th:attr="data-url=@{/admin/account/refundreview}">
-                                    <i class="fas fa-dolly" aria-hidden="true"></i>訂單退款審核
+                                    <i class="fas fa-hand-holding-usd" aria-hidden="true"></i>訂單退款審核
                                 </button>
                             </div>
                         </div>
