@@ -105,6 +105,7 @@
                 <option value="all" th:selected="${statusFilter == 'all'}">全部</option>
                 <option value="on" th:selected="${statusFilter == 'on'}">僅顯示上架</option>
                 <option value="off" th:selected="${statusFilter == 'off'}">僅顯示下架</option>
+                <option value="discontinued" th:selected="${statusFilter == 'discontinued'}">僅顯示停產</option>
             </select>
         </label>
         <label class="comment-range" for="min-comments">評論
@@ -195,7 +196,12 @@
             <td class="comment-count" th:text="${product.allCommentAmount}"> </td>
             <td class="score" th:classappend="${product.allCommentAmount == null or product.allCommentAmount == 0 ? 'score-unrated' : ''}" th:text="${product.allCommentAmount != null and product.allCommentAmount > 0 ? #numbers.formatDecimal((product.allCommentStar == null ? 0 : product.allCommentStar) * 1.0 / product.allCommentAmount, 1, 1) : '未評分'}"> </td>
 			<td>
-                <span th:if="${product.status == 2}" class="status-discontinued" title="解除永久停產請由 ADMIN 修改商品">永久停產</span>
+                <span th:if="${product.status == 2}" class="status-discontinued" title="只有 ADMIN 可以解除停產">停產</span>
+                <select th:if="${product.status == 2 and canRestoreDiscontinued == true}" class="discontinued-status-select" aria-label="解除商品停產" th:attr="data-product-id=${product.productId}" onchange="restoreDiscontinuedProduct(this)">
+                    <option value="2" selected>停產</option>
+                    <option value="1">上架</option>
+                    <option value="0">下架</option>
+                </select>
                 <label class="switch" th:if="${product.status != 2}">
        		 	<input
             		type="checkbox"
@@ -242,6 +248,7 @@ function lockProductStatus(busy) {
     productStatusBusy = busy;
     const toggles = document.querySelectorAll('#product-table tbody [data-product-row] .status-toggle');
     toggles.forEach(toggle => { toggle.disabled = busy; });
+    document.querySelectorAll('.discontinued-status-select').forEach(select => { select.disabled = busy; });
     ['page-status-on', 'page-status-off'].forEach(id => {
         document.getElementById(id).disabled = busy || toggles.length === 0;
     });
@@ -272,6 +279,23 @@ async function changeProductStatus(toggleElement) {
     } catch (error) {
         toggleElement.checked = !toggleElement.checked;
         showProductStatusMessage(error.message || '商品狀態更新失敗，已還原開關。', true);
+    } finally { lockProductStatus(false); }
+}
+
+async function restoreDiscontinuedProduct(select) {
+    if (productStatusBusy) { select.value = '2'; return; }
+    const status = Number(select.value);
+    if (![0, 1].includes(status)) return;
+    lockProductStatus(true);
+    try {
+        const response = await window.requestProductStatus(/*[[@{/product/updateStatus}]]*/ "/product/updateStatus",
+            new URLSearchParams({productId: select.dataset.productId, status}));
+        const result = await response.text();
+        if (!response.ok || result !== 'success') throw new Error(result || '更新失敗');
+        window.location.reload();
+    } catch (error) {
+        select.value = '2';
+        showProductStatusMessage(error.message || '商品狀態更新失敗，已恢復停產。', true);
     } finally { lockProductStatus(false); }
 }
 

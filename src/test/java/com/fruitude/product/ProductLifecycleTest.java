@@ -7,6 +7,27 @@ public class ProductLifecycleTest {
     ProductStatusAccess access(boolean admin){return new ProductStatusAccess(null,null){@Override public boolean canRestoreDiscontinued(){return admin;}};}
     Product product(int status,int...states){var p=new Product();p.setProductId(1);p.setStatus((byte)status);for(int x:states){var s=new ProductSku();s.setSkuId(p.getProductSkus().size()+1);s.setProduct(p);s.setStatus((byte)x);s.setStock(50);s.setSafetyStock(10);p.getProductSkus().add(s);}return p;}
     List<Byte> states(Product p){return p.getProductSkus().stream().map(ProductSku::getStatus).toList();}
+    @Test public void productRetirementCascadesToStoppingOrPermanentWithoutRestoringPermanentSkus(){
+        var l=new ProductLifecycleService(access(false));
+        var p=product(1,0,1,2,3,4,5,6,7);
+        for(var s:p.getProductSkus()){s.setStock(0);s.setOutboundQty(0);s.setInboundQty(0);}
+        p.getProductSkus().get(0).setStock(10);
+        p.getProductSkus().get(1).setInboundQty(2);
+        p.getProductSkus().get(2).setStock(5);p.getProductSkus().get(2).setOutboundQty(5);
+        p.getProductSkus().get(3).setStock(3);p.getProductSkus().get(3).setOutboundQty(4);p.getProductSkus().get(3).setInboundQty(1);
+        p.getProductSkus().get(4).setStock(8);p.getProductSkus().get(4).setOutboundQty(3);
+        p.getProductSkus().get(7).setStock(50);
+        l.changeProduct(p,(byte)2,false);
+        assertEquals(List.of((byte)6,(byte)6,(byte)7,(byte)6,(byte)6,(byte)7,(byte)7,(byte)7),states(p));
+        assertEquals(Byte.valueOf((byte)2),p.getStatus());assertFalse(p.getAutoRestockEnabled());
+        l.synchronize(p);assertEquals(Byte.valueOf((byte)2),p.getStatus());
+        l.afterReceipt(p,Set.of(2));assertEquals(Byte.valueOf((byte)2),p.getStatus());
+        try{l.changeProduct(p,(byte)1,false);fail();}catch(ProductStatusAccessException expected){}
+        new ProductLifecycleService(access(true)).changeProduct(p,(byte)1,false);
+        assertEquals(Byte.valueOf((byte)1),p.getStatus());
+        assertEquals(Byte.valueOf((byte)6),p.getProductSkus().get(0).getStatus());
+        assertEquals(Byte.valueOf((byte)7),p.getProductSkus().get(7).getStatus());
+    }
     @Test public void manualProductOfflineClosesSaleAndPreparedStatesAndBlocksReceiptWakeup(){
         var l=new ProductLifecycleService(access(false));var p=product(1,1,2,3,4,5,6,7);l.changeProduct(p,(byte)0,false);
         assertEquals(List.of((byte)0,(byte)0,(byte)0,(byte)4,(byte)0,(byte)6,(byte)7),states(p));
@@ -42,7 +63,7 @@ public class ProductLifecycleTest {
         var empty=product(0,5);var sku=empty.getProductSkus().get(0);sku.setStock(0);sku.setMaxBackorderQty(0);
         l.changeProduct(empty,(byte)1,false);assertEquals(Byte.valueOf((byte)4),sku.getStatus());assertEquals(Byte.valueOf((byte)0),empty.getStatus());assertTrue(empty.getAutoRestockEnabled());
         var shortSupply=product(0,5);shortSupply.getProductSkus().get(0).setStock(5);
-        l.changeProduct(shortSupply,(byte)1,false);assertEquals(Byte.valueOf((byte)2),shortSupply.getProductSkus().get(0).getStatus());
+        l.changeProduct(shortSupply,(byte)1,false);assertEquals(Byte.valueOf((byte)3),shortSupply.getProductSkus().get(0).getStatus());
     }
     @Test public void stoppingSupplyCannotWakeProductButManualListingCanSellIt(){
         var l=new ProductLifecycleService(access(false));var p=product(0,6);p.setAutoRestockEnabled(false);

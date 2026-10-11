@@ -16,7 +16,7 @@ public class ProductLifecycleService {
     public void changeProduct(Product product, Byte status, boolean activateSkus) {
         if (status == null || status < 0 || status > 2) throw new IllegalArgumentException("商品狀態須為 0～2");
         access.requireRestorePermission(product.getStatus(), status, PRODUCT_DISCONTINUED);
-        if (status != 0) closeDepletedSkus(product);
+        if (status == 1) closeDepletedSkus(product);
         var skus = product.getProductSkus();
         if (status == 1 && skus.stream().noneMatch(s -> isSellable(s.getStatus()))) {
             if (skus.stream().noneMatch(s -> Byte.valueOf((byte)0).equals(s.getStatus()) || Byte.valueOf(SKU_PREPARED).equals(s.getStatus())))
@@ -30,6 +30,14 @@ public class ProductLifecycleService {
         }
         if (status == 0) skus.stream().filter(s -> isAutomaticListingSku(s.getStatus()) || Byte.valueOf(SKU_PREPARED).equals(s.getStatus()))
             .forEach(s -> setSkuStatus(s, (byte)0));
+        if (status == PRODUCT_DISCONTINUED) {
+            skus.stream().filter(s -> !Byte.valueOf(SKU_DISCONTINUED).equals(s.getStatus())).forEach(s -> {
+                long stock = s.getStock() == null ? 0L : s.getStock().longValue();
+                long outgoing = s.getOutboundQty() == null ? 0L : s.getOutboundQty().longValue();
+                long incoming = s.getInboundQty() == null ? 0L : s.getInboundQty().longValue();
+                setSkuStatus(s, (byte)(incoming > 0 || stock - outgoing > 0 ? 6 : SKU_DISCONTINUED));
+            });
+        }
         product.setAutoRestockEnabled(status == 1);
         if (status == 1) {
             product.setStatus((byte)1);
@@ -95,15 +103,19 @@ public class ProductLifecycleService {
     public static boolean isAutomaticListingSku(Byte status) { return status != null && status >= 1 && status <= 3; }
     public static boolean isSellable(Byte status) { return status != null && ((status >= 1 && status <= 3) || status == 6); }
     public void closeDepletedSkus(Product product) {
-        if (Byte.valueOf(PRODUCT_DISCONTINUED).equals(product.getStatus())) return;
-        var candidates=product.getProductSkus().stream().filter(s -> isSellable(s.getStatus())).toList();
+        boolean retired=Byte.valueOf(PRODUCT_DISCONTINUED).equals(product.getStatus());
+        var candidates=product.getProductSkus().stream().filter(s -> retired ? Byte.valueOf((byte)6).equals(s.getStatus()) : isSellable(s.getStatus())).toList();
         var ids=candidates.stream().map(ProductSku::getSkuId).filter(java.util.Objects::nonNull).toList();
         var rates=supply==null?java.util.Map.<Integer,java.math.BigDecimal>of():supply.yields(ids);
         for(var sku:candidates) setSkuStatus(sku,SkuSupplyService.nextStatus(sku,
             sku.getSkuId()==null?SkuSupplyService.DEFAULT_YIELD:rates.getOrDefault(sku.getSkuId(),SkuSupplyService.DEFAULT_YIELD),false));
     }
     public void afterReceipt(Product product, java.util.Set<Integer> receivedSkuIds) {
-        if (product.getStatus()==2 || !Boolean.TRUE.equals(product.getAutoRestockEnabled())) return;
+        if (Byte.valueOf(PRODUCT_DISCONTINUED).equals(product.getStatus())) {
+            synchronize(product); // Only stopping-supply SKUs may finish retiring; the product stays retired.
+            return;
+        }
+        if (!Boolean.TRUE.equals(product.getAutoRestockEnabled())) return;
         var rates=supply==null?java.util.Map.<Integer,java.math.BigDecimal>of():supply.yields(receivedSkuIds);
         for(var sku:product.getProductSkus()) if(receivedSkuIds.contains(sku.getSkuId()))
             setSkuStatus(sku,SkuSupplyService.nextStatus(sku,rates.getOrDefault(sku.getSkuId(),SkuSupplyService.DEFAULT_YIELD),true));

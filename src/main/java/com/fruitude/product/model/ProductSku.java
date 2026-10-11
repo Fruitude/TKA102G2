@@ -265,7 +265,21 @@ public class ProductSku implements java.io.Serializable {
 	}
 	
 	// 缺口數量：待出貨 + 安全庫存量 - 庫存量 - 待進貨
-	public Integer getShortageQty() {
+	@jakarta.persistence.Transient
+    private java.math.BigDecimal purchaseYield;
+    public java.math.BigDecimal getPurchaseYield() { return purchaseYield; }
+    public void setPurchaseYield(java.math.BigDecimal value) { purchaseYield=value; }
+
+    public Integer getShortageQty() {
+        // Only product procurement views attach this transient estimate; unrelated PO callers keep their original semantics.
+        if(purchaseYield!=null) {
+            var deficit=java.math.BigDecimal.valueOf(safetyStock==null?0:safetyStock)
+                .subtract(SkuSupplyService.remaining(stock==null?0:stock,inboundQty==null?0:inboundQty,
+                    outboundQty==null?0:outboundQty,purchaseYield)).max(java.math.BigDecimal.ZERO);
+            if(purchaseYield.signum()==0) return null;
+            return deficit.divide(purchaseYield,0,java.math.RoundingMode.CEILING)
+                .min(java.math.BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
+        }
 
 	    int safetyStock = this.safetyStock == null ? 0 : this.safetyStock;
 

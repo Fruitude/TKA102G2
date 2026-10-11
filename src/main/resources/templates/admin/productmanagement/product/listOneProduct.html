@@ -417,13 +417,9 @@
         .product-meta .item, .sku-panel .item { align-items: center; }
         .sku-title { color: #777; }
         .sku-status-value { white-space: normal; }
-        .sku-status-select { max-width: 100%; border: 1px solid currentColor; border-radius: 4px; padding: 3px 6px; font: inherit; cursor: pointer; }
-        .sku-status-select:disabled { opacity: .65; cursor: wait; }
         .status-7 { background: #e8e4ee; color: #675373; }
         .status-4 { background: #eee; color: #666; }
         .status-5 { background: #e1f5fe; color: #306479; }
-        .sku-status-feedback { display: block; margin-top: 4px; color: #b42318; font-size: 12px; }
-        .sku-status-feedback[hidden] { display: none; }
         /* Five 16px stars and four 2px gaps: the third star is centered at 44px. */
         .product-meta .value:not(.rating-value):not(.status-value), .sku-panel .value:not(.rating-value) {
             flex: 0 1 88px; text-align: center;
@@ -433,16 +429,14 @@
         .product-meta .value.meta-text-value:not(.rating-value):not(.status-value) {
             flex: 1; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
+        body:not(.product-edit-mode) .product-meta .value.meta-text-value.category-value:not(.rating-value):not(.status-value) {
+            flex: 0 0 88px; text-align: center;
+        }
         .product-meta .description-item .value:not(.rating-value):not(.status-value) {
             flex: 1; min-width: 0; text-align: left;
         }
-        .sku-panel .value.sku-status-value { flex: 0 1 88px; text-align: left; }
-        .sku-status-select {
-            width: calc(max(6, var(--status-label-length, 6)) * 1em + 32px); min-width: calc(6em + 32px); max-width: none;
-            background: white; color: #333; border-color: #aaa;
-            text-align: left; text-align-last: left;
-            padding: 3px 20px 3px 6px; margin-left: calc(37px - 1.5em);
-        }
+        .sku-panel .value.sku-status-value { flex: 0 1 88px; text-align: center; }
+        .sku-status-text { display: inline-block; width: 100%; white-space: nowrap; }
         .sku-panel { color: #333; transition: background-color .25s ease; }
         .sku-panel.status-0 { background: #eee; }
         .sku-panel.status-1 { background: #e5f4e9; }
@@ -493,7 +487,7 @@
 
                 <img id="mainImage"
                      class="main-image"
-                     th:src="@{/product/image/{imageId}(imageId=${productImageList[0].imageId})}"
+                     th:src="@{/product/image/{imageId}(imageId=${productImageList[0].imageId},v=${productImageList[0].updatedAt})}"
                      th:alt="${product.productName}">
             </div>
 
@@ -521,10 +515,10 @@
                                 class="thumbnail"
                                 th:each="image, stat : ${productImageList}"
                                 th:classappend="${stat.index == 0 ? ' active' : ''}"
-                                th:attr="data-image-url=@{/product/image/{imageId}(imageId=${image.imageId})},data-sku-id=${image.productSku.skuId}"
+                                th:attr="data-image-url=@{/product/image/{imageId}(imageId=${image.imageId},v=${image.updatedAt})},data-sku-id=${image.productSku.skuId}"
                                 onclick="changeMainImage(this)">
 
-                            <img th:src="@{/product/image/{imageId}(imageId=${image.imageId})}"
+                            <img th:src="@{/product/image/{imageId}(imageId=${image.imageId},v=${image.updatedAt})}"
                                  th:alt="${product.productName + '圖片' + (stat.index + 1)}">
                         </button>
 
@@ -544,7 +538,7 @@
         <section class="product-info">
 
             <div class="product-meta">
-                <div class="item"><span class="name">分類</span><span class="value meta-text-value" th:text="${product.productCategory != null ? product.productCategory.categoryName : '—'}" th:title="${product.productCategory != null ? product.productCategory.categoryName : '—'}"></span></div>
+                <div class="item"><span class="name">分類</span><span class="value meta-text-value category-value" th:text="${product.productCategory != null ? product.productCategory.categoryName : '—'}" th:title="${product.productCategory != null ? product.productCategory.categoryName : '—'}"></span></div>
                 <div class="item"><span class="name">廠商</span><span class="value meta-text-value" th:text="${product.vendor != null ? product.vendor.vendorName : '—'}" th:title="${product.vendor != null ? product.vendor.vendorName : '—'}"></span></div>
                 <div class="item" th:with="rating=${product.allCommentAmount != null and product.allCommentAmount > 0 and product.allCommentStar != null ? product.allCommentStar * 1.0 / product.allCommentAmount : 0.0}">
                     <span class="name">總均分</span><span class="value rating-value">
@@ -601,18 +595,9 @@
                     </div>
 
                     <div class="item">
-                        <span class="name">規格狀態</span>
+                        <span class="name" title="上架時，系統會依庫存、待進貨良率、待出貨、安全庫存及允許超賣量，自動判斷缺貨、即將售完或售完；即將停產在待進貨為0且庫存－待出貨不大於0時，自動轉為永久停產。">規格狀態</span>
                         <span class="value sku-status-value">
-                            <select class="sku-status-select" aria-label="規格狀態"
-                                    th:style="|--status-label-length: ${#strings.length(sku.statusLabel)}|"
-                                    th:attr="data-sku-id=${sku.skuId},data-current-status=${sku.status},data-can-restore=${canRestoreDiscontinued == true},data-update-url=@{/productsku/updateStatus}"
-                                    onchange="changeSkuStatus(this)">
-                                <option th:each="state : ${#numbers.sequence(0,7)}" th:value="${state}"
-                                        th:selected="${sku.status == state}"
-                                        th:disabled="${(state == 5 and sku.status != 5) or (((sku.status == 7 and state != 7) or (sku.status == 6 and state != 6 and state != 7)) and canRestoreDiscontinued != true)}"
-                                        th:text="${state == 0 ? '下架' : (state == 1 ? '上架' : (state == 2 ? '缺貨' : (state == 3 ? '即將售完' : (state == 4 ? '售完' : (state == 5 ? '預備上架' : (state == 6 ? '即將停產' : '永久停產'))))))}"></option>
-                            </select>
-                            <span class="sku-status-feedback" role="status" hidden></span>
+                            <span class="sku-status-text" title="上架時，系統會依庫存、待進貨良率、待出貨、安全庫存及允許超賣量，自動判斷缺貨、即將售完或售完；即將停產在待進貨為0且庫存－待出貨不大於0時，自動轉為永久停產。" th:attr="data-sku-id=${sku.skuId},data-current-status=${sku.status}" th:text="${sku.statusLabel}"></span>
                         </span>
                     </div>
 
@@ -686,60 +671,16 @@
 </div>
 
 <script>
-    async function changeSkuStatus(select) {
-        const requested = select.value;
-        const previous = select.dataset.currentStatus;
-        const feedback = select.parentElement.querySelector('.sku-status-feedback');
-        if (requested === '7' && previous !== '7'
-                && !window.confirm('請確認該規格是否永久停產，永久停產後無法再調整規格狀態。')) {
-            select.value = previous;
-            return;
-        }
-        let restockConfirmed = false;
-        if (requested !== '4' && previous === '4') {
-            restockConfirmed = window.confirm(requested === '1' ? '該商品規格原為售完商品，請確認是否有貨源' : '該商品規格原為售完商品，請確認是否變更規格狀態。');
-            if (!restockConfirmed) { select.value = previous; return; }
-        }
-        feedback.hidden = true; select.disabled = true;
-        try {
-            const response = await fetch(select.dataset.updateUrl, {
-                method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({skuId: select.dataset.skuId, status: requested, restockConfirmed})
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.message || '規格狀態更新失敗');
-            if(result.message) { feedback.textContent=result.message;feedback.hidden=false; }
-            applySkuStatuses(result.skuStatuses);
-            const toggle = document.getElementById('detail-product-status');
-            if (toggle) {
-                toggle.checked = result.productStatus === 1;
-                toggle.closest('label').setAttribute('aria-label', toggle.checked ? '上架' : '下架');
-            }
-            if (requested !== select.value) {
-                feedback.textContent = select.value === '2' ? '預估供應量低於安全庫存，規格已自動轉為缺貨。' : '可訂購量不足，規格已依供應狀況調整。'; feedback.hidden = false;
-            }
-            document.dispatchEvent(new CustomEvent('product-status-updated', {
-                detail: {productId: result.productId, status: result.productStatus}
-            }));
-        } catch (failure) {
-            select.value = previous; feedback.textContent = failure.message || '更新失敗，請重試。'; feedback.hidden = false;
-        } finally { select.disabled = false; }
-    }
-
     function applySkuStatuses(states) {
-            document.querySelectorAll('.sku-status-select').forEach(control => {
-                const actual = states[control.dataset.skuId];
-                if (actual == null) return;
-                control.value = String(actual); control.dataset.currentStatus = String(actual);
-                control.style.setProperty('--status-label-length', control.selectedOptions[0].textContent.trim().length);
-                const panel = control.closest('.sku-panel');
-                for (let state = 0; state <= 7; state++) panel.classList.remove('status-' + state);
-                panel.classList.add('status-' + actual);
-                Array.from(control.options).forEach(option => {
-                    option.disabled = (option.value === '5' && actual !== 5)
-                        || (((actual === 7 && option.value !== '7') || (actual === 6 && !['6','7'].includes(option.value))) && control.dataset.canRestore !== 'true');
-                });
-            });
+        const labels = ['下架','上架','缺貨','即將售完','售完','預備上架','即將停產','永久停產'];
+        document.querySelectorAll('.sku-status-text').forEach(control => {
+            const actual = states[control.dataset.skuId];
+            if (actual == null) return;
+            control.textContent = labels[actual] || '未設定'; control.dataset.currentStatus = String(actual);
+            const panel = control.closest('.sku-panel');
+            for (let state = 0; state <= 7; state++) panel.classList.remove('status-' + state);
+            panel.classList.add('status-' + actual);
+        });
     }
 
     async function changeDetailProductStatus(toggle) {
@@ -847,6 +788,8 @@
     else updateImageArrows();
 </script>
 <script th:src="@{/admin/js/product-status.js}"></script>
+<script th:src="@{/admin/js/product-edit-choices.js}"></script>
+<script th:src="@{/admin/js/product-edit-images.js}"></script>
 <script th:src="@{/admin/js/product-detail-editor.js}"></script>
 <script th:if="${param.modal == null}" th:src="@{/admin/js/product-detail-modal.js}" defer></script>
 </body>

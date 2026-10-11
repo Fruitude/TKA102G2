@@ -125,7 +125,7 @@ public class AdminProductNavigationTest {
     @org.springframework.stereotype.Controller
     public static class OverviewFixture {
         @org.springframework.web.bind.annotation.GetMapping("/overview-test")
-        public String page(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "測試總覽") String name, org.springframework.ui.Model model) {
+        public String page(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "測試總覽") String name, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int status, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean admin, org.springframework.ui.Model model) {
             var row = (com.fruitude.product.model.ProductOverview) java.lang.reflect.Proxy.newProxyInstance(
                 com.fruitude.product.model.ProductOverview.class.getClassLoader(),
                 new Class<?>[]{com.fruitude.product.model.ProductOverview.class}, (proxy, method, args) -> switch (method.getName()) {
@@ -133,11 +133,12 @@ public class AdminProductNavigationTest {
                     case "getProductName" -> name;
                     case "getVendorName" -> "測試供應商";
                     case "getImageId" -> 9;
-                    case "getStatus" -> 0;
+                    case "getStatus" -> status;
                     default -> 0;
                 });
             model.addAttribute("productListData", java.util.List.of(row));
             model.addAttribute("overviewLightweight", true);
+            model.addAttribute("canRestoreDiscontinued", admin);
             model.addAttribute("stockAlertLabels", java.util.Map.of("低於安全庫存", "低安全", "庫存低於10", "庫<10", "待進貨超過100", "進>100", "未設安全庫存", "未設"));
             model.addAttribute("overviewImageIds", java.util.Map.of(42, java.util.List.of(9, 10, 11)));
             model.addAttribute("overviewStockStatuses", java.util.Map.of(42, java.util.List.of("低於安全庫存", "庫存低於10", "待進貨超過100", "未設安全庫存")));
@@ -145,6 +146,19 @@ public class AdminProductNavigationTest {
             model.addAttribute("stockFilter", "abnormal");
             model.addAttribute("totalPages", 1); model.addAttribute("totalProducts", 1); model.addAttribute("statusFilter", "off");
             return "admin/productmanagement/product/listAllProduct";
+        }
+    }
+
+    @Test public void discontinuedRowsOnlyOfferRestorationToAdmin() throws Exception {
+        var client = mvc(new OverviewFixture());
+        for (boolean admin : new boolean[]{false, true}) {
+            String html = client.perform(get("/overview-test").param("status", "2").param("admin", String.valueOf(admin)))
+                .andReturn().getResponse().getContentAsString();
+            assertTrue(html.contains("class=\"status-discontinued\""));
+            assertTrue(html.contains(">停產</span>"));
+            assertFalse(html.contains("<label class=\"switch\""));
+            assertEquals(admin, html.contains("class=\"discontinued-status-select\""));
+            assertTrue(html.contains(">僅顯示停產</option>"));
         }
     }
 

@@ -18,7 +18,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
                s.inbound_qty AS inboundQty, s.outbound_qty AS outboundQty,
                s.max_backorder_qty AS maxBackorderQty
         FROM product p JOIN product_sku s ON s.product_id = p.product_id
-        WHERE p.status = 1 AND s.status IN (1,2,3,4,6) AND s.price > 0
+        WHERE ((p.status = 1 AND s.status IN (1,2,3,4,6)) OR (p.status = 2 AND s.status = 6)) AND s.price > 0
           AND EXISTS (SELECT 1 FROM product_sku sale WHERE sale.product_id = p.product_id AND sale.price > 0
               AND sale.status IN (1,2,3,6))
           AND (:productId IS NULL OR p.product_id = :productId)

@@ -1,10 +1,12 @@
 (() => {
-    let dialog, frame, feedback, returnFocus, previousOverflow, currentDetailUrl, editing=false, saving=false;
+    let dialog, frame, feedback, returnFocus, previousOverflow, currentDetailUrl, editing=false, saving=false, refreshAfterClose=false;
     function alignTitleWithImage() {
         if (!dialog.open || frame.hidden) return;
         const imageBox=frame.contentDocument?.querySelector('.main-image-box');if(!imageBox)return;
         const imageLeft=frame.getBoundingClientRect().left+imageBox.getBoundingClientRect().left;
         dialog.style.setProperty('--detail-title-left',(imageLeft-dialog.querySelector('header').getBoundingClientRect().left)+'px');
+        const modeLeft = dialog.querySelector('.detail-mode').getBoundingClientRect().left;
+        dialog.style.setProperty('--detail-title-width',Math.min(imageBox.getBoundingClientRect().width, Math.max(80, modeLeft-imageLeft-12))+'px');
     }
     function editor() { return frame.contentWindow?.detailEditor; }
     function applyMode() {
@@ -15,6 +17,7 @@
         dialog.querySelector('.detail-close-bottom').textContent=editing?'取消':'關閉';
         const title=dialog.querySelector('h2');title.contentEditable=editing?'plaintext-only':'false';
         title.title=editing?'點擊修改商品名稱':'';
+        dialog.querySelector('.detail-title-pencil').hidden=!editing;
     }
     function closeDialog() {
         if(saving)return;
@@ -36,8 +39,13 @@
             .product-detail-modal header { display:flex;align-items:center;justify-content:flex-end;position:relative;min-height:64px;padding:10px 16px;border-bottom:1px solid #e3e6f0; }
             .product-detail-modal h2 { position:absolute;left:var(--detail-title-left,16px);right:56px;min-width:0;margin:0;padding-left:1em;font-size:18px;line-height:22px;font-family:inherit;text-align:left;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden; }
             .product-detail-modal.is-editing header { background:#4e73df;color:#fff; }
-            .product-detail-modal.is-editing h2 { right:200px;cursor:text; }
-            .product-detail-modal.is-editing h2:focus { outline:1px solid white;border-radius:3px; }
+            .product-detail-modal .detail-title-editor { display:contents; }
+            .product-detail-modal.is-editing .detail-title-editor { position:absolute;left:var(--detail-title-left,16px);width:var(--detail-title-width,280px);display:flex;align-items:center;gap:4px;background:#fff;border:1px solid #cbd5e1;border-radius:4px;box-sizing:border-box; }
+            .product-detail-modal.is-editing h2 { position:static;flex:1;min-width:0;right:auto;padding:5px 8px;color:#333;cursor:text; }
+            .product-detail-modal.is-editing .detail-title-editor:focus-within { outline:2px solid #c9d7ff;outline-offset:1px; }
+            .product-detail-modal .detail-title-pencil { flex:0 0 28px;width:28px;height:30px;padding:4px;border:0;background:#fff;color:#7b8794;cursor:pointer; }
+            .product-detail-modal .detail-title-pencil:hover { color:#4e73df; }
+            .product-detail-modal .detail-title-pencil svg { width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round; }
             .product-detail-modal .detail-mode { display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-right:12px;white-space:nowrap; }
             .product-detail-modal .detail-mode-icon { width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;flex-shrink:0; }
             .product-detail-modal .detail-close-top { flex-shrink:0;border:0;padding:0;width:32px;height:32px;font-size:28px;line-height:32px;color:#666;background:transparent;cursor:pointer; }
@@ -55,7 +63,7 @@
             .product-detail-modal button:focus-visible { outline:2px solid #4e73df;outline-offset:2px; }
         `;document.head.appendChild(style);
         dialog=document.createElement('dialog');dialog.className='product-detail-modal';dialog.id='product-detail-modal';dialog.setAttribute('aria-labelledby','product-detail-title');
-        dialog.innerHTML=`<header><h2 id="product-detail-title">商品</h2><span class="detail-mode" hidden><svg class="detail-mode-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 2-.5 3-2 .9-2.5-1.1-2 3.4 2 1.9-.2 2.2-2 1.8 2 3.5 2.6-1 2 .9.5 3h4l.5-3 2-.9 2.6 1 2-3.5-2-1.8-.2-2.2 2-1.9-2-3.4-2.5 1.1-2-.9-.5-3z"/><circle cx="11.5" cy="11" r="3"/></svg>商品修改模式</span><button type="button" class="detail-close-top" aria-label="關閉商品詳細資料">×</button></header>
+        dialog.innerHTML=`<header><div class="detail-title-editor"><h2 id="product-detail-title">商品</h2><button type="button" class="detail-title-pencil" aria-label="修改商品名稱" title="修改商品名稱" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5M4 15l5 5"/></svg></button></div><span class="detail-mode" hidden><svg class="detail-mode-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 2-.5 3-2 .9-2.5-1.1-2 3.4 2 1.9-.2 2.2-2 1.8 2 3.5 2.6-1 2 .9.5 3h4l.5-3 2-.9 2.6 1 2-3.5-2-1.8-.2-2.2 2-1.9-2-3.4-2.5 1.1-2-.9-.5-3z"/><circle cx="11.5" cy="11" r="3"/></svg>商品修改模式</span><button type="button" class="detail-close-top" aria-label="關閉商品詳細資料">×</button></header>
             <p class="detail-feedback" role="status" aria-live="polite">正在載入商品資料…</p><iframe title="商品詳細資料" hidden></iframe>
             <footer><p class="detail-save-error" role="alert" hidden></p><button type="button" class="detail-edit" disabled>修改</button><button type="button" class="detail-save" hidden disabled>儲存</button><button type="button" class="detail-close-bottom">關閉</button></footer>`;
         document.body.appendChild(dialog);frame=dialog.querySelector('iframe');feedback=dialog.querySelector('.detail-feedback');
@@ -64,6 +72,7 @@
         dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
         dialog.querySelector('.detail-edit').addEventListener('click',()=>loadMode(true));
         const title=dialog.querySelector('h2');
+        dialog.querySelector('.detail-title-pencil').addEventListener('click',()=>title.focus());
         title.addEventListener('input',()=>{if(editing)editor()?.setName(title.textContent);});
         title.addEventListener('keydown',event=>{if(editing&&event.key==='Enter'){event.preventDefault();title.blur();}});
         dialog.querySelector('.detail-save').addEventListener('click',async()=>{
@@ -72,13 +81,31 @@
             try {
                 editor().setName(title.textContent);
                 await editor().save();
-                const owner=returnFocus?.ownerDocument;editing=false;saving=false;dialog.close();
-                if(owner)owner.defaultView.location.reload();else location.reload();
+                refreshAfterClose=true;
+                loadMode(false);
             }catch(failure){error.textContent=failure.message||'儲存失敗';error.hidden=false;}
             finally{saving=false;dialog.querySelector('.detail-save').disabled=false;}
         });
-        dialog.addEventListener('close',()=>{document.body.style.overflow=previousOverflow;frame.removeAttribute('src');returnFocus?.focus({preventScroll:true});});
-        dialog.addEventListener('click',event=>{const rect=dialog.getBoundingClientRect();if(event.target===dialog&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))closeDialog();});
+        dialog.addEventListener('close',()=>{
+            document.body.style.overflow=previousOverflow;frame.removeAttribute('src');returnFocus?.focus({preventScroll:true});
+            if(refreshAfterClose){
+                refreshAfterClose=false;
+                const owner=returnFocus?.ownerDocument.defaultView;
+                if(owner && owner!==frame.contentWindow)owner.location.reload();else location.reload();
+            }
+        });
+        let backdropPress = false;
+        function isBackdrop(event) {
+            const rect = dialog.getBoundingClientRect();
+            return event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom);
+        }
+        dialog.addEventListener('pointerdown', event => { backdropPress = event.button === 0 && isBackdrop(event); });
+        dialog.addEventListener('pointercancel', () => { backdropPress = false; });
+        dialog.addEventListener('click', event => {
+            const close = backdropPress && isBackdrop(event);
+            backdropPress = false;
+            if (close) closeDialog();
+        });
         frame.addEventListener('load',async()=>{
             if(!dialog.open||!frame.getAttribute('src'))return;
             try {

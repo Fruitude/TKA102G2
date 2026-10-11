@@ -16,6 +16,9 @@ import com.fruitude.po.model.PoVO;
 @Controller
 @RequestMapping("/admin/account/purchasereview")
 public class PoReviewController {
+	@Autowired
+	com.fruitude.product.model.ProductPurchaseFlowService productPurchaseFlow;
+
 
 	@Autowired
 	PoReviewService poReviewSvc;
@@ -53,7 +56,7 @@ public class PoReviewController {
 			@RequestParam(value = "reviewedContent", required = false) String reviewedContent,
 			RedirectAttributes redirectAttributes) {
 		try {
-			poReviewSvc.approve(poId, reviewedContent);
+			productPurchaseFlow.approve(poId, reviewedContent);
 			redirectAttributes.addFlashAttribute("success", "審核成功");
 		} catch (IllegalArgumentException e) {
 			// 無法通過的原因（已經審核過、內容被修改過、沒有明細、供應商已停用、規格已永久停產）；整筆已回滾，回審核頁顯示最新的內容
