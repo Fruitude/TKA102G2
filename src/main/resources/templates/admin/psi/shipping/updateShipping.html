@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>出貨紀錄</title>
+
+<!-- 引入css資源 -->
+<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+</head>
+<body id="page-top">
+
+	<!-- Page Wrapper -->
+	<div id="wrapper">
+
+		<!-- 引入側邊欄 -->
+		<ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+
+		<!-- Content Wrapper -->
+		<div id="content-wrapper" class="d-flex flex-column">
+
+			<!-- Main Content -->
+			<div id="content">
+
+				<!-- 引入Topbar -->
+				<nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+				<!-- 這裡放頁面自己的內容 -->
+				<div class="container-fluid">
+
+					<div class="d-flex justify-content-between align-items-center mb-3">
+						<!-- 剛出貨完由 ShippingController 的 ship redirect 過來的那一次才有 shipped：返回按鈕回出貨管理，方便接著出下一張 -->
+						<a th:href="@{/admin/psi/shipping}" class="btn btn-secondary btn-icon-split" th:if="${shipped != null}">
+							<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
+							<span class="text">回出貨管理</span>
+						</a>
+						<!-- 從歷史出貨紀錄的「詳細」連過來時，返回按鈕回歷史出貨紀錄 -->
+						<a th:href="@{/admin/psi/shipping/listAllShipping}" class="btn btn-secondary btn-icon-split" th:if="${shipped == null}">
+							<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
+							<span class="text">回歷史出貨紀錄</span>
+						</a>
+						<div class="d-flex align-items-center">
+							<!-- 剛出貨完的那一次顯示，重新整理後不再顯示 -->
+							<span class="text-danger font-weight-bold mr-3" th:if="${shipped != null}">出貨完成</span>
+							<!-- 配送中（ordersStatus = 1）的訂單才顯示；取消出貨的功能還沒做，按鈕先不動作 -->
+							<button type="button" class="btn btn-danger" th:if="${orders.ordersStatus == 1}">取消出貨</button>
+						</div>
+					</div>
+
+					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
+					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
+
+					<!-- 訂單資料：orders 由 ShippingController 的 updateShipping 放入 model，是歷史出貨紀錄會列出的訂單（狀態不是 0、2、4） -->
+					<div class="card shadow mb-4">
+						<div class="card-header py-3">
+							<h6 class="m-0 font-weight-bold text-primary">客戶訂單</h6>
+						</div>
+						<div class="card-body">
+							<div class="table-responsive">
+								<table class="table table-bordered" width="100%" cellspacing="0">
+									<tbody>
+										<tr>
+											<th class="bg-light" style="width: 150px;">訂單編號</th>
+											<td th:text="${orders.ordersId}"></td>
+										</tr>
+										<!-- 狀態文字取自 Utils.OrderStatus 的 displayStatus，後面附上狀態碼，和歷史出貨紀錄的顯示方式相同 -->
+										<tr>
+											<th class="bg-light">訂單狀態</th>
+											<td th:with="status=${T(com.fruitude.utils.Utils$OrderStatus).fromCode(orders.ordersStatus)}"
+												th:text="${status != null ? status.displayStatus + '(' + orders.ordersStatus + ')' : '狀態異常'}"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">訂單日期</th>
+											<td th:text="${orders.ordersDate != null ? #temporals.format(orders.ordersDate, 'yyyy-MM-dd HH:mm') : ''}"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">收件人姓名</th>
+											<td th:text="${orders.receiverName}"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">電話</th>
+											<td th:text="${orders.phoneNumber}"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">收件地址</th>
+											<td th:text="${(orders.postalCode != null ? orders.postalCode + ' ' : '') + (orders.shippingAddress != null ? orders.shippingAddress : '')}"></td>
+										</tr>
+										<!-- 物流備註是寫給物流看的，只顯示、不能修改 -->
+										<tr>
+											<th class="bg-light">物流備註</th>
+											<td th:text="${orders.logisticsNote}" style="white-space: pre-line;"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">訂單備註</th>
+											<td th:text="${orders.ordersNote}" style="white-space: pre-line;"></td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+
+							<!-- 出貨明細：和訂單資料放在同一個區塊；shippingDetails 由 ShippingService 的 getShippingDetails 組成，一筆是訂單明細（ordersDetail）加上它的商品規格（productSku） -->
+							<h6 class="mt-4 mb-3 font-weight-bold text-primary">出貨明細</h6>
+							<div class="table-responsive">
+								<table class="table table-bordered" width="100%" cellspacing="0">
+									<thead>
+										<tr>
+											<th>商品規格編號</th>
+											<th>商品名稱</th>
+											<th>商品規格</th>
+											<th>訂購數量</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr th:if="${#lists.isEmpty(shippingDetails)}">
+											<td colspan="4" class="text-center">此訂單尚無明細</td>
+										</tr>
+										<!-- 已經出過貨的訂單，不顯示目前庫存 -->
+										<tr th:each="shippingDetail : ${shippingDetails}">
+											<td th:text="${shippingDetail.ordersDetail.skuId}"></td>
+											<td th:text="${shippingDetail.ordersDetail.productName}"></td>
+											<td th:text="${shippingDetail.productSku != null ? shippingDetail.productSku.displayName : ''}"></td>
+											<td th:text="${shippingDetail.ordersDetail.ordersQuantity}"></td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+
+				</div>
+
+			</div>
+
+			<!-- 引入Footer -->
+			<footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+
+		</div>
+	</div>
+
+	<!-- Scroll to Top Button-->
+	<span class="scroll-to-top rounded"> <i class="fas fa-angle-up"></i>
+	</span>
+
+	<!-- 引入js資源 -->
+	<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+</body>
+</html>

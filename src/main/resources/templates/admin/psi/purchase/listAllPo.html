@@ -39,6 +39,11 @@
 
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
+					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3"> 
+						<span class="icon text-white-50">
+						<i class="fas fa-arrow-left"></i></span> 
+						<span class="text">回採購單管理</span>
+					</a>
 					<!-- 從 PoNoController 的條件查詢進來時顯示搜尋條件（searchTitle），否則顯示狀態篩選 -->
 					<h4 class="h4 mb-4 text-gray-800" th:if="${searchTitle != null}" th:text="${searchTitle}"></h4>
 					<h4 class="h4 mb-4 text-gray-800" th:unless="${searchTitle != null}" th:switch="${poStatus}">
@@ -50,11 +55,6 @@
 					    <span th:case="*">顯示全部採購單</span>
 					</h4>
 
-					<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-icon-split mb-3"> 
-						<span class="icon text-white-50">
-						<i class="fas fa-arrow-left"></i></span> 
-						<span class="text">回採購單管理</span>
-					</a>
 
 					<!-- 採購單列表：poListData 由 PoController 的 listAllPo 或 PoNoController 的條件查詢放入 model -->
 					<div class="card shadow mb-4">

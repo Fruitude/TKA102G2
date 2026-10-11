@@ -18,14 +18,7 @@ public class AdminPsiController {
 	    return "admin/psi/vendor/index";
 	}
 	
-	// 採購單首頁（/admin/psi/purchase）改由 PoController 的 purchase 處理
 
-	@GetMapping("/shipping")
-	public String shipping(Model model) {
-		System.out.println("執行shipping導向");
-		
-		return "admin/psi/shipping/index"; //view
-	}
 	
 	// 進貨系統首頁（/admin/psi/receiving）改由 ReceivingController 的 receiving 處理
 
