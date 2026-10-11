@@ -13,8 +13,7 @@ public enum PromoType {
 	BIRTHDAY_MONTH("壽星月",        List.of(BenefitType.PERCENT_OFF, BenefitType.AMOUNT_OFF), true,  false, false, false, false),
 	NEW_MEMBER_FIRST_ORDER("新會員首購", List.of(BenefitType.PERCENT_OFF, BenefitType.AMOUNT_OFF), true, true, false, false, false),
 	FREE_SHIPPING("滿額免運",        List.of(BenefitType.FREE_SHIPPING),                        false, true,  true,  false, false),
-	WALLET_GRAB("搶購物金",         List.of(BenefitType.WALLET_CREDIT),                        true,  false, false, true,  true),
-	REVIEW_REWARD("評論送購物金",    List.of(BenefitType.WALLET_CREDIT),                        true,  false, false, false, false);
+	WALLET_GRAB("搶購物金",         List.of(BenefitType.WALLET_CREDIT),                        true,  false, false, true,  true);
 
 	private final String label;
 	private final List<BenefitType> benefitTypes;   // 只有一個選項時，後台不顯示優惠方式，伺服器自動帶入
@@ -66,13 +65,7 @@ public enum PromoType {
 	// 常態福利：沒有固定檔期、長期提供給符合資格的會員（首頁放在「會員專屬福利」，不顯示倒數）。
 	// 其餘類型是有明確起訖的限時活動
 	public boolean isRecurring() {
-		return this == BIRTHDAY_MONTH || this == NEW_MEMBER_FIRST_ORDER || this == REVIEW_REWARD;
-	}
-
-	// 首頁與活動總覽頁是否顯示：評論送購物金還沒有發放購物金的功能，先不宣傳，做好之後從這裡拿掉。
-	// 搶購物金是限時活動，會顯示在「限時活動」（活動總覽頁會帶出名額）
-	public boolean isShownOnFront() {
-		return this != REVIEW_REWARD;
+		return this == BIRTHDAY_MONTH || this == NEW_MEMBER_FIRST_ORDER;
 	}
 
 	// 代碼轉活動類型；空值或不認識的代碼回傳 null

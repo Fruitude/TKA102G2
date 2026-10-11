@@ -143,7 +143,6 @@ public class PromoService {
 	}
 
 	// 首頁的活動區塊：目前進行中的活動分成「限時活動」與「會員專屬福利（常態）」兩組。
-	// 只放已經能實際生效的類型（PromoType.isShownOnFront）。
 	// 會員個人化：已登入且生日在本月的會員，「壽星月」會標示為目前符合資格；所有活動（含新會員首購）一律顯示，
 	// 不因會員身分隱藏。生日月份由呼叫端依登入會員自己算出來，不接受前端傳入
 	public HomePromos findHomePromos(MemberPromoState state) {
@@ -160,7 +159,7 @@ public class PromoService {
 		List<HomePromos.Item> perks = new ArrayList<>();
 		for (PromoProject p : promoRepository.findActive(LocalDateTime.now())) {
 			PromoType type = PromoType.of(p.getPromoType());
-			if (type == null || !type.isShownOnFront()) {
+			if (type == null) {
 				continue;
 			}
 			// 壽星月：今年已經用過就標示「已使用」；還沒用過而且現在是生日月才標示「本月適用」。

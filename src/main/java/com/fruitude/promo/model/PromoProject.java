@@ -31,7 +31,7 @@ public class PromoProject {
     @Column(name = "promo_project_context", length = 255)
     private String promoProjectContext;
 
-    // 活動類型：STOREWIDE、SKU、BIRTHDAY_MONTH、NEW_MEMBER_FIRST_ORDER、FREE_SHIPPING、WALLET_GRAB、REVIEW_REWARD
+    // 活動類型：STOREWIDE、SKU、BIRTHDAY_MONTH、NEW_MEMBER_FIRST_ORDER、FREE_SHIPPING、WALLET_GRAB
     @Column(name = "promo_type", length = 30)
     private String promoType;
 
