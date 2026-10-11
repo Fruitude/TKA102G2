@@ -39,6 +39,33 @@ public class SkuSupplyTest {
         assertEquals(0,SkuSupplyService.quantityLimit(6,0,10,0,10,r));
         assertEquals(0,SkuSupplyService.quantityLimit(3,0,1,0,10,r));
     }
+    @Test public void listedBecomesEndingDirectlyWithoutTransientShortage() {
+        var r=new BigDecimal(".9");
+        for(int safety:new int[]{0,3,10}) {
+            for(int stock=1;stock<=5;stock++) {
+                byte next=SkuSupplyService.nextStatus((byte)1,stock,0,0,safety,100,20,r,false);
+                assertEquals(3,next);
+                assertEquals(next,SkuSupplyService.nextStatus(next,stock,0,0,safety,100,20,r,false));
+            }
+        }
+        assertEquals(4,SkuSupplyService.nextStatus((byte)1,0,1,0,10,100,20,r,false));
+        assertEquals(4,SkuSupplyService.nextStatus((byte)1,0,0,1,10,100,20,r,false));
+        assertEquals(3,SkuSupplyService.nextStatus((byte)1,0,6,0,10,100,20,r,false));
+        assertEquals(2,SkuSupplyService.nextStatus((byte)1,6,0,0,10,100,20,r,false));
+        assertEquals(1,SkuSupplyService.nextStatus((byte)1,6,0,0,0,100,20,r,false));
+    }
+    @Test public void shortageBecomesEndingAtFiveAndCannotOscillate() {
+        var r=new BigDecimal(".9");
+        assertEquals(2,SkuSupplyService.nextStatus((byte)2,6,0,0,10,10,20,r,false));
+        for(int stock=1;stock<=5;stock++) {
+            assertEquals(3,SkuSupplyService.nextStatus((byte)2,stock,0,0,0,10,0,r,false));
+            assertEquals(3,SkuSupplyService.nextStatus((byte)3,stock,0,0,0,10,0,r,false));
+        }
+        assertEquals(3,SkuSupplyService.nextStatus((byte)2,0,6,0,10,10,20,r,false));
+        assertEquals(4,SkuSupplyService.nextStatus((byte)2,0,1,0,10,100,20,r,false));
+        assertEquals(4,SkuSupplyService.nextStatus((byte)3,0,0,0,10,100,20,r,false));
+        assertEquals(1,SkuSupplyService.nextStatus((byte)3,6,0,0,0,10,0,r,false));
+    }
     @Test public void shortageAndRecoveryHaveHysteresisAndSoldOutHasPriority() {
         var r=new BigDecimal(".9");
         assertEquals(2,SkuSupplyService.nextStatus((byte)1,0,10,0,10,10,20,r,false));

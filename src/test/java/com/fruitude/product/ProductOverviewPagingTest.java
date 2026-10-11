@@ -9,6 +9,17 @@ import org.springframework.data.domain.*;
 import org.springframework.test.util.ReflectionTestUtils;
 
 public class ProductOverviewPagingTest {
+    @Test public void discontinuedFilterQueriesStatusTwo() {
+        ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),
+            new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
+                assertEquals("findOverviewPage", method.getName());
+                assertEquals(Integer.valueOf(2), args[0]);
+                return new PageImpl<ProductOverview>(List.of(), (Pageable)args[args.length-1], 0);
+            });
+        var service = new ProductService(); ReflectionTestUtils.setField(service, "repository", repo);
+        assertTrue(service.getOverviewPage(1, 10, "discontinued").isEmpty());
+    }
+
     @Test public void readsOnlyCurrentPageImageIdentifiersInTheirQueryOrder() {
         List<List<Integer>> requests = new ArrayList<>();
         ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),

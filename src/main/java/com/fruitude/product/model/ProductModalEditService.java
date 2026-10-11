@@ -8,6 +8,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ProductModalEditService {
+    @org.springframework.beans.factory.annotation.Autowired
+    private ProductInventoryLockService inventoryLocks;
+    private java.util.Optional<Product> lockProduct(Integer id) {
+        return inventoryLocks==null ? products.lockForStatus(id) : inventoryLocks.lockProduct(id);
+    }
+
     private final ProductRepository products;
     private final ProductCategoryRepository categories;
     private final VendorRepository vendors;
@@ -17,10 +23,12 @@ public class ProductModalEditService {
             VendorRepository vendors, ProductLifecycleService lifecycle, ProductStatusAccess access) {
         this.products=products; this.categories=categories; this.vendors=vendors; this.lifecycle=lifecycle; this.access=access;
     }
-    public record Choice(Integer id, String label) {}
+    public record Choice(Integer id, String label, Integer parentId) {
+        public Choice(Integer id, String label) { this(id,label,null); }
+    }
     public record SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
             Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
-            Integer originalStock, Integer originalInbound, Integer originalOutbound, boolean restockConfirmed, Integer maxBackorderQty) {
+            Integer originalStock, Integer originalInbound, Integer originalOutbound, Boolean restockConfirmed, Integer maxBackorderQty) {
         public SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
                 Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
                 Integer originalStock, Integer originalInbound, Integer originalOutbound, Integer maxBackorderQty) {
@@ -42,7 +50,10 @@ public class ProductModalEditService {
     }
     public record ProductForm(Integer productId, String productName, String productDesc, Integer categoryId,
             Integer vendorId, Byte status, String revision) {}
-    public record EditData(ProductForm product, List<SkuForm> skus, List<Choice> categories, List<Choice> vendors, boolean canRestore) {}
+    public record ImageForm(Integer imageId, Integer skuId, Integer sortOrder, String revision) {}
+    public record ImageChange(Integer imageId, Integer skuId, String skuName, Integer sortOrder, String revision, Integer fileIndex, Boolean remove) {}
+    public record ImageRequest(SaveRequest edit, List<ImageChange> images) {}
+    public record EditData(ProductForm product, List<SkuForm> skus, List<Choice> categories, List<Choice> vendors, boolean canRestore, List<ImageForm> images) {}
     public record SaveRequest(ProductForm product, List<SkuForm> skus, boolean productStatusChanged, boolean activateSkus) {}
     public record Saved(Integer productId, Byte status) {}
     public static class Conflict extends IllegalStateException { public Conflict(String message) { super(message); } }
@@ -59,9 +70,11 @@ public class ProductModalEditService {
             zero(s.getStock()),zero(s.getSafetyStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),s.getStatus(),revision(s.getUpdatedAt()),
             zero(s.getStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),false,zero(s.getMaxBackorderQty()))).toList();
         var categoryOptions=categories.findAll().stream().map(c->new Choice(c.getProductCategoryId(),
-            (c.getParentCategory()==null?"":c.getParentCategory().getCategoryName()+" / ")+c.getCategoryName())).toList();
+            c.getCategoryName(),c.getParentCategory()==null?null:c.getParentCategory().getProductCategoryId())).toList();
         var vendorOptions=vendors.findAll().stream().map(v->new Choice(v.getVendorId(),v.getVendorName())).toList();
-        return new EditData(form,skus,categoryOptions,vendorOptions,access.canRestoreDiscontinued());
+        var images=p.getProductSkus().stream().flatMap(s->s.getProductImages().stream())
+            .map(i->new ImageForm(i.getImageId(),i.getProductSku().getSkuId(),i.getSortOrder(),revision(i.getUpdatedAt()))).toList();
+        return new EditData(form,skus,categoryOptions,vendorOptions,access.canRestoreDiscontinued(),images);
     }
 
     @Transactional
@@ -69,7 +82,7 @@ public class ProductModalEditService {
         if(request==null || request.product()==null) throw new IllegalArgumentException("缺少商品資料");
         var f=request.product();
         if(f.productId()==null) throw new IllegalArgumentException("缺少商品編號");
-        var p=products.lockForStatus(f.productId()).orElseThrow(()->new NoSuchElementException("商品不存在"));
+        var p=lockProduct(f.productId()).orElseThrow(()->new NoSuchElementException("商品不存在"));
         if(!Objects.equals(f.revision(),revision(p.getUpdatedAt()))) throw new Conflict("商品已被其他操作更新，請取消並重新開啟修改。");
         String name=required(f.productName(),100,"商品名稱");
         if(f.productDesc()!=null && f.productDesc().length()>255) throw new IllegalArgumentException("商品描述不可超過255字");
@@ -80,35 +93,34 @@ public class ProductModalEditService {
             throw new IllegalArgumentException("此廠商已有相同商品名稱");
         if(request.skus()==null || request.skus().size()>100) throw new IllegalArgumentException("一次最多修改或新增100個規格");
         var usedIds=new HashSet<Integer>();
-        var usedNames=new HashSet<String>();p.getProductSkus().forEach(s->usedNames.add(s.getSkuName()));
+        var renamedIds=new HashSet<Integer>();
+        request.skus().stream().filter(s->s!=null && s.skuId()!=null && s.skuName()!=null).forEach(s->renamedIds.add(s.skuId()));
+        var usedNames=new HashSet<String>();
+        p.getProductSkus().stream().filter(s->!renamedIds.contains(s.getSkuId())).forEach(s->usedNames.add(s.getSkuName().trim()));
         for(var input:request.skus()) {
             if(input==null) throw new IllegalArgumentException("規格資料不可空白");
             var existing=input.skuId()==null?null:p.getProductSkus().stream().filter(s->s.getSkuId().equals(input.skuId())).findFirst()
                 .orElseThrow(()->new IllegalArgumentException("規格不屬於此商品"));
             if(input.skuId()!=null && !usedIds.add(input.skuId())) throw new IllegalArgumentException("規格編號重複");
-            lifecycle.validateSkuChange(existing==null?null:existing.getStatus(),input.status(),input.restockConfirmed());
+            // SKU status is read-only in this editor; existing state is preserved.
             if(existing!=null && (!Objects.equals(input.revision(),revision(existing.getUpdatedAt()))
                 || !Objects.equals(input.originalStock(),zero(existing.getStock()))
                 || !Objects.equals(input.originalInbound(),zero(existing.getInboundQty()))
                 || !Objects.equals(input.originalOutbound(),zero(existing.getOutboundQty()))))
                 throw new Conflict("規格或庫存已變更，請取消並重新開啟修改。");
             if(input.price()==null || input.price()<=0) throw new IllegalArgumentException("規格價格必須大於0");
-            nonnegative(input.stock(),"庫存量");nonnegative(input.safetyStock(),"安全庫存量");
-            nonnegative(input.inboundQty(),"待進貨");nonnegative(input.outboundQty(),"待出貨");
-            // 預購額度：前端沒送（舊版畫面）就沿用原值，新規格預設 10
-            Integer maxBackorder=input.maxBackorderQty()!=null?input.maxBackorderQty():existing!=null?existing.getMaxBackorderQty():Integer.valueOf(10);
-            nonnegative(maxBackorder,"預購額度");
             if(input.anotherName()!=null && input.anotherName().length()>50) throw new IllegalArgumentException("規格別名不可超過50字");
+            String skuName = existing!=null && input.skuName()==null ? existing.getSkuName() : required(input.skuName(),50,"規格名稱");
+            if((existing==null || input.skuName()!=null) && !usedNames.add(skuName)) throw new IllegalArgumentException("同個商品的規格名稱不可重複");
             if(existing==null) {
-                String skuName=required(input.skuName(),50,"規格名稱");
-                if(!usedNames.add(skuName)) throw new IllegalArgumentException("此商品已有相同規格名稱");
-                existing=new ProductSku();existing.setProduct(p);existing.setSkuName(skuName);existing.setCreatedAt(LocalDateTime.now());
+                existing=new ProductSku();existing.setProduct(p);existing.setSkuName(skuName);existing.setCreatedAt(LocalDateTime.now());existing.setStatus(ProductLifecycleService.SKU_PREPARED);
                 p.getProductSkus().add(existing);
             }
+            existing.setSkuName(skuName);
             existing.setAnotherName(input.anotherName()==null?null:input.anotherName().trim());
-            existing.setPrice(input.price());existing.setStock(input.stock());existing.setSafetyStock(input.safetyStock());
-            existing.setInboundQty(input.inboundQty());existing.setOutboundQty(input.outboundQty());existing.setStatus(input.status());
-            existing.setMaxBackorderQty(maxBackorder);
+            // Inventory is owned by PSI. Ignore submitted quantities, preserve current values,
+            // and use entity defaults for new SKUs.
+            existing.setPrice(input.price());
             existing.setUpdatedAt(LocalDateTime.now());
         }
         p.setProductName(name);p.setProductDesc(f.productDesc());p.setProductCategory(category);p.setVendor(vendor);
@@ -117,11 +129,48 @@ public class ProductModalEditService {
         p.setUpdatedAt(LocalDateTime.now());products.saveAndFlush(p);
         return new Saved(p.getProductId(),p.getStatus());
     }
+    @Transactional
+    public Saved saveWithImages(ImageRequest request, List<ProductImage> uploads) {
+        if(request==null || request.edit()==null || request.edit().product()==null || request.images()==null)
+            throw new IllegalArgumentException("缺少商品或圖片資料");
+        if(request.images().size()>100) throw new IllegalArgumentException("一次最多調整100張圖片");
+        var p=lockProduct(request.edit().product().productId()).orElseThrow(()->new NoSuchElementException("商品不存在"));
+        var ids=new HashSet<Integer>();
+        for(var change:request.images()) {
+            if(change==null) throw new IllegalArgumentException("圖片資料不可空白");
+            if(change.imageId()!=null) {
+                if(!ids.add(change.imageId())) throw new IllegalArgumentException("圖片編號重複");
+                var image=p.getProductSkus().stream().flatMap(s->s.getProductImages().stream())
+                    .filter(i->change.imageId().equals(i.getImageId())).findFirst().orElseThrow(()->new IllegalArgumentException("圖片不屬於此商品"));
+                if(!Objects.equals(change.skuId(),image.getProductSku().getSkuId())) throw new IllegalArgumentException("圖片不屬於此規格");
+                if(!Objects.equals(change.revision(),revision(image.getUpdatedAt()))) throw new Conflict("圖片已被其他操作修改，請重新開啟修改。");
+            }
+            if(!Boolean.TRUE.equals(change.remove())) {
+                if(change.sortOrder()==null || change.sortOrder()<0) throw new IllegalArgumentException("圖片排序不可小於0");
+                if(change.fileIndex()!=null && (change.fileIndex()<0 || change.fileIndex()>=uploads.size())) throw new IllegalArgumentException("圖片檔案資料不完整");
+                if(change.imageId()==null && change.fileIndex()==null) throw new IllegalArgumentException("請選擇新增圖片");
+            }
+        }
+        var saved=save(request.edit());
+        for(var change:request.images()) {
+            var sku=p.getProductSkus().stream().filter(s->change.skuId()!=null ? change.skuId().equals(s.getSkuId()) : Objects.equals(change.skuName(),s.getSkuName()))
+                .findFirst().orElseThrow(()->new IllegalArgumentException("圖片所屬規格不存在"));
+            var image=change.imageId()==null ? null : sku.getProductImages().stream().filter(i->change.imageId().equals(i.getImageId())).findFirst().orElseThrow();
+            if(Boolean.TRUE.equals(change.remove())) { if(image!=null) sku.getProductImages().remove(image); continue; }
+            if(image==null) { image=new ProductImage();image.setProductSku(sku);image.setCreatedAt(LocalDateTime.now());sku.getProductImages().add(image); }
+            if(change.fileIndex()!=null) {
+                var upload=uploads.get(change.fileIndex());
+                image.setImageData(upload.getImageData());image.setImageName(upload.getImageName());
+                image.setImageType(upload.getImageType());image.setFileSize(upload.getFileSize());
+            }
+            image.setSortOrder(change.sortOrder());image.setUpdatedAt(LocalDateTime.now());
+        }
+        products.saveAndFlush(p);
+        return saved;
+    }
+
     private static String required(String value,int limit,String label) {
         if(value==null || value.trim().isEmpty() || value.trim().length()>limit)
             throw new IllegalArgumentException(label+"須為1～"+limit+"字");return value.trim();
-    }
-    private static void nonnegative(Integer value,String label) {
-        if(value==null || value<0) throw new IllegalArgumentException(label+"須為0以上整數");
     }
 }

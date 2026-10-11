@@ -15,7 +15,7 @@ public interface SkuStockRepository extends Repository<ProductSku,Integer> {
     @Modifying
     @Query(value="UPDATE product_sku SET outbound_qty=COALESCE(outbound_qty,0)+:qty,updated_at=CURRENT_TIMESTAMP "
         + "WHERE sku_id=:skuId AND :qty>0 AND status IN (1,2,3,6) "
-        + "AND EXISTS(SELECT 1 FROM product p WHERE p.product_id=product_sku.product_id AND p.status=1) "
+        + "AND EXISTS(SELECT 1 FROM product p WHERE p.product_id=product_sku.product_id AND (p.status=1 OR (p.status=2 AND product_sku.status=6))) "
         + "AND :qty<=CASE WHEN status IN(2,3) THEN 5 ELSE 10 END "
         + "AND :qty<=FLOOR(GREATEST(0,COALESCE(stock,0)-COALESCE(outbound_qty,0) "
         + "+ CASE WHEN status=6 THEN 0 ELSE COALESCE(inbound_qty,0)*:yield END "

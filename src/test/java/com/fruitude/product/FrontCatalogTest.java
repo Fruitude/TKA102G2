@@ -19,7 +19,7 @@ public class FrontCatalogTest {
             if (method.getName().equals("findFrontRows")) {
                 List<FrontCatalogRow> rows = new ArrayList<>();
                 for (Product p : products) if (args[0] == null || args[0].equals(p.getProductId()))
-                    for (ProductSku s : p.getProductSkus()) if (((s.getStatus() >= 1 && s.getStatus() <= 3) || s.getStatus()==4) && s.getPrice() != null && s.getPrice() > 0)
+                    for (ProductSku s : p.getProductSkus()) if (((s.getStatus() >= 1 && s.getStatus() <= 3) || s.getStatus()==4 || s.getStatus()==6) && s.getPrice() != null && s.getPrice() > 0)
                         rows.add(projection(FrontCatalogRow.class, key -> switch (key) {
                             case "getProductId" -> p.getProductId(); case "getName" -> p.getProductName(); case "getDescription" -> p.getProductDesc();
                             case "getCategoryId" -> p.getProductCategory() == null ? null : p.getProductCategory().getProductCategoryId();
@@ -30,7 +30,7 @@ public class FrontCatalogTest {
             if (method.getName().equals("findFrontImages")) {
                 List<FrontImageRow> rows = new ArrayList<>();
                 for (Product p : products) if (((List<?>)args[0]).contains(p.getProductId()))
-                    for (ProductSku s : p.getProductSkus()) if (((s.getStatus() >= 1 && s.getStatus() <= 3) || s.getStatus()==4) && s.getPrice() != null && s.getPrice() > 0)
+                    for (ProductSku s : p.getProductSkus()) if (((s.getStatus() >= 1 && s.getStatus() <= 3) || s.getStatus()==4 || s.getStatus()==6) && s.getPrice() != null && s.getPrice() > 0)
                         for (ProductImage i : s.getProductImages().stream().filter(i -> i.getImageData() != null && i.getImageData().length > 0)
                             .sorted(Comparator.comparing((ProductImage i) -> i.getSortOrder() == null ? 0 : i.getSortOrder()).thenComparing(ProductImage::getImageId)).toList())
                             rows.add(projection(FrontImageRow.class, key -> key.equals("getSkuId") ? s.getSkuId() : i.getImageId()));
@@ -121,6 +121,16 @@ public class FrontCatalogTest {
         assertTrue(html.contains("home-card-add")); assertFalse(html.contains("目前缺貨"));
         assertFalse(html.contains("已下架規格")); assertFalse(html.contains("資料庫描述"));
         assertTrue(html.contains("/shop/front/css/home-product-cards.css"));
+    }
+    @Test public void stoppingSupplyLabelAppearsOnCardsAndProductDetails() throws Exception {
+        Product p=product(23,"停產測試商品");
+        ProductSku s=sku(p,102,199,6);s.setAnotherName("最後一批");s.setStock(7);
+        var service=service(List.of(p));
+        assertEquals("最後一批（即將停產）",service.getProducts().get(0).skus().get(0).name());
+        String home=mvc(service).perform(get("/front/")).andReturn().getResponse().getContentAsString();
+        assertTrue(home.contains("最後一批（即將停產）"));
+        String detail=mvc(service).perform(get("/front/product/view/").param("productId","23")).andReturn().getResponse().getContentAsString();
+        assertTrue(detail.contains("最後一批（即將停產）"));assertTrue(detail.contains("data-sku-status=\"6\""));
     }
     @Test public void shortageAndRetiringSkusRenderWithQuantityPolicy() throws Exception {
         Product p = product(22, "狀態測試商品");

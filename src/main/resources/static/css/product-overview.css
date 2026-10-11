@@ -247,6 +247,9 @@ body.product-search-embedded .product-search-drawer[data-collapsed="true"] .prod
     outline-offset: 2px;
 }
 
+.status-discontinued { color: #b42318; font-weight: 700; }
+.discontinued-status-select { display: block; width: 100%; max-width: 72px; margin: 3px auto 0; padding: 2px; font: inherit; font-size: 12px; background: white; border: 1px solid #ccc; border-radius: 4px; }
+
 /* 每列背景色漸變 */
 tbody tr td {
     transition: background-color 0.4s ease;

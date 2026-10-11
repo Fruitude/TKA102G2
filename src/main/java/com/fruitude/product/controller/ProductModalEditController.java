@@ -10,6 +10,17 @@ public class ProductModalEditController {
     public ProductModalEditController(ProductModalEditService service) { this.service=service; }
     @GetMapping("/editData") public ProductModalEditService.EditData load(@RequestParam Integer productId) { return service.load(productId); }
     @PostMapping("/saveModal") public ProductModalEditService.Saved save(@RequestBody ProductModalEditService.SaveRequest request) { return service.save(request); }
+    @PostMapping(value="/saveModalWithImages", consumes="multipart/form-data")
+    public ProductModalEditService.Saved saveImages(@RequestParam String payload,
+            @RequestParam(required=false) List<org.springframework.web.multipart.MultipartFile> files) throws java.io.IOException {
+        var request=tools.jackson.databind.json.JsonMapper.builder().build().readValue(payload,ProductModalEditService.ImageRequest.class);
+        var uploads=new ArrayList<ProductImage>();
+        for(var file:files==null?List.<org.springframework.web.multipart.MultipartFile>of():files) {
+            var image=new ProductImage();ImageUploadSupport.apply(image,file);uploads.add(image);
+        }
+        return service.saveWithImages(request,uploads);
+    }
+    @ExceptionHandler(java.io.IOException.class) public ResponseEntity<?> imageReadFailure(java.io.IOException e) { return error(400,"invalid","圖片讀取失敗，請重新選擇檔案"); }
     @ExceptionHandler(ProductStatusAccessException.class) public ResponseEntity<?> denied(ProductStatusAccessException e) { return error(403,"denied",e.getMessage()); }
     @ExceptionHandler(ProductStatusConfirmationException.class) public ResponseEntity<?> confirm(ProductStatusConfirmationException e) { return error(409,"confirm",e.getMessage()); }
     @ExceptionHandler(ProductModalEditService.Conflict.class) public ResponseEntity<?> conflict(ProductModalEditService.Conflict e) { return error(409,"conflict",e.getMessage()); }

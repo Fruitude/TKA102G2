@@ -25,16 +25,16 @@ public class SkuSupplyService {
                     PARTITION BY sku_id ORDER BY sample_date DESC, po_id DESC, detail_id DESC) AS rn
                 FROM (
                     SELECT d.sku_id, po.id AS po_id, d.id AS detail_id,
-                        CASE WHEN po.po_status=3 OR po.inbound_status IN (2,3)
+                        CASE WHEN po.inbound_status IN (2,3)
                             THEN d.quantity ELSE d.arrived_pcs END AS arrived_pcs,
-                        CASE WHEN po.po_status=3 OR po.inbound_status IN (2,3)
+                        CASE WHEN po.inbound_status IN (2,3)
                             THEN d.quantity ELSE d.defect_pcs END AS defect_pcs,
-                        CASE WHEN po.po_status=3 OR po.inbound_status=3
+                        CASE WHEN po.inbound_status=3
                             THEN COALESCE(po.inbound_date,po.order_date) ELSE po.inbound_date END AS sample_date
                     FROM purchaseorder_details d JOIN purchaseorder po ON po.id=d.po_id
                     JOIN product_sku s ON s.sku_id=d.sku_id JOIN product p ON p.product_id=s.product_id
                     WHERE d.sku_id IN (:ids) AND po.vendor_id=p.vendor_id
-                        AND (po.po_status=3 OR po.inbound_status=3 OR (po.po_status=1 AND po.inbound_status IN (1,2)))
+                        AND (po.po_status IN (1,4) AND po.inbound_status IN (1,2,3))
                 ) valid
                 WHERE sample_date>=:since AND sample_date<=:now
                     AND arrived_pcs>0 AND defect_pcs>=0 AND defect_pcs<=arrived_pcs
@@ -93,10 +93,12 @@ public class SkuSupplyService {
         }
         if(status==3) {
             if(c==0) return 4;
+            if(c<=5) return 3;
             if(a.compareTo(safe)>=0) return (byte)(a.compareTo(target)>=0?1:2);
             return 3;
         }
         if(status==1 || status==2) {
+            if(c<=5) return (byte)(c==0?4:3);
             if(b==0) return 4;
             if(status==1 && a.compareTo(safe)<0) return 2;
             if(status==2 && a.compareTo(target)>=0) return 1;
@@ -127,8 +129,8 @@ public class SkuSupplyService {
         if(ids.isEmpty())return 0;
         var rates=yields(ids);
         String eligibility=allowSoldOutRecovery
-            ? "p.status<>2 AND (p.status=1 OR p.auto_restock_enabled=1) AND s.status IN (1,2,3,4,6)"
-            : "p.status=1 AND s.status IN (1,2,3,6)";
+            ? "((p.status<>2 AND (p.status=1 OR p.auto_restock_enabled=1) AND s.status IN (1,2,3,4,6)) OR (p.status=2 AND s.status=6))"
+            : "((p.status=1 AND s.status IN (1,2,3,6)) OR (p.status=2 AND s.status=6))";
         var rows=jdbc.queryForList("SELECT s.* FROM product_sku s JOIN product p ON p.product_id=s.product_id WHERE s.sku_id IN (:ids) AND "+eligibility,Map.of("ids",ids));
         int changed=0;
         for(var row:rows) {

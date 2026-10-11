@@ -462,7 +462,7 @@ public class ProductController {
 
         // Migrate the previous checkbox preference when no new status preference exists yet.
         String status = statusFilter == null ? (savedStatus.isEmpty() ? (savedHideOffline ? "on" : "all") : savedStatus) : statusFilter;
-          if (!java.util.Set.of("all", "on", "off").contains(status)) status = "all";
+          if (!java.util.Set.of("all", "on", "off", "discontinued").contains(status)) status = "all";
         String stock = ProductService.normalizeStockFilter(stockFilter == null ? savedStockFilter : stockFilter);
         if (!request.getParameterMap().containsKey("parentCategoryId")) parentCategoryId = savedFilterId(savedParentCategory);
         if (!request.getParameterMap().containsKey("categoryId")) categoryId = savedFilterId(savedCategory);

@@ -11,12 +11,12 @@ import static org.junit.Assert.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 public class FrontLiveProductTest {
-    private final int[] stock = {10}, price = {199}, status = {1}, inbound = {0}, outbound = {0}, maxBackorder = {10};
+    private final int[] stock = {10}, price = {199}, status = {1}, inbound = {0}, outbound = {0}, maxBackorder = {10}, productStatus = {1};
     private final String[] alias = {null};
     private FrontCatalogService service() {
         LiveSkuRow row = (LiveSkuRow) Proxy.newProxyInstance(LiveSkuRow.class.getClassLoader(), new Class<?>[]{LiveSkuRow.class}, (p,m,a) -> switch(m.getName()) {
             case "getSkuId" -> 6; case "getName" -> "草莓"; case "getSkuName" -> "小盒"; case "getAnotherName" -> alias[0];
-            case "getInboundQty" -> inbound[0]; case "getOutboundQty" -> outbound[0]; case "getMaxBackorderQty" -> maxBackorder[0]; case "getPrice" -> price[0]; case "getStock" -> stock[0]; case "getProductStatus" -> 1; case "getSkuStatus" -> status[0]; default -> null;
+            case "getInboundQty" -> inbound[0]; case "getOutboundQty" -> outbound[0]; case "getMaxBackorderQty" -> maxBackorder[0]; case "getPrice" -> price[0]; case "getStock" -> stock[0]; case "getProductStatus" -> productStatus[0]; case "getSkuStatus" -> status[0]; default -> null;
         });
         ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(), new Class<?>[]{ProductRepository.class}, (p,m,a) -> {
             if (m.getName().equals("findFrontRows")) return List.of();
@@ -27,6 +27,17 @@ public class FrontLiveProductTest {
     }
     private CheckoutItem item(int qty, int amount) {
         CheckoutItem item = new CheckoutItem(); item.setSkuId(6); item.setQty(qty); item.setPrice(amount); return item;
+    }
+    @Test public void retiredProductAllowsOnlyStoppingSupplyAndNeverOversells() {
+        productStatus[0]=2;status[0]=6;stock[0]=8;outbound[0]=3;inbound[0]=100;
+        var service=service();
+        assertTrue(service.getLiveSkus(List.of(6)).get(0).available());
+        assertEquals(5,service.getLiveSkus(List.of(6)).get(0).stock());
+        service.validateCheckoutItems(List.of(item(5,199)));
+        rejects(service,List.of(item(6,199)));
+        for(int s:new int[]{0,1,2,3,4,5,7}){status[0]=s;assertFalse(service.getLiveSkus(List.of(6)).get(0).available());rejects(service,List.of(item(1,199)));}
+        status[0]=6;stock[0]=3;assertFalse(service.getLiveSkus(List.of(6)).get(0).available());
+        stock[0]=8;productStatus[0]=0;assertFalse(service.getLiveSkus(List.of(6)).get(0).available());
     }
     @Test public void liveCartIgnoresCatalogCacheAndHasNoStoreHeader() throws Exception {
         FrontCatalogService service = service(); service.getProducts();

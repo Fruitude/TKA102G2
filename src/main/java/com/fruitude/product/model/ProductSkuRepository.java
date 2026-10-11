@@ -7,9 +7,11 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 
 public interface ProductSkuRepository extends JpaRepository<ProductSku, Integer> {
+    @Query("select s from ProductSku s join fetch s.product p where s.status in (1,2,3,4) and p.status<>2 and p.autoRestockEnabled=true order by s.skuId")
+    List<ProductSku> findSupplyMonitoringCandidates();
 
     @Query(value="SELECT DISTINCT s.product_id FROM product_sku s JOIN product p ON p.product_id=s.product_id "
-        + "WHERE p.status<>2 AND s.status IN (1,2,3,6) ORDER BY s.product_id", nativeQuery=true)
+        + "WHERE (p.status<>2 AND s.status IN (1,2,3,6)) OR (p.status=2 AND s.status=6) ORDER BY s.product_id", nativeQuery=true)
     List<Integer> findAvailabilityProductIds();
 
     @Query(value="SELECT DISTINCT s.product_id FROM product_sku s JOIN product p ON p.product_id=s.product_id "

@@ -8,6 +8,12 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ProductService {
+    @org.springframework.beans.factory.annotation.Autowired
+    private ProductInventoryLockService inventoryLocks;
+    private java.util.Optional<Product> lockProduct(Integer id) {
+        return inventoryLocks==null ? repository.lockForStatus(id) : inventoryLocks.lockProduct(id);
+    }
+
 
     @Autowired
     ProductLifecycleService lifecycle;
@@ -17,7 +23,7 @@ public class ProductService {
 
     @org.springframework.transaction.annotation.Transactional
     public void updateBasicFields(Product form, boolean activateSkus) {
-        Product existing = repository.lockForStatus(form.getProductId()).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
+        Product existing = lockProduct(form.getProductId()).orElseThrow(() -> new IllegalArgumentException("商品不存在"));
         lifecycle.changeProduct(existing, form.getStatus(), activateSkus);
         existing.setProductName(form.getProductName()); existing.setProductDesc(form.getProductDesc());
         existing.setProductCategory(form.getProductCategory()); existing.setVendor(form.getVendor());
@@ -29,7 +35,7 @@ public class ProductService {
 
     @org.springframework.transaction.annotation.Transactional
     public boolean updateStatus(Integer id, Byte status, boolean activateSkus) {
-        Product existing = repository.lockForStatus(id).orElse(null);
+        Product existing = lockProduct(id).orElse(null);
         if (existing == null) return false;
         lifecycle.changeProduct(existing, status, activateSkus);
         repository.saveAndFlush(existing);
@@ -45,7 +51,7 @@ public class ProductService {
         if (productIds == null || productIds.isEmpty() || productIds.size() > 100
                 || productIds.stream().anyMatch(id -> id == null || id <= 0))
             throw new IllegalArgumentException("請提供本頁有效的商品編號（最多100筆）");
-        var products = productIds.stream().distinct().sorted().map(id -> repository.lockForStatus(id)
+        var products = productIds.stream().distinct().sorted().map(id -> lockProduct(id)
             .orElseThrow(() -> new IllegalArgumentException("本頁商品已變更，請重新整理後再操作"))).toList();
         // Preflight the entire page before modifying anything; a confirmation never partially updates a page.
         for (Product product : products) {
@@ -215,7 +221,7 @@ public class ProductService {
         ratingFilter = normalizeRatingFilter(ratingFilter);
         Integer ratingBucket = ratingFilter.isEmpty() ? null : "unrated".equals(ratingFilter) ? -1 : ratingFilter.charAt(0) - '0';
         int safeSize = java.util.Set.of(10, 20, 50, 100).contains(size) ? size : 10;
-        Integer productStatus = "on".equals(statusFilter) ? Integer.valueOf(1) : "off".equals(statusFilter) ? Integer.valueOf(0) : null;
+        Integer productStatus = "on".equals(statusFilter) ? Integer.valueOf(1) : "off".equals(statusFilter) ? Integer.valueOf(0) : "discontinued".equals(statusFilter) ? Integer.valueOf(2) : null;
         var result = repository.findOverviewPage(productStatus, parentCategoryId, categoryId, vendorId, stockFilter, minComments, maxComments, ratingBucket, sortBy, sortDirection, searchPattern, searchProductName, searchSkuName,
             org.springframework.data.domain.PageRequest.of(Math.max(0, page - 1), safeSize));
         if (result.getTotalPages() > 0 && result.getNumber() >= result.getTotalPages()) {

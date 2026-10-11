@@ -33,6 +33,9 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 @RequestMapping("/admin/psi/receiving")
 public class ReceivingController {
+	@Autowired
+	com.fruitude.product.model.ProductPurchaseFlowService productPurchaseFlow;
+
 
 	@Autowired
 	ReceivingService receivingSvc;
@@ -150,7 +153,7 @@ public class ReceivingController {
 		// 存檔時 receive 會以資料庫的資料再檢查一次，不通過時回單筆頁顯示原因
 		boolean modified;
 		try {
-			modified = receivingSvc.receive(poVO, inboundEmployee, receivedContent);
+			modified = productPurchaseFlow.receive(poVO, inboundEmployee, receivedContent);
 		} catch (IllegalArgumentException e) {
 			return redirectWithError(poVO.getPoId(), e.getMessage(), redirectAttributes);
 		} catch (DataIntegrityViolationException e) {
