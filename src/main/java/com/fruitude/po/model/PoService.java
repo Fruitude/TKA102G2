@@ -25,6 +25,9 @@ import com.fruitude.podetail.model.PoDetailVO;
 import com.fruitude.product.model.ProductSku;
 import com.fruitude.vendor.model.VendorVO;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 @Service
 public class PoService {
 
@@ -39,8 +42,9 @@ public class PoService {
 
 	@Autowired
 	private EmployeeRepository employeeRepository;
-	
-	
+
+	@PersistenceContext
+	private EntityManager entityManager;
 
 	public void addPo(PoVO poVO) {
 		repository.save(poVO);
@@ -62,19 +66,31 @@ public class PoService {
 	// 2. 規格是這張單原本沒有的：先沿用一筆「這次已經沒人要用」的明細改成新規格，不夠用才新增一筆
 	// 3. 原本有、這次沒送回來的規格：沒被第 2 種沿用的才刪除
 	// 這樣新增的一定是這張單原本沒有的規格、有新增就不會有刪除，任何時候都不會重複
+	//
+	// editedContent 是修改頁顯示當時的內容摘要（getEditedContent），和資料庫當下的內容不一樣時不存檔
 	@Transactional
-	public void updatePoWithDetails(PoVO formPo) {
+	public void updatePoWithDetails(PoVO formPo, String editedContent) {
 		// 先鎖住這張採購單並確認還是待審核：編輯期間已經被審核掉的單在這裡擋下，存檔期間也不會被審核插進來
 		if (formPo.getPoId() == null || repository.lockPendingPo(formPo.getPoId()).isEmpty()) {
 			throw new IllegalArgumentException("此採購單不存在，或已經審核過，無法修改");
 		}
 
+		// prepareUpdatePo 在同一個請求裡已經查過這張單，直接再查會拿到當時的舊資料；
+		// 鎖住之後先把舊的那一份（連同明細）放掉再重新查，拿到的才是資料庫當下的內容
+		// 不用 refresh：別人剛好刪掉某筆明細時，refresh 會因為找不到那一筆而丟出例外
+		repository.findById(formPo.getPoId()).ifPresent(entityManager::detach);
 		PoVO dbPo = repository.findById(formPo.getPoId())
 				.orElseThrow(() -> new IllegalArgumentException("查無此採購單"));
 
 		// 以資料庫的狀態判斷，不採信表單；開著修改頁期間被審核掉的單也會被擋下
 		if (!dbPo.isEditable()) {
 			throw new IllegalArgumentException("此採購單不是待審核狀態，無法修改");
+		}
+
+		// 採購單已經鎖住，別人從這裡開始改不了，比對的內容不會再變
+		// 不一樣（或沒有帶 editedContent）代表修改頁開著的期間，這張單已經被別人修改過，使用者看到的不是最新的內容
+		if (!getEditedContent(dbPo).equals(editedContent)) {
+			throw new IllegalArgumentException("這張採購單已經被其他人修改，下方是最新的內容；需要修改請重新進入修改頁");
 		}
 
 		if (formPo.getPoDetails() == null || formPo.getPoDetails().isEmpty()) {
@@ -193,6 +209,17 @@ public class PoService {
 		dbDetail.setQuantity(formDetail.getQuantity());
 		dbDetail.setUnitPrice(formDetail.getUnitPrice());
 		dbDetail.setSubtotal((int) subtotal);
+	}
+
+	// 採購單內容的摘要：總金額，加上每筆明細的規格編號、採購數量、進貨單價（依規格編號由小到大）
+	// 修改頁顯示時算一次放在表單裡，存檔時再以資料庫當下的內容算一次，兩個不一樣就代表修改頁開著的期間這張單被別人修改過
+	// 要傳資料庫查出來的採購單，不是表單物件（從「更新採購單」進來的表單多帶了待採購的規格）
+	public String getEditedContent(PoVO dbPo) {
+		Map<Integer, String> detailBySkuId = new TreeMap<>();
+		for (PoDetailVO dbDetail : dbPo.getPoDetails()) {
+			detailBySkuId.put(dbDetail.getSkuId().getSkuId(), dbDetail.getQuantity() + "x" + dbDetail.getUnitPrice());
+		}
+		return dbPo.getTotalAmount() + ";" + detailBySkuId;
 	}
 
 	// 這筆明細是否已經有到貨、不良品或入庫的數量；有的話不可刪除或更換規格
@@ -356,13 +383,13 @@ public class PoService {
 		return repository.findByPoEmployeeId_EmployeeIdOrderByPoIdDesc(employeeId);
 	}
 
-	// 某供應商可採購的規格：status 0~3 都列入，4（永久停產）不列入；採購單的規格下拉選單使用
+	// 某供應商可採購的規格：status 7（永久停產）不列入，其餘都列入；採購單的規格下拉選單使用
 	public List<ProductSku> getPurchasableByVendorId(Integer vendorId) {
 		return poSkuStockRepository.findByProduct_Vendor_VendorIdAndStatusNotOrderBySkuIdAsc(vendorId,
 				ProductSku.STATUS_DISCONTINUED);
 	}
 
-	// 需要採購的規格：上架（1）或缺貨（2）,即將售完(3),售完(4),，且低於安全庫存
+	// 需要採購的規格：上架（1）、缺貨（2）、即將售完（3）、售完（4），且低於安全庫存；所屬商品已停產的不列入
 	public List<ProductSku> getBelowSafetyStock() {
 		return poSkuStockRepository.findBelowSafetyStockByStatusIn(List.of((byte) 1, (byte) 2,(byte) 3,(byte) 4));
 	}
