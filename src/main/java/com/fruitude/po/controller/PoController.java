@@ -8,14 +8,20 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.validation.Validator;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.WebDataBinder;
@@ -59,6 +65,16 @@ public class PoController {
 	@Autowired
 	@Qualifier("mvcValidator")
 	Validator validator;
+
+	// 把綁定階段的錯誤（輸入的不是整數）換成 messages.properties 裡的訊息
+	@Autowired
+	MessageSource messageSource;
+
+	// 明細的欄位名：poDetails[索引].欄位（商品規格的下拉選單是 poDetails[索引].skuId.skuId，只取第一段 skuId）
+	private static final Pattern DETAIL_FIELD = Pattern.compile("poDetails\\[(\\d+)\\]\\.(\\w+).*");
+
+	// 同一筆明細的錯誤訊息依這個欄位順序排：商品規格、採購數量、進貨單價、小計；其他欄位排在後面
+	private static final List<String> DETAIL_FIELD_ORDER = List.of("skuId", "quantity", "unitPrice", "subtotal");
 
 	// 這支 controller 的每個請求都會先執行，把低於安全庫存的規格放進 model，回首頁時顯示待採購商品
 	// key 是供應商編號、value 是該供應商的規格清單
@@ -113,7 +129,8 @@ public class PoController {
 		return "admin/psi/purchase/addPo"; //view
 	}
 
-	// 新增採購單：檢查都在後端，錯誤記在 BindingResult，由 addPo.html 顯示在對應欄位下方
+	// 新增採購單：檢查都在後端，錯誤記在 BindingResult
+	// 供應商、總金額的錯誤由 addPo.html 顯示在欄位旁邊；明細的錯誤整理成一段文字，顯示在「採購明細」的旁邊
 	// 參數不加 @Valid：採購單編號、採購日期、小計、總金額是這裡才填的，要先填好再驗，否則會被誤判成空白
 	// 數量、單價輸入的不是整數時，Spring 在綁定階段就已經把錯誤記進 result
 	@PostMapping("/insert")
@@ -139,6 +156,7 @@ public class PoController {
 		checkNewPo(poVO, result);
 
 		if (result.hasErrors()) {
+			addDetailErrorMessage(model, poVO, result);
 			addFormData(model, poVO);
 			return "admin/psi/purchase/addPo";
 		}
@@ -186,6 +204,55 @@ public class PoController {
 		if (totalTooLarge) {
 			result.rejectValue("totalAmount", "tooLarge", "總金額超過上限，請減少明細或分成多張採購單");
 		}
+	}
+
+	// 明細的錯誤訊息整理成一段文字放進 model（detailErrorMessage），insert 與 update 檢查失敗時共用
+	// 一筆錯誤一行，addPo.html、updatePo.html 以 white-space: pre-line 換行顯示在「採購明細」的旁邊；沒有明細的錯誤時不放
+	private void addDetailErrorMessage(Model model, PoVO poVO, BindingResult result) {
+		List<String> detailErrors = getDetailErrors(poVO, result);
+		if (!detailErrors.isEmpty()) {
+			model.addAttribute("detailErrorMessage", String.join("\n", detailErrors));
+		}
+	}
+
+	// 從 BindingResult 取出明細的錯誤，整理成「第幾筆（規格名）：訊息」的文字；還沒選規格、沒有規格名時只寫「第幾筆：」
+	// 先依列的順序，同一列再依 DETAIL_FIELD_ORDER 的欄位順序排（驗證器回報的順序不固定）
+	// 不屬於單一列的錯誤（一筆明細都沒有、要刪除的明細已有到貨數量）記在 poDetails，不加「第幾筆」，排在最後
+	// 輸入的不是整數時，訊息取自 messages.properties 的 typeMismatch.poVO.poDetails.quantity、unitPrice
+	private List<String> getDetailErrors(PoVO poVO, BindingResult result) {
+		// key 是「列的索引 x 10 + 欄位順序」，TreeMap 會由小到大排
+		Map<Integer, List<String>> rowErrorsBySortKey = new TreeMap<>();
+		List<String> wholeDetailErrors = new ArrayList<>();
+
+		for (FieldError fieldError : result.getFieldErrors()) {
+			String message = messageSource.getMessage(fieldError, LocaleContextHolder.getLocale());
+			if ("poDetails".equals(fieldError.getField())) {
+				wholeDetailErrors.add(message);
+				continue;
+			}
+
+			Matcher matcher = DETAIL_FIELD.matcher(fieldError.getField());
+			if (!matcher.matches()) {
+				continue;
+			}
+			int index = Integer.parseInt(matcher.group(1));
+			int fieldOrder = DETAIL_FIELD_ORDER.indexOf(matcher.group(2));
+			if (fieldOrder < 0) {
+				fieldOrder = DETAIL_FIELD_ORDER.size();
+			}
+
+			String displayName = null;
+			if (index < poVO.getPoDetails().size() && poVO.getPoDetails().get(index).getSkuId() != null) {
+				displayName = poVO.getPoDetails().get(index).getSkuId().getDisplayName();
+			}
+			String rowLabel = "第 " + (index + 1) + " 筆" + (displayName == null ? "" : "（" + displayName + "）") + "：";
+			rowErrorsBySortKey.computeIfAbsent(index * 10 + fieldOrder, key -> new ArrayList<>()).add(rowLabel + message);
+		}
+
+		List<String> errorMessages = new ArrayList<>();
+		rowErrorsBySortKey.values().forEach(errorMessages::addAll);
+		errorMessages.addAll(wholeDetailErrors);
+		return errorMessages;
 	}
 
 	// 新增採購單時註解管不到的檢查，錯誤以 rejectValue 記在對應欄位
@@ -347,6 +414,9 @@ public class PoController {
 		}
 
 		model.addAttribute("poVO", poVO);
+		// 使用者這次看到的內容摘要，隨表單送回 update，用來擋下修改頁開著的期間被別人修改過的採購單
+		// 以資料庫查出來的採購單來算：fillShortage 時 poVO 是多帶了待採購規格的表單物件，不能拿來算
+		model.addAttribute("editedContent", poSvc.getEditedContent(poSvc.getOnePo(poId)));
 		if (fillShortage) {
 			model.addAttribute("infoMessage", "已帶入待採購的商品規格，採購數量請參考「建議採購量」填寫；確認後按「送出修改」才會儲存");
 		}
@@ -355,11 +425,16 @@ public class PoController {
 		return "admin/psi/purchase/updatePo"; //view
 	}
 
-	// 修改採購明細（可修改、新增、刪除明細）：流程比照 insert，錯誤記在 BindingResult，由 updatePo.html 顯示在對應欄位下方
+	// 修改採購明細（可修改、新增、刪除明細）：流程比照 insert，錯誤記在 BindingResult，明細的錯誤由 updatePo.html 顯示在「採購明細」的旁邊
 	// 參數不加 @Valid：表單只送明細的規格、數量、單價，其餘欄位要先從資料庫補回來再驗，否則會被誤判成空白
+	// editedContent 是修改頁顯示當時的內容摘要；沒有帶或和資料庫當下的內容不一樣時不存檔
 	@PostMapping("/update")
 	public String update(@ModelAttribute("poVO") PoVO poVO, BindingResult result, Model model,
+			@RequestParam(value = "editedContent", required = false) String editedContent,
 			RedirectAttributes redirectAttributes) {
+
+		// 檢查失敗重新顯示修改頁時，表單要繼續帶著一開始的內容摘要，不能換成現在的
+		model.addAttribute("editedContent", editedContent);
 
 		// 1. 從資料庫補回表單沒送的欄位；採購單不存在、不是待審核時不是欄位填錯，回單筆頁顯示原因
 		try {
@@ -375,13 +450,14 @@ public class PoController {
 		checkUpdatePo(poVO, result);
 
 		if (result.hasErrors()) {
+			addDetailErrorMessage(model, poVO, result);
 			addUpdateFormData(model, poVO);
 			return "admin/psi/purchase/updatePo";
 		}
 
 		// 存檔時 updatePoWithDetails 會以資料庫的資料再檢查一次，不通過時回單筆頁顯示原因
 		try {
-			poSvc.updatePoWithDetails(poVO);
+			poSvc.updatePoWithDetails(poVO, editedContent);
 		} catch (IllegalArgumentException e) {
 			return redirectWithError(poVO.getPoId(), e.getMessage(), redirectAttributes);
 		} catch (DataIntegrityViolationException e) {

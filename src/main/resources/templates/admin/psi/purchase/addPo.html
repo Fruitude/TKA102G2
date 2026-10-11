@@ -94,7 +94,7 @@
 					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
 
 					<!-- poVO、vendorListData、skuOptionData 由 PoController 的 addPo、insert 放入 model -->
-					<!-- 頁面不做驗證（novalidate），檢查都在 PoController 的 insert；錯誤以 th:errors 顯示在對應欄位下方 -->
+					<!-- 頁面不做驗證（novalidate），檢查都在 PoController 的 insert；供應商、總金額的錯誤以 th:errors 顯示在欄位旁邊，明細的錯誤統一顯示在「採購明細」標題旁邊 -->
 					<form id="po_add_form" th:action="@{/admin/psi/purchase/insert}" method="post" th:object="${poVO}" novalidate>
 
 						<div class="card shadow mb-4">
@@ -138,9 +138,14 @@
 
 						<!-- 採購明細：欄位名以 poDetails[索引].欄位 的形式送出，索引由下方 script 的 renumberDetailRows 依列的順序編號 -->
 						<div class="card shadow mb-4">
+							<!-- 明細的錯誤訊息（detailErrorMessage，PoController 的 insert 放入 model）顯示在標題的同一行，紅字、沒有外框，一筆錯誤一行 -->
 							<div class="card-header py-3 d-flex justify-content-between align-items-center">
-								<h6 class="m-0 font-weight-bold text-primary">採購明細</h6>
-								<button type="button" id="add_detail_row" class="btn btn-success btn-sm">新增明細</button>
+								<div class="d-flex align-items-start">
+									<h6 class="m-0 font-weight-bold text-primary text-nowrap">採購明細</h6>
+									<span id="detail_error" class="text-danger ml-3 detail-error" style="white-space: pre-line;"
+										th:if="${detailErrorMessage != null}" th:text="${detailErrorMessage}"></span>
+								</div>
+								<button type="button" id="add_detail_row" class="btn btn-success btn-sm text-nowrap ml-3">新增明細</button>
 							</div>
 							<div class="card-body">
 								<div class="table-responsive">
@@ -155,7 +160,7 @@
 												<th>操作</th>
 											</tr>
 										</thead>
-										<!-- 檢查失敗回來時，由這裡把送出的明細連同錯誤訊息畫出來；從待採購商品連過來時，PoController 的 addPo 已經帶入明細；其餘情況剛進頁面時沒有明細，由 script 補一列空白 -->
+										<!-- 檢查失敗回來時，由這裡把送出的明細畫出來；從待採購商品連過來時，PoController 的 addPo 已經帶入明細；其餘情況剛進頁面時沒有明細，由 script 補一列空白 -->
 										<tbody>
 											<tr th:each="poDetailVO, stat : *{poDetails}">
 												<td>
@@ -164,32 +169,21 @@
 														<option th:if="${poDetailVO.skuId != null and poDetailVO.skuId.skuId != null}"
 															th:value="${poDetailVO.skuId.skuId}" selected></option>
 													</select>
-													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].skuId')}"
-														th:errors="*{poDetails[__${stat.index}__].skuId}"
-														class="text-danger d-block mt-1 detail-error"></span>
 												</td>
 												<!-- 建議採購量：只是提示，不會送出；由 script 的 updateSuggested 依這一列選的規格填入 -->
 												<td class="detail-suggested"></td>
 												<td>
 													<!-- type="number" 只是讓瀏覽器擋掉文字輸入；空白、範圍由 PoDetailVO 的註解檢查。th:field 會保留使用者輸入的內容 -->
+													<!-- 錯誤訊息統一顯示在「採購明細」標題旁邊 -->
 													<input type="number" class="form-control detail-quantity"
 														th:field="*{poDetails[__${stat.index}__].quantity}" />
-													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].quantity')}"
-														th:errors="*{poDetails[__${stat.index}__].quantity}"
-														class="text-danger d-block mt-1 detail-error"></span>
 												</td>
 												<td>
 													<input type="number" class="form-control detail-unit-price"
 														th:field="*{poDetails[__${stat.index}__].unitPrice}" />
-													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].unitPrice')}"
-														th:errors="*{poDetails[__${stat.index}__].unitPrice}"
-														class="text-danger d-block mt-1 detail-error"></span>
 												</td>
 												<td>
 													<span class="detail-subtotal">0</span>
-													<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].subtotal')}"
-														th:errors="*{poDetails[__${stat.index}__].subtotal}"
-														class="text-danger d-block mt-1 detail-error amount-error"></span>
 												</td>
 												<td><button type="button" class="btn btn-danger btn-sm detail-remove">刪除</button></td>
 											</tr>
@@ -207,10 +201,6 @@
 										</tfoot>
 									</table>
 								</div>
-
-								<!-- 一筆明細都沒有送出時的錯誤 -->
-								<span th:if="${#fields.hasErrors('poDetails')}" th:errors="*{poDetails}"
-									class="text-danger d-block mb-3 detail-error"></span>
 
 								<button type="submit" id="submit" class="btn btn-primary">送出新增</button>
 							</div>
@@ -382,22 +372,9 @@
 		});
 		vendorSelect.addEventListener("change", loadSkuOptions);
 
-		//使用者開始修改明細的某一格（輸入數字或改選規格）時，清掉該格下方的錯誤訊息
-		function clearCellError(event) {
-			var cell = event.target.closest("td");
-			if (!cell) {
-				return;
-			}
-			cell.querySelectorAll(".detail-error").forEach(function(errorSpan) {
-				errorSpan.remove();
-			});
-			//小計、總金額是算出來的，任何一格改動後舊的金額錯誤就不準了，一併清掉
-			document.querySelectorAll(".amount-error").forEach(function(errorSpan) {
-				errorSpan.remove();
-			});
-		}
-		detailBody.addEventListener("input", clearCellError);
-		detailBody.addEventListener("change", clearCellError);
+		//使用者開始修改明細的某一格（輸入數字或改選規格）時，清掉「採購明細」旁邊與總金額的錯誤訊息（訊息是照送出當時的內容寫的，改過之後就不準了）
+		detailBody.addEventListener("input", clearDetailErrors);
+		detailBody.addEventListener("change", clearDetailErrors);
 		//改選規格時，建議採購量跟著換成新規格的
 		detailBody.addEventListener("change", function(event) {
 			if (event.target.classList.contains("detail-sku")) {

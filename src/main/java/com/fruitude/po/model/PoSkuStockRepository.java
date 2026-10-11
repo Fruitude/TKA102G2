@@ -18,10 +18,12 @@ public interface PoSkuStockRepository extends JpaRepository<ProductSku, Integer>
             Byte status);
 
     // 指定狀態、且低於安全庫存的規格：待出貨 + 安全庫存量 > 庫存量 + 待進貨
+    // 所屬商品已停產（product.status = 2）的規格不列入
     @Query("""
             select s from ProductSku s
-            join fetch s.product
+            join fetch s.product p
             where s.status in :statuses
+              and p.status <> 2
               and coalesce(s.outboundQty, 0) + coalesce(s.safetyStock, 0)
                 > coalesce(s.stock, 0) + coalesce(s.inboundQty, 0)
             order by s.skuId asc

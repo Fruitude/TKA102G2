@@ -99,11 +99,13 @@
 							<p class="text-muted"><span class="text-danger">*</span> 為必填欄位</p>
 
 							<!-- poVO、skuListData 由 PoController 的 getOne_For_Update 放入 model；檢查失敗時由 update 放入 -->
-							<!-- 頁面不做驗證（novalidate），檢查都在 PoController 的 update；錯誤以 th:errors 顯示在對應欄位下方 -->
+							<!-- 頁面不做驗證（novalidate），檢查都在 PoController 的 update；總金額的錯誤以 th:errors 顯示在欄位下方，明細的錯誤統一顯示在「採購明細」標題旁邊 -->
 							<form class="update_form" th:action="@{/admin/psi/purchase/update}" method="post"
 								th:object="${poVO}" novalidate>
 
 								<input type="hidden" th:field="*{poId}" />
+								<!-- 這次看到的內容摘要（PoController 放入 model），存檔時比對；期間被別人修改過就不存檔 -->
+								<input type="hidden" name="editedContent" th:value="${editedContent}" />
 
 								<!-- 採購單編號、供應商、採購員工、採購日期、採購單狀態、總金額只顯示不送出（沒有 name） -->
 								<!-- 前五項不可修改，檢查失敗重新顯示時由 PoService 的 prepareUpdatePo 從資料庫補回；總金額由 updatePoWithDetails 重算 -->
@@ -149,9 +151,14 @@
 								<!-- 存檔時 PoService 的 updatePoWithDetails 依商品規格對應資料庫的明細：規格還在的是修改、多出來的是新增、不見的是刪除 -->
 								<!-- 欄位名的索引由下方 script 的 renumberDetailRows 依列的順序重編；小計與總金額由 script 即時計算，存檔時由後端重算 -->
 								<!-- skuListData 由 PoController 的 getOne_For_Update 依這張單的供應商查出（不含永久停產的規格） -->
+								<!-- 明細的錯誤訊息（detailErrorMessage，PoController 的 update 放入 model）顯示在標題的同一行，紅字、沒有外框，一筆錯誤一行 -->
 								<div class="d-flex justify-content-between align-items-center mb-2">
-									<label class="mb-0">採購明細</label>
-									<button type="button" id="add_detail_row" class="btn btn-success btn-sm">新增明細</button>
+									<div class="d-flex align-items-start">
+										<label class="mb-0 text-nowrap">採購明細</label>
+										<span id="detail_error" class="text-danger ml-3" style="white-space: pre-line;"
+											th:if="${detailErrorMessage != null}" th:text="${detailErrorMessage}"></span>
+									</div>
+									<button type="button" id="add_detail_row" class="btn btn-success btn-sm text-nowrap ml-3">新增明細</button>
 								</div>
 								<table class="table table-bordered" id="po_detail_table">
 									<thead>
@@ -172,48 +179,33 @@
 												<select class="custom-select detail-sku" th:field="*{poDetails[__${stat.index}__].skuId.skuId}">
 													<option value="">請選擇商品規格</option>
 													<!-- 這筆明細原本的規格若已永久停產，清單裡不會有，補一個選項讓它維持選中 -->
-													<option th:if="${poDetailVO.skuId.status == 4}"
+													<option th:if="${poDetailVO.skuId.status == T(com.fruitude.product.model.ProductSku).STATUS_DISCONTINUED}"
 														th:value="${poDetailVO.skuId.skuId}"
 														th:text="${poDetailVO.skuId.skuId + ' - ' + poDetailVO.skuId.displayName + '（已停產）'}"></option>
 													<option th:each="productSku : ${skuListData}"
 														th:value="${productSku.skuId}"
 														th:text="${productSku.skuId + ' - ' + productSku.displayName}"></option>
 												</select>
-												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].skuId')}"
-													th:errors="*{poDetails[__${stat.index}__].skuId}"
-													class="text-danger d-block mt-1"></span>
 											</td>
 											<!-- 建議採購量：只是提示，不會送出；由 script 的 updateSuggested 依這一列選的規格填入 -->
 											<td class="detail-suggested"></td>
 											<td>
 												<!-- type="number" 只是讓瀏覽器擋掉文字輸入；空白、範圍由 PoDetailVO 的註解檢查。th:field 會保留使用者輸入的內容 -->
+												<!-- 錯誤訊息統一顯示在「採購明細」標題旁邊 -->
 												<input type="number" class="form-control detail-quantity"
 													th:field="*{poDetails[__${stat.index}__].quantity}" />
-												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].quantity')}"
-													th:errors="*{poDetails[__${stat.index}__].quantity}"
-													class="text-danger d-block mt-1"></span>
 											</td>
 											<td>
 												<input type="number" class="form-control detail-unit-price"
 													th:field="*{poDetails[__${stat.index}__].unitPrice}" />
-												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].unitPrice')}"
-													th:errors="*{poDetails[__${stat.index}__].unitPrice}"
-													class="text-danger d-block mt-1"></span>
 											</td>
 											<td>
 												<span class="detail-subtotal" th:text="${poDetailVO.subtotal}"></span>
-												<span th:if="${#fields.hasErrors('poDetails[__${stat.index}__].subtotal')}"
-													th:errors="*{poDetails[__${stat.index}__].subtotal}"
-													class="text-danger d-block mt-1 amount-error"></span>
 											</td>
 											<td><button type="button" class="btn btn-danger btn-sm detail-remove">刪除</button></td>
 										</tr>
 									</tbody>
 								</table>
-
-								<!-- 不屬於單一欄位的明細錯誤：一筆明細都沒有、要刪除的明細已有到貨數量 -->
-								<span th:if="${#fields.hasErrors('poDetails')}" th:errors="*{poDetails}"
-									class="text-danger d-block mb-3" id="po_details_error"></span>
 
 								<button type="submit" id="submit" class="btn btn-primary">送出修改</button>
 							</form>
@@ -278,22 +270,9 @@
 
 		document.getElementById("po_detail_table").addEventListener("input", updateAmounts);
 
-		//使用者開始修改明細的某一格（輸入數字或改選規格）時，清掉該格下方的錯誤訊息
-		function clearCellError(event) {
-			var cell = event.target.closest("td");
-			if (!cell) {
-				return;
-			}
-			cell.querySelectorAll(".text-danger").forEach(function(errorSpan) {
-				errorSpan.remove();
-			});
-			//小計、總金額是算出來的，任何一格改動後舊的金額錯誤就不準了，一併清掉
-			document.querySelectorAll(".amount-error").forEach(function(errorSpan) {
-				errorSpan.remove();
-			});
-		}
-		document.querySelector("#po_detail_table tbody").addEventListener("input", clearCellError);
-		document.querySelector("#po_detail_table tbody").addEventListener("change", clearCellError);
+		//使用者開始修改明細的某一格（輸入數字或改選規格）時，清掉「採購明細」旁邊與總金額的錯誤訊息（訊息是照送出當時的內容寫的，改過之後就不準了）
+		document.querySelector("#po_detail_table tbody").addEventListener("input", clearDetailErrors);
+		document.querySelector("#po_detail_table tbody").addEventListener("change", clearDetailErrors);
 
 		var detailBody = document.querySelector("#po_detail_table tbody");
 		var rowTemplate = document.getElementById("po_detail_row_template");
@@ -310,7 +289,7 @@
 
 		//伺服器畫出來的錯誤訊息是照送出當時的列順序放的；新增或刪除列之後就對不上，直接清掉
 		function clearDetailErrors() {
-			document.querySelectorAll("#po_detail_table .text-danger, #po_details_error, .amount-error").forEach(function(errorSpan) {
+			document.querySelectorAll("#detail_error, .amount-error").forEach(function(errorSpan) {
 				errorSpan.remove();
 			});
 		}
