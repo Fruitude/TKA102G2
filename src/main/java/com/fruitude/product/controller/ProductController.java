@@ -33,6 +33,9 @@ import jakarta.validation.Valid;
 @Controller
 @RequestMapping("/product")
 public class ProductController {
+    @Autowired
+    private com.fruitude.product.model.ProductPageStatusService productPageStatusSvc;
+
 
     @org.springframework.web.bind.annotation.InitBinder("product")
     void bind(org.springframework.web.bind.WebDataBinder binder) {
@@ -375,14 +378,8 @@ public class ProductController {
             @RequestParam List<Integer> productIds, @RequestParam Byte status,
             @RequestParam(defaultValue = "false") boolean activateSkus) {
         try {
-            int updated = productSvc.updatePageStatus(productIds, status, activateSkus);
-            int skipped = (int)productIds.stream().distinct().count() - updated;
-            var states = new java.util.LinkedHashMap<Integer, Byte>();
-            productIds.stream().distinct().forEach(id -> states.put(id, productSvc.getOneProduct(id).getStatus()));
-            return org.springframework.http.ResponseEntity.ok(java.util.Map.of("updated", updated, "skipped", skipped, "statuses", states));
-        } catch (com.fruitude.product.model.ProductStatusConfirmationException e) {
-            return org.springframework.http.ResponseEntity.status(409).body(java.util.Map.of("message", e.getMessage()));
-        } catch (IllegalArgumentException | IllegalStateException e) {
+            return org.springframework.http.ResponseEntity.ok(productPageStatusSvc.updatePageStatus(productIds,status,activateSkus));
+        } catch (IllegalArgumentException e) {
             return org.springframework.http.ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
         }
     }

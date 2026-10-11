@@ -8,9 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface ProductRepository extends JpaRepository<Product, Integer> {
-    // 前台讀取庫存的兩個查詢（findFrontRows、findLiveSkus）最後面都有 FOR SHARE OF s（鎖定讀取）：
-    // 如果有訂單的交易正在鎖定這些規格、扣庫存（見 OrdersService.placeOrder），這裡會等到那個交易結束才讀，
-    // 不會和扣庫存同時進行；沒有人在扣庫存時不會等待。
+    // Display queries use MVCC consistent reads and do not lock SKU rows.
+    // The live purchase query below retains FOR SHARE; order writes still lock and validate quantities.
     @Query(value = """
         SELECT p.product_id AS productId, p.product_name AS name, p.product_desc AS description,
                p.product_category_id AS categoryId, s.sku_id AS skuId, s.sku_name AS skuName, s.another_name AS anotherName,
@@ -23,7 +22,6 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
               AND sale.status IN (1,2,3,6))
           AND (:productId IS NULL OR p.product_id = :productId)
         ORDER BY p.product_id, s.sku_id
-        FOR SHARE OF s
         """, nativeQuery = true)
     java.util.List<FrontCatalogRow> findFrontRows(@org.springframework.data.repository.query.Param("productId") Integer productId);
 

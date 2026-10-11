@@ -136,6 +136,10 @@
         <p id="page-status-message" role="status" aria-live="polite" hidden></p>
     </div>
     </section>
+    <details id="page-status-results" hidden>
+        <summary>查看未完成、略過或供應量調整的商品</summary>
+        <ul></ul>
+    </details>
     <table id="product-table" th:attr="data-page=${currentPage},data-total-pages=${totalPages},data-total-products=${totalProducts},data-sort-by=${sortBy},data-sort-direction=${sortDirection}">
         <colgroup>
             <col class="col-number"><col class="col-image"><col class="col-name"><col class="col-sku"><col class="col-vendor"><col class="col-stock">
@@ -305,25 +309,64 @@ async function changePageProductStatus(status) {
     if (!toggles.length) return;
     const actionName = status === 1 ? '上架' : '下架';
     if (!await window.confirmProductAction(status === 1 ? 'page-on' : 'page-off',
-        '本功能將讓本頁面商品全數' + actionName + '，您確定要執行此動作？')) return;
+        '本功能將逐一處理本頁商品' + actionName + '；單項失敗不影響其他商品，您確定要執行此動作？')) return;
     if (productStatusBusy) return;
-    const body = new URLSearchParams({status});
-    toggles.forEach(toggle => body.append('productIds', toggle.dataset.productId));
-    lockProductStatus(true);
-    showProductStatusMessage('正在更新本頁商品狀態…');
-    try {
-        const response = await window.requestProductStatus(/*[[@{/product/updatePageStatus}]]*/ "/product/updatePageStatus", body);
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message || '更新失敗');
-        toggles.forEach(toggle => {
-            const actual = Number(result.statuses?.[toggle.dataset.productId] ?? status);
+    const results = new Map();
+    const detail = document.getElementById('page-status-results');
+    detail.hidden = true;
+    const apply = result => {
+        for (const item of result.results || []) results.set(String(item.productId), item);
+        for (const toggle of toggles) {
+            const item = results.get(toggle.dataset.productId);
+            if (!item || item.status == null) continue;
+            const actual = Number(item.status);
             toggle.checked = actual === 1;
             toggle.closest('tr').classList.toggle('product-off', actual === 0);
+            document.dispatchEvent(new CustomEvent('product-status-updated', {detail: {productId: item.productId, status: actual}}));
+        }
+    };
+    const send = async (ids, activateSkus = false) => {
+        const body = new URLSearchParams({status, activateSkus});
+        ids.forEach(id => body.append('productIds', id));
+        const response = await fetch(/*[[@{/product/updatePageStatus}]]*/ "/product/updatePageStatus", {
+            method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body
         });
-        const offCount = status === 1 ? toggles.filter(toggle => !toggle.checked).length : 0;
-        showProductStatusMessage(offCount ? '本頁已完成供應量判斷，其中 ' + offCount + ' 個商品因無可販售規格維持下架。' : '本頁 ' + result.updated + ' 個商品已全部' + (status === 1 ? '上架' : '下架') + '。', offCount > 0, status === 0);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || '更新失敗');
+        apply(result);
+        return result;
+    };
+    const summarize = () => {
+        const all = [...results.values()];
+        const updated = all.filter(item => item.outcome === 'UPDATED');
+        const skipped = all.filter(item => item.outcome === 'SKIPPED');
+        const failed = all.filter(item => item.outcome === 'FAILED' || item.outcome === 'CONFIRMATION');
+        const adjusted = updated.filter(item => Number(item.status) !== status);
+        const list = detail.querySelector('ul');list.replaceChildren();
+        for (const item of all.filter(item => item.message)) {
+            const row = document.createElement('li');
+            row.textContent = '商品 #' + item.productId + (item.productName ? '（' + item.productName + '）' : '') + '：'
+                + (item.outcome === 'CONFIRMATION' ? '未確認啟用下架規格，未執行上架' : item.message);
+            list.appendChild(row);
+        }
+        detail.hidden = list.children.length === 0;
+        detail.open = failed.length > 0;
+        let message = '本頁逐項處理完成：成功 ' + updated.length + ' 個、略過 ' + skipped.length + ' 個、未完成 ' + failed.length + ' 個。';
+        if (adjusted.length) message += '其中 ' + adjusted.length + ' 個因無可販售規格維持下架。';
+        showProductStatusMessage(message, failed.length > 0 || adjusted.length > 0, status === 0);
+    };
+    lockProductStatus(true);
+    showProductStatusMessage('正在逐一更新本頁商品狀態…');
+    try {
+        const result = await send(toggles.map(toggle => toggle.dataset.productId));
+        summarize();
+        if (result.confirmationIds?.length && window.confirm('已有其他商品完成處理。商品編號 '
+            + result.confirmationIds.join('、') + ' 沒有有效販售規格，是否將這些商品的下架規格一併啟用？售完及永久停產規格不會自動啟用。')) {
+            await send(result.confirmationIds, true);
+            summarize();
+        }
     } catch (error) {
-        showProductStatusMessage('本頁商品更新失敗：' + error.message, true);
+        showProductStatusMessage('批次處理中斷：' + (error.message || '連線失敗') + '。部分商品可能已完成，請重新整理確認。', true);
     } finally { lockProductStatus(false); }
 }
 

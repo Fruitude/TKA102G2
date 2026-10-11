@@ -30,26 +30,43 @@ public class ProductPageStatusTest {
     @Test public void onlyChangesSubmittedPageAndSkipsPermanentProducts() {
         var first=p(42,1,1);var retired=p(43,2,7);var other=p(44,1,1);var locks=new ArrayList<Integer>();
         var service=service(Map.of(42,first,43,retired,44,other),locks);
-        assertEquals(1,service.updatePageStatus(List.of(43,42,42),(byte)0));assertEquals(List.of(42,43),locks);
+        assertEquals(1,new ProductPageStatusService(service).updatePageStatus(List.of(43,42,42),(byte)0,false).updated());assertEquals(List.of(42,43),locks);
         assertEquals(Byte.valueOf((byte)0),first.getProductSkus().get(0).getStatus());
         assertEquals(Byte.valueOf((byte)2),retired.getStatus());assertEquals(Byte.valueOf((byte)7),retired.getProductSkus().get(0).getStatus());assertEquals(Byte.valueOf((byte)1),other.getStatus());
     }
-    @Test public void rejectsInvalidOrMissingPageBeforeWriting() {
-        var first=p(42,1,1);var service=service(Map.of(42,first),new ArrayList<>());
-        for(var ids:List.of(List.<Integer>of(),List.of(0),Collections.nCopies(101,42),List.of(42,43))){try{service.updatePageStatus(ids,(byte)0);fail();}catch(IllegalArgumentException expected){}}
-        try{service.updatePageStatus(List.of(42),(byte)2);fail();}catch(IllegalArgumentException expected){}
+    @Test public void invalidRequestsAreRejectedBeforeWritingButMissingItemsDoNotStopOthers() {
+        var first=p(42,1,1);var third=p(44,1,1);var svc=service(Map.of(42,first,44,third),new ArrayList<>());
+        var batch=new ProductPageStatusService(svc);
+        for(var ids:List.of(List.<Integer>of(),List.of(0),Collections.nCopies(101,42))){try{batch.updatePageStatus(ids,(byte)0,false);fail();}catch(IllegalArgumentException expected){}}
+        try{batch.updatePageStatus(List.of(42),(byte)2,false);fail();}catch(IllegalArgumentException expected){}
         assertEquals(Byte.valueOf((byte)1),first.getStatus());
+        var result=batch.updatePageStatus(List.of(42,43,44),(byte)0,false);
+        assertEquals(2,result.updated());assertEquals(1,result.failed());
+        assertEquals("FAILED",result.results().get(1).outcome());assertTrue(result.results().get(1).message().contains("不存在"));
+        assertEquals(Byte.valueOf((byte)0),first.getStatus());assertEquals(Byte.valueOf((byte)0),third.getStatus());
+        assertFalse(result.statuses().containsKey(43));
     }
-    @Test public void pageListingPreflightsConfirmationBeforeAnyChange() {
-        var first=p(42,0,1);var second=p(43,0,0);var service=service(Map.of(42,first,43,second),new ArrayList<>());
-        try{service.updatePageStatus(List.of(42,43),(byte)1);fail();}catch(ProductStatusConfirmationException expected){}
-        assertEquals(Byte.valueOf((byte)0),first.getStatus());assertEquals(Byte.valueOf((byte)0),second.getStatus());
-        assertEquals(2,service.updatePageStatus(List.of(42,43),(byte)1,true));assertEquals(Byte.valueOf((byte)1),second.getProductSkus().get(0).getStatus());
+    @Test public void confirmationOnlyDefersAffectedItemAndRetryDoesNotReprocessSuccesses() {
+        var first=p(42,0,1);var second=p(43,0,0);var locks=new ArrayList<Integer>();
+        var svc=service(Map.of(42,first,43,second),locks);var batch=new ProductPageStatusService(svc);
+        var result=batch.updatePageStatus(List.of(42,43),(byte)1,false);
+        assertEquals(1,result.updated());assertEquals(1,result.failed());assertEquals(List.of(43),result.confirmationIds());
+        assertEquals(Byte.valueOf((byte)1),first.getStatus());assertEquals(Byte.valueOf((byte)0),second.getStatus());
+        locks.clear();var retry=batch.updatePageStatus(result.confirmationIds(),(byte)1,true);
+        assertEquals(1,retry.updated());assertEquals(List.of(43),locks);assertEquals(Byte.valueOf((byte)1),second.getProductSkus().get(0).getStatus());
+    }
+    @Test public void anUnlistableProductDoesNotPreventLaterPreparedProductListing() {
+        var first=p(42,0,1);var soldOut=p(43,0,4);var prepared=p(44,0,5);
+        var batch=new ProductPageStatusService(service(Map.of(42,first,43,soldOut,44,prepared),new ArrayList<>()));
+        var result=batch.updatePageStatus(List.of(42,43,44),(byte)1,false);
+        assertEquals(2,result.updated());assertEquals(1,result.failed());assertTrue(result.confirmationIds().isEmpty());
+        assertEquals(Byte.valueOf((byte)1),first.getStatus());assertEquals(Byte.valueOf((byte)0),soldOut.getStatus());assertEquals(Byte.valueOf((byte)1),prepared.getStatus());
     }
     @Test public void endpointsRequireConfirmationAndDenyUnauthorizedRestore() throws Exception {
         var controller=new ProductController();ReflectionTestUtils.setField(controller,"productSvc",service(Map.of(42,p(42,0,0),43,p(43,2,7)),new ArrayList<>()));
         ReflectionTestUtils.setField(controller,"productCategorySvc",new ProductCategoryService(){@Override public List<ProductCategory> getAll(){return List.of();}});
         ReflectionTestUtils.setField(controller,"vendorSvc",new VendorService(){@Override public List<VendorVO> getAll(){return List.of();}});
+        ReflectionTestUtils.setField(controller,"productPageStatusSvc",new ProductPageStatusService((ProductService)ReflectionTestUtils.getField(controller,"productSvc")));
         var mvc=MockMvcBuilders.standaloneSetup(controller).build();
         assertEquals(409,mvc.perform(post("/product/updateStatus").param("productId","42").param("status","1")).andReturn().getResponse().getStatus());
         assertEquals(200,mvc.perform(post("/product/updateStatus").param("productId","42").param("status","1").param("activateSkus","true")).andReturn().getResponse().getStatus());
@@ -60,7 +77,7 @@ public class ProductPageStatusTest {
     }
     @Test public void preparedPageListsWithoutConfirmationAndSkipsRetiredRows() {
         var prepared=p(42,0,5);var retired=p(43,2,7);var service=service(Map.of(42,prepared,43,retired),new ArrayList<>());
-        assertEquals(1,service.updatePageStatus(List.of(42,43),(byte)1));
+        assertEquals(1,new ProductPageStatusService(service).updatePageStatus(List.of(42,43),(byte)1,false).updated());
         assertEquals(Byte.valueOf((byte)1),prepared.getProductSkus().get(0).getStatus());
         assertEquals(Byte.valueOf((byte)2),retired.getStatus());
     }
@@ -69,6 +86,7 @@ public class ProductPageStatusTest {
         var svc=service(Map.of(42,prepared),new ArrayList<>());var controller=new ProductController();ReflectionTestUtils.setField(controller,"productSvc",svc);
         ReflectionTestUtils.setField(controller,"productCategorySvc",new ProductCategoryService(){@Override public List<ProductCategory> getAll(){return List.of();}});
         ReflectionTestUtils.setField(controller,"vendorSvc",new VendorService(){@Override public List<VendorVO> getAll(){return List.of();}});
+        ReflectionTestUtils.setField(controller,"productPageStatusSvc",new ProductPageStatusService((ProductService)ReflectionTestUtils.getField(controller,"productSvc")));
         var mvc=MockMvcBuilders.standaloneSetup(controller).build();
         var response=mvc.perform(post("/product/updateStatus").param("productId","42").param("status","1")).andReturn().getResponse();
         assertEquals(200,response.getStatus());assertEquals("0",response.getHeader("X-Product-Status"));assertEquals(Byte.valueOf((byte)4),prepared.getProductSkus().get(0).getStatus());
