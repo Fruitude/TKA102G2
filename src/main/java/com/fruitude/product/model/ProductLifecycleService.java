@@ -84,22 +84,13 @@ public class ProductLifecycleService {
             - (sku.getOutboundQty() == null ? 0L : sku.getOutboundQty().longValue()) <= 0;
     }
     @org.springframework.beans.factory.annotation.Autowired(required=false)
-    private FrontCatalogService frontCatalog;
-    @org.springframework.beans.factory.annotation.Autowired(required=false)
     private SkuSupplyService supply;
     public void refreshSupplyStates(java.util.Collection<Integer> ids) { refreshSupplyStates(ids, false); }
     public void refreshSupplyStates(java.util.Collection<Integer> ids, boolean reservationReleased) {
         if (supply != null && supply.refreshLocked(ids, reservationReleased)>0) clearFrontCacheAfterCommit();
     }
-    public void clearFrontCacheAfterCommit() {
-        if (frontCatalog == null) return;
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                new org.springframework.transaction.support.TransactionSynchronization() {
-                    @Override public void afterCommit() { frontCatalog.clearCache(); }
-                });
-        } else frontCatalog.clearCache();
-    }
+    // Front catalog reads are uncached; keep this integration hook without a reverse service dependency.
+    public void clearFrontCacheAfterCommit() { }
     public static boolean isAutomaticListingSku(Byte status) { return status != null && status >= 1 && status <= 3; }
     public static boolean isSellable(Byte status) { return status != null && ((status >= 1 && status <= 3) || status == 6); }
     public void closeDepletedSkus(Product product) {
@@ -125,5 +116,22 @@ public class ProductLifecycleService {
         if (!Byte.valueOf(status).equals(sku.getStatus())) {
             sku.setStatus(status); sku.setUpdatedAt(LocalDateTime.now());
         }
+    }
+
+    public static class ProductStatusConfirmationException extends IllegalStateException {
+
+    public ProductStatusConfirmationException() {
+        super("商品沒有有效販售規格，是否將下架規格一併上架？售完及永久停產規格不會自動上架。");
+    }
+
+    }
+
+    public static class SkuRestockConfirmationException extends IllegalArgumentException {
+
+    public SkuRestockConfirmationException() { this((byte)1); }
+    public SkuRestockConfirmationException(Byte next) {
+        super(Byte.valueOf((byte)1).equals(next) ? "該商品規格原為售完商品，請確認是否有貨源" : "該商品規格原為售完商品，請確認是否變更規格狀態。");
+    }
+
     }
 }

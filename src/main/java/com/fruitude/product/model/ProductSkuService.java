@@ -2,12 +2,21 @@ package com.fruitude.product.model;
 
 import java.util.List;
 import java.util.Optional;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.*;
+import java.math.BigDecimal;
+import com.fruitude.po.model.*;
+import com.fruitude.podetail.model.*;
+import com.fruitude.vendor.model.VendorVO;
 
 @Service
 public class ProductSkuService {
+    public ProductSkuService() {}
+
     @org.springframework.beans.factory.annotation.Autowired
     private ProductInventoryLockService inventoryLocks;
     private java.util.Optional<Product> lockProduct(Integer id) {
@@ -100,4 +109,175 @@ public class ProductSkuService {
 
 		return repository.existsByProduct_ProductIdAndSkuNameAndSkuIdNot(productId, skuName, skuId);
 	}
+
+    // Scheduled availability refresh
+    public ProductSkuService(ProductRepository products, ProductSkuRepository skus, ProductLifecycleService lifecycle) {
+        this.products=products;this.repository=skus;this.lifecycle=lifecycle;
+    }
+
+
+
+
+
+
+    @Transactional
+    public int refresh(Integer id,LocalDateTime now) {
+        var product=lockProduct(id).orElse(null);
+        if(product==null)return 0;
+        if(Byte.valueOf((byte)2).equals(product.getStatus())) {
+            var retiredBefore=product.getProductSkus().stream().map(ProductSku::getStatus).toList();
+            lifecycle.synchronize(product);
+            if(!retiredBefore.equals(product.getProductSkus().stream().map(ProductSku::getStatus).toList()))products.saveAndFlush(product);
+            return 0; // Retired products cannot activate prepared promotional SKUs.
+        }
+        var before=product.getProductSkus().stream().map(ProductSku::getStatus).toList();
+        var productBefore=product.getStatus();
+        var due=new HashSet<>(repository.findDueSkuIds(id,now));int activated=0;
+        for(var sku:product.getProductSkus()) {
+            if(Byte.valueOf((byte)5).equals(sku.getStatus())&&due.contains(sku.getSkuId())) {
+                sku.setStatus((byte)1);sku.setUpdatedAt(now);activated++;
+            }
+        }
+        lifecycle.synchronize(product);
+        if (before.equals(product.getProductSkus().stream().map(ProductSku::getStatus).toList())
+            && java.util.Objects.equals(productBefore,product.getStatus())) return activated;
+        products.saveAndFlush(product);return activated;
+    }
+
+    // Yield-aware procurement suggestions
+    public ProductSkuService(ProductSkuRepository skus, SkuSupplyService supply, PoService poService,
+            PoRepository repository, PoDetailRepository details) {
+        this.repository=skus;this.supply=supply;this.poService=poService;this.poRepository=repository;this.poDetailRepository=details;
+    }
+
+
+    @Autowired private SkuSupplyService supply;
+    @Autowired private PoService poService;
+    @Autowired private PoRepository poRepository;
+    @Autowired private PoDetailRepository poDetailRepository;
+
+    @Transactional(readOnly=true)
+    public List<ProductSku> getBelowSafetyStock() {
+        var candidates=repository.findSupplyMonitoringCandidates();
+        var rates=supply.yields(candidates.stream().map(ProductSku::getSkuId).toList());
+        candidates.forEach(s->s.setPurchaseYield(rates.getOrDefault(s.getSkuId(),SkuSupplyService.DEFAULT_YIELD)));
+        return candidates.stream().filter(s->SkuSupplyService.needsPurchase(s,s.getPurchaseYield())).toList();
+    }
+    @Transactional(readOnly=true)
+    public Map<Integer,Integer> getSuggestedQuantityBySkuId(Integer vendorId,Integer poId) {
+        var own=new HashMap<Integer,Long>();
+        var po=poId==null?null:poRepository.findById(poId).orElse(null);
+        if(po!=null && po.isEditable()) po.getPoDetails().forEach(d->own.merge(d.getSkuId().getSkuId(),d.getQuantity().longValue(),Long::sum));
+        var pending=poService.getPendingQuantityBySkuId();
+        var result=new HashMap<Integer,Integer>();
+        for(var sku:getBelowSafetyStockByVendor().getOrDefault(vendorId,List.of())) {
+            long other=Math.max(0,pending.getOrDefault(sku.getSkuId(),0L)-own.getOrDefault(sku.getSkuId(),0L));
+            Integer qty=suggestedQuantity(sku,sku.getPurchaseYield(),other);
+            if(qty!=null && qty>0) result.put(sku.getSkuId(),qty);
+        }
+        return result;
+    }
+    public static Integer suggestedQuantity(ProductSku sku,BigDecimal yield,long otherPending) {
+        Integer required=SkuSupplyService.suggestedPurchase(sku,yield);
+        if(required==null) return null; // Zero yield requires supplier review, not division by zero.
+        return (int)Math.min(9999,Math.max(0,(long)required-Math.max(0,otherPending)));
+    }
+    @Transactional(readOnly=true)
+	public Map<Integer, List<ProductSku>> getBelowSafetyStockByVendor() {
+		Map<Integer, List<ProductSku>> skusByVendorId = new TreeMap<>(Comparator.nullsLast(Comparator.naturalOrder()));
+		for (ProductSku productSku : getBelowSafetyStock()) {
+			VendorVO vendor = productSku.getProduct().getVendor();
+			Integer vendorId = vendor == null ? null : vendor.getVendorId();
+			skusByVendorId.computeIfAbsent(vendorId, key -> new ArrayList<>()).add(productSku);
+		}
+		return skusByVendorId;
+	}
+
+    @Transactional(readOnly=true)
+	public List<PoDetailVO> getShortageDetailsByVendorId(Integer vendorId) {
+		Map<Integer, Integer> suggestedQuantityBySkuId = getSuggestedQuantityBySkuId(vendorId, null);
+		List<PoDetailVO> poDetails = new ArrayList<>();
+		for (ProductSku productSku : getBelowSafetyStockByVendor().getOrDefault(vendorId, List.of())) {
+			if (!suggestedQuantityBySkuId.containsKey(productSku.getSkuId())) {
+				continue;
+			}
+			PoDetailVO poDetailVO = new PoDetailVO();
+			poDetailVO.setSkuId(productSku);
+			poDetails.add(poDetailVO);
+		}
+		return poDetails;
+	}
+
+    @Transactional(readOnly=true)
+	public Map<Integer, Integer> getPendingPoIdByVendorId() {
+		Map<Integer, Integer> pendingPoIdBySkuId = new HashMap<>();
+		for (Object[] row : poDetailRepository.findLatestPendingPoIdBySkuId()) {
+			pendingPoIdBySkuId.put((Integer) row[0], (Integer) row[1]);
+		}
+
+		Map<Integer, Integer> pendingPoIdByVendorId = new HashMap<>();
+		for (Map.Entry<Integer, List<ProductSku>> vendorEntry : getBelowSafetyStockByVendor().entrySet()) {
+			if (vendorEntry.getKey() == null) {
+				continue;
+			}
+			for (ProductSku productSku : vendorEntry.getValue()) {
+				Integer pendingPoId = pendingPoIdBySkuId.get(productSku.getSkuId());
+				if (pendingPoId != null) {
+					pendingPoIdByVendorId.merge(vendorEntry.getKey(), pendingPoId, Math::max);
+				}
+			}
+		}
+		return pendingPoIdByVendorId;
+	}
+
+    @Transactional(readOnly=true)
+	public PoVO getPoWithShortageDetails(Integer poId) {
+		PoVO dbPo = poRepository.findById(poId).orElse(null);
+		if (dbPo == null) {
+			return null;
+		}
+
+		PoVO formPo = new PoVO();
+		formPo.setPoId(dbPo.getPoId());
+		formPo.setPoNo(dbPo.getPoNo());
+		formPo.setVendor(dbPo.getVendor());
+		formPo.setPoEmployeeId(dbPo.getPoEmployeeId());
+		formPo.setOrderDate(dbPo.getOrderDate());
+		formPo.setPoStatus(dbPo.getPoStatus());
+		formPo.setTotalAmount(dbPo.getTotalAmount());
+
+		List<PoDetailVO> formDetails = new ArrayList<>();
+		Set<Integer> skuIdsInPo = new HashSet<>();
+		for (PoDetailVO dbDetail : dbPo.getPoDetails()) {
+			PoDetailVO formDetail = new PoDetailVO();
+			formDetail.setPoDetailId(dbDetail.getPoDetailId());
+			formDetail.setPoId(formPo);
+			formDetail.setSkuId(dbDetail.getSkuId());
+			formDetail.setQuantity(dbDetail.getQuantity());
+			formDetail.setUnitPrice(dbDetail.getUnitPrice());
+			formDetail.setSubtotal(dbDetail.getSubtotal());
+			formDetails.add(formDetail);
+			skuIdsInPo.add(dbDetail.getSkuId().getSkuId());
+		}
+
+		if (dbPo.isEditable()) {
+			Integer vendorId = dbPo.getVendor().getVendorId();
+			Map<Integer, Integer> suggestedQuantityBySkuId = getSuggestedQuantityBySkuId(vendorId, poId);
+			for (ProductSku productSku : getBelowSafetyStockByVendor().getOrDefault(vendorId, List.of())) {
+				if (skuIdsInPo.contains(productSku.getSkuId())
+						|| !suggestedQuantityBySkuId.containsKey(productSku.getSkuId())) {
+					continue;
+				}
+				PoDetailVO formDetail = new PoDetailVO();
+				formDetail.setPoId(formPo);
+				formDetail.setSkuId(productSku);
+				formDetail.setSubtotal(0);
+				formDetails.add(formDetail);
+			}
+		}
+
+		formPo.setPoDetails(formDetails);
+		return formPo;
+	}
+
 }

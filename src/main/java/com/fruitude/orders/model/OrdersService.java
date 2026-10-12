@@ -20,7 +20,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import com.fruitude.member.model.MemberAssetService;
 import com.fruitude.member.model.MemberVO;
-import com.fruitude.product.model.FrontCatalogService;
+import com.fruitude.product.model.ProductService;
 import com.fruitude.promo.model.PromoService;
 import com.fruitude.utils.PostalCodeLookup;
 import com.fruitude.utils.PostalCodes;
@@ -52,7 +52,7 @@ public class OrdersService {
 	@Autowired
 	private MemberAssetService memberAssetService;
 	@Autowired
-	private FrontCatalogService frontCatalogService;
+	private ProductService frontCatalogService;
 	@Autowired
 	private PromoService promoService;
 
@@ -421,7 +421,7 @@ public class OrdersService {
 	public com.fruitude.promo.model.ProductDiscount previewProductDiscount(Integer memberId, Map<Integer, Integer> qtyBySku,
 			boolean useBirthday) {
 		List<com.fruitude.promo.model.DiscountLine> lines = new ArrayList<>();
-		for (com.fruitude.product.model.FrontCatalogService.LiveSku sku
+		for (com.fruitude.product.model.ProductService.LiveSku sku
 				: frontCatalogService.getLiveSkus(new ArrayList<>(qtyBySku.keySet()))) {
 			if (sku.available()) {
 				int original = sku.originalPrice() != null ? sku.originalPrice() : sku.price();
@@ -591,7 +591,7 @@ public class OrdersService {
 		var rates = supply.yields(qtyBySku.keySet());
 		for (Map.Entry<Integer, Integer> entry : qtyBySku.entrySet()) {
 			if (skuStockRepository.deductStock(entry.getKey(), entry.getValue(), rates.getOrDefault(entry.getKey(), com.fruitude.product.model.SkuSupplyService.DEFAULT_YIELD)) == 0) {
-				throw new com.fruitude.product.model.ProductUnavailableException(
+				throw new com.fruitude.product.model.ProductService.ProductUnavailableException(
 						productNameOf(form.getItems(), entry.getKey()) + " 庫存不足或已達預購上限，請返回購物車調整數量");
 			}
 		}

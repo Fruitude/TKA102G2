@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
-
 import com.fruitude.product.model.Product;
 import com.fruitude.product.model.ProductCategory;
 import com.fruitude.product.model.ProductCategoryService;
@@ -27,12 +25,29 @@ import com.fruitude.product.model.ProductService;
 import com.fruitude.product.model.ProductSku;
 import com.fruitude.vendor.model.VendorVO;
 import com.fruitude.vendor.model.VendorService;
-
 import jakarta.validation.Valid;
+import com.fruitude.product.model.*;
+import java.util.*;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.ui.Model;
+import com.fruitude.product.model.ProductService.ProductView;
+import com.fruitude.orders.model.OrdersService;
+import com.fruitude.promo.model.PromoService;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.http.*;
 
 @Controller
-@RequestMapping("/product")
 public class ProductController {
+    public ProductController() {}
+    public ProductController(ProductService service) { this.productSvc=service; }
+    public ProductController(ProductService service, com.fruitude.promo.model.PromoService promoService,
+            com.fruitude.orders.model.OrdersService ordersService) {
+        this.productSvc=service;this.promoService=promoService;this.ordersService=ordersService;
+    }
+    @Autowired private com.fruitude.promo.model.PromoService promoService;
+    @Autowired private com.fruitude.orders.model.OrdersService ordersService;
+
     @Autowired
     private com.fruitude.product.model.ProductPageStatusService productPageStatusSvc;
 
@@ -71,7 +86,7 @@ public class ProductController {
     /*
      * 顯示新增商品頁面
      */
-    @GetMapping("addProduct")
+    @GetMapping("/product/addProduct")
     public String addProduct(ModelMap model) {
         Product product = new Product();
         product.getProductSkus().add(new ProductSku());
@@ -111,7 +126,7 @@ public class ProductController {
     /*
      * 新增商品
      */
-    @PostMapping("insert")
+    @PostMapping("/product/insert")
     public String insert(
             @Valid @ModelAttribute("product") Product product,
             BindingResult result,
@@ -257,7 +272,7 @@ public class ProductController {
         	                );
 
         	                // 加入 SKU
-                            ImageUploadSupport.apply(productImage, file);
+                            com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(productImage, file);
         	                sku.getProductImages().add(productImage);
 
         	            } catch (IOException | IllegalArgumentException e) {
@@ -295,7 +310,7 @@ public class ProductController {
     /*
      * 查詢單筆商品，準備修改
      */
-    @PostMapping("getOne_For_Update")
+    @PostMapping("/product/getOne_For_Update")
     public String getOne_For_Update(
             @RequestParam("productId") Integer productId,
             ModelMap model) {
@@ -312,7 +327,7 @@ public class ProductController {
     /*
      * 修改商品
      */
-    @PostMapping("update")
+    @PostMapping("/product/update")
     public String update(
             @Valid @ModelAttribute("product") Product product,
             BindingResult result,
@@ -349,7 +364,7 @@ public class ProductController {
         return "admin/productmanagement/product/listOneProduct";
     }
     
-    @PostMapping("updateStatus")
+    @PostMapping("/product/updateStatus")
     @ResponseBody
     public org.springframework.http.ResponseEntity<String> updateStatus(
             @RequestParam Integer productId, @RequestParam Byte status,
@@ -363,16 +378,16 @@ public class ProductController {
                 .header("X-Sku-Statuses", actual.getProductSkus().stream()
                     .map(sku -> "\"" + sku.getSkuId() + "\":" + sku.getStatus())
                     .collect(java.util.stream.Collectors.joining(",", "{", "}"))).body("success");
-        } catch (com.fruitude.product.model.ProductStatusConfirmationException e) {
+        } catch (com.fruitude.product.model.ProductLifecycleService.ProductStatusConfirmationException e) {
             return org.springframework.http.ResponseEntity.status(409).body(e.getMessage());
-        } catch (com.fruitude.product.model.ProductStatusAccessException e) {
+        } catch (com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException e) {
             return org.springframework.http.ResponseEntity.status(403).body(e.getMessage());
         } catch (IllegalArgumentException e) {
             return org.springframework.http.ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    @PostMapping("updatePageStatus")
+    @PostMapping("/product/updatePageStatus")
     @ResponseBody
     public org.springframework.http.ResponseEntity<?> updatePageStatus(
             @RequestParam List<Integer> productIds, @RequestParam Byte status,
@@ -387,7 +402,7 @@ public class ProductController {
     /*
      * 刪除商品
      */
-    @PostMapping("delete")
+    @PostMapping("/product/delete")
     public String delete(
             @RequestParam("productId") Integer productId,
             org.springframework.web.servlet.mvc.support.RedirectAttributes model) {
@@ -411,23 +426,27 @@ public class ProductController {
     /*
      * 提供商品分類下拉選單資料
      */
+    private static boolean isLegacyProductPage(jakarta.servlet.http.HttpServletRequest request) {
+        String path=request.getRequestURI().substring(request.getContextPath().length());
+        return path.startsWith("/product/") && !java.util.Set.of("/product/editData","/product/saveModal","/product/saveModalWithImages").contains(path);
+    }
     @ModelAttribute("productCategoryListData")
-    protected List<ProductCategory> referenceProductCategoryListData() {
-        return productCategorySvc.getAll();
+    protected List<ProductCategory> referenceProductCategoryListData(jakarta.servlet.http.HttpServletRequest request) {
+        return isLegacyProductPage(request) ? productCategorySvc.getAll() : null;
     }
 
     /*
      * 提供廠商下拉選單資料
      */
     @ModelAttribute("vendorListData")
-    protected List<VendorVO> referenceVendorListData() {
-        return vendorSvc.getAll();
+    protected List<VendorVO> referenceVendorListData(jakarta.servlet.http.HttpServletRequest request) {
+        return isLegacyProductPage(request) ? vendorSvc.getAll() : null;
     }
 
     /*
      * 顯示全部商品
      */
-    @GetMapping("listAllProduct")
+    @GetMapping("/product/listAllProduct")
     public String listAllProduct(
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(defaultValue = "true") boolean searchProductName,
@@ -505,7 +524,7 @@ public class ProductController {
         model.addAttribute("searchProductName", searchProductName);
         model.addAttribute("searchSkuName", searchSkuName);
         model.addAttribute("productListData", result.getContent());
-        var overviewProductIds = result.getContent().stream().map(com.fruitude.product.model.ProductOverview::getProductId).toList();
+        var overviewProductIds = result.getContent().stream().map(com.fruitude.product.model.ProductRepository.ProductOverview::getProductId).toList();
         model.addAttribute("overviewSkuNames", productSvc.getOverviewSkuNames(overviewProductIds));
         model.addAttribute("overviewImageIds", productSvc.getOverviewImageIds(overviewProductIds));
         model.addAttribute("overviewStockStatuses", productSvc.getOverviewStockStatuses(overviewProductIds));
@@ -537,12 +556,12 @@ public class ProductController {
     /*
      * 查詢單筆商品
      */
-    @GetMapping("getOne_For_Display")
+    @GetMapping("/product/getOne_For_Display")
     public String displayProductDetails(@RequestParam("productId") Integer productId, ModelMap model) {
         return getOne_For_Display(productId, model);
     }
 
-    @PostMapping("getOne_For_Display")
+    @PostMapping("/product/getOne_For_Display")
     public String getOne_For_Display(
             @RequestParam("productId") Integer productId,
             ModelMap model) {
@@ -575,4 +594,159 @@ public class ProductController {
 
         return "admin/productmanagement/product/listOneProduct";
     }
+
+    // ProductController endpoints
+
+
+
+    @ResponseBody
+    @GetMapping("/product/editData") public ProductService.EditData load(@RequestParam Integer productId) { return productSvc.load(productId); }
+    @ResponseBody
+    @PostMapping("/product/saveModal") public ProductService.Saved save(@RequestBody ProductService.SaveRequest request) { return productSvc.save(request); }
+    @ResponseBody
+    @PostMapping(value="/product/saveModalWithImages", consumes="multipart/form-data")
+    public ProductService.Saved saveImages(@RequestParam String payload,
+            @RequestParam(required=false) List<org.springframework.web.multipart.MultipartFile> files) throws java.io.IOException {
+        var request=tools.jackson.databind.json.JsonMapper.builder().build().readValue(payload,ProductService.ImageRequest.class);
+        var uploads=new ArrayList<ProductImage>();
+        for(var file:files==null?List.<org.springframework.web.multipart.MultipartFile>of():files) {
+            var image=new ProductImage();com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(image,file);uploads.add(image);
+        }
+        return productSvc.saveWithImages(request,uploads);
+    }
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,tools.jackson.core.JacksonException.class})
+    public ResponseEntity<?> invalidPayload(Exception e) { return error(400,"invalid","輸入格式不正確：價格須為1～10,000,000的整數，數量須為0～2,147,483,647的整數"); }
+    @ExceptionHandler(java.io.IOException.class) public ResponseEntity<?> imageReadFailure(java.io.IOException e) { return error(400,"invalid","圖片讀取失敗，請重新選擇檔案"); }
+    @ExceptionHandler(com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException.class) public ResponseEntity<?> denied(com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException e) { return error(403,"denied",e.getMessage()); }
+    @ExceptionHandler(com.fruitude.product.model.ProductLifecycleService.ProductStatusConfirmationException.class) public ResponseEntity<?> confirm(com.fruitude.product.model.ProductLifecycleService.ProductStatusConfirmationException e) { return error(409,"confirm",e.getMessage()); }
+    @ExceptionHandler(ProductService.Conflict.class) public ResponseEntity<?> conflict(ProductService.Conflict e) { return error(409,"conflict",e.getMessage()); }
+    @ExceptionHandler(NoSuchElementException.class) public ResponseEntity<?> missing(NoSuchElementException e) { return error(404,"missing",e.getMessage()); }
+    @ExceptionHandler(com.fruitude.product.model.ProductLifecycleService.SkuRestockConfirmationException.class) public ResponseEntity<?> restock(com.fruitude.product.model.ProductLifecycleService.SkuRestockConfirmationException e) { return error(409,"restock",e.getMessage()); }
+    @ExceptionHandler(IllegalArgumentException.class) public ResponseEntity<?> invalid(IllegalArgumentException e) { return error(400,"invalid",e.getMessage()); }
+    private ResponseEntity<?> error(int status,String kind,String message) { return ResponseEntity.status(status).body(Map.of("kind",kind,"message",message)); }
+
+    // ProductController endpoints
+
+    @GetMapping("/front")
+    public String canonicalHome() { return "redirect:/front/"; }
+
+    @GetMapping({"/front/", "/front/index", "/front/index.html"})
+    public String homePage(Model model, HttpSession session, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        model.addAttribute("bestSellerProducts", productSvc.getBestSellers());
+        model.addAttribute("topRatedProducts", productSvc.getTopRatedProducts());
+        // 首頁活動區塊：限時活動與會員專屬福利。會員身分只信任 session，用來標示目前符合資格的福利（壽星月、新會員首購）
+        Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
+        var promos = promoService.findHomePromos(memberId == null
+                ? com.fruitude.promo.model.MemberPromoState.ANONYMOUS : ordersService.memberPromoState(memberId));
+        model.addAttribute("limitedPromos", promos.limited());
+        model.addAttribute("memberPerks", promos.perks());
+        return "front/index";
+    }
+
+    public String home(Model model) {
+        List<ProductView> products = productSvc.getProducts();
+        model.addAttribute("freshProducts", products.stream().filter(p -> !p.giftBox()).toList());
+        model.addAttribute("giftProducts", products.stream().filter(ProductView::giftBox).toList());
+        return "front/index";
+    }
+
+    @GetMapping({"/front/best-sellers/", "/front/best-sellers/index", "/front/best-sellers/index.html", "/front/best-sellers.html"})
+    public String bestSellers(Model model, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        model.addAttribute("rankedProducts", productSvc.getBestSellers());
+        return "front/best-sellers";
+    }
+
+    @GetMapping({"/front/top-rated/", "/front/top-rated/index", "/front/top-rated/index.html", "/front/top-rated.html"})
+    public String topRated(Model model, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        model.addAttribute("rankedProducts", productSvc.getTopRatedProducts());
+        return "front/top-rated";
+    }
+
+    @GetMapping("/front/best-sellers")
+    public String canonicalBestSellers() { return "redirect:/front/best-sellers/"; }
+
+    @GetMapping("/front/top-rated")
+    public String canonicalTopRated() { return "redirect:/front/top-rated/"; }
+
+    @GetMapping({"/front/all-products/", "/front/all-products/index", "/front/all-products/index.html"})
+    public String allProducts(Model model, HttpSession session, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
+        model.addAttribute("allProducts", productSvc.getAllProducts(memberId, List.of()));
+        return "front/all-products/index";
+    }
+
+    @ResponseBody
+    @GetMapping("/front/api/catalog-order")
+    public ResponseEntity<List<Integer>> catalogOrder(
+            @RequestParam(required=false) List<Integer> favoriteProductIds, HttpSession session) {
+        if (favoriteProductIds != null && (favoriteProductIds.size() > 500
+                || favoriteProductIds.stream().anyMatch(id -> id == null || id <= 0)))
+            return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).build();
+        Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(productSvc
+            .getAllProducts(memberId, memberId == null || favoriteProductIds == null ? List.of() : favoriteProductIds)
+            .stream().map(ProductView::productId).toList());
+    }
+
+    @GetMapping("/front/all-products")
+    public String canonicalProducts() { return "redirect:/front/all-products/"; }
+
+    @GetMapping({"/front/category/seasonal-fresh-fruit/", "/front/category/seasonal-fresh-fruit/index", "/front/category/seasonal-fresh-fruit/index.html"})
+    public String fresh(Model model) {
+        home(model);
+        return "front/category/seasonal-fresh-fruit/index";
+    }
+
+    @GetMapping({"/front/category/featured-gift-boxes/", "/front/category/featured-gift-boxes/index", "/front/category/featured-gift-boxes/index.html"})
+    public String gifts(Model model) {
+        home(model);
+        return "front/category/featured-gift-boxes/index";
+    }
+
+    @GetMapping("/front/category/seasonal-fresh-fruit")
+    public String canonicalFresh() { return "redirect:/front/category/seasonal-fresh-fruit/"; }
+
+    @GetMapping("/front/category/featured-gift-boxes")
+    public String canonicalGifts() { return "redirect:/front/category/featured-gift-boxes/"; }
+    @GetMapping({"/front/product/view/", "/front/product/view/index", "/front/product/view/index.html"})
+    public String detail(@RequestParam(required = false) Integer productId, @RequestParam(required = false) String name, Model model, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        List<ProductView> products = productSvc.getProducts();
+        Integer id = productId != null ? productId : products.stream().filter(p -> name != null && name.equals(p.name())).map(ProductView::productId).findFirst().orElse(null);
+        ProductView selected = productSvc.getLiveProduct(id);
+        model.addAttribute("dbProduct", selected);
+        model.addAttribute("productReviews", selected==null || productSvc==null
+            ? com.fruitude.product.model.ProductService.ReviewPage.empty() : productSvc.read(selected.productId(),0,3));
+        model.addAttribute("relatedProducts", com.fruitude.product.model.ProductService.recommend(selected,products,5));
+        return "front/product/view/index";
+    }
+
+    @GetMapping("/front/api/cart-products")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<List<ProductService.LiveSku>> cartProducts(@RequestParam List<Integer> skuIds) {
+        if (skuIds.size() > 500 || skuIds.stream().anyMatch(id -> id == null || id <= 0))
+            return org.springframework.http.ResponseEntity.badRequest().cacheControl(org.springframework.http.CacheControl.noStore()).build();
+        return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(productSvc.getLiveSkus(skuIds));
+    }
+
+    // ProductController endpoints
+
+
+
+    @ResponseBody
+    @GetMapping("/front/api/product-reviews")
+    public ResponseEntity<?> read(@RequestParam int productId,@RequestParam(defaultValue="0") int page,
+        @RequestParam(defaultValue="") String keyword,@RequestParam(defaultValue="latest") String sort) {
+        if(productId<=0 || page<0 || page>100000)return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).build();
+        try {
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(productSvc.read(productId,page,20,keyword,sort));
+        } catch(IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).body(java.util.Map.of("message",ex.getMessage()));
+        }
+    }
+
 }

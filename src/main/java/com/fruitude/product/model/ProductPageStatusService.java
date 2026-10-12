@@ -29,11 +29,11 @@ public class ProductPageStatusService {
                 var item=products.updatePageItemStatus(id,status,activateSkus);
                 results.add(item);states.put(id,item.status());
                 if("UPDATED".equals(item.outcome()))updated++;else skipped++;
-            } catch(ProductStatusConfirmationException e) {
+            } catch(com.fruitude.product.model.ProductLifecycleService.ProductStatusConfirmationException e) {
                 results.add(new Item(id,null,null,"CONFIRMATION",e.getMessage()));confirmations.add(id);failed++;
             } catch(RuntimeException e) {
                 log.warn("本頁商品 {} 狀態更新失敗，繼續處理其他商品",id,e);
-                String message=e instanceof IllegalArgumentException || e instanceof ProductStatusAccessException
+                String message=e instanceof IllegalArgumentException || e instanceof com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException
                     ? e.getMessage() : "商品更新失敗，請重新整理後再試";
                 results.add(new Item(id,null,null,"FAILED",message));failed++;
             }

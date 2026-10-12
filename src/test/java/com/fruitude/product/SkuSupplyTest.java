@@ -54,6 +54,14 @@ public class SkuSupplyTest {
         assertEquals(2,SkuSupplyService.nextStatus((byte)1,6,0,0,10,100,20,r,false));
         assertEquals(1,SkuSupplyService.nextStatus((byte)1,6,0,0,0,100,20,r,false));
     }
+    @Test public void exhaustedSupplyCannotUseBackorderAllowance() {
+        for(int status:new int[]{1,2,3}) {
+            assertEquals(0,SkuSupplyService.quantityLimit(status,0,0,0,100,BigDecimal.ONE));
+            assertEquals(0,SkuSupplyService.quantityLimit(status,3,2,5,100,BigDecimal.ONE));
+            assertEquals(0,SkuSupplyService.quantityLimit(status,0,1,0,100,new BigDecimal(".9")));
+        }
+        assertEquals(10,SkuSupplyService.quantityLimit(1,1,0,0,100,BigDecimal.ONE));
+    }
     @Test public void shortageBecomesEndingAtFiveAndCannotOscillate() {
         var r=new BigDecimal(".9");
         assertEquals(2,SkuSupplyService.nextStatus((byte)2,6,0,0,10,10,20,r,false));

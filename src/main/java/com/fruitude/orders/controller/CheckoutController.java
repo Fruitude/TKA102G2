@@ -33,7 +33,7 @@ public class CheckoutController {
 
     @Autowired
     private OrdersService ordersService;
-    @Autowired private com.fruitude.product.model.FrontCatalogService frontCatalogService;
+    @Autowired private com.fruitude.product.model.ProductService frontCatalogService;
     @Autowired private com.fruitude.promo.model.PromoService promoService;
 
     /**
@@ -54,7 +54,7 @@ public class CheckoutController {
     		return "redirect:/front/checkout/";
     	}
         try { frontCatalogService.validateCheckoutItems(form.getItems()); }
-        catch (com.fruitude.product.model.ProductUnavailableException e) {
+        catch (com.fruitude.product.model.ProductService.ProductUnavailableException e) {
             session.removeAttribute(SESSION_KEY);
             return "redirect:/front/checkout/?error=products";
         }
@@ -190,7 +190,7 @@ public class CheckoutController {
             Orders orders;
             try {
             	orders = ordersService.placeOrder(form, storeCredit, memberId, form.isUseBirthday());
-            } catch (com.fruitude.product.model.ProductUnavailableException e) {
+            } catch (com.fruitude.product.model.ProductService.ProductUnavailableException e) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
             } catch (com.fruitude.orders.model.InsufficientCreditException e) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());

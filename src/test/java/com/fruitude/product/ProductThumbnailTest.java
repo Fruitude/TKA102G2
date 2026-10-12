@@ -1,9 +1,9 @@
 package com.fruitude.product;
 
 import com.fruitude.product.controller.ProductImageController;
-import com.fruitude.product.controller.ProductThumbnailSupport;
+import com.fruitude.product.model.ProductImageService.ProductThumbnailSupport;
 import com.fruitude.product.model.ProductImageService;
-import com.fruitude.product.model.ProductThumbnailSource;
+import com.fruitude.product.model.ProductImageRepository.ProductThumbnailSource;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import javax.imageio.ImageIO;
@@ -17,8 +17,8 @@ public class ProductThumbnailTest {
     @Test public void originalImageCanBeCachedForTenMinutesWithoutLoadingEntityRelations() throws Exception {
         var controller = new ProductImageController();
         ReflectionTestUtils.setField(controller, "productImageService", new ProductImageService() {
-            @Override public com.fruitude.product.model.ProductImageSource getImageSource(Integer id) {
-                return new com.fruitude.product.model.ProductImageSource() {
+            @Override public com.fruitude.product.model.ProductImageRepository.ProductImageSource getImageSource(Integer id) {
+                return new com.fruitude.product.model.ProductImageRepository.ProductImageSource() {
                     public byte[] getImageData() { return new byte[]{1,2,3}; }
                     public String getImageType() { return "image/png"; }
                 };
@@ -36,11 +36,11 @@ public class ProductThumbnailTest {
     }
 
     @Test public void thumbnailBoundsDimensionsAndPreservesAspectRatioWithoutUpscaling() throws Exception {
-        var wide = ImageIO.read(new ByteArrayInputStream(ProductThumbnailSupport.resize(image(800, 400))));
+        var wide = ImageIO.read(new ByteArrayInputStream(com.fruitude.product.model.ProductImageService.ProductThumbnailSupport.resize(image(800, 400))));
         assertEquals(100, wide.getWidth()); assertEquals(50, wide.getHeight());
-        var tall = ImageIO.read(new ByteArrayInputStream(ProductThumbnailSupport.resize(image(200, 800))));
+        var tall = ImageIO.read(new ByteArrayInputStream(com.fruitude.product.model.ProductImageService.ProductThumbnailSupport.resize(image(200, 800))));
         assertEquals(25, tall.getWidth()); assertEquals(100, tall.getHeight());
-        var small = ImageIO.read(new ByteArrayInputStream(ProductThumbnailSupport.resize(image(20, 30))));
+        var small = ImageIO.read(new ByteArrayInputStream(com.fruitude.product.model.ProductImageService.ProductThumbnailSupport.resize(image(20, 30))));
         assertEquals(20, small.getWidth()); assertEquals(30, small.getHeight());
     }
 
@@ -48,7 +48,7 @@ public class ProductThumbnailTest {
         byte[][] current = { image(800, 400) };
         var controller = new ProductImageController();
         ReflectionTestUtils.setField(controller, "productImageService", new ProductImageService() {
-            @Override public ProductThumbnailSource getThumbnailSource(Integer id) { return () -> current[0]; }
+            @Override public com.fruitude.product.model.ProductImageRepository.ProductThumbnailSource getThumbnailSource(Integer id) { return () -> current[0]; }
         });
         var mvc = MockMvcBuilders.standaloneSetup(controller).build();
         var first = mvc.perform(get("/product/image/7/thumbnail")).andReturn().getResponse();
@@ -65,7 +65,7 @@ public class ProductThumbnailTest {
     @Test public void missingOrInvalidImageReturnsNotFound() throws Exception {
         var controller = new ProductImageController();
         ReflectionTestUtils.setField(controller, "productImageService", new ProductImageService() {
-            @Override public ProductThumbnailSource getThumbnailSource(Integer id) { return id==1 ? null : () -> new byte[]{1, 2, 3}; }
+            @Override public com.fruitude.product.model.ProductImageRepository.ProductThumbnailSource getThumbnailSource(Integer id) { return id==1 ? null : () -> new byte[]{1, 2, 3}; }
         });
         var mvc = MockMvcBuilders.standaloneSetup(controller).build();
         assertEquals(404, mvc.perform(get("/product/image/1/thumbnail")).andReturn().getResponse().getStatus());

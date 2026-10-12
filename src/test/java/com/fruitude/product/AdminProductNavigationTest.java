@@ -126,9 +126,9 @@ public class AdminProductNavigationTest {
     public static class OverviewFixture {
         @org.springframework.web.bind.annotation.GetMapping("/overview-test")
         public String page(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "測試總覽") String name, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int status, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean admin, org.springframework.ui.Model model) {
-            var row = (com.fruitude.product.model.ProductOverview) java.lang.reflect.Proxy.newProxyInstance(
-                com.fruitude.product.model.ProductOverview.class.getClassLoader(),
-                new Class<?>[]{com.fruitude.product.model.ProductOverview.class}, (proxy, method, args) -> switch (method.getName()) {
+            var row = (com.fruitude.product.model.ProductRepository.ProductOverview) java.lang.reflect.Proxy.newProxyInstance(
+                com.fruitude.product.model.ProductRepository.ProductOverview.class.getClassLoader(),
+                new Class<?>[]{com.fruitude.product.model.ProductRepository.ProductOverview.class}, (proxy, method, args) -> switch (method.getName()) {
                     case "getProductId" -> 42;
                     case "getProductName" -> name;
                     case "getVendorName" -> "測試供應商";

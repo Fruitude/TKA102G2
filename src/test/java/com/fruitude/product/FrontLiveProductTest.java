@@ -1,7 +1,7 @@
 package com.fruitude.product;
 
 import com.fruitude.product.model.*;
-import com.fruitude.product.controller.FrontProductController;
+import com.fruitude.product.controller.ProductController;
 import com.fruitude.orders.model.CheckoutItem;
 import java.lang.reflect.Proxy;
 import java.util.*;
@@ -13,8 +13,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 public class FrontLiveProductTest {
     private final int[] stock = {10}, price = {199}, status = {1}, inbound = {0}, outbound = {0}, maxBackorder = {10}, productStatus = {1};
     private final String[] alias = {null};
-    private FrontCatalogService service() {
-        LiveSkuRow row = (LiveSkuRow) Proxy.newProxyInstance(LiveSkuRow.class.getClassLoader(), new Class<?>[]{LiveSkuRow.class}, (p,m,a) -> switch(m.getName()) {
+    private ProductService service() {
+        com.fruitude.product.model.ProductRepository.LiveSkuRow row = (com.fruitude.product.model.ProductRepository.LiveSkuRow) Proxy.newProxyInstance(com.fruitude.product.model.ProductRepository.LiveSkuRow.class.getClassLoader(), new Class<?>[]{com.fruitude.product.model.ProductRepository.LiveSkuRow.class}, (p,m,a) -> switch(m.getName()) {
             case "getSkuId" -> 6; case "getName" -> "草莓"; case "getSkuName" -> "小盒"; case "getAnotherName" -> alias[0];
             case "getInboundQty" -> inbound[0]; case "getOutboundQty" -> outbound[0]; case "getMaxBackorderQty" -> maxBackorder[0]; case "getPrice" -> price[0]; case "getStock" -> stock[0]; case "getProductStatus" -> productStatus[0]; case "getSkuStatus" -> status[0]; default -> null;
         });
@@ -23,7 +23,7 @@ public class FrontLiveProductTest {
             if (m.getName().equals("findLiveSkus")) return ((List<?>)a[0]).contains(6) ? List.of(row) : List.of();
             throw new AssertionError(m.getName());
         });
-        return new FrontCatalogService(repo);
+        return new ProductService(repo);
     }
     private CheckoutItem item(int qty, int amount) {
         CheckoutItem item = new CheckoutItem(); item.setSkuId(6); item.setQty(qty); item.setPrice(amount); return item;
@@ -40,8 +40,8 @@ public class FrontLiveProductTest {
         stock[0]=8;productStatus[0]=0;assertFalse(service.getLiveSkus(List.of(6)).get(0).available());
     }
     @Test public void liveCartIgnoresCatalogCacheAndHasNoStoreHeader() throws Exception {
-        FrontCatalogService service = service(); service.getProducts();
-        var mvc = MockMvcBuilders.standaloneSetup(new FrontProductController(service, new com.fruitude.promo.model.PromoService(), new com.fruitude.orders.model.OrdersService())).build();
+        ProductService service = service(); service.getProducts();
+        var mvc = MockMvcBuilders.standaloneSetup(new ProductController(service, new com.fruitude.promo.model.PromoService(), new com.fruitude.orders.model.OrdersService())).build();
         var first = mvc.perform(get("/front/api/cart-products").param("skuIds", "6")).andReturn().getResponse();
         assertEquals(200, first.getStatus()); assertTrue(first.getHeader("Cache-Control").contains("no-store")); assertTrue(first.getContentAsString().contains("\"price\":199"));
         price[0] = 299; stock[0] = 4; // 狀態 1：可訂購數量 = min(10, stock)，即時反映在購物車查詢
@@ -50,7 +50,7 @@ public class FrontLiveProductTest {
         assertEquals(400, mvc.perform(get("/front/api/cart-products").param("skuIds", "-1")).andReturn().getResponse().getStatus());
     }
     @Test public void checkoutRejectsOldPriceOfflineMissingAndCombinedQuantityOverStock() {
-        FrontCatalogService service = service();
+        ProductService service = service();
         CheckoutItem valid = item(2,199); service.validateCheckoutItems(List.of(valid)); assertEquals("草莓", valid.getProductName());
         rejects(service, List.of(item(1,198)));
         rejects(service, List.of(item(6,199), item(5,199)));
@@ -59,10 +59,12 @@ public class FrontLiveProductTest {
         status[0] = 1; stock[0] = 8; service.validateCheckoutItems(List.of(item(5,199))); service.validateCheckoutItems(List.of(item(5,199)));
         stock[0] = 50; service.validateCheckoutItems(List.of(item(10,199)));
         rejects(service, List.of(item(11,199)));
-        stock[0] = 0; service.validateCheckoutItems(List.of(item(10,199)));
+        stock[0] = 0; rejects(service,List.of(item(1,199)));
         // 狀態 2：可售量 + 預購額度（10）≥ 數量才能下單，一次最多 10 箱
-        status[0] = 2; service.validateCheckoutItems(List.of(item(5,199))); rejects(service, List.of(item(6,199)));
-        maxBackorder[0] = 4; service.validateCheckoutItems(List.of(item(4,199))); rejects(service, List.of(item(5,199)));
+        status[0] = 2; rejects(service,List.of(item(1,199)));
+        stock[0] = 1; service.validateCheckoutItems(List.of(item(5,199))); rejects(service, List.of(item(6,199)));
+        maxBackorder[0] = 3; service.validateCheckoutItems(List.of(item(4,199))); rejects(service, List.of(item(5,199)));
+        stock[0] = 0;
         maxBackorder[0] = 0; rejects(service, List.of(item(1,199))); // 預購額度 0 且沒有可售量：不能下單
         maxBackorder[0] = 10;
         status[0] = 4; rejects(service, List.of(item(1,199))); // 售完不能下單
@@ -74,19 +76,19 @@ public class FrontLiveProductTest {
     }
     @Test public void retiringSkuUsesExpectedStockAndCombinesDuplicateRows() {
         status[0] = 3; stock[0] = 5; inbound[0] = 8; outbound[0] = 4;
-        FrontCatalogService service = service();
+        ProductService service = service();
         assertEquals(5, service.getLiveSkus(List.of(6)).get(0).stock());
         service.validateCheckoutItems(List.of(item(5,199)));
         rejects(service, List.of(item(5,199),item(5,199)));
         outbound[0] = 20; assertFalse(service.getLiveSkus(List.of(6)).get(0).available());
         // 狀態 1：可售量 = 5 + 8 − 20 = −7，沒有貨不能買
-        status[0] = 1; assertEquals(2, service.getLiveSkus(List.of(6)).get(0).stock());
-        status[0] = 2; assertTrue(service.getLiveSkus(List.of(6)).get(0).available()); // −7 + 預購額度 10 = 3
-        assertEquals(2, service.getLiveSkus(List.of(6)).get(0).stock());
+        status[0] = 1; assertEquals(0, service.getLiveSkus(List.of(6)).get(0).stock());
+        status[0] = 2; assertFalse(service.getLiveSkus(List.of(6)).get(0).available());
+        assertEquals(0, service.getLiveSkus(List.of(6)).get(0).stock());
     }
     @Test public void retiringSkuIsCappedAtFiveOrTheRemainingSupply() {
         status[0] = 3; stock[0] = 30; inbound[0] = 10; outbound[0] = 3;
-        FrontCatalogService service = service();
+        ProductService service = service();
         assertEquals(5, service.getLiveSkus(List.of(6)).get(0).stock());
         service.validateCheckoutItems(List.of(item(5,199)));
         rejects(service, List.of(item(6,199)));
@@ -101,12 +103,12 @@ public class FrontLiveProductTest {
     }
 
     @Test public void liveCartReturnsCurrentAliasAndFallsBackWhenCleared() {
-        FrontCatalogService service = service();
+        ProductService service = service();
         alias[0] = "  草莓分享盒  ";
         assertEquals("草莓分享盒", service.getLiveSkus(List.of(6)).get(0).skuName());
         alias[0] = " "; assertEquals("小盒", service.getLiveSkus(List.of(6)).get(0).skuName());
     }
-    private void rejects(FrontCatalogService service, List<CheckoutItem> items) {
-        try { service.validateCheckoutItems(items); fail("should reject checkout"); } catch (ProductUnavailableException expected) {}
+    private void rejects(ProductService service, List<CheckoutItem> items) {
+        try { service.validateCheckoutItems(items); fail("should reject checkout"); } catch (com.fruitude.product.model.ProductService.ProductUnavailableException expected) {}
     }
 }

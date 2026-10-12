@@ -33,8 +33,8 @@ public class ProductOverviewStockTest {
         assertEquals(List.of(List.of(1, 2, 3, 4, 5)), requests);
     }
 
-    private ProductOverviewStock stock(int id, int below, int low, int high, int unset, Integer inbound, Integer outbound) {
-        return new ProductOverviewStock() {
+    private com.fruitude.product.model.ProductRepository.ProductOverviewStock stock(int id, int below, int low, int high, int unset, Integer inbound, Integer outbound) {
+        return new com.fruitude.product.model.ProductRepository.ProductOverviewStock() {
             public Integer getProductId() { return id; }
             public Integer getBelowSafety() { return below; }
             public Integer getLowStock() { return low; }

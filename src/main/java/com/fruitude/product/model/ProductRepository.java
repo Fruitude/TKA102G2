@@ -8,6 +8,58 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface ProductRepository extends JpaRepository<Product, Integer> {
+    @Query(value = """
+        SELECT s.product_id FROM orders o JOIN orders_detail d ON d.orders_id=o.orders_id
+        JOIN product_sku s ON s.sku_id=d.sku_id
+        WHERE o.orders_date>=:fromDate AND o.orders_date<:toDate
+          AND o.orders_status NOT IN (2,4) AND d.orders_quantity>0
+        GROUP BY s.product_id ORDER BY SUM(d.orders_quantity) DESC, s.product_id ASC
+        """, nativeQuery = true)
+    java.util.List<Integer> findBestSellerProductIds(
+        @org.springframework.data.repository.query.Param("fromDate") java.time.LocalDateTime fromDate,
+        @org.springframework.data.repository.query.Param("toDate") java.time.LocalDateTime toDate);
+
+    @Query(value = """
+        SELECT s.product_id FROM orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id
+        WHERE d.comment_status=1 AND d.comment_star BETWEEN 1 AND 5
+          AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>''
+        GROUP BY s.product_id
+        ORDER BY AVG(d.comment_star) DESC, COUNT(*) DESC, s.product_id ASC
+        """, nativeQuery = true)
+    java.util.List<Integer> findTopRatedProductIds();
+
+    // Read existing member data only; similarity uses the exact product category.
+    @Query(value = """
+        SELECT p.product_id AS productId, p.product_category_id AS categoryId,
+          CASE WHEN :memberId IS NOT NULL AND EXISTS (
+            SELECT 1 FROM favorite f JOIN product_sku fs ON fs.sku_id=f.sku_id
+            JOIN product fp ON fp.product_id=fs.product_id
+            WHERE f.member_id=:memberId AND fp.product_category_id=p.product_category_id
+          ) THEN 1 ELSE 0 END AS favoriteMatch,
+          CASE WHEN :memberId IS NOT NULL AND EXISTS (
+            SELECT 1 FROM orders o JOIN orders_detail d ON d.orders_id=o.orders_id
+            JOIN product_sku os ON os.sku_id=d.sku_id JOIN product op ON op.product_id=os.product_id
+            WHERE o.member_id=:memberId AND o.orders_status NOT IN (2,4)
+              AND op.product_category_id=p.product_category_id
+          ) THEN 1 ELSE 0 END AS orderMatch,
+          CASE WHEN EXISTS (
+            SELECT 1 FROM product_sku stock_sku WHERE stock_sku.product_id=p.product_id
+              AND stock_sku.status IN (1,2,3,6) AND stock_sku.price>0
+              AND COALESCE(stock_sku.stock,0)>COALESCE(stock_sku.safety_stock,0)
+          ) THEN 1 ELSE 0 END AS aboveSafety
+        FROM product p
+        """, nativeQuery = true)
+    java.util.List<CatalogPriorityRow> findCatalogPriorities(
+        @org.springframework.data.repository.query.Param("memberId") Integer memberId);
+
+    interface CatalogPriorityRow {
+        Integer getProductId();
+        Integer getCategoryId();
+        Integer getFavoriteMatch();
+        Integer getOrderMatch();
+        Integer getAboveSafety();
+    }
+
     // Display queries use MVCC consistent reads and do not lock SKU rows.
     // The live purchase query below retains FOR SHARE; order writes still lock and validate quantities.
     @Query(value = """
@@ -171,5 +223,95 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     boolean existsByVendor_VendorIdAndProductNameIgnoreCase(Integer vendorId, String productName);
     boolean existsByVendor_VendorIdAndProductNameIgnoreCaseAndProductIdNot(Integer vendorId, String productName, Integer productId);
+
+
+    public interface FrontCatalogRow {
+
+    Integer getProductId();
+    String getName();
+    String getDescription();
+    Double getAverageRating();
+    Integer getCategoryId();
+    Integer getSkuId();
+    String getSkuName();
+    String getAnotherName();
+    Integer getPrice();
+    Integer getStock();
+    Integer getInboundQty();
+    Integer getOutboundQty();
+    Integer getMaxBackorderQty();
+    Integer getSkuStatus();
+
+    }
+
+    public interface FrontCategoryRow {
+
+    Integer getCategoryId();
+    Integer getParentId();
+    String getName();
+
+    }
+
+    public interface FrontImageRow {
+
+    Integer getSkuId();
+    Integer getImageId();
+
+    }
+
+    public interface LiveSkuRow {
+
+    Integer getSkuId();
+    String getName();
+    String getSkuName();
+    String getAnotherName();
+    Integer getPrice();
+    Integer getStock();
+    Integer getInboundQty();
+    Integer getOutboundQty();
+    Integer getMaxBackorderQty();
+    Integer getProductStatus();
+    Integer getSkuStatus();
+
+    }
+
+    public interface ProductOverview {
+
+    Integer getProductId();
+    String getProductName();
+    String getVendorName();
+    Integer getStatus();
+    Integer getAllCommentAmount();
+    Integer getAllCommentStar();
+    Integer getImageId();
+
+    }
+
+    public interface ProductOverviewImage {
+
+    Integer getProductId();
+    Integer getImageId();
+
+    }
+
+    public interface ProductOverviewSku {
+
+    Integer getProductId();
+    String getSkuName();
+    String getAnotherName();
+
+    }
+
+    public interface ProductOverviewStock {
+
+    Integer getProductId();
+    Integer getBelowSafety();
+    Integer getLowStock();
+    Integer getHighStock();
+    Integer getUnsetSafety();
+    Integer getMaxInbound();
+    Integer getMaxOutbound();
+
+    }
 
 }

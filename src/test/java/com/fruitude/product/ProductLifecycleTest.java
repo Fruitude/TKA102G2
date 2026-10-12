@@ -22,7 +22,7 @@ public class ProductLifecycleTest {
         assertEquals(Byte.valueOf((byte)2),p.getStatus());assertFalse(p.getAutoRestockEnabled());
         l.synchronize(p);assertEquals(Byte.valueOf((byte)2),p.getStatus());
         l.afterReceipt(p,Set.of(2));assertEquals(Byte.valueOf((byte)2),p.getStatus());
-        try{l.changeProduct(p,(byte)1,false);fail();}catch(ProductStatusAccessException expected){}
+        try{l.changeProduct(p,(byte)1,false);fail();}catch(com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException expected){}
         new ProductLifecycleService(access(true)).changeProduct(p,(byte)1,false);
         assertEquals(Byte.valueOf((byte)1),p.getStatus());
         assertEquals(Byte.valueOf((byte)6),p.getProductSkus().get(0).getStatus());
@@ -46,9 +46,9 @@ public class ProductLifecycleTest {
     }
     @Test public void soldOutRestoreRequiresManualConfirmationAndRetirementRequiresAdmin(){
         var l=new ProductLifecycleService(access(false));
-        try{l.validateSkuChange((byte)4,(byte)1);fail();}catch(SkuRestockConfirmationException expected){}
+        try{l.validateSkuChange((byte)4,(byte)1);fail();}catch(com.fruitude.product.model.ProductLifecycleService.SkuRestockConfirmationException expected){}
         l.validateSkuChange((byte)4,(byte)1,true);l.validateSkuChange((byte)1,(byte)7);
-        try{l.validateSkuChange((byte)7,(byte)1);fail();}catch(ProductStatusAccessException expected){}
+        try{l.validateSkuChange((byte)7,(byte)1);fail();}catch(com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException expected){}
         new ProductLifecycleService(access(true)).validateSkuChange((byte)7,(byte)1);
     }
     @Test public void supplierRetirementRemainsSaleableUntilPhysicalStockEnds(){
@@ -81,7 +81,7 @@ public class ProductLifecycleTest {
     @Test public void automaticOfflineCanRecoverFromStoppingSupplyButOnlyAdminCanRestoreSkuState(){
         var l=new ProductLifecycleService(access(false));var p=product(0,6);p.setAutoRestockEnabled(true);
         l.synchronize(p);assertEquals(Byte.valueOf((byte)1),p.getStatus());assertEquals(Byte.valueOf((byte)6),p.getProductSkus().get(0).getStatus());
-        for(byte next:new byte[]{0,1,2,3,4})try{l.validateSkuChange((byte)6,next);fail();}catch(ProductStatusAccessException expected){}
+        for(byte next:new byte[]{0,1,2,3,4})try{l.validateSkuChange((byte)6,next);fail();}catch(com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException expected){}
         l.validateSkuChange((byte)6,(byte)6);l.validateSkuChange((byte)6,(byte)7);
         new ProductLifecycleService(access(true)).validateSkuChange((byte)6,(byte)1);
     }

@@ -8,7 +8,7 @@ import static org.junit.Assert.*;
 public class ProductModalEditTest {
     private final Product p = new Product();
     private final ProductSku s = new ProductSku();
-    private final ProductModalEditService service;
+    private final ProductService service;
     private int productLocks, productFlushes;
     @SuppressWarnings("unchecked") private static <T> T proxy(Class<T> type, java.lang.reflect.InvocationHandler handler) {
         return (T)Proxy.newProxyInstance(type.getClassLoader(),new Class<?>[]{type},handler);
@@ -29,13 +29,13 @@ public class ProductModalEditTest {
         var categories=proxy(ProductCategoryRepository.class,(o,m,a)->m.getName().equals("findAll")?List.of(parent,category):Optional.of(category));
         var vendors=proxy(VendorRepository.class,(o,m,a)->m.getName().equals("findAll")?List.of(vendor):Optional.of(vendor));
         var access=new ProductStatusAccess(null,null){ @Override public boolean canRestoreDiscontinued(){return false;} };
-        service=new ProductModalEditService(products,categories,vendors,new ProductLifecycleService(access),access);
+        service=new ProductService(products,categories,vendors,new ProductLifecycleService(access),access);
     }
-    private ProductModalEditService.SkuForm sku(Integer id, byte status, int originalStock) {
-        return new ProductModalEditService.SkuForm(id,id==null?"New SKU":"Canonical","Alias",199,20,10,0,0,status,null,originalStock,0,0,10);
+    private ProductService.SkuForm sku(Integer id, byte status, int originalStock) {
+        return new ProductService.SkuForm(id,id==null?"New SKU":"Canonical","Alias",199,20,10,0,0,status,null,originalStock,0,0,10);
     }
-    private void save(ProductModalEditService.SkuForm form) {
-        service.save(new ProductModalEditService.SaveRequest(new ProductModalEditService.ProductForm(10,"Changed","Description",2,3,(byte)0,null),List.of(form),false,false));
+    private void save(ProductService.SkuForm form) {
+        service.save(new ProductService.SaveRequest(new ProductService.ProductForm(10,"Changed","Description",2,3,(byte)0,null),List.of(form),false,false));
     }
     @Test public void categoryChoicesKeepParentIdsForSearchableNestedMenu() {
         var data=service.load(10);var child=data.categories().stream().filter(c->c.id()==2).findFirst().orElseThrow();
@@ -43,10 +43,28 @@ public class ProductModalEditTest {
         assertNull(data.categories().stream().filter(c->c.id()==9).findFirst().orElseThrow().parentId());
         assertEquals(Integer.valueOf(3),data.vendors().get(0).id());
     }
+    @Test public void pricesRejectFractionsWithoutRejectingWholeNumericValues() {
+        var mapper=tools.jackson.databind.json.JsonMapper.builder().build();
+        for(String value:List.of("1.5","2147483648","\"199\"")) {
+            try {mapper.readValue("{\"price\":"+value+"}",ProductService.SkuForm.class);fail("Accepted price "+value);}
+            catch(tools.jackson.core.JacksonException expected) {}
+        }
+        assertEquals(Integer.valueOf(1),mapper.readValue("{\"price\":1}",ProductService.SkuForm.class).price());
+        assertEquals(Integer.valueOf(199),mapper.readValue("{\"price\":199.0}",ProductService.SkuForm.class).price());
+        assertEquals(Integer.valueOf(100),mapper.readValue("{\"price\":1e2}",ProductService.SkuForm.class).price());
+        assertEquals(Integer.valueOf(10000000),mapper.readValue("{\"price\":10000000}",ProductService.SkuForm.class).price());
+    }
+    @Test public void serviceRejectsZeroNegativeAndOverLimitPrices() {
+        for(int price:List.of(0,-1,10000001)) {
+            var form=new ProductService.SkuForm(1,"Canonical",null,price,null,null,null,null,null,null,20,0,0,(Integer)null);
+            try {save(form);fail("Accepted price "+price);}catch(IllegalArgumentException expected) {}
+        }
+        assertNull(s.getAnotherName());
+    }
     @Test public void omittedReadOnlyFieldsDeserializeAndAliasCanBeSaved() {
         var input = tools.jackson.databind.json.JsonMapper.builder().build().readValue(
             "{\"skuId\":1,\"anotherName\":\"新版別名\",\"price\":199,\"originalStock\":20,\"originalInbound\":0,\"originalOutbound\":0}",
-            ProductModalEditService.SkuForm.class);
+            ProductService.SkuForm.class);
         assertNull(input.restockConfirmed());
         save(input);
         assertEquals("新版別名", s.getAnotherName());
@@ -58,16 +76,16 @@ public class ProductModalEditTest {
         save(sku(1,(byte)1,20)); assertEquals("Canonical",s.getSkuName()); assertEquals("Alias",s.getAnotherName()); assertEquals(Integer.valueOf(199),s.getPrice()); assertEquals(Byte.valueOf((byte)1),p.getStatus());
     }
     @Test public void changesBothCanonicalNameAndAlias() {
-        save(new ProductModalEditService.SkuForm(1,"新規格名稱","新別名",199,null,null,null,null,null,null,20,0,0,(Integer)null));
+        save(new ProductService.SkuForm(1,"新規格名稱","新別名",199,null,null,null,null,null,null,20,0,0,(Integer)null));
         assertEquals("新規格名稱",s.getSkuName()); assertEquals("新別名",s.getAnotherName());
     }
     @Test public void rejectsEmptyCanonicalName() {
-        try {save(new ProductModalEditService.SkuForm(1,"  ","Alias",199,null,null,null,null,null,null,20,0,0,(Integer)null));fail();}
+        try {save(new ProductService.SkuForm(1,"  ","Alias",199,null,null,null,null,null,null,20,0,0,(Integer)null));fail();}
         catch(IllegalArgumentException expected){assertTrue(expected.getMessage().contains("規格名稱"));}
     }
     @Test public void rejectsNameAlreadyUsedByAnotherSku() {
         var other=new ProductSku();other.setSkuId(2);other.setSkuName("Other");other.setProduct(p);p.getProductSkus().add(other);
-        try {save(new ProductModalEditService.SkuForm(1," Other ","Alias",199,null,null,null,null,null,null,20,0,0,(Integer)null));fail();}
+        try {save(new ProductService.SkuForm(1," Other ","Alias",199,null,null,null,null,null,null,20,0,0,(Integer)null));fail();}
         catch(IllegalArgumentException expected){assertTrue(expected.getMessage().contains("不可重複"));}
     }
 
@@ -76,98 +94,135 @@ public class ProductModalEditTest {
     }
     @Test public void modalCannotOverwriteInventoryEvenWithSubmittedQuantities() {
         s.setStock(50);s.setSafetyStock(12);s.setInboundQty(8);s.setOutboundQty(3);s.setMaxBackorderQty(7);
-        save(new ProductModalEditService.SkuForm(1,"Canonical","Alias",199,999,999,999,999,(byte)1,null,50,8,3,999));
+        save(new ProductService.SkuForm(1,"Canonical","Alias",199,999,999,999,999,(byte)1,null,50,8,3,999));
         assertEquals(Integer.valueOf(50),s.getStock());assertEquals(Integer.valueOf(12),s.getSafetyStock());
         assertEquals(Integer.valueOf(8),s.getInboundQty());assertEquals(Integer.valueOf(3),s.getOutboundQty());assertEquals(Integer.valueOf(7),s.getMaxBackorderQty());
         assertEquals(Integer.valueOf(199),s.getPrice());assertEquals("Alias",s.getAnotherName());
     }
     @Test public void newModalSkuUsesInventoryDefaultsAndAcceptsMissingReadOnlyFields() {
         s.setStatus((byte)0);
-        save(new ProductModalEditService.SkuForm(null,"New SKU",null,199,null,null,null,null,(byte)5,null,null,null,null,(Integer)null));
+        save(new ProductService.SkuForm(null,"New SKU",null,199,null,null,null,null,(byte)5,null,null,null,null,(Integer)null));
         var added=p.getProductSkus().get(1);
         assertEquals(Integer.valueOf(0),added.getStock());assertEquals(Integer.valueOf(0),added.getSafetyStock());
         assertEquals(Integer.valueOf(0),added.getInboundQty());assertEquals(Integer.valueOf(0),added.getOutboundQty());assertEquals(Integer.valueOf(10),added.getMaxBackorderQty());
+    }
+    @Test public void newSkuAcceptsInitialQuantities() {
+        save(new ProductService.SkuForm(null,"New SKU",null,199,12,3,8,2,(byte)5,null,null,null,null,6));
+        var added=p.getProductSkus().get(1);
+        assertEquals(Integer.valueOf(12),added.getStock());assertEquals(Integer.valueOf(3),added.getSafetyStock());
+        assertEquals(Integer.valueOf(8),added.getInboundQty());assertEquals(Integer.valueOf(2),added.getOutboundQty());assertEquals(Integer.valueOf(6),added.getMaxBackorderQty());
+        assertEquals(Byte.valueOf((byte)5),added.getStatus());
+    }
+    @Test public void newSkuRejectsNegativeQuantities() {
+        for(int field=0;field<5;field++) {
+            int[] q={0,0,0,0,0};q[field]=-1;
+            try {save(new ProductService.SkuForm(null,"New SKU",null,199,q[0],q[1],q[2],q[3],(byte)5,null,null,null,null,q[4]));fail();}
+            catch(IllegalArgumentException expected) {}
+        }
+        assertEquals(1,p.getProductSkus().size());
+    }
+    @Test public void quantityPayloadRejectsFractionsTextAndOverflow() {
+        var mapper=tools.jackson.databind.json.JsonMapper.builder().build();
+        for(String field:List.of("stock","safetyStock","inboundQty","outboundQty","maxBackorderQty")) {
+            for(String value:List.of("0.5","2147483648","\"abc\"")) {
+                try {mapper.readValue("{\""+field+"\":"+value+"}",ProductService.SkuForm.class);fail();}
+                catch(tools.jackson.core.JacksonException expected) {}
+            }
+        }
     }
     @Test public void rejectsSkuFromAnotherProduct() {
         try {save(sku(999,(byte)1,20));fail();}catch(IllegalArgumentException expected){assertTrue(expected.getMessage().contains("不屬於"));}
     }
     @Test public void detectsInventoryChangeEvenWhenTimestampIsUnchanged() {
-        try {save(sku(1,(byte)1,19));fail();}catch(ProductModalEditService.Conflict expected){} assertNull(s.getAnotherName());
+        try {save(sku(1,(byte)1,19));fail();}catch(ProductService.Conflict expected){} assertNull(s.getAnotherName());
     }
     @Test public void cannotRestoreRetiredSkuThroughModal() {
-        s.setStatus((byte)7); save(sku(1,(byte)1,20)); assertEquals(Byte.valueOf((byte)7),s.getStatus());
+        s.setStatus((byte)7); try {save(sku(1,(byte)1,20));fail();}catch(com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException expected) {} assertEquals(Byte.valueOf((byte)7),s.getStatus());
     }
     @Test public void cannotReturnExistingSkuToPreparedState() {
-        save(sku(1,(byte)5,20)); assertEquals(Byte.valueOf((byte)1),s.getStatus());
+        try {save(sku(1,(byte)5,20));fail();}catch(IllegalArgumentException expected) {} assertEquals(Byte.valueOf((byte)1),s.getStatus());
     }
 
-    @Test public void soldOutModalCannotRestoreStatusEvenWithConfirmation() {
-        s.setStatus((byte)4);save(sku(1,(byte)1,20));assertEquals(Byte.valueOf((byte)4),s.getStatus());
+    @Test public void soldOutModalRequiresConfirmationToRestoreStatus() {
+        s.setStatus((byte)4);try {save(sku(1,(byte)1,20));fail();}catch(com.fruitude.product.model.ProductLifecycleService.SkuRestockConfirmationException expected) {}assertEquals(Byte.valueOf((byte)4),s.getStatus());
         p.setUpdatedAt(null);s.setUpdatedAt(null);
         var f=sku(1,(byte)1,20);
-        save(new ProductModalEditService.SkuForm(f.skuId(),f.skuName(),f.anotherName(),f.price(),f.stock(),f.safetyStock(),f.inboundQty(),f.outboundQty(),f.status(),f.revision(),f.originalStock(),f.originalInbound(),f.originalOutbound(),true));
-        assertEquals(Byte.valueOf((byte)4),s.getStatus());assertEquals(Byte.valueOf((byte)0),p.getStatus());
+        save(new ProductService.SkuForm(f.skuId(),f.skuName(),f.anotherName(),f.price(),f.stock(),f.safetyStock(),f.inboundQty(),f.outboundQty(),f.status(),f.revision(),f.originalStock(),f.originalInbound(),f.originalOutbound(),true));
+        assertEquals(Byte.valueOf((byte)1),s.getStatus());assertEquals(Byte.valueOf((byte)1),p.getStatus());
+    }
+    @Test public void explicitOffStatusSynchronizesProduct() {
+        save(sku(1,(byte)0,20));assertEquals(Byte.valueOf((byte)0),s.getStatus());assertEquals(Byte.valueOf((byte)0),p.getStatus());
+    }
+    @Test public void automaticStatesCannotBeManuallySelected() {
+        for(byte status:new byte[]{2,3,4,7}) {
+            try {save(sku(1,status,20));fail();}catch(IllegalArgumentException expected) {}
+        }
+    }
+    @Test public void cannotRestoreStoppingSkuWithoutAdmin() {
+        s.setStatus((byte)6);
+        try {save(sku(1,(byte)1,20));fail();}catch(com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException expected) {}
+        assertEquals(Byte.valueOf((byte)6),s.getStatus());
     }
     private ProductImage image(int id) {
         var image=new ProductImage();image.setImageId(id);image.setProductSku(s);image.setSortOrder(0);image.setImageData(new byte[]{1});s.getProductImages().add(image);return image;
     }
-    private ProductModalEditService.SaveRequest unchanged() {
-        return new ProductModalEditService.SaveRequest(new ProductModalEditService.ProductForm(10,"Original",null,2,3,(byte)0,null),List.of(),false,false);
+    private ProductService.SaveRequest unchanged() {
+        return new ProductService.SaveRequest(new ProductService.ProductForm(10,"Original",null,2,3,(byte)0,null),List.of(),false,false);
     }
     @Test public void modalReplacesImagePreservingOwnerAndOriginalCreationTime() {
         var old=image(7);var created=java.time.LocalDateTime.of(2026,1,1,0,0);old.setCreatedAt(created);
         var upload=new ProductImage();upload.setImageData(new byte[]{2,3});upload.setImageName("new.png");upload.setImageType("image/png");upload.setFileSize(2);
-        service.saveWithImages(new ProductModalEditService.ImageRequest(unchanged(),List.of(new ProductModalEditService.ImageChange(7,1,null,2,null,0,false))),List.of(upload));
+        service.saveWithImages(new ProductService.ImageRequest(unchanged(),List.of(new ProductService.ImageChange(7,1,null,2,null,0,false))),List.of(upload));
         assertArrayEquals(new byte[]{2,3},old.getImageData());assertEquals("new.png",old.getImageName());assertEquals(Integer.valueOf(2),old.getSortOrder());assertSame(s,old.getProductSku());assertEquals(created,old.getCreatedAt());
     }
     @Test public void modalDeletesImageAndAddsOneToNewPreparedSku() {
         image(7);
-        var request=new ProductModalEditService.SaveRequest(unchanged().product(),List.of(sku(null,(byte)5,0)),false,false);
+        var request=new ProductService.SaveRequest(unchanged().product(),List.of(sku(null,(byte)5,0)),false,false);
         var upload=new ProductImage();upload.setImageData(new byte[]{2});upload.setImageType("image/png");upload.setFileSize(1);
-        var changes=List.of(new ProductModalEditService.ImageChange(7,1,null,null,null,null,true),new ProductModalEditService.ImageChange(null,null,"New SKU",0,null,0,false));
-        service.saveWithImages(new ProductModalEditService.ImageRequest(request,changes),List.of(upload));
+        var changes=List.of(new ProductService.ImageChange(7,1,null,null,null,null,true),new ProductService.ImageChange(null,null,"New SKU",0,null,0,false));
+        service.saveWithImages(new ProductService.ImageRequest(request,changes),List.of(upload));
         assertTrue(s.getProductImages().isEmpty());var added=p.getProductSkus().get(1);assertEquals(1,added.getProductImages().size());assertSame(added,added.getProductImages().get(0).getProductSku());assertEquals(Byte.valueOf((byte)5),added.getStatus());
     }
     @Test public void rejectsImageFromAnotherProductBeforeChangingProduct() {
-        try {service.saveWithImages(new ProductModalEditService.ImageRequest(unchanged(),List.of(new ProductModalEditService.ImageChange(999,1,null,0,null,null,true))),List.of());fail();}
+        try {service.saveWithImages(new ProductService.ImageRequest(unchanged(),List.of(new ProductService.ImageChange(999,1,null,0,null,null,true))),List.of());fail();}
         catch(IllegalArgumentException expected){assertTrue(expected.getMessage().contains("不屬於"));}
         assertNull(p.getUpdatedAt());
     }
     @Test public void rejectsConcurrentImageReplacement() {
         image(7).setUpdatedAt(java.time.LocalDateTime.now());
-        try {service.saveWithImages(new ProductModalEditService.ImageRequest(unchanged(),List.of(new ProductModalEditService.ImageChange(7,1,null,0,null,null,true))),List.of());fail();}
-        catch(ProductModalEditService.Conflict expected){}
+        try {service.saveWithImages(new ProductService.ImageRequest(unchanged(),List.of(new ProductService.ImageChange(7,1,null,0,null,null,true))),List.of());fail();}
+        catch(ProductService.Conflict expected){}
         assertEquals(1,s.getProductImages().size());
     }
 
     @Test public void modalAcceptsOmittedStatusAndCreatesOnlyPreparedSkus() {
-        save(new ProductModalEditService.SkuForm(1,"Canonical","Alias",199,null,null,null,null,null,null,20,0,0,(Integer)null));
+        save(new ProductService.SkuForm(1,"Canonical","Alias",199,null,null,null,null,null,null,20,0,0,(Integer)null));
         assertEquals(Byte.valueOf((byte)1),s.getStatus());
         p.setUpdatedAt(null);s.setUpdatedAt(null);s.setStatus((byte)0);
-        save(sku(null,(byte)7,0));assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(1).getStatus());
+        save(new ProductService.SkuForm(null,"New SKU",null,199,null,null,null,null,null,null,null,null,null,(Integer)null));assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(1).getStatus());
     }
     @Test public void combinedProductSkuAndImageEditDoesNotReloadAndDiscardEdits() {
         var old=image(7);var upload=new ProductImage();upload.setImageData(new byte[]{3,4});upload.setFileSize(2);
-        var request=new ProductModalEditService.SaveRequest(
-            new ProductModalEditService.ProductForm(10,"Changed","New description",2,3,(byte)0,null),
+        var request=new ProductService.SaveRequest(
+            new ProductService.ProductForm(10,"Changed","New description",2,3,(byte)0,null),
             List.of(sku(1,(byte)1,20)),false,false);
-        service.saveWithImages(new ProductModalEditService.ImageRequest(request,
-            List.of(new ProductModalEditService.ImageChange(7,1,null,2,null,0,false))),List.of(upload));
+        service.saveWithImages(new ProductService.ImageRequest(request,
+            List.of(new ProductService.ImageChange(7,1,null,2,null,0,false))),List.of(upload));
         assertEquals(1,productLocks);assertEquals(1,productFlushes);
         assertEquals("Changed",p.getProductName());assertEquals("Alias",s.getAnotherName());
         assertEquals(Integer.valueOf(199),s.getPrice());assertArrayEquals(new byte[]{3,4},old.getImageData());
     }
     @Test public void badUploadReferenceIsRejectedBeforeLockingProduct() {
-        try {service.saveWithImages(new ProductModalEditService.ImageRequest(unchanged(),
-            List.of(new ProductModalEditService.ImageChange(null,1,null,0,null,5,false))),List.of());fail();}
+        try {service.saveWithImages(new ProductService.ImageRequest(unchanged(),
+            List.of(new ProductService.ImageChange(null,1,null,0,null,5,false))),List.of());fail();}
         catch(IllegalArgumentException expected){assertTrue(expected.getMessage().contains("檔案資料不完整"));}
         assertEquals(0,productLocks);assertEquals(0,productFlushes);
     }
     @Test public void newSkuAndItsImageAreSavedTogetherAtTheOnlyFlush() {
         var upload=new ProductImage();upload.setImageData(new byte[]{5});upload.setFileSize(1);
-        var request=new ProductModalEditService.SaveRequest(unchanged().product(),List.of(sku(null,(byte)5,0)),false,false);
-        service.saveWithImages(new ProductModalEditService.ImageRequest(request,
-            List.of(new ProductModalEditService.ImageChange(null,null,"New SKU",0,null,0,false))),List.of(upload));
+        var request=new ProductService.SaveRequest(unchanged().product(),List.of(sku(null,(byte)5,0)),false,false);
+        service.saveWithImages(new ProductService.ImageRequest(request,
+            List.of(new ProductService.ImageChange(null,null,"New SKU",0,null,0,false))),List.of(upload));
         assertEquals(1,productLocks);assertEquals(1,productFlushes);
         var added=p.getProductSkus().get(1);assertSame(added,added.getProductImages().get(0).getProductSku());
         assertArrayEquals(new byte[]{5},added.getProductImages().get(0).getImageData());

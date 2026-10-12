@@ -30,7 +30,7 @@ public class ProductOverviewFiltersTest {
             }
         });
         ReflectionTestUtils.setField(controller, "productSvc", new ProductService() {
-            @Override public Page<ProductOverview> getOverviewPage(int page, int size, String status,
+            @Override public Page<com.fruitude.product.model.ProductRepository.ProductOverview> getOverviewPage(int page, int size, String status,
                     Integer parentId, Integer categoryId, Integer vendorId, String stockFilter,
                     Integer minComments, Integer maxComments, String ratingFilter, String sortBy, String sortDirection,
                     String keyword, boolean searchProductName, boolean searchSkuName) {

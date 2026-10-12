@@ -14,4 +14,18 @@ public interface ProductImageRepository extends JpaRepository<ProductImage, Inte
     @Query(value = "SELECT image_data AS imageData FROM product_image WHERE image_id = :id", nativeQuery = true)
     java.util.Optional<ProductThumbnailSource> findThumbnailSource(@org.springframework.data.repository.query.Param("id") Integer id);
 
+
+    public interface ProductImageSource {
+
+    byte[] getImageData();
+    String getImageType();
+
+    }
+
+    public interface ProductThumbnailSource {
+
+    byte[] getImageData();
+
+    }
+
 }

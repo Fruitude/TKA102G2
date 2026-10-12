@@ -48,7 +48,7 @@ public class ProductImageController {
         String etag = "\"" + org.springframework.util.DigestUtils.md5DigestAsHex(original) + "-thumb100\"";
         var cache = org.springframework.http.CacheControl.noCache().cachePrivate();
         if (request.checkNotModified(etag)) return ResponseEntity.status(304).eTag(etag).cacheControl(cache).build();
-        byte[] thumbnail = ProductThumbnailSupport.resize(original);
+        byte[] thumbnail = com.fruitude.product.model.ProductImageService.ProductThumbnailSupport.resize(original);
         if (thumbnail == null) return ResponseEntity.notFound().build();
         return ResponseEntity.ok().eTag(etag).cacheControl(cache)
             .header("X-Content-Type-Options", "nosniff").contentType(MediaType.IMAGE_JPEG).body(thumbnail);
@@ -88,7 +88,7 @@ public class ProductImageController {
         try {
             if (sku == null) throw new IllegalArgumentException("規格不存在");
             if (sortOrder < 0) throw new IllegalArgumentException("排序不可小於 0");
-            ImageUploadSupport.apply(image, file);
+            com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(image, file);
             image.setProductSku(sku);
             productImageService.addProductImage(image);
         } catch (IOException | IllegalArgumentException e) {
@@ -108,7 +108,7 @@ public class ProductImageController {
         ProductImage replacement = new ProductImage();
         try {
             if (sortOrder < 0) throw new IllegalArgumentException("排序不可小於 0");
-            if (file != null && !file.isEmpty()) ImageUploadSupport.apply(replacement, file);
+            if (file != null && !file.isEmpty()) com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(replacement, file);
             productImageService.replaceImage(imageId, sortOrder, replacement);
         } catch (IOException | IllegalArgumentException e) {
             model.addAttribute("image", original);

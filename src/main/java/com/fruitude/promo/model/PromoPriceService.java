@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * 指定商品促銷的活動價查詢，給前台商品價格（FrontCatalogService）使用。
+ * 指定商品促銷的活動價查詢，給前台商品價格（ProductService）使用。
  * 只負責「查出哪些規格目前有活動價」，不判斷任何其他折扣。
  */
 @Service

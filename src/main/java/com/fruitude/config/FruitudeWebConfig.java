@@ -41,7 +41,7 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 							.replaceFirst("\\.html$", "");
 					String dir = "/" + viewName.substring(0, viewName.length() - "index".length()); // /fruitude/about/
 
-                    // These pages need database models supplied by FrontProductController.
+                    // These pages need database models supplied by ProductController.
                     if (java.util.Set.of("front/index", "front/product/view/index", "front/all-products/index",
                         "front/category/seasonal-fresh-fruit/index", "front/category/featured-gift-boxes/index", "front/promotions/index",
                         "admin/orders/index", "admin/orders/detail/index", "admin/psi/vendor/index").contains(viewName)) continue;
