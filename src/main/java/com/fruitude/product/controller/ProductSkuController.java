@@ -200,9 +200,9 @@ public class ProductSkuController {
     public org.springframework.http.ResponseEntity<?> updateStatus(@RequestParam Integer skuId, @RequestParam Byte status, @RequestParam(defaultValue="false") boolean restockConfirmed) {
         try {
             return org.springframework.http.ResponseEntity.ok(productSkuSvc.updateStatus(skuId, status, restockConfirmed));
-        } catch (com.fruitude.product.model.SkuRestockConfirmationException e) {
+        } catch (com.fruitude.product.model.ProductLifecycleService.SkuRestockConfirmationException e) {
             return org.springframework.http.ResponseEntity.status(409).body(java.util.Map.of("kind","restock","message",e.getMessage()));
-        } catch (com.fruitude.product.model.ProductStatusAccessException e) {
+        } catch (com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException e) {
             return org.springframework.http.ResponseEntity.status(403).body(java.util.Map.of("message", e.getMessage()));
         } catch (java.util.NoSuchElementException e) {
             return org.springframework.http.ResponseEntity.status(404).body(java.util.Map.of("message", e.getMessage()));

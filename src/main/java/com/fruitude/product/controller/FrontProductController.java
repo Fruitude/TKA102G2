@@ -1,6 +1,7 @@
 package com.fruitude.product.controller;
 
 import java.util.List;
+import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -15,8 +16,6 @@ import jakarta.servlet.http.HttpSession;
 
 @Controller
 public class FrontProductController {
-    @org.springframework.beans.factory.annotation.Autowired(required=false)
-    private com.fruitude.product.model.FrontProductReviewService productReviews;
     // 小農資訊頁的一位小農：資料來自 farmer 與 vendor（後台資訊管理勾選「顯示在小農資訊」），故事依換行拆成段落
     public record FarmerView(Integer vendorId, String name, String origin, String growProduct, String imagePath,
         String slogan, List<String> paragraphs, List<ProductView> products) {}
@@ -38,7 +37,8 @@ public class FrontProductController {
     @GetMapping({"/front/", "/front/index", "/front/index.html"})
     public String homePage(Model model, HttpSession session, jakarta.servlet.http.HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-store");
-        home(model);
+        model.addAttribute("bestSellerProducts", catalog.getBestSellers());
+        model.addAttribute("topRatedProducts", catalog.getTopRatedProducts());
         // 首頁活動區塊：限時活動與會員專屬福利。會員身分只信任 session，用來標示目前符合資格的福利（壽星月、新會員首購）
         Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
         var promos = promoService.findHomePromos(memberId == null
@@ -55,10 +55,45 @@ public class FrontProductController {
         return "front/index";
     }
 
+    @GetMapping({"/front/best-sellers/", "/front/best-sellers/index", "/front/best-sellers/index.html", "/front/best-sellers.html"})
+    public String bestSellers(Model model, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        model.addAttribute("rankedProducts", catalog.getBestSellers());
+        return "front/best-sellers";
+    }
+
+    @GetMapping({"/front/top-rated/", "/front/top-rated/index", "/front/top-rated/index.html", "/front/top-rated.html"})
+    public String topRated(Model model, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        model.addAttribute("rankedProducts", catalog.getTopRatedProducts());
+        return "front/top-rated";
+    }
+
+    @GetMapping("/front/best-sellers")
+    public String canonicalBestSellers() { return "redirect:/front/best-sellers/"; }
+
+    @GetMapping("/front/top-rated")
+    public String canonicalTopRated() { return "redirect:/front/top-rated/"; }
+
     @GetMapping({"/front/all-products/", "/front/all-products/index", "/front/all-products/index.html"})
-    public String allProducts(Model model) {
-        home(model);
+    public String allProducts(Model model, HttpSession session, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
+        model.addAttribute("allProducts", catalog.getAllProducts(memberId, List.of()));
         return "front/all-products/index";
+    }
+
+    @ResponseBody
+    @GetMapping("/front/api/catalog-order")
+    public ResponseEntity<List<Integer>> catalogOrder(
+            @RequestParam(required=false) List<Integer> favoriteProductIds, HttpSession session) {
+        if (favoriteProductIds != null && (favoriteProductIds.size() > 500
+                || favoriteProductIds.stream().anyMatch(id -> id == null || id <= 0)))
+            return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).build();
+        Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(catalog
+            .getAllProducts(memberId, memberId == null || favoriteProductIds == null ? List.of() : favoriteProductIds)
+            .stream().map(ProductView::productId).toList());
     }
 
     @GetMapping("/front/all-products")
@@ -88,10 +123,34 @@ public class FrontProductController {
         Integer id = productId != null ? productId : products.stream().filter(p -> name != null && name.equals(p.name())).map(ProductView::productId).findFirst().orElse(null);
         ProductView selected = catalog.getLiveProduct(id);
         model.addAttribute("dbProduct", selected);
-        model.addAttribute("productReviews", selected==null || productReviews==null
-            ? com.fruitude.product.model.FrontProductReviewService.ReviewPage.empty() : productReviews.read(selected.productId(),0,3));
-        model.addAttribute("relatedProducts", com.fruitude.product.model.ProductRecommendations.recommend(selected,products,5));
+        model.addAttribute("productReviews", selected==null || catalog==null
+            ? com.fruitude.product.model.FrontCatalogService.ReviewPage.empty() : catalog.read(selected.productId(),0,3));
+        model.addAttribute("relatedProducts", com.fruitude.product.model.FrontCatalogService.recommend(selected,products,5));
         return "front/product/view/index";
+    }
+
+    @GetMapping("/front/api/cart-products")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<List<FrontCatalogService.LiveSku>> cartProducts(@RequestParam List<Integer> skuIds) {
+        if (skuIds.size() > 500 || skuIds.stream().anyMatch(id -> id == null || id <= 0))
+            return org.springframework.http.ResponseEntity.badRequest().cacheControl(org.springframework.http.CacheControl.noStore()).build();
+        return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(catalog.getLiveSkus(skuIds));
+    }
+
+    // ProductController endpoints
+
+
+
+    @ResponseBody
+    @GetMapping("/front/api/product-reviews")
+    public ResponseEntity<?> read(@RequestParam int productId,@RequestParam(defaultValue="0") int page,
+        @RequestParam(defaultValue="") String keyword,@RequestParam(defaultValue="latest") String sort) {
+        if(productId<=0 || page<0 || page>100000)return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).build();
+        try {
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(catalog.read(productId,page,20,keyword,sort));
+        } catch(IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).body(java.util.Map.of("message",ex.getMessage()));
+        }
     }
 
     // 小農資訊頁：每位小農各自販售的商品，讓會員看完文章後可以直接加入購物車
@@ -123,11 +182,4 @@ public class FrontProductController {
     @GetMapping("/front/farmers")
     public String canonicalFarmers() { return "redirect:/front/farmers/"; }
 
-    @GetMapping("/front/api/cart-products")
-    @ResponseBody
-    public org.springframework.http.ResponseEntity<List<FrontCatalogService.LiveSku>> cartProducts(@RequestParam List<Integer> skuIds) {
-        if (skuIds.size() > 500 || skuIds.stream().anyMatch(id -> id == null || id <= 0))
-            return org.springframework.http.ResponseEntity.badRequest().cacheControl(org.springframework.http.CacheControl.noStore()).build();
-        return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(catalog.getLiveSkus(skuIds));
-    }
 }

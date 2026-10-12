@@ -71,7 +71,7 @@ body.home-orange-theme {
 .home-orange-theme .home-sku-menu button:hover,
 .home-orange-theme .home-sku-menu button[aria-pressed="true"] { background-color: var(--home-leaf-hover); }
 .home-orange-theme .nav_dropdown-list.w--open {
-  background-color: #F0F5E9;
+  background-color: rgb(255, 255, 215);
   border: 1px solid var(--home-leaf);
 }
 .home-orange-theme .nav_dropdown-card { border-color: #BDD1A8; }
@@ -210,3 +210,29 @@ body.home-orange-theme {
 .home-orange-theme .nav-bar,
 .home-orange-theme .container.navigation-container { background-color: var(--home-paper); }
 .home-orange-theme .footer-section { background-color: #F7F9D7; }
+/* Retain the original introduction circles alongside the home-style cards. */
+.home-orange-theme .section-produtcs-hero.front-theme-circles {
+  --front-circle-gold: #FFE77899;
+  --front-circle-leaf: #B9DA9270;
+  --front-circle-cream: #F5CF787A;
+  --front-circle-peach: #EAA17D65;
+  background-image:
+    radial-gradient(circle closest-side, var(--front-circle-gold) 98%, transparent 100%),
+    radial-gradient(circle closest-side, var(--front-circle-leaf) 98%, transparent 100%),
+    radial-gradient(circle closest-side, var(--front-circle-cream) 98%, transparent 100%),
+    radial-gradient(circle closest-side, var(--front-circle-peach) 98%, transparent 100%),
+    radial-gradient(circle closest-side, #F6DDA080 98%, transparent 100%),
+    radial-gradient(circle closest-side, #A9CF7D65 98%, transparent 100%);
+  background-size:
+    clamp(420px, 52vw, 720px) clamp(420px, 52vw, 720px),
+    clamp(220px, 27vw, 380px) clamp(220px, 27vw, 380px),
+    clamp(320px, 40vw, 560px) clamp(320px, 40vw, 560px),
+    clamp(200px, 24vw, 340px) clamp(200px, 24vw, 340px),
+    clamp(130px, 14vw, 190px) clamp(130px, 14vw, 190px),
+    clamp(160px, 20vw, 270px) clamp(160px, 20vw, 270px);
+  background-position: -280px -300px, calc(100% + 180px) 32%, -200px calc(100% + 220px), 86% calc(100% + 200px), 70% -120px, 12% 84%;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+}
+.home-orange-theme .section-produtcs-hero.front-theme-circles { background-color: var(--home-paper); color: var(--home-text); }
+.home-orange-theme .section-produtcs-hero.front-theme-circles h1 { color: var(--home-heading); }

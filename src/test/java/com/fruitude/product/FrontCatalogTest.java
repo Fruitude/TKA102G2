@@ -14,13 +14,51 @@ import com.fruitude.product.model.*;
 import com.fruitude.product.controller.FrontProductController;
 
 public class FrontCatalogTest {
+    @Test public void farmerPageKeepsMainBranchStoriesAndVendorProducts() {
+        var fruit=new FrontCatalogService.ProductView(1,"小農水果","",100,100,1,null,false,List.of(),10,0d);
+        var catalog=new FrontCatalogService(){
+            @Override public Map<Integer,List<ProductView>> getProductsByVendorIds(List<Integer> ids){
+                assertEquals(List.of(42,43),ids);return Map.of(42,List.of(fruit),43,List.of());
+            }
+        };
+        var farmers=new ArrayList<com.fruitude.farmer.model.FarmerVO>();
+        for(int id:List.of(42,43)) {
+            var vendor=new com.fruitude.vendor.model.VendorVO();vendor.setVendorId(id);vendor.setContactPerson("小農"+id);
+            vendor.setVendorIntroduction("供應商介紹");
+            var farmer=new com.fruitude.farmer.model.FarmerVO();farmer.setVendorId(id);farmer.setVendor(vendor);
+            farmer.setFarmerStory(id==42?"第一段\n\n 第二段 ":null);farmers.add(farmer);
+        }
+        var controller=new FrontProductController(catalog,noPromos(),new com.fruitude.orders.model.OrdersService());
+        org.springframework.test.util.ReflectionTestUtils.setField(controller,"farmerService",new com.fruitude.farmer.model.FarmerService(){
+            @Override public List<com.fruitude.farmer.model.FarmerVO> getFarmersForFront(){return farmers;}
+        });
+        var model=new org.springframework.ui.ExtendedModelMap();var response=new org.springframework.mock.web.MockHttpServletResponse();
+        assertEquals("front/farmers/index",controller.farmers(model,response));assertEquals("no-store",response.getHeader("Cache-Control"));
+        @SuppressWarnings("unchecked") var views=(List<FrontProductController.FarmerView>)model.get("farmers");
+        assertEquals(List.of("第一段","第二段"),views.get(0).paragraphs());assertEquals(List.of(fruit),views.get(0).products());
+        assertEquals(List.of("供應商介紹"),views.get(1).paragraphs());assertTrue(views.get(1).products().isEmpty());
+    }
+    @Test public void vendorCatalogKeepsEmptyVendorsAndGroupsOnlySellableProducts() {
+        var row=new com.fruitude.product.model.VendorProductRow(){public Integer getVendorId(){return 42;}public Integer getProductId(){return 1;}};
+        var repository=(ProductRepository)Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),new Class<?>[]{ProductRepository.class},(p,m,a)->{
+            if(m.getName().equals("findFrontRows"))return List.of(projection(ProductRepository.FrontCatalogRow.class,key->switch(key){
+                case "getProductId","getSkuId","getSkuStatus" -> 1;case "getName","getSkuName" -> "小農水果";
+                case "getPrice" -> 100;case "getStock" -> 10;default -> null;
+            }));
+            if(m.getName().equals("findProductIdsByVendorIds"))return List.of(row);
+            return List.of();
+        });
+        var catalog=new FrontCatalogService(repository);var grouped=catalog.getProductsByVendorIds(List.of(42,43));
+        assertEquals(Integer.valueOf(1),grouped.get(42).get(0).productId());assertTrue(grouped.get(43).isEmpty());
+        assertTrue(catalog.getProductsByVendorIds(List.of()).isEmpty());
+    }
     private FrontCatalogService service(List<Product> products) {
         ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(), new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
             if (method.getName().equals("findFrontRows")) {
-                List<FrontCatalogRow> rows = new ArrayList<>();
+                List<com.fruitude.product.model.ProductRepository.FrontCatalogRow> rows = new ArrayList<>();
                 for (Product p : products) if (args[0] == null || args[0].equals(p.getProductId()))
                     for (ProductSku s : p.getProductSkus()) if (((s.getStatus() >= 1 && s.getStatus() <= 3) || s.getStatus()==4 || s.getStatus()==6) && s.getPrice() != null && s.getPrice() > 0)
-                        rows.add(projection(FrontCatalogRow.class, key -> switch (key) {
+                        rows.add(projection(com.fruitude.product.model.ProductRepository.FrontCatalogRow.class, key -> switch (key) {
                             case "getProductId" -> p.getProductId(); case "getName" -> p.getProductName(); case "getDescription" -> p.getProductDesc();
                             case "getCategoryId" -> p.getProductCategory() == null ? null : p.getProductCategory().getProductCategoryId();
                             case "getSkuId" -> s.getSkuId(); case "getSkuName" -> s.getSkuName(); case "getAnotherName" -> s.getAnotherName(); case "getPrice" -> s.getPrice(); case "getSkuStatus" -> (int)s.getStatus(); case "getStock" -> s.getStock(); case "getInboundQty" -> s.getInboundQty(); case "getOutboundQty" -> s.getOutboundQty(); case "getMaxBackorderQty" -> s.getMaxBackorderQty(); default -> null;
@@ -28,21 +66,21 @@ public class FrontCatalogTest {
                 return rows;
             }
             if (method.getName().equals("findFrontImages")) {
-                List<FrontImageRow> rows = new ArrayList<>();
+                List<com.fruitude.product.model.ProductRepository.FrontImageRow> rows = new ArrayList<>();
                 for (Product p : products) if (((List<?>)args[0]).contains(p.getProductId()))
                     for (ProductSku s : p.getProductSkus()) if (((s.getStatus() >= 1 && s.getStatus() <= 3) || s.getStatus()==4 || s.getStatus()==6) && s.getPrice() != null && s.getPrice() > 0)
                         for (ProductImage i : s.getProductImages().stream().filter(i -> i.getImageData() != null && i.getImageData().length > 0)
                             .sorted(Comparator.comparing((ProductImage i) -> i.getSortOrder() == null ? 0 : i.getSortOrder()).thenComparing(ProductImage::getImageId)).toList())
-                            rows.add(projection(FrontImageRow.class, key -> key.equals("getSkuId") ? s.getSkuId() : i.getImageId()));
+                            rows.add(projection(com.fruitude.product.model.ProductRepository.FrontImageRow.class, key -> key.equals("getSkuId") ? s.getSkuId() : i.getImageId()));
                 return rows;
             }
             if (method.getName().equals("findFrontCategories")) {
-                Map<Integer, FrontCategoryRow> rows = new HashMap<>();
+                Map<Integer, com.fruitude.product.model.ProductRepository.FrontCategoryRow> rows = new HashMap<>();
                 for (Product p : products) {
                     Set<Integer> visited = new HashSet<>();
                     for (ProductCategory c = p.getProductCategory(); c != null && visited.add(c.getProductCategoryId()); c = c.getParentCategory()) {
                         final ProductCategory category = c;
-                        rows.put(c.getProductCategoryId(), projection(FrontCategoryRow.class, key -> switch (key) {
+                        rows.put(c.getProductCategoryId(), projection(com.fruitude.product.model.ProductRepository.FrontCategoryRow.class, key -> switch (key) {
                             case "getCategoryId" -> category.getProductCategoryId(); case "getName" -> category.getCategoryName();
                             case "getParentId" -> category.getParentCategory() == null ? null : category.getParentCategory().getProductCategoryId(); default -> null;
                         }));
@@ -50,9 +88,14 @@ public class FrontCatalogTest {
                 }
                 return new ArrayList<>(rows.values());
             }
+            if (method.getName().equals("findBestSellerProductIds") || method.getName().equals("findTopRatedProductIds"))
+                return products.stream().map(Product::getProductId).toList();
+            if (method.getName().equals("findCatalogPriorities")) return List.of();
             throw new AssertionError(method.getName());
         });
-        return new FrontCatalogService(repo);
+        return new FrontCatalogService(repo) {
+            @Override public ReviewPage read(int productId,int page,int size) { return ReviewPage.empty(); }
+        };
     }
     @SuppressWarnings("unchecked")
     private <T> T projection(Class<T> type, java.util.function.Function<String, Object> values) {
@@ -122,6 +165,35 @@ public class FrontCatalogTest {
         assertFalse(html.contains("已下架規格")); assertFalse(html.contains("資料庫描述"));
         assertTrue(html.contains("/shop/front/css/home-product-cards.css"));
     }
+    @Test public void allProductsHasSingleCollectionAndUsesHomePurchaseCards() throws Exception {
+        Product fresh=product(5,"鮮果"),gift=product(8,"芒果禮盒");sku(fresh,42,345,1);sku(gift,43,678,1);
+        var catalogMvc=mvc(service(List.of(fresh,gift)));
+        var response=catalogMvc.perform(get("/shop/front/all-products/").contextPath("/shop")).andReturn().getResponse();
+        assertEquals(200,response.getStatus());assertEquals("no-store",response.getHeader("Cache-Control"));
+        String html=response.getContentAsString();
+        assertTrue(html.contains("全臺精選"));assertTrue(html.contains("home-orange-theme all-products-page"));
+        assertTrue(html.contains("id=\"all-products-grid\""));
+        assertFalse(html.contains("all-products-giftbox-grid"));assertFalse(html.contains("all-products-fresh-grid"));
+        assertTrue(html.contains("data-product-id=\"5\""));assertTrue(html.contains("data-product-id=\"8\""));
+        assertTrue(html.contains("home-card-add"));assertTrue(html.contains("home-card-sku"));
+        assertTrue(html.contains("/shop/front/css/home-theme.css"));assertTrue(html.contains("/shop/front/js/favorite-store.js"));
+        assertEquals(400,catalogMvc.perform(get("/front/api/catalog-order").param("favoriteProductIds","-1"))
+            .andReturn().getResponse().getStatus());
+    }
+    @Test public void rankingPagesAndHomepageShareRankedPurchaseCards() throws Exception {
+        Product p=product(5,"暢銷水果");sku(p,42,345,1);var catalogMvc=mvc(service(List.of(p)));
+        for(String route:List.of("/front/best-sellers/","/front/top-rated/")) {
+            var response=catalogMvc.perform(get(route)).andReturn().getResponse();assertEquals(200,response.getStatus());
+            String html=response.getContentAsString();assertTrue(html.contains("products-purchase-card"));
+            assertTrue(html.contains("暢銷水果"));assertTrue(html.contains("home-theme.css"));
+            assertFalse(html.contains("data-order-url"));assertFalse(html.contains("全部鮮果與禮盒"));
+            assertTrue(html.contains(route.contains("best-sellers")?"人氣爆棚":"好評如潮"));
+        }
+        String home=catalogMvc.perform(get("/front/")).andReturn().getResponse().getContentAsString();
+        assertTrue(home.contains("人氣爆棚"));assertTrue(home.contains("好評如潮"));
+        assertTrue(home.contains("href=\"best-sellers/\""));assertTrue(home.contains("href=\"top-rated/\""));
+        assertFalse(home.contains("熱銷精選"));
+    }
     @Test public void stoppingSupplyLabelAppearsOnCardsAndProductDetails() throws Exception {
         Product p=product(23,"停產測試商品");
         ProductSku s=sku(p,102,199,6);s.setAnotherName("最後一批");s.setStock(7);
@@ -134,7 +206,7 @@ public class FrontCatalogTest {
     }
     @Test public void shortageAndRetiringSkusRenderWithQuantityPolicy() throws Exception {
         Product p = product(22, "狀態測試商品");
-        ProductSku shortage = sku(p, 100, 100, 2); shortage.setStock(0);
+        ProductSku shortage = sku(p, 100, 100, 2); shortage.setStock(0);shortage.setInboundQty(10);
         ProductSku retiring = sku(p, 101, 200, 3); retiring.setStock(4); retiring.setInboundQty(8); retiring.setOutboundQty(3);
         FrontCatalogService service = service(List.of(p));
         assertEquals(Integer.valueOf(5), service.getProducts().get(0).skus().get(0).stock());

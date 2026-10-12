@@ -72,6 +72,8 @@ public class SkuSupplyService {
     }
     public static int quantityLimit(int status,long stock,long incoming,long outgoing,int backorder,BigDecimal yield) {
         BigDecimal a=remaining(stock,incoming,outgoing,yield);
+        // Backorder allowance does not reopen an exhausted supply pool.
+        if (status!=6 && boxes(a)==0) return 0;
         return switch(status) {
             case 1 -> Math.min(10,boxes(a.add(BigDecimal.valueOf(Math.max(0,backorder)))));
             case 2 -> Math.min(5,boxes(a.add(BigDecimal.valueOf(Math.max(0,backorder)))));
@@ -141,6 +143,91 @@ public class SkuSupplyService {
             if(next!=old)changed+=jdbc.update("UPDATE product_sku SET status=:next,updated_at=CURRENT_TIMESTAMP WHERE sku_id=:id AND status=:old",Map.of("id",id,"old",old,"next",next));
         }
         return changed;
+    }
+    private static final String HISTORY_TOKEN="""
+        (SELECT COALESCE(SHA2(CAST(JSON_OBJECTAGG(CAST(d.id AS CHAR),
+            JSON_ARRAY(po.id,po.po_status,po.inbound_status,po.inbound_date,po.order_date,
+                       d.quantity,d.arrived_pcs,d.defect_pcs)) AS CHAR),256),'')
+         FROM purchaseorder_details d JOIN purchaseorder po ON po.id=d.po_id
+         WHERE d.sku_id=s.sku_id AND po.vendor_id=p.vendor_id)
+        """;
+
+    /** Post-commit reconciliation: no preemptive product/SKU locks, only guarded writes. */
+    @org.springframework.transaction.annotation.Transactional(
+        propagation=org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+        isolation=org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public void refreshChangedProducts(Collection<Integer> productIds, Set<Integer> recoverable) {
+        for(var productId:new TreeSet<>(productIds)) {
+            boolean complete=false;
+            for(int attempt=0;attempt<4 && !complete;attempt++) {
+                var now=LocalDateTime.now(ZoneId.of("Asia/Taipei"));
+                var rows=jdbc.queryForList("SELECT s.*,p.status AS parent_status,p.auto_restock_enabled AS parent_auto,"
+                    +"p.updated_at AS parent_updated,p.vendor_id AS parent_vendor,"+HISTORY_TOKEN+" AS history_token,"
+                    +duePromotion()+" AS due FROM product_sku s JOIN product p ON p.product_id=s.product_id WHERE p.product_id=:pid ORDER BY s.sku_id",
+                    Map.of("pid",productId,"now",now));
+                var rates=yields(rows.stream().map(r->((Number)r.get("sku_id")).intValue()).toList());
+                boolean stale=false,activated=false;
+                for(var row:rows) {
+                    int id=(int)number(row,"sku_id",0), parent=(int)number(row,"parent_status",0);
+                    byte old=(byte)number(row,"status",0);
+                    boolean auto=truth(row.get("parent_auto"));
+                    boolean due=old==5 && parent!=2 && truth(row.get("due"));
+                    if(!due && old!=6 && (parent==2 || (parent==0 && !auto))) continue;
+                    boolean recovery=recoverable.contains(id) && auto && parent!=2;
+                    byte next=nextStatus(due?(byte)1:old,number(row,"stock",0),number(row,"inbound_qty",0),
+                        number(row,"outbound_qty",0),(int)number(row,"safety_stock",0),
+                        (int)number(row,"max_backorder_qty",10),(int)number(row,"purchase_add_on_qty",20),
+                        rates.getOrDefault(id,DEFAULT_YIELD),recovery);
+                    if(next==old) continue;
+                    var args=new HashMap<String,Object>();
+                    args.put("id",id); args.put("next",next); args.put("now",now);
+                    StringBuilder guards=new StringBuilder("s.sku_id=:id");
+                    for(var column:List.of("status","stock","inbound_qty","outbound_qty","safety_stock",
+                            "max_backorder_qty","purchase_add_on_qty","price","updated_at")) {
+                        guards.append(" AND s.").append(column).append(" <=> :").append(column);
+                        args.put(column,row.get(column));
+                    }
+                    args.put("parent_status",row.get("parent_status"));args.put("parent_auto",row.get("parent_auto"));
+                    args.put("parent_updated",row.get("parent_updated"));args.put("parent_vendor",row.get("parent_vendor"));
+                    args.put("history",row.get("history_token"));
+                    guards.append(" AND p.status <=> :parent_status AND p.auto_restock_enabled <=> :parent_auto")
+                        .append(" AND p.updated_at <=> :parent_updated AND p.vendor_id <=> :parent_vendor")
+                        .append(" AND ").append(HISTORY_TOKEN).append(" <=> :history");
+                    if(due) guards.append(" AND ").append(duePromotion());
+                    int changed=jdbc.update("UPDATE product_sku s JOIN product p ON p.product_id=s.product_id "
+                        +"SET s.status=:next,s.updated_at=CURRENT_TIMESTAMP WHERE "+guards,args);
+                    if(changed==0) { stale=true;break; }
+                    activated|=due && next>=1 && next<=3;
+                }
+                if(!stale) complete=synchronizeParent(productId,activated);
+            }
+            if(!complete) throw new IllegalStateException("商品 "+productId+" 數量持續異動，稍後重試");
+        }
+    }
+    private static boolean truth(Object value) {
+        return Boolean.TRUE.equals(value) || (value instanceof Number n && n.intValue()!=0);
+    }
+    private static String duePromotion() {
+        return "EXISTS(SELECT 1 FROM promotion pr JOIN promo_project a ON a.promo_project_id=pr.promo_project_id "
+            +"WHERE pr.sku_id=s.sku_id AND a.status=1 AND a.promo_type='SKU' "
+            +"AND a.promo_project_start<=:now AND (a.promo_project_end IS NULL OR a.promo_project_end>:now))";
+    }
+    private boolean synchronizeParent(int id,boolean activated) {
+        String listed="EXISTS(SELECT 1 FROM product_sku s WHERE s.product_id=p.product_id AND s.status IN(1,2,3,6) AND s.price>0)";
+        var rows=jdbc.queryForList("SELECT p.status,p.auto_restock_enabled,p.updated_at,"+listed+" AS listed FROM product p WHERE p.product_id=:id",Map.of("id",id));
+        if(rows.isEmpty())return true;
+        var row=rows.get(0);int old=(int)number(row,"status",0);
+        boolean auto=truth(row.get("auto_restock_enabled"));
+        if(old==2 || (old==0 && !auto && !activated))return true;
+        int next=truth(row.get("listed"))?1:0;
+        if(old==next && (!activated || auto))return true;
+        var args=new HashMap<String,Object>();
+        args.put("id",id);args.put("old",old);args.put("next",next);
+        args.put("auto",row.get("auto_restock_enabled"));args.put("updated",row.get("updated_at"));
+        args.put("newAuto",auto||activated);
+        return jdbc.update("UPDATE product p SET p.status=:next,p.auto_restock_enabled=:newAuto,p.updated_at=CURRENT_TIMESTAMP "
+            +"WHERE p.product_id=:id AND p.status=:old AND p.auto_restock_enabled <=> :auto AND p.updated_at <=> :updated "
+            +"AND :next=CASE WHEN "+listed+" THEN 1 ELSE 0 END",args)>0;
     }
     private static long number(Map<String,Object> row,String key,long fallback) {
         return row.get(key)==null?fallback:((Number)row.get(key)).longValue();

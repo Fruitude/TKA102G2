@@ -66,3 +66,9 @@
     --ssx-grid-columns: 1;
   }
 }
+
+/* The single all-products collection includes every available product. */
+.all-products-page .products-grid.products-grid-6up > .w-dyn-item:nth-child(n+31) { display: block; }
+
+/* Keep new ranking pages below the fixed navigation. */
+.ranked-products-page > .section.section-black:first-of-type { margin-top: 88px; }

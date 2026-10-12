@@ -11,7 +11,7 @@ import org.junit.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import static org.junit.Assert.*;
 
-/** Exercises the unchanged receiving implementation through the product-owned transaction boundary. */
+/** Receiving owns its transaction; the product facade must not add locks or mutate stale entities. */
 public class ReceivingSupplyTest {
  @SuppressWarnings("unchecked") static <T>T fake(Class<T> c,java.util.function.BiFunction<String,Object[],Object> f){
   return (T)Proxy.newProxyInstance(c.getClassLoader(),new Class<?>[]{c},(p,m,a)->f.apply(m.getName(),a));
@@ -32,8 +32,8 @@ public class ReceivingSupplyTest {
    var pos=fake(PoRepository.class,(n,a)->switch(n){
     case "lockForReceiving" -> {events.add("po-lock");yield Optional.of(db);}
     case "findById" -> Optional.of(db);
-    case "lockReceivablePo" -> db.getPoStatus()==1?List.of(4):List.of();
-    case "lockClosedPo" -> db.getPoStatus()==4?List.of(4):List.of();
+    case "lockReceivablePo" -> {events.add("core-po-lock");yield db.getPoStatus()==1?List.of(4):List.of();}
+    case "lockClosedPo" -> {events.add("core-po-lock");yield db.getPoStatus()==4?List.of(4):List.of();}
     default -> throw new AssertionError(n);
    });
    var em=fake(EntityManager.class,(n,a)->{
@@ -58,25 +58,25 @@ public class ReceivingSupplyTest {
   }
   boolean receive(){return flow.receive(form,new Employee(),receiving.getReceivedContent(db));}
  }
- @Test public void receiptReloadsReservationsAddsOnlyGoodStockAndRejectsDuplicateSubmission(){
+ @Test public void receiptAddsOnlyGoodStockWithoutOuterLocksAndRejectsDuplicateSubmission(){
   var f=new Fixture();String original=f.receiving.getReceivedContent(f.db);
   assertFalse(f.flow.receive(f.form,new Employee(),original));
-  assertEquals(Integer.valueOf(16),f.sku.getStock());assertEquals(Integer.valueOf(0),f.sku.getInboundQty());assertEquals(Integer.valueOf(12),f.sku.getOutboundQty());
-  assertEquals(Byte.valueOf((byte)3),f.sku.getStatus());assertEquals(Byte.valueOf((byte)1),f.product.getStatus());assertEquals(Byte.valueOf((byte)4),f.db.getPoStatus());
-  assertEquals(Integer.valueOf(160),f.db.getInboundAmount());assertEquals(1,f.restores);
-  assertTrue(f.events.indexOf("po-lock")<f.events.indexOf("product-sku-lock"));
-  assertTrue(f.events.indexOf("receive-stock")<f.events.indexOf("flush"));assertTrue(f.events.indexOf("flush")<f.events.indexOf("restore"));
+  assertArrayEquals(new int[]{16,0,12},f.quantities);
+  assertEquals(Byte.valueOf((byte)4),f.sku.getStatus());assertEquals(Byte.valueOf((byte)0),f.product.getStatus());assertEquals(Byte.valueOf((byte)4),f.db.getPoStatus());
+  assertEquals(Integer.valueOf(160),f.db.getInboundAmount());assertEquals(0,f.restores);
+  assertEquals(1,Collections.frequency(f.events,"core-po-lock"));assertFalse(f.events.contains("po-lock"));
+  assertFalse(f.events.contains("product-sku-lock"));assertFalse(f.events.contains("flush"));assertFalse(f.events.contains("restore"));
   try{f.flow.receive(f.form,new Employee(),original);fail("Stale content must be rejected");}catch(IllegalArgumentException expected){}
-  assertEquals(16,f.quantities[0]);assertEquals(1,f.restores);
+  assertEquals(16,f.quantities[0]);assertEquals(0,f.restores);
  }
  @Test public void unchangedOrReducedReceiptDoesNotReviveSoldOut(){
   var f=new Fixture();f.receive();f.sku.setStatus((byte)4);f.product.setStatus((byte)0);f.restores=0;
   assertTrue(f.receive());assertEquals(0,f.restores);assertEquals(Byte.valueOf((byte)4),f.sku.getStatus());
   f.input.setArrivedPcs(16);assertTrue(f.receive());assertEquals(0,f.restores);assertEquals(14,f.quantities[0]);
  }
- @Test public void increasedReceiptCanReviveSoldOutButManualOffIsPreserved(){
+ @Test public void increasedReceiptLeavesProductSynchronizationToCommittedEvents(){
   var f=new Fixture();f.receive();f.sku.setStatus((byte)4);f.product.setStatus((byte)0);f.restores=0;
-  f.input.setArrivedPcs(20);assertTrue(f.receive());assertEquals(1,f.restores);assertEquals(Byte.valueOf((byte)3),f.sku.getStatus());
+  f.input.setArrivedPcs(20);assertTrue(f.receive());assertEquals(0,f.restores);assertEquals(18,f.quantities[0]);assertEquals(Byte.valueOf((byte)4),f.sku.getStatus());
   var manual=new Fixture();manual.product.setAutoRestockEnabled(false);manual.receive();
   assertEquals(Byte.valueOf((byte)4),manual.sku.getStatus());assertEquals(Byte.valueOf((byte)0),manual.product.getStatus());
  }

@@ -14,7 +14,7 @@ public class ProductOverviewPagingTest {
             new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
                 assertEquals("findOverviewPage", method.getName());
                 assertEquals(Integer.valueOf(2), args[0]);
-                return new PageImpl<ProductOverview>(List.of(), (Pageable)args[args.length-1], 0);
+                return new PageImpl<com.fruitude.product.model.ProductRepository.ProductOverview>(List.of(), (Pageable)args[args.length-1], 0);
             });
         var service = new ProductService(); ReflectionTestUtils.setField(service, "repository", repo);
         assertTrue(service.getOverviewPage(1, 10, "discontinued").isEmpty());
@@ -34,8 +34,8 @@ public class ProductOverviewPagingTest {
         assertEquals(List.of(List.of(42, 43)), requests);
     }
 
-    private ProductOverviewImage image(int productId, int imageId) {
-        return new ProductOverviewImage() {
+    private com.fruitude.product.model.ProductRepository.ProductOverviewImage image(int productId, int imageId) {
+        return new com.fruitude.product.model.ProductRepository.ProductOverviewImage() {
             public Integer getProductId() { return productId; }
             public Integer getImageId() { return imageId; }
         };
@@ -50,7 +50,7 @@ public class ProductOverviewPagingTest {
                 filters.add((Integer) args[0]);
                 Pageable requested = (Pageable) args[args.length - 1]; requests.add(requested);
                 int amount = requested.getPageNumber() >= 8 ? 0 : Math.min(20, 150 - (int)requested.getOffset());
-                return new PageImpl<ProductOverview>(Collections.nCopies(amount, null), requested, 150);
+                return new PageImpl<com.fruitude.product.model.ProductRepository.ProductOverview>(Collections.nCopies(amount, null), requested, 150);
             });
         ProductService service = new ProductService();
         ReflectionTestUtils.setField(service, "repository", repo);
@@ -75,7 +75,7 @@ public class ProductOverviewPagingTest {
             new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
                 searches.add(Arrays.asList(args[10], args[11], args[12]));
                 Pageable requested = (Pageable) args[args.length - 1];
-                return new PageImpl<ProductOverview>(List.of(), requested, 25);
+                return new PageImpl<com.fruitude.product.model.ProductRepository.ProductOverview>(List.of(), requested, 25);
             });
         var service = new ProductService(); ReflectionTestUtils.setField(service, "repository", repo);
         service.getOverviewPage(99, 10, "all", null, null, null, "all", null, null, "", "", "asc",
@@ -95,7 +95,7 @@ public class ProductOverviewPagingTest {
             new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
                 sorts.add(List.of((String) args[8], (String) args[9]));
                 Pageable requested = (Pageable) args[args.length - 1];
-                return new PageImpl<ProductOverview>(List.of(), requested, 25);
+                return new PageImpl<com.fruitude.product.model.ProductRepository.ProductOverview>(List.of(), requested, 25);
             });
         var service = new ProductService(); ReflectionTestUtils.setField(service, "repository", repo);
         service.getOverviewPage(99, 10, "all", null, null, null, "all", null, null, "", "rating", "desc");

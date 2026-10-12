@@ -24,7 +24,7 @@ public class PromoService {
 
 	// 活動或活動商品異動時，要讓商品列表的快取重新載入，前台價格才會馬上跟著變
 	@Autowired
-	private com.fruitude.product.model.FrontCatalogService frontCatalogService;
+	private com.fruitude.product.model.ProductService frontCatalogService;
 
 	public List<PromoProject> findAllByStartDateDesc() {
 		return promoRepository.findAllByStartDateDesc();

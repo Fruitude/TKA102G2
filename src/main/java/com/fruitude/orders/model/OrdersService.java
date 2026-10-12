@@ -591,7 +591,7 @@ public class OrdersService {
 		var rates = supply.yields(qtyBySku.keySet());
 		for (Map.Entry<Integer, Integer> entry : qtyBySku.entrySet()) {
 			if (skuStockRepository.deductStock(entry.getKey(), entry.getValue(), rates.getOrDefault(entry.getKey(), com.fruitude.product.model.SkuSupplyService.DEFAULT_YIELD)) == 0) {
-				throw new com.fruitude.product.model.ProductUnavailableException(
+				throw new com.fruitude.product.model.FrontCatalogService.ProductUnavailableException(
 						productNameOf(form.getItems(), entry.getKey()) + " 庫存不足或已達預購上限，請返回購物車調整數量");
 			}
 		}

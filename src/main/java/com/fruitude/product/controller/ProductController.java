@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
-
 import com.fruitude.product.model.Product;
 import com.fruitude.product.model.ProductCategory;
 import com.fruitude.product.model.ProductCategoryService;
@@ -27,12 +25,19 @@ import com.fruitude.product.model.ProductService;
 import com.fruitude.product.model.ProductSku;
 import com.fruitude.vendor.model.VendorVO;
 import com.fruitude.vendor.model.VendorService;
-
 import jakarta.validation.Valid;
+import com.fruitude.product.model.*;
+import java.util.*;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.ui.Model;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.http.*;
 
 @Controller
-@RequestMapping("/product")
 public class ProductController {
+    public ProductController() {}
+    public ProductController(ProductService service) { this.productSvc=service; }
     @Autowired
     private com.fruitude.product.model.ProductPageStatusService productPageStatusSvc;
 
@@ -71,7 +76,7 @@ public class ProductController {
     /*
      * 顯示新增商品頁面
      */
-    @GetMapping("addProduct")
+    @GetMapping("/product/addProduct")
     public String addProduct(ModelMap model) {
         Product product = new Product();
         product.getProductSkus().add(new ProductSku());
@@ -111,7 +116,7 @@ public class ProductController {
     /*
      * 新增商品
      */
-    @PostMapping("insert")
+    @PostMapping("/product/insert")
     public String insert(
             @Valid @ModelAttribute("product") Product product,
             BindingResult result,
@@ -257,7 +262,7 @@ public class ProductController {
         	                );
 
         	                // 加入 SKU
-                            ImageUploadSupport.apply(productImage, file);
+                            com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(productImage, file);
         	                sku.getProductImages().add(productImage);
 
         	            } catch (IOException | IllegalArgumentException e) {
@@ -295,7 +300,7 @@ public class ProductController {
     /*
      * 查詢單筆商品，準備修改
      */
-    @PostMapping("getOne_For_Update")
+    @PostMapping("/product/getOne_For_Update")
     public String getOne_For_Update(
             @RequestParam("productId") Integer productId,
             ModelMap model) {
@@ -312,7 +317,7 @@ public class ProductController {
     /*
      * 修改商品
      */
-    @PostMapping("update")
+    @PostMapping("/product/update")
     public String update(
             @Valid @ModelAttribute("product") Product product,
             BindingResult result,
@@ -349,7 +354,7 @@ public class ProductController {
         return "admin/productmanagement/product/listOneProduct";
     }
     
-    @PostMapping("updateStatus")
+    @PostMapping("/product/updateStatus")
     @ResponseBody
     public org.springframework.http.ResponseEntity<String> updateStatus(
             @RequestParam Integer productId, @RequestParam Byte status,
@@ -363,16 +368,16 @@ public class ProductController {
                 .header("X-Sku-Statuses", actual.getProductSkus().stream()
                     .map(sku -> "\"" + sku.getSkuId() + "\":" + sku.getStatus())
                     .collect(java.util.stream.Collectors.joining(",", "{", "}"))).body("success");
-        } catch (com.fruitude.product.model.ProductStatusConfirmationException e) {
+        } catch (com.fruitude.product.model.ProductLifecycleService.ProductStatusConfirmationException e) {
             return org.springframework.http.ResponseEntity.status(409).body(e.getMessage());
-        } catch (com.fruitude.product.model.ProductStatusAccessException e) {
+        } catch (com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException e) {
             return org.springframework.http.ResponseEntity.status(403).body(e.getMessage());
         } catch (IllegalArgumentException e) {
             return org.springframework.http.ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    @PostMapping("updatePageStatus")
+    @PostMapping("/product/updatePageStatus")
     @ResponseBody
     public org.springframework.http.ResponseEntity<?> updatePageStatus(
             @RequestParam List<Integer> productIds, @RequestParam Byte status,
@@ -387,7 +392,7 @@ public class ProductController {
     /*
      * 刪除商品
      */
-    @PostMapping("delete")
+    @PostMapping("/product/delete")
     public String delete(
             @RequestParam("productId") Integer productId,
             org.springframework.web.servlet.mvc.support.RedirectAttributes model) {
@@ -411,23 +416,27 @@ public class ProductController {
     /*
      * 提供商品分類下拉選單資料
      */
+    private static boolean isLegacyProductPage(jakarta.servlet.http.HttpServletRequest request) {
+        String path=request.getRequestURI().substring(request.getContextPath().length());
+        return path.startsWith("/product/") && !java.util.Set.of("/product/editData","/product/saveModal","/product/saveModalWithImages").contains(path);
+    }
     @ModelAttribute("productCategoryListData")
-    protected List<ProductCategory> referenceProductCategoryListData() {
-        return productCategorySvc.getAll();
+    protected List<ProductCategory> referenceProductCategoryListData(jakarta.servlet.http.HttpServletRequest request) {
+        return isLegacyProductPage(request) ? productCategorySvc.getAll() : null;
     }
 
     /*
      * 提供廠商下拉選單資料
      */
     @ModelAttribute("vendorListData")
-    protected List<VendorVO> referenceVendorListData() {
-        return vendorSvc.getAll();
+    protected List<VendorVO> referenceVendorListData(jakarta.servlet.http.HttpServletRequest request) {
+        return isLegacyProductPage(request) ? vendorSvc.getAll() : null;
     }
 
     /*
      * 顯示全部商品
      */
-    @GetMapping("listAllProduct")
+    @GetMapping("/product/listAllProduct")
     public String listAllProduct(
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(defaultValue = "true") boolean searchProductName,
@@ -505,7 +514,7 @@ public class ProductController {
         model.addAttribute("searchProductName", searchProductName);
         model.addAttribute("searchSkuName", searchSkuName);
         model.addAttribute("productListData", result.getContent());
-        var overviewProductIds = result.getContent().stream().map(com.fruitude.product.model.ProductOverview::getProductId).toList();
+        var overviewProductIds = result.getContent().stream().map(com.fruitude.product.model.ProductRepository.ProductOverview::getProductId).toList();
         model.addAttribute("overviewSkuNames", productSvc.getOverviewSkuNames(overviewProductIds));
         model.addAttribute("overviewImageIds", productSvc.getOverviewImageIds(overviewProductIds));
         model.addAttribute("overviewStockStatuses", productSvc.getOverviewStockStatuses(overviewProductIds));
@@ -537,12 +546,12 @@ public class ProductController {
     /*
      * 查詢單筆商品
      */
-    @GetMapping("getOne_For_Display")
+    @GetMapping("/product/getOne_For_Display")
     public String displayProductDetails(@RequestParam("productId") Integer productId, ModelMap model) {
         return getOne_For_Display(productId, model);
     }
 
-    @PostMapping("getOne_For_Display")
+    @PostMapping("/product/getOne_For_Display")
     public String getOne_For_Display(
             @RequestParam("productId") Integer productId,
             ModelMap model) {
@@ -575,4 +584,37 @@ public class ProductController {
 
         return "admin/productmanagement/product/listOneProduct";
     }
+
+    // ProductController endpoints
+
+
+
+    @ResponseBody
+    @GetMapping("/product/editData") public ProductService.EditData load(@RequestParam Integer productId) { return productSvc.load(productId); }
+    @ResponseBody
+    @PostMapping("/product/saveModal") public ProductService.Saved save(@RequestBody ProductService.SaveRequest request) { return productSvc.save(request); }
+    @ResponseBody
+    @PostMapping(value="/product/saveModalWithImages", consumes="multipart/form-data")
+    public ProductService.Saved saveImages(@RequestParam String payload,
+            @RequestParam(required=false) List<org.springframework.web.multipart.MultipartFile> files) throws java.io.IOException {
+        var request=tools.jackson.databind.json.JsonMapper.builder().build().readValue(payload,ProductService.ImageRequest.class);
+        var uploads=new ArrayList<ProductImage>();
+        for(var file:files==null?List.<org.springframework.web.multipart.MultipartFile>of():files) {
+            var image=new ProductImage();com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(image,file);uploads.add(image);
+        }
+        return productSvc.saveWithImages(request,uploads);
+    }
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,tools.jackson.core.JacksonException.class})
+    public ResponseEntity<?> invalidPayload(Exception e) { return error(400,"invalid","輸入格式不正確：價格須為1～10,000,000的整數，數量須為0～2,147,483,647的整數"); }
+    @ExceptionHandler(java.io.IOException.class) public ResponseEntity<?> imageReadFailure(java.io.IOException e) { return error(400,"invalid","圖片讀取失敗，請重新選擇檔案"); }
+    @ExceptionHandler(com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException.class) public ResponseEntity<?> denied(com.fruitude.product.model.ProductStatusAccess.ProductStatusAccessException e) { return error(403,"denied",e.getMessage()); }
+    @ExceptionHandler(com.fruitude.product.model.ProductLifecycleService.ProductStatusConfirmationException.class) public ResponseEntity<?> confirm(com.fruitude.product.model.ProductLifecycleService.ProductStatusConfirmationException e) { return error(409,"confirm",e.getMessage()); }
+    @ExceptionHandler(ProductService.Conflict.class) public ResponseEntity<?> conflict(ProductService.Conflict e) { return error(409,"conflict",e.getMessage()); }
+    @ExceptionHandler(NoSuchElementException.class) public ResponseEntity<?> missing(NoSuchElementException e) { return error(404,"missing",e.getMessage()); }
+    @ExceptionHandler(com.fruitude.product.model.ProductLifecycleService.SkuRestockConfirmationException.class) public ResponseEntity<?> restock(com.fruitude.product.model.ProductLifecycleService.SkuRestockConfirmationException e) { return error(409,"restock",e.getMessage()); }
+    @ExceptionHandler(IllegalArgumentException.class) public ResponseEntity<?> invalid(IllegalArgumentException e) { return error(400,"invalid",e.getMessage()); }
+    private ResponseEntity<?> error(int status,String kind,String message) { return ResponseEntity.status(status).body(Map.of("kind",kind,"message",message)); }
+
+    // ProductController endpoints
+
 }

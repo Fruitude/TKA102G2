@@ -16,7 +16,12 @@ public class ProductScriptCacheTest {
     @Configuration
     @EnableWebMvc
     @Import(FruitudeWebConfig.class)
-    static class WebConfig {}
+    static class WebConfig {
+        @org.springframework.context.annotation.Bean
+        com.fruitude.farmer.model.FarmerImageStorage farmerImageStorage() {
+            return new com.fruitude.farmer.model.FarmerImageStorage("target/test-farmer-images",null);
+        }
+    }
 
     @Test public void productScriptsWorkWithoutVersionParametersAndAreNotCached() throws Exception {
         try (var context = new AnnotationConfigWebApplicationContext()) {
