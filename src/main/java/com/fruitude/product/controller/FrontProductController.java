@@ -14,6 +14,8 @@ import jakarta.servlet.http.HttpSession;
 public class FrontProductController {
     @org.springframework.beans.factory.annotation.Autowired(required=false)
     private com.fruitude.product.model.FrontProductReviewService productReviews;
+    // 小農資訊頁的十位小農；各自的供應商名稱為「姓名＋果園」
+    private static final List<String> FARMERS = List.of("陳天賜", "林秀蘭", "王建國", "張美惠", "李志明", "吳雅婷", "蔡文雄", "周佩珊", "許哲維", "鄭惠玲");
     private final FrontCatalogService catalog;
     private final PromoService promoService;
     private final OrdersService ordersService;
@@ -84,6 +86,19 @@ public class FrontProductController {
         model.addAttribute("relatedProducts", com.fruitude.product.model.ProductRecommendations.recommend(selected,products,5));
         return "front/product/view/index";
     }
+
+    // 小農資訊頁：每位小農各自販售的商品，讓會員看完文章後可以直接加入購物車
+    @GetMapping({"/front/farmers/", "/front/farmers/index", "/front/farmers/index.html"})
+    public String farmers(Model model, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        List<String> vendorNames = new java.util.ArrayList<>();
+        for (String farmer : FARMERS) vendorNames.add(farmer + "果園");
+        model.addAttribute("farmerProducts", catalog.getProductsByVendorNames(vendorNames));
+        return "front/farmers/index";
+    }
+
+    @GetMapping("/front/farmers")
+    public String canonicalFarmers() { return "redirect:/front/farmers/"; }
 
     @GetMapping("/front/api/cart-products")
     @ResponseBody
