@@ -24,16 +24,16 @@ public class FrontCatalogService {
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public List<ProductView> getProducts() { return loadProducts(null); }
 
-    // 依供應商名稱取得前台可販售的商品（供應商名稱 → 商品清單）；沒有商品的供應商也會有空清單
-    public Map<String, List<ProductView>> getProductsByVendorNames(List<String> vendorNames) {
-        Map<String, List<ProductView>> result = new LinkedHashMap<>();
-        for (String vendorName : vendorNames) result.put(vendorName, new ArrayList<>());
-        if (vendorNames.isEmpty()) return result;
+    // 依供應商編號取得前台可販售的商品（供應商編號 → 商品清單）；沒有商品的供應商也會有空清單
+    public Map<Integer, List<ProductView>> getProductsByVendorIds(List<Integer> vendorIds) {
+        Map<Integer, List<ProductView>> result = new LinkedHashMap<>();
+        for (Integer vendorId : vendorIds) result.put(vendorId, new ArrayList<>());
+        if (vendorIds.isEmpty()) return result;
         Map<Integer, ProductView> live = new HashMap<>();
         for (ProductView product : loadProducts(null)) live.put(product.productId(), product);
-        for (VendorProductRow row : repository.findProductIdsByVendorNames(vendorNames)) {
+        for (VendorProductRow row : repository.findProductIdsByVendorIds(vendorIds)) {
             ProductView product = live.get(row.getProductId());
-            if (product != null) result.get(row.getVendorName()).add(product);
+            if (product != null) result.get(row.getVendorId()).add(product);
         }
         return result;
     }

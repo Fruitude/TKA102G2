@@ -79,6 +79,52 @@
 									<input type="text" th:field="*{vendorId}" class="form-control-plaintext font-weight-bold" readonly />
 								</div>
 
+								<!-- 小農資訊：勾選才會顯示在前台「小農資訊」頁；圖片欄位 farmerImage 由 VendorController 另外接收，存到 front/img/farmers 並記錄相對路徑 -->
+								<div class="form-group">
+									<div class="custom-control custom-checkbox">
+										<input type="checkbox" th:field="*{showInFarmers}" class="custom-control-input" id="showInFarmers" />
+										<label class="custom-control-label" for="showInFarmers">是否顯示在小農資訊</label>
+									</div>
+								</div>
+
+								<div id="farmer_fields" class="border rounded p-3 mb-3" style="display: none;">
+									<div class="form-group">
+										<label for="farmerImage" class="required">小農圖片</label>
+										<input type="file" id="farmerImage" name="farmerImage" class="form-control-file"
+											accept="image/png, image/jpeg, image/gif"
+											onchange="hideContent('farmerImage.errors'); previewFarmerImage(this);" />
+										<small class="form-text text-muted">PNG、JPEG、GIF，5MB 以內</small>
+										<span class="text-danger d-block mt-1" th:text="${farmerImageError}" id="farmerImage.errors"></span>
+										<div id="farmer_blob_holder">
+											<img th:if="${vendorVO.farmerImagePath != null}" th:src="@{${vendorVO.farmerImagePath}}" width="120px" />
+										</div>
+									</div>
+
+									<div class="form-group">
+										<label for="growProduct" class="required">品名（種植）</label>
+										<input type="text" th:field="*{growProduct}" class="form-control" maxlength="50"
+											placeholder="種植何種水果，例如：愛文芒果" onclick="hideContent('growProduct.errors');" />
+										<span th:if="${#fields.hasErrors('growProduct')}" th:errors="*{growProduct}"
+											class="text-danger d-block mt-1" id="growProduct.errors"></span>
+									</div>
+
+									<div class="form-group">
+										<label for="farmerSlogan" class="required">標語</label>
+										<input type="text" th:field="*{farmerSlogan}" class="form-control" maxlength="100"
+											onclick="hideContent('farmerSlogan.errors');" />
+										<span th:if="${#fields.hasErrors('farmerSlogan')}" th:errors="*{farmerSlogan}"
+											class="text-danger d-block mt-1" id="farmerSlogan.errors"></span>
+									</div>
+
+									<div class="form-group mb-0">
+										<label for="farmerStory" class="required">小農故事</label>
+										<textarea th:field="*{farmerStory}" class="form-control" rows="8" maxlength="5000"
+											placeholder="一行一段，前台會依換行分段顯示" onclick="hideContent('farmerStory.errors');"></textarea>
+										<span th:if="${#fields.hasErrors('farmerStory')}" th:errors="*{farmerStory}"
+											class="text-danger d-block mt-1" id="farmerStory.errors"></span>
+									</div>
+								</div>
+
 								<div class="form-group">
 									<label for="vendorName" class="required">品牌名稱</label>
 									<input type="text" th:field="*{vendorName}" class="form-control" maxlength="30"
@@ -242,6 +288,41 @@
 				blob_holder.appendChild(info);
 				submitBtn.disabled = true;
 			}
+		}
+
+		//小農資訊：勾選才顯示小農圖片、品名等欄位
+		function toggleFarmerFields() {
+			document.getElementById("farmer_fields").style.display =
+					document.getElementById("showInFarmers").checked ? "block" : "none";
+		}
+		document.getElementById("showInFarmers").addEventListener("change", toggleFarmerFields);
+		toggleFarmerFields();
+
+		//小農圖片預覽；不合格的檔案直接清除選擇
+		function previewFarmerImage(input) {
+			var holder = document.getElementById("farmer_blob_holder");
+			var file = input.files[0];
+			if (!file) {
+				return;
+			}
+			if (acceptedTypes[file.type] !== true || file.size > 5 * 1024 * 1024) {
+				input.value = "";
+				holder.innerHTML = "";
+				var info = document.createElement("div");
+				info.className = "text-danger small mt-2";
+				info.innerText = "● 只能上傳 5MB 以內的 PNG、JPEG、GIF 圖片";
+				holder.appendChild(info);
+				return;
+			}
+			var reader = new FileReader();
+			reader.onload = function(event) {
+				holder.innerHTML = "";
+				var image = new Image();
+				image.src = event.target.result;
+				image.width = 120;
+				holder.appendChild(image);
+			};
+			reader.readAsDataURL(file);
 		}
 	</script>
 

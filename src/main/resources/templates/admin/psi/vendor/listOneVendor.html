@@ -86,6 +86,29 @@
 											</td>
 										</tr>
 										<tr>
+											<th class="bg-light">顯示在小農資訊</th>
+											<td>
+												<span th:if="${vendorVO.showInFarmers}" class="alert alert-success d-inline-block py-1 px-3 mb-0">是</span>
+												<span th:unless="${vendorVO.showInFarmers}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">否</span>
+											</td>
+										</tr>
+										<tr th:if="${vendorVO.showInFarmers}">
+											<th class="bg-light">小農圖片</th>
+											<td><img th:if="${vendorVO.farmerImagePath != null}" th:src="@{${vendorVO.farmerImagePath}}" width="120px"></td>
+										</tr>
+										<tr th:if="${vendorVO.showInFarmers}">
+											<th class="bg-light">品名（種植）</th>
+											<td th:text="${vendorVO.growProduct}"></td>
+										</tr>
+										<tr th:if="${vendorVO.showInFarmers}">
+											<th class="bg-light">標語</th>
+											<td th:text="${vendorVO.farmerSlogan}"></td>
+										</tr>
+										<tr th:if="${vendorVO.showInFarmers}">
+											<th class="bg-light">小農故事</th>
+											<td style="white-space: pre-line;" th:text="${vendorVO.farmerStory}"></td>
+										</tr>
+										<tr>
 											<th class="bg-light">操作</th>
 											<td>
 												<form method="post" th:action="@{/admin/psi/vendor/getOne_For_Update}">

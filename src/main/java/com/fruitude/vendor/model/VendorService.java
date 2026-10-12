@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class VendorService {
@@ -22,6 +23,17 @@ public class VendorService {
 			repository.findById(vendorVO.getVendorId()).ifPresent(old -> vendorVO.setLogo(old.getLogo()));
 		}
 		repository.save(vendorVO);
+	}
+
+	// 前台小農資訊頁：勾選「顯示在小農資訊」且啟用中的供應商
+	public List<VendorVO> getFarmers() {
+		return repository.findByShowInFarmersTrueAndIsActiveOrderByVendorId((byte) 1);
+	}
+
+	// 小農圖片的二進位內容（資料夾沒有檔案時用來補檔）；不放在 VendorVO 裡以免每次查供應商都讀出
+	@Transactional
+	public void saveFarmerImageData(Integer vendorId, byte[] data) {
+		repository.updateFarmerImageData(vendorId, data);
 	}
 
 	public VendorVO getOneVendor(Integer vendorId) {

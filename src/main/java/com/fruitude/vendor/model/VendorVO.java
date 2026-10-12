@@ -62,6 +62,26 @@ public class VendorVO implements java.io.Serializable{
 	@Column(name = "is_active", nullable = false)
 	private Byte isActive = 0;
 
+	// 是否顯示在前台「小農資訊」頁
+	@Column(name = "show_in_farmers", nullable = false)
+	private Boolean showInFarmers = false;
+
+	// 小農圖片的相對路徑（自 templates 起算），例如 /front/img/farmers/001.png；由上傳功能寫入，不接受表單帶來的值
+	@Column(name = "farmer_image_path", length = 255)
+	private String farmerImagePath;
+
+	@Size(max = 50, message = "品名，字數過多")
+	@Column(name = "grow_product", length = 50)
+	private String growProduct;
+
+	@Size(max = 100, message = "標語，字數過多")
+	@Column(name = "farmer_slogan", length = 100)
+	private String farmerSlogan;
+
+	@Size(max = 5000, message = "小農故事，字數過多")
+	@Column(name = "farmer_story", columnDefinition = "TEXT")
+	private String farmerStory;
+
 	@OneToMany(mappedBy = "vendor", fetch = FetchType.LAZY)
 	private List<PoVO> pos = new ArrayList<>();
 
@@ -128,6 +148,36 @@ public class VendorVO implements java.io.Serializable{
 	}
 	public void setIsActive(Byte isActive) {
 		this.isActive = isActive;
+	}
+	public Boolean getShowInFarmers() {
+		return showInFarmers;
+	}
+	public void setShowInFarmers(Boolean showInFarmers) {
+		this.showInFarmers = showInFarmers != null && showInFarmers;
+	}
+	public String getFarmerImagePath() {
+		return farmerImagePath;
+	}
+	public void setFarmerImagePath(String farmerImagePath) {
+		this.farmerImagePath = farmerImagePath;
+	}
+	public String getGrowProduct() {
+		return growProduct;
+	}
+	public void setGrowProduct(String growProduct) {
+		this.growProduct = growProduct;
+	}
+	public String getFarmerSlogan() {
+		return farmerSlogan;
+	}
+	public void setFarmerSlogan(String farmerSlogan) {
+		this.farmerSlogan = farmerSlogan;
+	}
+	public String getFarmerStory() {
+		return farmerStory;
+	}
+	public void setFarmerStory(String farmerStory) {
+		this.farmerStory = farmerStory;
 	}
 	public List<PoVO> getPos() {
 		return pos;
