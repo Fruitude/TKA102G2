@@ -23,7 +23,7 @@ public class FrontCatalogFreshnessTest {
                     assertEquals(Set.of(9),new HashSet<>(ids));recoveries.add(Set.copyOf(recovery));
                 }
             };
-            scheduler=new ProductAvailabilityScheduler(jdbc,supply,new ProductService(){
+            scheduler=new ProductAvailabilityScheduler(jdbc,supply,new FrontCatalogService(){
                 @Override public void refreshRankedProductCards(Collection<Integer> ids){synchronizedOnce.countDown();}
             });
             beans.registerSingleton("scheduler",scheduler);beans.registerSingleton("jdbc",jdbc);
@@ -122,7 +122,7 @@ public class FrontCatalogFreshnessTest {
             case "getStock" -> 10;
         });
         var repo=(ProductRepository)Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),new Class<?>[]{ProductRepository.class},(p,m,a)->m.getName().equals("findFrontRows")?List.of(row):List.of());
-        var service=new ProductService(repo);
+        var service=new FrontCatalogService(repo);
         assertEquals(Integer.valueOf(100),service.getProducts().get(0).price());
         price[0]=200;
         assertEquals(Integer.valueOf(200),service.getProducts().get(0).price());
@@ -138,7 +138,7 @@ public class FrontCatalogFreshnessTest {
             case "findBestSellerProductIds","findTopRatedProductIds" -> {rankingQueries[0]++;yield List.of(1);}
             case "findFrontRows" -> List.of(row);default -> List.of();
         });
-        var service=new ProductService(repo);var initial=service.getBestSellers();
+        var service=new FrontCatalogService(repo);var initial=service.getBestSellers();
         price[0]=200;service.refreshRankedProductCards(List.of(1));
         assertEquals(Integer.valueOf(200),service.getBestSellers().get(0).price());
         assertEquals(Integer.valueOf(100),initial.get(0).price());assertEquals(2,rankingQueries[0]);

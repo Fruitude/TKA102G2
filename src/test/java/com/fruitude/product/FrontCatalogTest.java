@@ -11,10 +11,48 @@ import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.spring6.view.ThymeleafViewResolver;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 import com.fruitude.product.model.*;
-import com.fruitude.product.controller.ProductController;
+import com.fruitude.product.controller.FrontProductController;
 
 public class FrontCatalogTest {
-    private ProductService service(List<Product> products) {
+    @Test public void farmerPageKeepsMainBranchStoriesAndVendorProducts() {
+        var fruit=new FrontCatalogService.ProductView(1,"小農水果","",100,100,1,null,false,List.of(),10,0d);
+        var catalog=new FrontCatalogService(){
+            @Override public Map<Integer,List<ProductView>> getProductsByVendorIds(List<Integer> ids){
+                assertEquals(List.of(42,43),ids);return Map.of(42,List.of(fruit),43,List.of());
+            }
+        };
+        var farmers=new ArrayList<com.fruitude.farmer.model.FarmerVO>();
+        for(int id:List.of(42,43)) {
+            var vendor=new com.fruitude.vendor.model.VendorVO();vendor.setVendorId(id);vendor.setContactPerson("小農"+id);
+            vendor.setVendorIntroduction("供應商介紹");
+            var farmer=new com.fruitude.farmer.model.FarmerVO();farmer.setVendorId(id);farmer.setVendor(vendor);
+            farmer.setFarmerStory(id==42?"第一段\n\n 第二段 ":null);farmers.add(farmer);
+        }
+        var controller=new FrontProductController(catalog,noPromos(),new com.fruitude.orders.model.OrdersService());
+        org.springframework.test.util.ReflectionTestUtils.setField(controller,"farmerService",new com.fruitude.farmer.model.FarmerService(){
+            @Override public List<com.fruitude.farmer.model.FarmerVO> getFarmersForFront(){return farmers;}
+        });
+        var model=new org.springframework.ui.ExtendedModelMap();var response=new org.springframework.mock.web.MockHttpServletResponse();
+        assertEquals("front/farmers/index",controller.farmers(model,response));assertEquals("no-store",response.getHeader("Cache-Control"));
+        @SuppressWarnings("unchecked") var views=(List<FrontProductController.FarmerView>)model.get("farmers");
+        assertEquals(List.of("第一段","第二段"),views.get(0).paragraphs());assertEquals(List.of(fruit),views.get(0).products());
+        assertEquals(List.of("供應商介紹"),views.get(1).paragraphs());assertTrue(views.get(1).products().isEmpty());
+    }
+    @Test public void vendorCatalogKeepsEmptyVendorsAndGroupsOnlySellableProducts() {
+        var row=new com.fruitude.product.model.VendorProductRow(){public Integer getVendorId(){return 42;}public Integer getProductId(){return 1;}};
+        var repository=(ProductRepository)Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),new Class<?>[]{ProductRepository.class},(p,m,a)->{
+            if(m.getName().equals("findFrontRows"))return List.of(projection(ProductRepository.FrontCatalogRow.class,key->switch(key){
+                case "getProductId","getSkuId","getSkuStatus" -> 1;case "getName","getSkuName" -> "小農水果";
+                case "getPrice" -> 100;case "getStock" -> 10;default -> null;
+            }));
+            if(m.getName().equals("findProductIdsByVendorIds"))return List.of(row);
+            return List.of();
+        });
+        var catalog=new FrontCatalogService(repository);var grouped=catalog.getProductsByVendorIds(List.of(42,43));
+        assertEquals(Integer.valueOf(1),grouped.get(42).get(0).productId());assertTrue(grouped.get(43).isEmpty());
+        assertTrue(catalog.getProductsByVendorIds(List.of()).isEmpty());
+    }
+    private FrontCatalogService service(List<Product> products) {
         ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(), new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
             if (method.getName().equals("findFrontRows")) {
                 List<com.fruitude.product.model.ProductRepository.FrontCatalogRow> rows = new ArrayList<>();
@@ -55,7 +93,7 @@ public class FrontCatalogTest {
             if (method.getName().equals("findCatalogPriorities")) return List.of();
             throw new AssertionError(method.getName());
         });
-        return new ProductService(repo) {
+        return new FrontCatalogService(repo) {
             @Override public ReviewPage read(int productId,int page,int size) { return ReviewPage.empty(); }
         };
     }
@@ -74,16 +112,16 @@ public class FrontCatalogTest {
             }
         };
     }
-    private MockMvc mvc(ProductService service) {
+    private MockMvc mvc(FrontCatalogService service) {
         ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver(); resolver.setPrefix("templates/"); resolver.setSuffix(".html"); resolver.setTemplateMode("HTML"); resolver.setCharacterEncoding("UTF-8");
         SpringTemplateEngine engine = new SpringTemplateEngine(); engine.setTemplateResolver(resolver);
         ThymeleafViewResolver view = new ThymeleafViewResolver(); view.setTemplateEngine(engine); view.setCharacterEncoding("UTF-8");
-        return MockMvcBuilders.standaloneSetup(new ProductController(service, noPromos(), new com.fruitude.orders.model.OrdersService())).setViewResolvers(view).build();
+        return MockMvcBuilders.standaloneSetup(new FrontProductController(service, noPromos(), new com.fruitude.orders.model.OrdersService())).setViewResolvers(view).build();
     }
     @Test public void pricesImagesAndVisibilityComeFromActiveSkus() {
         Product p = product(1, "測試芒果"); sku(p, 1, 1, 0); ProductSku available = sku(p, 2, 200, 1); image(available, 9, 2); image(available, 10, 1);
         Product noActiveSku = product(2, "隱藏商品"); sku(noActiveSku, 3, 50, 0);
-        List<ProductService.ProductView> result = service(List.of(p, noActiveSku)).getProducts();
+        List<FrontCatalogService.ProductView> result = service(List.of(p, noActiveSku)).getProducts();
         assertEquals(1, result.size()); assertEquals(Integer.valueOf(200), result.get(0).price()); assertEquals(Integer.valueOf(2), result.get(0).skuId()); assertEquals(Integer.valueOf(10), result.get(0).imageId());
         assertFalse(result.get(0).giftBox());
         assertEquals(List.of(10, 9), result.get(0).skus().get(0).imageIds());
@@ -170,7 +208,7 @@ public class FrontCatalogTest {
         Product p = product(22, "狀態測試商品");
         ProductSku shortage = sku(p, 100, 100, 2); shortage.setStock(0);shortage.setInboundQty(10);
         ProductSku retiring = sku(p, 101, 200, 3); retiring.setStock(4); retiring.setInboundQty(8); retiring.setOutboundQty(3);
-        ProductService service = service(List.of(p));
+        FrontCatalogService service = service(List.of(p));
         assertEquals(Integer.valueOf(5), service.getProducts().get(0).skus().get(0).stock());
         assertEquals(Integer.valueOf(5), service.getProducts().get(0).skus().get(1).stock());
         String html = mvc(service).perform(get("/front/")).andReturn().getResponse().getContentAsString();
@@ -183,7 +221,7 @@ public class FrontCatalogTest {
         Product p = product(22, "測試水果");
         ProductSku named = sku(p, 100, 100, 1); named.setSkuName("原名禮盒"); named.setAnotherName("  特選小盒  ");
         ProductSku blank = sku(p, 101, 200, 1); blank.setSkuName("原名大盒"); blank.setAnotherName(" \t ");
-        ProductService service = service(List.of(p));
+        FrontCatalogService service = service(List.of(p));
         assertEquals("特選小盒", service.getProducts().get(0).skus().get(0).name());
         assertEquals("原名大盒", service.getProducts().get(0).skus().get(1).name());
         assertTrue(service.getProducts().get(0).giftBox());

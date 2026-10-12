@@ -23,7 +23,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class ProductAvailabilityScheduler {
     private final NamedParameterJdbcTemplate jdbc;
     private final SkuSupplyService supply;
-    private final ProductService catalog;
+    private final FrontCatalogService catalog;
     private final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(getClass());
     private final ScheduledExecutorService worker=Executors.newSingleThreadScheduledExecutor(r->{
         var thread=new Thread(r,"product-inventory-events");thread.setDaemon(true);return thread;
@@ -40,11 +40,11 @@ public class ProductAvailabilityScheduler {
         Delivery(Changes changes){this.changes=changes;}
     }
     private static final Object TRANSACTION_BATCH=new Object();
-    public ProductAvailabilityScheduler(NamedParameterJdbcTemplate jdbc,SkuSupplyService supply,ProductService catalog) {
+    public ProductAvailabilityScheduler(NamedParameterJdbcTemplate jdbc,SkuSupplyService supply,FrontCatalogService catalog) {
         this.jdbc=jdbc;this.supply=supply;this.catalog=catalog;
     }
     @org.springframework.beans.factory.annotation.Autowired
-    public ProductAvailabilityScheduler(NamedParameterJdbcTemplate jdbc,SkuSupplyService supply,ProductService catalog,
+    public ProductAvailabilityScheduler(NamedParameterJdbcTemplate jdbc,SkuSupplyService supply,FrontCatalogService catalog,
             org.springframework.core.env.Environment environment) {
         this(jdbc,supply,catalog);
         startupReconcile=environment.getProperty("product.inventory-events.startup-reconcile.enabled",Boolean.class,true);

@@ -51,7 +51,7 @@ public class ProductConsolidationTest {
         beans.registerSingleton("jdbc",new NamedParameterJdbcTemplate(unused(DataSource.class)));
         beans.registerSingleton("entityManager",unused(EntityManager.class));
         beans.registerSingleton("statusAccess",new ProductStatusAccess(null,null));
-        context.register(Transactions.class,ProductService.class,ProductSkuService.class,ProductCategoryService.class,
+        context.register(Transactions.class,ProductService.class,FrontCatalogService.class,ProductSkuService.class,ProductCategoryService.class,
             ProductImageService.class,ProductLifecycleService.class,SkuSupplyService.class,
             ProductInventoryLockService.class,ProductPageStatusService.class);
         context.refresh();return context;
@@ -61,7 +61,7 @@ public class ProductConsolidationTest {
             var product=context.getBean(ProductService.class);var sku=context.getBean(ProductSkuService.class);
             assertTrue(AopUtils.isAopProxy(product));assertTrue(AopUtils.isAopProxy(sku));
             var transactions=context.getBean(RecordingTransactions.class);
-            try {product.read(-1,0,3);fail();}catch(IllegalArgumentException expected) { }
+            try {context.getBean(FrontCatalogService.class).read(-1,0,3);fail();}catch(IllegalArgumentException expected) { }
             assertEquals(Boolean.TRUE,transactions.reads.get(0));
             try {product.save(null);fail();}catch(IllegalArgumentException expected) { }
             assertEquals(Boolean.FALSE,transactions.reads.get(1));

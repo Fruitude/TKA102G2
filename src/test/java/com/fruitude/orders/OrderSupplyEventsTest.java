@@ -12,7 +12,7 @@ public class OrderSupplyEventsTest {
   ReflectionTestUtils.setField(svc,"ordersRepository",fake(OrdersRepository.class,(n,a)->n.equals("findByIdForUpdate")?Optional.of(order):a[0]));
   ReflectionTestUtils.setField(svc,"ordersDetailRepository",fake(OrdersDetailRepository.class,(n,a)->List.of(detail)));
   ReflectionTestUtils.setField(svc,"memberPromoUsageRepository",fake(MemberPromoUsageRepository.class,(n,a)->0));
-  ReflectionTestUtils.setField(svc,"frontCatalogService",new ProductService((ProductRepository)null));
+  ReflectionTestUtils.setField(svc,"frontCatalogService",new FrontCatalogService((ProductRepository)null));
   ReflectionTestUtils.setField(svc,"skuStockRepository",fake(SkuStockRepository.class,(n,a)->{
    events.add(n);if(n.startsWith("lock"))return List.of(1);return 1;
   }));
