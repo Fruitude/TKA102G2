@@ -12,6 +12,8 @@ import jakarta.servlet.http.HttpSession;
 
 @Controller
 public class FrontProductController {
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private com.fruitude.product.model.FrontProductReviewService productReviews;
     private final FrontCatalogService catalog;
     private final PromoService promoService;
     private final OrdersService ordersService;
@@ -77,7 +79,9 @@ public class FrontProductController {
         Integer id = productId != null ? productId : products.stream().filter(p -> name != null && name.equals(p.name())).map(ProductView::productId).findFirst().orElse(null);
         ProductView selected = catalog.getLiveProduct(id);
         model.addAttribute("dbProduct", selected);
-        model.addAttribute("relatedProducts", products.stream().filter(p -> selected != null && !p.productId().equals(selected.productId())).limit(6).toList());
+        model.addAttribute("productReviews", selected==null || productReviews==null
+            ? com.fruitude.product.model.FrontProductReviewService.ReviewPage.empty() : productReviews.read(selected.productId(),0,3));
+        model.addAttribute("relatedProducts", com.fruitude.product.model.ProductRecommendations.recommend(selected,products,5));
         return "front/product/view/index";
     }
 

@@ -14,7 +14,9 @@
 <link href="../../66ecb06b29465580bc39d040/66f9e2f649279bcda23519f4_Shutter_Shop_&ndash;_256.svg" rel="apple-touch-icon"/>
 <script type="text/javascript">window.__WEBFLOW_CURRENCY_SETTINGS = {"currencyCode":"NT","symbol":"$","decimal":".","fractionDigits":2,"group":",","template":"{{wf {\"path\":\"symbol\",\"type\":\"PlainText\"} }} {{wf {\"path\":\"amount\",\"type\":\"CommercePrice\"} }} {{wf {\"path\":\"currencyCode\",\"type\":\"PlainText\"} }}","hideDecimalForWholeNumbers":false};</script>
 
+<link th:href="@{/front/css/home-product-cards.css}" rel="stylesheet"/>
 <link th:href="@{/front/css/front-theme.css}" rel="stylesheet" type="text/css"/>
+<link th:href="@{/front/css/product-detail.css}" rel="stylesheet"/>
 </head>
 <body class="front-theme">
 <div class="nav-bar w-nav" data-animation="default" data-collapse="medium" data-duration="300" data-easing="ease" data-easing2="ease" fs-scrolldisable-element="smart-nav" role="banner"><div class="container navigation-container"><a class="nav-logo w-inline-block" href="../../"><img alt="Company Logo" class="nav-logo-image" loading="lazy" src="../../6706de395f0ceac28687d464/6706de395f0ceac28687d5ed_Shutter_Shop.svg" width="Auto"/></a><nav class="nav-links-conatiner w-nav-menu" role="navigation"><div class="nav-inner-container"><div class="nav-dropdown w-dropdown" data-delay="0" data-hover="false"><div class="nav-link nav-link-dropdown w-dropdown-toggle"><div>商城</div><div class="nav-arrow w-icon-dropdown-toggle"></div></div><nav class="nav_dropdown-list w-dropdown-list"><div class="nav_grid-dropdown-grid"><a class="nav_dropdown-card w-inline-block" href="../../all-products/" id="w-node-f3e67de1-b7f8-9b65-6baf-9e0e4e32b241-fe651a75"><div class="nav_dropdown-title">全部商品</div><div class="paragraph-16 light-text">當季現摘，新鮮直送</div></a><a class="nav_dropdown-card w-inline-block" href="../../category/seasonal-fresh-fruit/" id="w-node-_0e5396c6-dd52-965c-4557-44c56b601c8b-fe651a75"><div class="nav_dropdown-title">當季鮮果</div><div class="paragraph-16 light-text">當季現摘，新鮮直送</div></a><a class="nav_dropdown-card w-inline-block" href="../../category/featured-gift-boxes/"><div class="nav_dropdown-title">精選禮盒</div><div class="paragraph-16 light-text">嚴選禮盒，送禮體面</div></a></div></nav></div><a class="nav-link" href="../../services/">宅配服務</a><a class="nav-link" href="../../about/">關於我們</a><a class="nav-link" href="../../blog/">果物誌</a><a class="nav-link" href="../../farmers/">小農資訊</a><a class="nav-link" href="../../about/login/">會員註冊/登入</a></div><div class="nav-cta-button-conatiner"><a class="secondary-button w-button" href="#"><svg class="search-icon" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" fill="none" r="5.5" stroke="currentColor" stroke-width="1.5"></circle><line stroke="currentColor" stroke-linecap="round" stroke-width="1.5" x1="11.5" x2="15" y1="11.5" y2="15"></line></svg>搜尋</a></div></nav><div class="card-wrapper"><div class="w-commerce-commercecartwrapper" data-node-type="commerce-cart-wrapper" data-open-product="" data-wf-cart-query="query Dynamo3 {
@@ -144,7 +146,7 @@
     }
   }
 }" data-wf-cart-type="rightSidebar" data-wf-page-link-href-prefix=""><a aria-haspopup="dialog" aria-label="Open cart" class="w-commerce-commercecartopenlink primary-button primary-button-cart w-inline-block" data-node-type="commerce-cart-open-link" href="#" role="button"><svg class="w-commerce-commercecartopenlinkicon" height="17px" viewbox="0 0 17 17" width="17px"><g fill="none" fill-rule="evenodd" stroke="none" stroke-width="1"><path d="M2.60592789,2 L0,2 L0,0 L4.39407211,0 L4.84288393,4 L16,4 L16,9.93844589 L3.76940945,12.3694378 L2.60592789,2 Z M15.5,17 C14.6715729,17 14,16.3284271 14,15.5 C14,14.6715729 14.6715729,14 15.5,14 C16.3284271,14 17,14.6715729 17,15.5 C17,16.3284271 16.3284271,17 15.5,17 Z M5.5,17 C4.67157288,17 4,16.3284271 4,15.5 C4,14.6715729 4.67157288,14 5.5,14 C6.32842712,14 7,14.6715729 7,15.5 C7,16.3284271 6.32842712,17 5.5,17 Z" fill="currentColor" fill-rule="nonzero"></path></g></svg><div class="cart-text w-inline-block">購物車</div><div class="w-commerce-commercecartopenlinkcount cart-quantity" data-wf-bindings="%5B%7B%22innerHTML%22%3A%7B%22type%22%3A%22Number%22%2C%22filter%22%3A%7B%22type%22%3A%22numberPrecision%22%2C%22params%22%3A%5B%220%22%2C%22numberPrecision%22%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItemsCount%22%7D%7D%5D">0</div><script>(function(){var b=document.currentScript.previousElementSibling;try{var raw=localStorage.getItem("ssx-cart-v1");var items=raw?JSON.parse(raw):[];var c=items.reduce(function(a,i){return a+i.qty;},0);b.textContent=String(c);}catch(e){}})();</script></a><div class="w-commerce-commercecartcontainerwrapper w-commerce-commercecartcontainerwrapper--cartType-rightSidebar" data-node-type="commerce-cart-container-wrapper" style="display:none"><div class="w-commerce-commercecartcontainer cart-container" data-node-type="commerce-cart-container" role="dialog"><div class="w-commerce-commercecartheader"><h4 class="w-commerce-commercecartheading">您的購物車</h4><a aria-label="Close cart" class="w-commerce-commercecartcloselink w-inline-block" data-node-type="commerce-cart-close-link" role="button"><svg height="16px" viewbox="0 0 16 16" width="16px"><g fill="none" fill-rule="evenodd" stroke="none" stroke-width="1"><g fill="#333333" fill-rule="nonzero"><polygon points="6.23223305 8 0.616116524 13.6161165 2.38388348 15.3838835 8 9.76776695 13.6161165 15.3838835 15.3838835 13.6161165 9.76776695 8 15.3838835 2.38388348 13.6161165 0.616116524 8 6.23223305 2.38388348 0.616116524 0.616116524 2.38388348 6.23223305 8"></polygon></g></g></svg></a></div><div class="w-commerce-commercecartformwrapper"><form class="w-commerce-commercecartform" data-node-type="commerce-cart-form" style="display:none"><script id="wf-template-09764160-ecfc-7684-3cba-2e7604b34238" type="text/x-wf-template">%3Cdiv%20class%3D%22w-commerce-commercecartitem%22%3E%3Cimg%20data-wf-bindings%3D%22%255B%257B%2522src%2522%253A%257B%2522type%2522%253A%2522ImageRef%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.sku.f_main_image_4dr%2522%257D%257D%255D%22%20src%3D%22%22%20alt%3D%22%22%20class%3D%22w-commerce-commercecartitemimage%20w-dyn-bind-empty%22%2F%3E%3Cdiv%20class%3D%22w-commerce-commercecartiteminfo%22%3E%3Cdiv%20data-wf-bindings%3D%22%255B%257B%2522innerHTML%2522%253A%257B%2522type%2522%253A%2522PlainText%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.product.f_name_%2522%257D%257D%255D%22%20class%3D%22w-commerce-commercecartproductname%20w-dyn-bind-empty%22%3E%3C%2Fdiv%3E%3Cdiv%20data-wf-bindings%3D%22%255B%257B%2522innerHTML%2522%253A%257B%2522type%2522%253A%2522CommercePrice%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522price%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.price%2522%257D%257D%255D%22%3E%24%C2%A00.00%C2%A0NT%3C%2Fdiv%3E%3Cscript%20type%3D%22text%2Fx-wf-template%22%20id%3D%22wf-template-09764160-ecfc-7684-3cba-2e7604b3423e%22%3E%253Cli%253E%253Cspan%2520data-wf-bindings%253D%2522%25255B%25257B%252522innerHTML%252522%25253A%25257B%252522type%252522%25253A%252522PlainText%252522%25252C%252522filter%252522%25253A%25257B%252522type%252522%25253A%252522identity%252522%25252C%252522params%252522%25253A%25255B%25255D%25257D%25252C%252522dataPath%252522%25253A%252522database.commerceOrder.userItems%25255B%25255D.product.f_sku_properties_3dr%25255B%25255D.name%252522%25257D%25257D%25255D%2522%2520class%253D%2522w-dyn-bind-empty%2522%253E%253C%252Fspan%253E%253Cspan%253E%253A%2520%253C%252Fspan%253E%253Cspan%2520data-wf-bindings%253D%2522%25255B%25257B%252522innerHTML%252522%25253A%25257B%252522type%252522%25253A%252522CommercePropValues%252522%25252C%252522filter%252522%25253A%25257B%252522type%252522%25253A%252522identity%252522%25252C%252522params%252522%25253A%25255B%25255D%25257D%25252C%252522dataPath%252522%25253A%252522database.commerceOrder.userItems%25255B%25255D.product.f_sku_properties_3dr%25255B%25255D%252522%25257D%25257D%25255D%2522%2520class%253D%2522w-dyn-bind-empty%2522%253E%253C%252Fspan%253E%253C%252Fli%253E%3C%2Fscript%3E%3Cul%20data-wf-bindings%3D%22%255B%257B%2522optionSets%2522%253A%257B%2522type%2522%253A%2522CommercePropTable%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.product.f_sku_properties_3dr%5B%5D%2522%257D%257D%252C%257B%2522optionValues%2522%253A%257B%2522type%2522%253A%2522CommercePropValues%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.sku.f_sku_values_3dr%2522%257D%257D%255D%22%20class%3D%22w-commerce-commercecartoptionlist%22%20data-wf-collection%3D%22database.commerceOrder.userItems%255B%255D.product.f_sku_properties_3dr%22%20data-wf-template-id%3D%22wf-template-09764160-ecfc-7684-3cba-2e7604b3423e%22%3E%3Cli%3E%3Cspan%20data-wf-bindings%3D%22%255B%257B%2522innerHTML%2522%253A%257B%2522type%2522%253A%2522PlainText%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.product.f_sku_properties_3dr%255B%255D.name%2522%257D%257D%255D%22%20class%3D%22w-dyn-bind-empty%22%3E%3C%2Fspan%3E%3Cspan%3E%3A%20%3C%2Fspan%3E%3Cspan%20data-wf-bindings%3D%22%255B%257B%2522innerHTML%2522%253A%257B%2522type%2522%253A%2522CommercePropValues%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.product.f_sku_properties_3dr%255B%255D%2522%257D%257D%255D%22%20class%3D%22w-dyn-bind-empty%22%3E%3C%2Fspan%3E%3C%2Fli%3E%3C%2Ful%3E%3Ca%20href%3D%22%23%22%20role%3D%22button%22%20data-wf-bindings%3D%22%255B%257B%2522data-commerce-sku-id%2522%253A%257B%2522type%2522%253A%2522ItemRef%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.sku.id%2522%257D%257D%255D%22%20class%3D%22w-inline-block%22%20data-wf-cart-action%3D%22remove-item%22%20data-commerce-sku-id%3D%22%22%20aria-label%3D%22Remove%20item%20from%20cart%22%3E%3Cdiv%3ERemove%3C%2Fdiv%3E%3C%2Fa%3E%3C%2Fdiv%3E%3Cinput%20aria-label%3D%22Update%20quantity%22%20data-wf-bindings%3D%22%255B%257B%2522value%2522%253A%257B%2522type%2522%253A%2522Number%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522numberPrecision%2522%252C%2522params%2522%253A%255B%25220%2522%252C%2522numberPrecision%2522%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.count%2522%257D%257D%252C%257B%2522data-commerce-sku-id%2522%253A%257B%2522type%2522%253A%2522ItemRef%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.sku.id%2522%257D%257D%255D%22%20data-wf-conditions%3D%22%257B%2522condition%2522%253A%257B%2522fields%2522%253A%257B%2522product%253Aec-product-type%2522%253A%257B%2522ne%2522%253A%2522e348fd487d0102946c9179d2a94bb613%2522%252C%2522type%2522%253A%2522Option%2522%257D%257D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D%2522%257D%22%20class%3D%22w-commerce-commercecartquantity%20form-input%20quantity-input%22%20required%3D%22%22%20pattern%3D%22%5E%5B0-9%5D%2B%24%22%20inputMode%3D%22numeric%22%20type%3D%22number%22%20name%3D%22quantity%22%20autoComplete%3D%22off%22%20data-wf-cart-action%3D%22update-item-quantity%22%20data-commerce-sku-id%3D%22%22%20value%3D%221%22%2F%3E%3C%2Fdiv%3E</script><div class="w-commerce-commercecartlist" data-wf-collection="database.commerceOrder.userItems" data-wf-template-id="wf-template-09764160-ecfc-7684-3cba-2e7604b34238"><div class="w-commerce-commercecartitem"><img alt="" class="w-commerce-commercecartitemimage w-dyn-bind-empty" data-wf-bindings="%5B%7B%22src%22%3A%7B%22type%22%3A%22ImageRef%22%2C%22filter%22%3A%7B%22type%22%3A%22identity%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.sku.f_main_image_4dr%22%7D%7D%5D" src=""/><div class="w-commerce-commercecartiteminfo"><div class="w-commerce-commercecartproductname w-dyn-bind-empty" data-wf-bindings="%5B%7B%22innerHTML%22%3A%7B%22type%22%3A%22PlainText%22%2C%22filter%22%3A%7B%22type%22%3A%22identity%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.product.f_name_%22%7D%7D%5D"></div><div data-wf-bindings="%5B%7B%22innerHTML%22%3A%7B%22type%22%3A%22CommercePrice%22%2C%22filter%22%3A%7B%22type%22%3A%22price%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.price%22%7D%7D%5D">$&nbsp;0.00&nbsp;NT</div><script id="wf-template-09764160-ecfc-7684-3cba-2e7604b3423e" type="text/x-wf-template">%3Cli%3E%3Cspan%20data-wf-bindings%3D%22%255B%257B%2522innerHTML%2522%253A%257B%2522type%2522%253A%2522PlainText%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.product.f_sku_properties_3dr%255B%255D.name%2522%257D%257D%255D%22%20class%3D%22w-dyn-bind-empty%22%3E%3C%2Fspan%3E%3Cspan%3E%3A%20%3C%2Fspan%3E%3Cspan%20data-wf-bindings%3D%22%255B%257B%2522innerHTML%2522%253A%257B%2522type%2522%253A%2522CommercePropValues%2522%252C%2522filter%2522%253A%257B%2522type%2522%253A%2522identity%2522%252C%2522params%2522%253A%255B%255D%257D%252C%2522dataPath%2522%253A%2522database.commerceOrder.userItems%255B%255D.product.f_sku_properties_3dr%255B%255D%2522%257D%257D%255D%22%20class%3D%22w-dyn-bind-empty%22%3E%3C%2Fspan%3E%3C%2Fli%3E</script><ul class="w-commerce-commercecartoptionlist" data-wf-bindings="%5B%7B%22optionSets%22%3A%7B%22type%22%3A%22CommercePropTable%22%2C%22filter%22%3A%7B%22type%22%3A%22identity%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.product.f_sku_properties_3dr[]%22%7D%7D%2C%7B%22optionValues%22%3A%7B%22type%22%3A%22CommercePropValues%22%2C%22filter%22%3A%7B%22type%22%3A%22identity%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.sku.f_sku_values_3dr%22%7D%7D%5D" data-wf-collection="database.commerceOrder.userItems%5B%5D.product.f_sku_properties_3dr" data-wf-template-id="wf-template-09764160-ecfc-7684-3cba-2e7604b3423e"><li><span class="w-dyn-bind-empty" data-wf-bindings="%5B%7B%22innerHTML%22%3A%7B%22type%22%3A%22PlainText%22%2C%22filter%22%3A%7B%22type%22%3A%22identity%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.product.f_sku_properties_3dr%5B%5D.name%22%7D%7D%5D"></span><span>: </span><span class="w-dyn-bind-empty" data-wf-bindings="%5B%7B%22innerHTML%22%3A%7B%22type%22%3A%22CommercePropValues%22%2C%22filter%22%3A%7B%22type%22%3A%22identity%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.product.f_sku_properties_3dr%5B%5D%22%7D%7D%5D"></span></li></ul><a aria-label="Remove item from cart" class="w-inline-block" data-commerce-sku-id="" data-wf-bindings="%5B%7B%22data-commerce-sku-id%22%3A%7B%22type%22%3A%22ItemRef%22%2C%22filter%22%3A%7B%22type%22%3A%22identity%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.sku.id%22%7D%7D%5D" data-wf-cart-action="remove-item" href="#" role="button"><div>移除</div></a></div><input aria-label="Update quantity" autocomplete="off" class="w-commerce-commercecartquantity form-input quantity-input" data-commerce-sku-id="" data-wf-bindings="%5B%7B%22value%22%3A%7B%22type%22%3A%22Number%22%2C%22filter%22%3A%7B%22type%22%3A%22numberPrecision%22%2C%22params%22%3A%5B%220%22%2C%22numberPrecision%22%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.count%22%7D%7D%2C%7B%22data-commerce-sku-id%22%3A%7B%22type%22%3A%22ItemRef%22%2C%22filter%22%3A%7B%22type%22%3A%22identity%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D.sku.id%22%7D%7D%5D" data-wf-cart-action="update-item-quantity" data-wf-conditions="%7B%22condition%22%3A%7B%22fields%22%3A%7B%22product%3Aec-product-type%22%3A%7B%22ne%22%3A%22e348fd487d0102946c9179d2a94bb613%22%2C%22type%22%3A%22Option%22%7D%7D%7D%2C%22dataPath%22%3A%22database.commerceOrder.userItems%5B%5D%22%7D" inputmode="numeric" name="quantity" pattern="^[0-9]+$" required="" type="number" value="1"/></div></div><div class="w-commerce-commercecartfooter"><div aria-atomic="true" aria-live="polite" class="w-commerce-commercecartlineitem"><div>小計</div><div class="w-commerce-commercecartordervalue" data-wf-bindings="%5B%7B%22innerHTML%22%3A%7B%22type%22%3A%22CommercePrice%22%2C%22filter%22%3A%7B%22type%22%3A%22price%22%2C%22params%22%3A%5B%5D%7D%2C%22dataPath%22%3A%22database.commerceOrder.subtotal%22%7D%7D%5D"></div></div><div><div data-node-type="commerce-cart-quick-checkout-actions" style="display:none"><a aria-haspopup="dialog" aria-label="Apple Pay" class="w-commerce-commercecartapplepaybutton" data-node-type="commerce-cart-apple-pay-button" role="button" style="background-image:-webkit-named-image(apple-pay-logo-white);background-size:100% 50%;background-position:50% 50%;background-repeat:no-repeat" tabindex="0"><div></div></a><a aria-haspopup="dialog" class="w-commerce-commercecartquickcheckoutbutton" data-node-type="commerce-cart-quick-checkout-button" role="button" style="display:none" tabindex="0"><svg class="w-commerce-commercequickcheckoutgoogleicon" height="16" viewbox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><polygon id="google-mark-a" points="0 .329 3.494 .329 3.494 7.649 0 7.649"></polygon><polygon id="google-mark-c" points=".894 0 13.169 0 13.169 6.443 .894 6.443"></polygon></defs><g fill="none" fill-rule="evenodd"><path d="M10.5967,12.0469 L10.5967,14.0649 L13.1167,14.0649 C14.6047,12.6759 15.4577,10.6209 15.4577,8.1779 C15.4577,7.6339 15.4137,7.0889 15.3257,6.5559 L7.8887,6.5559 L7.8887,9.6329 L12.1507,9.6329 C11.9767,10.6119 11.4147,11.4899 10.5967,12.0469" fill="#4285F4"></path><path d="M7.8887,16 C10.0137,16 11.8107,15.289 13.1147,14.067 C13.1147,14.066 13.1157,14.065 13.1167,14.064 L10.5967,12.047 C10.5877,12.053 10.5807,12.061 10.5727,12.067 C9.8607,12.556 8.9507,12.833 7.8887,12.833 C5.8577,12.833 4.1387,11.457 3.4937,9.605 L0.8747,9.605 L0.8747,11.648 C2.2197,14.319 4.9287,16 7.8887,16" fill="#34A853"></path><g transform="translate(0 4)"><mask fill="#fff" id="google-mark-b"><use xlink:href="#google-mark-a"></use></mask><path d="M3.4639,5.5337 C3.1369,4.5477 3.1359,3.4727 3.4609,2.4757 L3.4639,2.4777 C3.4679,2.4657 3.4749,2.4547 3.4789,2.4427 L3.4939,0.3287 L0.8939,0.3287 C0.8799,0.3577 0.8599,0.3827 0.8459,0.4117 C-0.2821,2.6667 -0.2821,5.3337 0.8459,7.5887 L0.8459,7.5997 C0.8549,7.6167 0.8659,7.6317 0.8749,7.6487 L3.4939,5.6057 C3.4849,5.5807 3.4729,5.5587 3.4639,5.5337" fill="#FBBC04" mask="url(#google-mark-b)"></path></g><mask fill="#fff" id="google-mark-d"><use xlink:href="#google-mark-c"></use></mask><path d="M0.894,4.3291 L3.478,6.4431 C4.113,4.5611 5.843,3.1671 7.889,3.1671 C9.018,3.1451 10.102,3.5781 10.912,4.3671 L13.169,2.0781 C11.733,0.7231 9.85,-0.0219 7.889,0.0001 C4.941,0.0001 2.245,1.6791 0.894,4.3291" fill="#EA4335" mask="url(#google-mark-d)"></path></g></svg><svg class="w-commerce-commercequickcheckoutmicrosofticon" height="16" viewbox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><polygon fill="#F05022" points="7 7 1 7 1 1 7 1"></polygon><polygon fill="#7DB902" points="15 7 9 7 9 1 15 1"></polygon><polygon fill="#00A4EE" points="7 15 1 15 1 9 7 9"></polygon><polygon fill="#FFB700" points="15 15 9 15 9 9 15 9"></polygon></g></svg><div>使用瀏覽器快速付款</div></a></div><a class="w-commerce-commercecartcheckoutbutton primary-button" data-loading-text="Hang Tight..." data-node-type="cart-checkout-button" href="../../checkout/" value="Continue to Checkout">前往結帳</a></div></div></form><div class="w-commerce-commercecartemptystate"><div aria-label="This cart is empty" aria-live="polite">目前購物車內沒有商品。</div></div><div aria-live="assertive" class="w-commerce-commercecarterrorstate" data-node-type="commerce-cart-error" style="display:none"><div class="w-cart-error-msg" data-w-cart-cart_order_min-error="The order minimum was not met. Add more items to your cart to continue." data-w-cart-checkout-error="Checkout is disabled on this site." data-w-cart-general-error="Something went wrong when adding this item to the cart." data-w-cart-quantity-error="Product is not available in this quantity." data-w-cart-subscription_error-error="Before you purchase, please use your email invite to verify your address so we can send order updates.">此商品目前數量不足。</div></div></div></div></div></div></div><div class="nav-menu-button w-nav-button"><div class="navha-hamburger-button w-hidden-main"><img alt="" class="nav-hamburger-icon" loading="lazy" src="../../6706de395f0ceac28687d464/6706de395f0ceac28687d485_Hamburger_icon.svg"/><img alt="" class="nav-close-icon" loading="lazy" src="../../6706de395f0ceac28687d464/6706de395f0ceac28687d476_close.svg"/></div></div></div></div><section class="section front-theme-circles">
-<div class="w-layout-blockcontainer container w-container">
+<div class="w-layout-blockcontainer container w-container pv-content-container">
 
 <div id="pv-not-found" th:if="${dbProduct == null}" style="text-align:center; padding:4rem 0;">
 <p class="paragraph-18">找不到這個商品。</p>
@@ -157,22 +159,48 @@
 <div class="shop-product-image-wrapper">
 <img class="shop-product-image" id="pv-image" th:alt="${dbProduct.name}" th:src="@{${dbProduct.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + dbProduct.imageId}}"/>
 </div>
+<div class="pv-gallery-navigation" aria-label="商品圖片">
+  <button type="button" id="pv-image-prev" class="pv-image-arrow" aria-label="上一張商品圖片">&#8249;</button>
+  <div id="pv-thumbnails" class="pv-thumbnails">
+    <th:block th:each="s:${dbProduct.skus}">
+      <button type="button" class="pv-thumbnail" th:each="imageId, imageIndex:${s.imageIds}"
+              th:attr="data-sku-id=${s.skuId},data-image-url=@{'/product/image/' + ${imageId}},aria-label=${s.name + '，圖片 ' + (imageIndex.index + 1)}" aria-pressed="false">
+        <img loading="lazy" th:src="@{'/product/image/' + ${imageId}}" th:alt="${s.name}"/>
+      </button>
+    </th:block>
+  </div>
+  <button type="button" id="pv-image-next" class="pv-image-arrow" aria-label="下一張商品圖片">&#8250;</button>
+</div>
 </div>
 <div class="shop-product-details">
+<div class="pv-title-row">
 <h1 class="heading-h3-product heading-h3" id="pv-name" th:text="${dbProduct.name}"></h1>
+<div class="pv-title-actions">
+<span class="pv-rating" role="img" tabindex="0" th:attr="title=${#numbers.formatDecimal(productReviews.average,1,1)},aria-label=${'評分 ' + #numbers.formatDecimal(productReviews.average,1,1) + '／5'}">
+  <span class="pv-rating-empty" aria-hidden="true">★★★★★</span>
+  <span class="pv-rating-filled" aria-hidden="true" th:style="${'width:' + (productReviews.average * 20) + '%'}">★★★★★</span>
+</span>
+<button type="button" id="pv-favorite" aria-label="加入我的最愛" aria-pressed="false" th:attr="data-product-id=${dbProduct.productId}" class="pv-favorite">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+</button>
+</div>
+</div>
 <p class="paragraph-18" id="pv-description" th:text="${dbProduct.description}" style="margin-top:1rem;"></p>
 <div class="paragraph-18" data-wf-sku-bindings="f_price_" id="pv-price" th:text="${'NT$ ' + dbProduct.price}" style="font-size:1.5rem; margin:1.5rem 0;"></div>
 <div class="paragraph-18" id="pv-original-price" th:text="${dbProduct.originalPrice != null and dbProduct.originalPrice > dbProduct.price ? 'NT$ ' + dbProduct.originalPrice : ''}" th:style="${dbProduct.originalPrice != null and dbProduct.originalPrice > dbProduct.price ? '' : 'display:none;'} + 'text-decoration:line-through; opacity:.6; margin:-1.25rem 0 1.5rem;'"></div>
 <span class="pv-sku-original" hidden th:each="s:${dbProduct.skus}" th:attr="data-sku-id=${s.skuId},data-original=${s.originalPrice}"></span>
 <form th:attr="data-commerce-sku-id=${dbProduct.skuId}" data-node-type="x-commerce-add-to-cart-form" id="pv-form">
-<label class="form_field-label" for="pv-sku">商品規格</label><select class="form-input" id="pv-sku"><option th:each="s:${dbProduct.skus}" th:value="${s.skuId}" th:text="${s.name}" th:selected="${s.skuId == dbProduct.skuId}" th:attr="data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId}}"></option></select><label class="form_field-label" for="pv-qty">數量</label>
-<div style="display:flex;align-items:center;gap:12px;">
-<input class="form-input quantity-input" id="pv-qty" min="1" name="commerce-add-to-cart-quantity-input" type="number" value="1" style="margin-bottom:0;"/>
-<button type="button" id="pv-favorite" aria-label="加入我的最愛" aria-pressed="false" th:attr="data-product-id=${dbProduct.productId}" style="background:none;border:0;padding:4px;cursor:pointer;line-height:0;color:#c0392b;">
-<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-</button>
+<label class="form_field-label" for="pv-sku">商品規格</label><div class="pv-spec-quantity-row"><select class="form-input" id="pv-sku"><option th:each="s:${dbProduct.skus}" th:value="${s.skuId}" th:text="${s.name}" th:selected="${s.skuId == dbProduct.skuId}" th:attr="data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId}}"></option></select>
+<div class="home-sku-dropdown" id="pv-sku-dropdown" hidden>
+  <button type="button" class="home-sku-trigger" id="pv-sku-trigger" aria-label="選擇商品規格" aria-expanded="false" aria-haspopup="listbox" aria-controls="pv-sku-menu"><span class="home-sku-caption"></span><span class="home-sku-arrow" aria-hidden="true">▾</span></button>
+  <div class="home-sku-menu" id="pv-sku-menu" role="listbox" aria-label="商品規格選項"></div>
 </div>
-<p id="pv-quantity-notice" role="status" style="font-size:13px;color:#a65b00" hidden></p>
+<div class="pv-qty-stepper"><button type="button" id="pv-qty-minus" aria-label="減少數量">−</button>
+<input class="form-input quantity-input" id="pv-qty" min="1" name="commerce-add-to-cart-quantity-input" type="number" value="1" style="margin-bottom:0;" aria-label="購買數量"/>
+<button type="button" id="pv-qty-plus" aria-label="增加數量">+</button></div>
+
+</div>
+<div class="pv-quantity-notice-slot"><p id="pv-quantity-notice" role="status" style="font-size:13px;color:#a65b00" hidden></p></div>
 <div class="product-page-buttom-wrapper">
 <input class="w-commerce-commerceaddtocartbutton primary-button" data-loading-text="Adding to cart..." type="submit" value="加入購物車"/>
 <a class="w-commerce-commercebuynowbutton secondary-button" data-default-text="Buy now" href="../../checkout/">立即購買</a>
@@ -181,11 +209,60 @@
 </div>
 </div>
 
-<div style="margin-top:4rem;" th:if="${!#lists.isEmpty(relatedProducts)}"><h2 class="heading-h4">你可能也喜歡</h2><div class="products-grid products-grid-6up" id="pv-related" style="margin-top:1.5rem;"><div class="w-dyn-item" th:each="p:${relatedProducts}"><a class="products-card-link w-inline-block" th:href="@{/front/product/view/(productId=${p.productId})}" th:attr="data-commerce-sku-id=${p.skuId},data-disable-quick-add=${#lists.size(p.skus) > 1 or p.stock == null or p.stock <= 0}"><div class="products-item-image-wrapper"><img class="products-item-image" th:src="@{${p.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + p.imageId}}" th:alt="${p.name}"></div><div class="products-item-text-wrapper"><h3 class="heading-h4" th:text="${p.name}"></h3><p class="product-list-desciption" th:text="${p.description}"></p><p class="product-list-desciption" data-wf-sku-bindings="f_price_" th:text="${'NT$ ' + p.price}"></p></div></a></div></div></div>
+<section class="pv-reviews" aria-labelledby="pv-reviews-heading" th:attr="data-product-id=${dbProduct.productId}">
+<div class="pv-reviews-header">
+  <div class="pv-reviews-summary"><span class="pv-reviews-average" th:text="${#numbers.formatDecimal(productReviews.average,1,1)}">0.0</span><span class="pv-reviews-single-star" aria-hidden="true">★</span>
+  <h2 id="pv-reviews-heading" th:text="${'商品評價(' + productReviews.count + ')'}">商品評價(0)</h2></div>
+  <button type="button" id="pv-reviews-all" th:if="${productReviews.count > 0}">查看全部 &gt;</button>
+</div>
+<p class="pv-reviews-empty" th:if="${#lists.isEmpty(productReviews.reviews)}">目前尚無會員評論。</p>
+<div class="pv-review-list">
+<article class="pv-review" th:each="review:${productReviews.reviews}">
+  <span class="pv-review-avatar"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="11" r="6"/><path d="M5 30v-3a11 11 0 0 1 22 0v3Z"/></svg></span>
+  <div class="pv-review-body"><div class="pv-review-member"><span th:text="${review.account}"></span><time th:if="${review.date != null}" th:text="${#temporals.format(review.date,'yyyy-MM-dd')}"></time></div>
+    <span class="pv-rating pv-review-stars" role="img" th:attr="aria-label=${review.stars + ' 顆星'}"><span class="pv-rating-empty" aria-hidden="true">★★★★★</span><span class="pv-rating-filled" aria-hidden="true" th:style="${'width:' + (review.stars * 20) + '%'}">★★★★★</span></span>
+    <div class="pv-review-sku" th:text="${'購買規格：' + review.skuName}"></div>
+    <p class="pv-review-text" th:text="${review.text}"></p>
+  </div>
+</article>
+</div>
+</section>
+<dialog id="pv-reviews-dialog" aria-labelledby="pv-reviews-dialog-title">
+  <div class="pv-reviews-dialog-header"><h2 id="pv-reviews-dialog-title">全部商品評價</h2><button type="button" class="pv-reviews-close" aria-label="關閉評論">×</button></div>
+  <div class="pv-reviews-overview">
+    <div class="pv-reviews-bars" aria-label="評分分布" th:with="maxCount=${#lists.sort(productReviews.distribution.![count])[4]}">
+      <div class="pv-reviews-bar-row" th:each="bucket:${productReviews.distribution}" th:attr="data-stars=${bucket.stars}">
+        <span th:text="${bucket.stars}"></span><div class="pv-reviews-bar-track" role="img" th:attr="aria-label=${bucket.stars + ' 星，' + bucket.count + ' 則評論'}"><span class="pv-reviews-bar-fill" th:style="${'width:' + (maxCount > 0 ? bucket.count * 100.0 / maxCount : 0) + '%'}"></span></div><span class="pv-reviews-bar-count" th:text="${bucket.count}"></span>
+      </div>
+    </div>
+    <div class="pv-reviews-overall">
+      <div id="pv-reviews-dialog-average" th:text="${#numbers.formatDecimal(productReviews.average,1,1)}"></div>
+      <span id="pv-reviews-dialog-stars" class="pv-rating" role="img" th:attr="aria-label=${'評分 ' + productReviews.average + '／5'}"><span class="pv-rating-empty" aria-hidden="true">★★★★★</span><span id="pv-reviews-dialog-filled" class="pv-rating-filled" aria-hidden="true" th:style="${'width:' + (productReviews.average * 20) + '%'}">★★★★★</span></span>
+      <div id="pv-reviews-dialog-count" th:text="${productReviews.totalCount + ' 則評論'}"></div>
+    </div>
+  </div>
+  <div class="pv-reviews-filters">
+    <label class="pv-reviews-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="pv-reviews-search" type="search" maxlength="200" placeholder="搜尋評論" aria-label="搜尋評論"/></label>
+    <select id="pv-reviews-sort" aria-label="評論排序"><option value="latest">最新</option><option value="highest">評分最高</option><option value="lowest">評分最低</option></select>
+  </div>
+  <div id="pv-reviews-dialog-list" class="pv-review-list"></div><p id="pv-reviews-message" role="status"></p>
+  <div class="pv-reviews-dialog-footer"><button type="button" id="pv-reviews-more" hidden>載入更多</button><button type="button" class="pv-reviews-close">關閉</button></div>
+</dialog>
+
+
 </div>
 
 </div>
 </section>
+<section id="pv-related-section" th:if="${!#lists.isEmpty(relatedProducts)}" aria-labelledby="pv-related-title">
+  <div class="container pv-content-container pv-related-content">
+  <h2 class="heading-h4" id="pv-related-title">你可能也喜歡</h2>
+  <div class="products-grid products-grid-6up" id="pv-related" role="list">
+    <th:block th:replace="~{front/fragments/product-grid :: purchaseCards(${relatedProducts})}"></th:block>
+  </div>
+  </div>
+</section>
+<div class="footer-section"><div class="container container-footer pv-content-container"><div class="w-layout-grid footer-grid"><div class="footer-link-list"><div class="footer-links-heading">商品</div><a class="footer-links w-inline-block" href="/front/all-products/" th:href="@{/front/all-products/}"><div>商城</div></a><a class="footer-links w-inline-block" href="/front/services/" th:href="@{/front/services/}"><div>宅配服務</div></a></div><div class="footer-link-list"><div class="footer-links-heading">公司資訊</div><a class="footer-links w-inline-block" href="/front/about/" th:href="@{/front/about/}"><div>關於我們</div></a><a class="footer-links w-inline-block" href="/front/blog/" th:href="@{/front/blog/}"><div>果物誌</div></a><a class="footer-links w-inline-block" href="/front/farmers/" th:href="@{/front/farmers/}"><div>小農資訊</div></a></div><div class="footer-link-list"><div class="footer-links-heading">其他頁面</div><a class="footer-links w-inline-block" href="/front/about/sign-up/" th:href="@{/front/about/sign-up/}"><div>會員註冊</div></a><a class="footer-links w-inline-block" href="/front/about/login/" th:href="@{/front/about/login/}"><div>會員登入</div></a></div></div></div></div>
 <script src="../../js/jquery-3.5.1.min.dc5e7f18c8.js" type="text/javascript"></script><script>(function(){document.querySelectorAll('[data-node-type^="commerce-"]').forEach(function(el){el.setAttribute('data-node-type','x-'+el.getAttribute('data-node-type'));});document.querySelectorAll('[data-wf-cart-query]').forEach(function(el){el.removeAttribute('data-wf-cart-query');});document.querySelectorAll('.w-commerce-commercecartwrapper [data-wf-bindings]').forEach(function(el){el.removeAttribute('data-wf-bindings');});})();</script><script src="../../6706de395f0ceac28687d464/js/webflow.50a1b7525.js" type="text/javascript"></script><script src="../../js/cart.js" type="text/javascript"></script>
 <script src="../../js/favorite-store.js?v=1" type="text/javascript"></script>
 <script type="text/javascript">
@@ -193,26 +270,36 @@
   var select = document.getElementById("pv-sku");
   if (!select) return;
   var form = document.getElementById("pv-form");
-  function updateSku() {
+  function formatProductPrice(amount) {
+    return "NT$ " + Number(amount).toLocaleString("zh-TW", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  function updateTotalPrice() {
     var option = select.options[select.selectedIndex];
-    form.setAttribute("data-commerce-sku-id", option.value);
-    document.getElementById("pv-price").textContent = window.SSXCart.formatMoney(Number(option.dataset.price));
+    var quantity = Math.max(1, Math.floor(Number(document.getElementById("pv-qty").value) || 1));
+    var price = document.getElementById("pv-price");
+    price.dataset.unitPrice = option.dataset.price;
+    price.textContent = formatProductPrice(Number(option.dataset.price) * quantity);
     // 促銷中：在活動價下方顯示劃線的原價；沒有促銷就隱藏（各規格的原價放在上方隱藏的 .pv-sku-original）
     var originalEl = document.getElementById("pv-original-price");
     var originalHolder = document.querySelector(".pv-sku-original[data-sku-id=\"" + option.value + "\"]");
     var originalValue = originalHolder ? Number(originalHolder.dataset.original) : 0;
     if (originalValue > Number(option.dataset.price)) {
-      originalEl.textContent = window.SSXCart.formatMoney(originalValue);
+      originalEl.textContent = formatProductPrice(originalValue * quantity);
       originalEl.style.display = "";
     } else {
       originalEl.textContent = "";
       originalEl.style.display = "none";
     }
+  }
+  function updateSku() {
+    var option = select.options[select.selectedIndex];
+    form.setAttribute("data-commerce-sku-id", option.value);
     document.getElementById("pv-image").src = option.dataset.imageUrl;
     var stock = Math.max(0, Number(option.dataset.stock) || 0);
     var qty = document.getElementById("pv-qty");
     qty.max = String(stock);
     qty.value = String(Math.min(Math.max(1, Number(qty.value) || 1), Math.max(stock, 1)));
+    updateTotalPrice();
     var soldOut = Number(option.dataset.skuStatus) === 4;
     form.querySelector('[type="submit"]').disabled = stock === 0;
     form.querySelector('[type="submit"]').value = stock === 0 ? (soldOut ? "已售完" : "目前缺貨") : "加入購物車";
@@ -225,9 +312,9 @@
     notice.textContent = window.SSXCart.quantityNotice(select.options[select.selectedIndex].dataset.skuStatus, Number(document.getElementById("pv-qty").value));
     notice.hidden = !notice.textContent;
   }
-  document.getElementById("pv-qty").addEventListener("input", updateNotice);
+  document.getElementById("pv-qty").addEventListener("input", function () { updateNotice(); updateTotalPrice(); });
   document.getElementById("pv-qty").addEventListener("change", function () {
-    var qty = this; qty.value = String(Math.min(Number(qty.max), Math.max(1, Math.floor(Number(qty.value) || 1)))); updateNotice();
+    var qty = this; qty.value = String(Math.min(Number(qty.max), Math.max(1, Math.floor(Number(qty.value) || 1)))); updateNotice(); updateTotalPrice();
   });
   select.addEventListener("change", function () { updateSku(); updateNotice(); });
   updateSku();
@@ -245,7 +332,7 @@
       productId: Number(fav.dataset.productId),
       skuId: document.getElementById("pv-form").getAttribute("data-commerce-sku-id"),
       productName: document.getElementById("pv-name").textContent.trim(),
-      price: Number((document.getElementById("pv-price").textContent || "").replace(/[^0-9.-]/g, "")) || 0,
+      price: Number(select.options[select.selectedIndex].dataset.price) || 0,
       imageUrl: document.getElementById("pv-image").src
     };
   }
@@ -273,5 +360,8 @@
   });
 })();
 </script>
+<script th:src="@{/front/js/product-detail-gallery.js}" defer></script>
+<script th:src="@{/front/js/product-reviews.js}" defer></script>
+<script th:src="@{/front/js/home-favorites.js}" defer></script>
 </body>
 </html>

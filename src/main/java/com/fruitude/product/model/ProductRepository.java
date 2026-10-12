@@ -12,6 +12,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     // The live purchase query below retains FOR SHARE; order writes still lock and validate quantities.
     @Query(value = """
         SELECT p.product_id AS productId, p.product_name AS name, p.product_desc AS description,
+               CASE WHEN COALESCE(p.all_comment_amount,0)>0 THEN ROUND(COALESCE(p.all_comment_star,0)/p.all_comment_amount,1) ELSE 0 END AS averageRating,
                p.product_category_id AS categoryId, s.sku_id AS skuId, s.sku_name AS skuName, s.another_name AS anotherName,
                s.status AS skuStatus, s.price AS price, s.stock AS stock,
                s.inbound_qty AS inboundQty, s.outbound_qty AS outboundQty,

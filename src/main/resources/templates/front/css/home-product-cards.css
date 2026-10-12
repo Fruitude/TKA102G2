@@ -39,3 +39,14 @@
 .home-card-purchase-row { display: grid; grid-template-columns: 78px minmax(0, 1fr) 32px; gap: 4px; align-items: center; }
 
 .products-purchase-card .products-item-image-wrapper { margin-bottom: 8px; }
+
+/* Home title and favorite share a row; the icon is separate from the detail link. */
+.products-purchase-card .home-card-title-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; min-width: 0; }
+.home-card-title-row > .home-product-detail-link { flex: 1; min-width: 0; }
+.products-purchase-card .home-card-title-row .heading-h4 { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-card-favorite { flex: 0 0 32px; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 4px; border: 0; border-radius: 0; background: transparent; color: #497339; cursor: pointer; transition: color .18s, background-color .18s; }
+.home-card-favorite svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.home-card-favorite[aria-pressed="true"] { color: #bb4d48; background: transparent; }
+.home-card-favorite[aria-pressed="true"] svg { fill: currentColor; }
+.home-card-favorite:hover { color: #bb4d48; background: transparent; }
+.home-card-favorite:focus-visible { outline: 2px solid #497339; outline-offset: 2px; }
