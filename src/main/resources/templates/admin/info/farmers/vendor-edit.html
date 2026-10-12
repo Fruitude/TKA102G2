@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>前往供應商修改頁</title>
+</head>
+<body>
+	<!-- 供應商修改頁只接受 POST：載入後自動送出，與供應商列表的「修改」按鈕送的是同一個請求 -->
+	<p>正在前往供應商修改頁…</p>
+	<form id="vendor_edit_form" method="post" th:action="@{/admin/psi/vendor/getOne_For_Update}">
+		<input type="hidden" name="vendorId" th:value="${vendorId}" />
+		<noscript>
+			<button type="submit">前往供應商修改頁</button>
+		</noscript>
+	</form>
+	<script>
+		document.getElementById("vendor_edit_form").submit();
+	</script>
+</body>
+</html>
