@@ -749,7 +749,10 @@
     var priceEl = details.querySelector('[data-wf-sku-bindings*="f_price_"]');
     var imgEl = document.querySelector(".shop-product-image");
     var priceText = priceEl ? priceEl.textContent : "0";
-    var priceNum = parseFloat(priceText.replace(/[^0-9.]/g, "")) || 0;
+    // Detail display may be quantity total; cart items must retain the unit price.
+    var priceNum = priceEl && priceEl.hasAttribute("data-unit-price")
+      ? Number(priceEl.dataset.unitPrice) || 0
+      : parseFloat(priceText.replace(/[^0-9.]/g, "")) || 0;
 
     var imageUrl = "";
     if (imgEl && imgEl.getAttribute("src")) {

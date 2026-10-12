@@ -18,7 +18,7 @@ public class FrontCatalogService {
     // price 是前台實際價格（有活動價就是活動價），originalPrice 是規格原價
     public record SkuView(Integer skuId, String name, Integer price, Integer originalPrice, Integer stock, Integer imageId, List<Integer> imageIds, Integer skuStatus) {}
     public record ProductView(Integer productId, String name, String description, Integer price, Integer originalPrice,
-        Integer skuId, Integer imageId, boolean giftBox, List<SkuView> skus, Integer stock) {}
+        Integer skuId, Integer imageId, boolean giftBox, List<SkuView> skus, Integer stock, Double averageRating) {}
     public record LiveSku(Integer skuId, String name, String skuName, Integer price, Integer originalPrice, int stock, boolean available, Integer skuStatus) {}
 
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
@@ -78,7 +78,8 @@ public class FrontCatalogService {
             Integer imageId = cheapest.imageId();
             if (imageId == null) imageId = skus.stream().map(SkuView::imageId).filter(Objects::nonNull).findFirst().orElse(null);
             result.add(new ProductView(product.getProductId(), product.getName(), product.getDescription(), cheapest.price(), cheapest.originalPrice(),
-                cheapest.skuId(), imageId, giftBox, skus, cheapest.stock()));
+                cheapest.skuId(), imageId, giftBox, skus, cheapest.stock(),
+                product.getAverageRating()==null?0d:Math.max(0d,Math.min(5d,product.getAverageRating()))));
         }
         return List.copyOf(result);
     }
