@@ -38,6 +38,10 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = "SELECT product_category_id AS categoryId, parent_category_id AS parentId, category_name AS name FROM product_category", nativeQuery = true)
     java.util.List<FrontCategoryRow> findFrontCategories();
 
+    // 小農資訊頁：各供應商（小農）底下的商品編號
+    @Query(value = "SELECT p.product_id AS productId, p.vendor_id AS vendorId FROM product p WHERE p.vendor_id IN (:vendorIds) ORDER BY p.product_id", nativeQuery = true)
+    java.util.List<VendorProductRow> findProductIdsByVendorIds(@org.springframework.data.repository.query.Param("vendorIds") java.util.List<Integer> vendorIds);
+
     @Query(value = """
         SELECT s.sku_id AS skuId, p.product_name AS name, s.sku_name AS skuName, s.another_name AS anotherName,
                s.price AS price, s.stock AS stock, s.inbound_qty AS inboundQty, s.outbound_qty AS outboundQty,

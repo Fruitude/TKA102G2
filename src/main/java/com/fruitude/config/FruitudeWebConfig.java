@@ -3,6 +3,7 @@ package com.fruitude.config;
 import java.io.IOException;
 
 import org.springframework.context.annotation.Configuration;
+import com.fruitude.farmer.model.FarmerImageStorage;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.http.CacheControl;
@@ -24,6 +25,12 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 	private static final String TEMPLATE_ROOT = "/templates/";
 	private static final String[] SITES = { "front", "admin" };
 
+	private final FarmerImageStorage farmerImageStorage;
+
+	public FruitudeWebConfig(FarmerImageStorage farmerImageStorage) {
+		this.farmerImageStorage = farmerImageStorage;
+	}
+
 	@Override
 	public void addViewControllers(ViewControllerRegistry registry) {
         // Preserve the latest vendor controller's model for its old directory URLs.
@@ -43,8 +50,8 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 
                     // These pages need database models supplied by FrontProductController.
                     if (java.util.Set.of("front/index", "front/product/view/index", "front/all-products/index",
-                        "front/category/seasonal-fresh-fruit/index", "front/category/featured-gift-boxes/index", "front/promotions/index",
-                        "admin/orders/index", "admin/orders/detail/index", "admin/psi/vendor/index").contains(viewName)) continue;
+                        "front/farmers/index", "front/category/seasonal-fresh-fruit/index", "front/category/featured-gift-boxes/index", "front/promotions/index",
+                        "admin/orders/index", "admin/orders/detail/index", "admin/psi/vendor/index", "admin/info/farmers/index").contains(viewName)) continue;
 					registry.addViewController(dir).setViewName(viewName);
 					registry.addViewController(dir + "index").setViewName(viewName);
 					registry.addViewController(dir + "index.html").setViewName(viewName);
@@ -78,6 +85,13 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 		registry.addResourceHandler("/front/js/**")
 				.addResourceLocations("classpath:/templates/front/js/")
 				.setCacheControl(CacheControl.noCache());
+        // 小農圖片：先找上傳資料夾（fruitude.upload-dir），再找 jar 內的圖片；都沒有時由資料庫補檔（FarmerImageResolver）。
+        // 要放在 /front/img/** 之前；file: 位置必須以 / 結尾（toUri 對已存在的目錄會補上）
+        registry.addResourceHandler("/front/img/farmers/**")
+            .addResourceLocations(farmerImageStorage.getDirectory().toUri().toString(), "classpath:/templates/front/img/farmers/")
+            .setCacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(30)))
+            .resourceChain(false)
+            .addResolver(new FarmerImageResolver(farmerImageStorage));
         // 前台本機圖片由瀏覽器快取30分鐘；JS/CSS仍沿用各自更新規則。
         registry.addResourceHandler("/front/img/**")
             .addResourceLocations("classpath:/templates/front/img/")
