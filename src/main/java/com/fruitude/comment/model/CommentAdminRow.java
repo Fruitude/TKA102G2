@@ -18,10 +18,17 @@ public class CommentAdminRow {
 	private final LocalDateTime commentDate;
 	private final Integer commentStatus;
 	private final Integer commentStar;
+	private final Integer moderationEmployeeId;
+	private final String moderationEmployeeName;
+	private final String moderationAction;
+	private final String moderationDetail;
+	private final LocalDateTime moderationAt;
 
 	public CommentAdminRow(Integer ordersDetailId, Integer ordersId, Integer skuId, String productName,
 			Integer memberId, String memberName, String memberAccount, String commentText,
-			LocalDateTime commentDate, Integer commentStatus, Integer commentStar) {
+			LocalDateTime commentDate, Integer commentStatus, Integer commentStar,
+			Integer moderationEmployeeId, String moderationEmployeeName, String moderationAction,
+			String moderationDetail, LocalDateTime moderationAt) {
 		this.ordersDetailId = ordersDetailId;
 		this.ordersId = ordersId;
 		this.skuId = skuId;
@@ -33,6 +40,11 @@ public class CommentAdminRow {
 		this.commentDate = commentDate;
 		this.commentStatus = commentStatus;
 		this.commentStar = commentStar;
+		this.moderationEmployeeId = moderationEmployeeId;
+		this.moderationEmployeeName = moderationEmployeeName;
+		this.moderationAction = moderationAction;
+		this.moderationDetail = moderationDetail;
+		this.moderationAt = moderationAt;
 	}
 
 	public Integer getOrdersDetailId() { return ordersDetailId; }
@@ -46,4 +58,9 @@ public class CommentAdminRow {
 	public LocalDateTime getCommentDate() { return commentDate; }
 	public Integer getCommentStatus() { return commentStatus; }
 	public Integer getCommentStar() { return commentStar; }
+	public Integer getModerationEmployeeId() { return moderationEmployeeId; }
+	public String getModerationEmployeeName() { return moderationEmployeeName; }
+	public String getModerationAction() { return moderationAction; }
+	public String getModerationDetail() { return moderationDetail; }
+	public LocalDateTime getModerationAt() { return moderationAt; }
 }

@@ -54,6 +54,12 @@
         return { text: '顯示中', className: 'is-visible' };
     }
 
+    function moderationActionText(action) {
+        if (action === 'HIDE') return '判定隱藏';
+        if (action === 'KEEP') return '判定保留';
+        return '已處理';
+    }
+
     function appendText(parent, className, text) {
         const element = document.createElement('div');
         element.className = className;
@@ -93,6 +99,18 @@
         badge.className = 'comment-status ' + status.className;
         badge.textContent = status.text;
         statusCell.appendChild(badge);
+
+        const handlerCell = row.insertCell();
+        handlerCell.className = 'comment-handler-cell';
+        if (comment.moderationEmployeeName) {
+            appendText(handlerCell, 'comment-primary', comment.moderationEmployeeName);
+            appendText(handlerCell, 'comment-secondary', moderationActionText(comment.moderationAction));
+            appendText(handlerCell, 'comment-secondary', formatDate(comment.moderationAt));
+        } else if (Number(comment.commentStatus) === 2) {
+            appendText(handlerCell, 'comment-handler-pending', '尚未處理');
+        } else {
+            appendText(handlerCell, 'comment-secondary', '無處理紀錄');
+        }
 
         const actionCell = row.insertCell();
         actionCell.className = 'text-right';
@@ -192,6 +210,15 @@
         byId('detail-rating').textContent = stars(comment.commentStar) + ' ' + (comment.commentStar || 0) + ' 星';
         byId('detail-date').textContent = formatDate(comment.commentDate);
         byId('detail-text').textContent = comment.commentText || '此評論沒有文字內容';
+
+        const hasModerationRecord = Boolean(comment.moderationEmployeeName);
+        byId('comment-moderation-record').hidden = !hasModerationRecord;
+        byId('detail-moderation-result').textContent = moderationActionText(comment.moderationAction);
+        byId('detail-moderation-handler').textContent = hasModerationRecord
+            ? comment.moderationEmployeeName + (comment.moderationEmployeeId
+                ? '（員工 #' + comment.moderationEmployeeId + '）' : '') : '--';
+        byId('detail-moderation-date').textContent = formatDate(comment.moderationAt);
+        byId('detail-moderation-note').textContent = comment.moderationDetail || '--';
         byId('comment-moderation').hidden = !reported;
         byId('comment-decision-actions').hidden = !reported;
         byId('comment-moderation-note').value = '';

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>評論管理</title>
     <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
-    <link th:href="@{/css/comment-admin.css?v=2}" rel="stylesheet">
+    <link th:href="@{/css/comment-admin.css?v=3}" rel="stylesheet">
 </head>
 <body id="page-top">
 <div id="wrapper">
@@ -114,6 +114,7 @@
                                     <th>星等</th>
                                     <th>評論內容</th>
                                     <th>狀態</th>
+                                    <th>經手人員</th>
                                     <th class="text-right">操作</th>
                                 </tr>
                             </thead>
@@ -161,6 +162,21 @@
                 </div>
                 <blockquote class="comment-detail-text" id="detail-text"></blockquote>
 
+                <section class="comment-moderation-record" id="comment-moderation-record" hidden>
+                    <div class="comment-moderation-record-heading">
+                        <i class="fas fa-user-check" aria-hidden="true"></i>
+                        <div><strong>檢舉處理紀錄</strong><span>顯示最後一次處理此評論的員工與判定內容。</span></div>
+                    </div>
+                    <div class="comment-moderation-record-meta">
+                        <div><span>處理結果</span><strong id="detail-moderation-result">--</strong></div>
+                        <div><span>經手人員</span><strong id="detail-moderation-handler">--</strong></div>
+                        <div><span>處理時間</span><strong id="detail-moderation-date">--</strong></div>
+                    </div>
+                    <div class="comment-moderation-record-note">
+                        <span>判定說明</span><p id="detail-moderation-note">--</p>
+                    </div>
+                </section>
+
                 <div class="comment-moderation" id="comment-moderation" hidden>
                     <div class="comment-moderation-heading">
                         <i class="fas fa-flag" aria-hidden="true"></i>
@@ -189,6 +205,6 @@
 
 <span class="scroll-to-top rounded"><i class="fas fa-angle-up"></i></span>
 <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-<script th:src="@{/js/comment-admin.js?v=1}"></script>
+<script th:src="@{/js/comment-admin.js?v=2}"></script>
 </body>
 </html>
