@@ -68,8 +68,9 @@ public class ShippingController {
 			redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
 			return "redirect:/admin/psi/shipping/listOneShipping?ordersId=" + ordersId;
 		}
-		// updateShipping.html 看到 shipped 會顯示「出貨完成」，返回按鈕改成回出貨管理
+		// updateShipping.html 看到 shipped，返回按鈕會改成回出貨管理；success 是綠色提示的文字
 		redirectAttributes.addFlashAttribute("shipped", true);
+		redirectAttributes.addFlashAttribute("success", "出貨完成");
 		return "redirect:/admin/psi/shipping/updateShipping?ordersId=" + ordersId;
 	}
 
@@ -80,13 +81,34 @@ public class ShippingController {
 		return "admin/psi/shipping/listAllShipping"; //view
 	}
 
+	// 取消出貨：由出貨紀錄單筆頁（updateShipping）的「取消出貨」按鈕送過來
+	// 成功時 redirect 回同一頁顯示「已取消出貨」；被擋下時 redirect 回出貨管理首頁顯示原因
+	@PostMapping("/cancelShip")
+	public String cancelShip(@RequestParam("ordersId") Integer ordersId, RedirectAttributes redirectAttributes) {
+		try {
+			shippingSvc.cancelShipOrders(ordersId);
+		} catch (IllegalArgumentException e) {
+			redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+			return "redirect:/admin/psi/shipping";
+		}
+		// updateShipping 看到 cancelled 才會放行這張已經改回待出貨的訂單；success 是綠色提示的文字
+		redirectAttributes.addFlashAttribute("cancelled", true);
+		redirectAttributes.addFlashAttribute("success", "已取消出貨");
+		return "redirect:/admin/psi/shipping/updateShipping?ordersId=" + ordersId;
+	}
+
 	// 歷史出貨紀錄的單筆資料：由歷史出貨紀錄的「詳細」連過來，或剛出貨完由 ship redirect 過來，依 ordersId 顯示訂單與出貨明細
+	// 剛取消出貨由 cancelShip redirect 過來的那一次，訂單已經是待出貨也照樣顯示
 	@GetMapping("/updateShipping")
 	public String updateShipping(@RequestParam("ordersId") Integer ordersId, Model model) {
 		Orders orders = shippingSvc.getOneOrders(ordersId);
 
+		// 剛取消出貨的那一次才有 cancelled；重新整理後就沒有，待出貨的訂單會照下面的規則回歷史出貨紀錄
+		boolean justCancelled = orders != null && model.containsAttribute("cancelled")
+				&& Integer.valueOf(0).equals(orders.getOrdersStatus());
+
 		// 查不到訂單、或不是歷史出貨紀錄會列出的訂單（待出貨、取消）時回歷史出貨紀錄
-		if (orders == null || !shippingSvc.isHistoryOrders(orders)) {
+		if (orders == null || (!shippingSvc.isHistoryOrders(orders) && !justCancelled)) {
 			return "redirect:/admin/psi/shipping/listAllShipping";
 		}
 		model.addAttribute("orders", orders);
