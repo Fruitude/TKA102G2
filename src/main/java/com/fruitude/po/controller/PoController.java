@@ -383,12 +383,15 @@ public class PoController {
 
 	// 新增、修改成功後 redirect 過來，依 poId 顯示單筆資料
 	@GetMapping("/listOnePo")
-	public String listOnePo(@RequestParam("poId") Integer poId, Model model) {
+	public String listOnePo(@RequestParam("poId") Integer poId, Model model, RedirectAttributes redirectAttributes) {
 		PoVO poVO = poSvc.getOnePo(poId);
 
-		// 資料已被刪除時回到列表
+		// 查不到採購單時回首頁顯示錯誤訊息；update 被擋下帶過來的錯誤訊息繼續帶到首頁顯示，沒有才用預設的訊息
 		if (poVO == null) {
-			return "redirect:/admin/psi/purchase/listAllPo";
+			Object errorMessage = model.containsAttribute("errorMessage") ? model.getAttribute("errorMessage")
+					: "查無此採購單";
+			redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
+			return "redirect:/admin/psi/purchase";
 		}
 		model.addAttribute("poVO", poVO);
 
@@ -403,9 +406,10 @@ public class PoController {
 			RedirectAttributes redirectAttributes) {
 		PoVO poVO = fillShortage ? poSvc.getPoWithShortageDetails(poId) : poSvc.getOnePo(poId);
 
-		// 資料已被刪除時回到列表
+		// 查不到採購單時回首頁顯示錯誤訊息
 		if (poVO == null) {
-			return "redirect:/admin/psi/purchase/listAllPo";
+			redirectAttributes.addFlashAttribute("errorMessage", "查無此採購單");
+			return "redirect:/admin/psi/purchase";
 		}
 
 		// 不是待審核的採購單不進修改頁（例如停在首頁或列表太久，期間已經被審核），改顯示單筆資料並說明原因
@@ -541,11 +545,11 @@ public class PoController {
 		}
 	}
 
-	// 帶著錯誤訊息回單筆頁；連採購單編號都沒有時回列表
+	// 帶著錯誤訊息回單筆頁；連採購單編號都沒有時回首頁
 	private String redirectWithError(Integer poId, String errorMessage, RedirectAttributes redirectAttributes) {
 		redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
 		if (poId == null) {
-			return "redirect:/admin/psi/purchase/listAllPo";
+			return "redirect:/admin/psi/purchase";
 		}
 		return redirectToListOnePo(poId);
 	}

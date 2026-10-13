@@ -49,18 +49,19 @@ public class VendorService {
 		return repository.findByIsActive(isActive);
 	}
 
-	// 依產地模糊查詢，只查已啟用的供應商
-	public List<VendorVO> getActiveVendorsByOrigin(String origin) {
-		return repository.findByOriginContainingAndIsActive(origin, (byte) 1);
+	// 依產地模糊查詢，不限啟用狀態
+	public List<VendorVO> getVendorsByOrigin(String origin) {
+		return repository.findByOriginContaining(origin);
 	}
 
-	// 依聯絡人姓名模糊查詢，只查已啟用的供應商
-	public List<VendorVO> getActiveVendorsByContactPerson(String contactPerson) {
-		return repository.findByContactPersonContainingAndIsActive(contactPerson, (byte) 1);
+	// 依聯絡人姓名模糊查詢，不限啟用狀態
+	public List<VendorVO> getVendorsByContactPerson(String contactPerson) {
+		return repository.findByContactPersonContaining(contactPerson);
 	}
-	
-	public List<VendorVO> getActiveVendorsByTaxId(String taxId) {
-		return repository.findByTaxIdContainingAndIsActive(taxId, (byte) 1);
+
+	// 依統一編號模糊查詢，不限啟用狀態
+	public List<VendorVO> getVendorsByTaxId(String taxId) {
+		return repository.findByTaxIdContaining(taxId);
 	}
 	
 	// 已啟用供應商的編號與名稱，給下拉選單使用；不會讀出 logo
