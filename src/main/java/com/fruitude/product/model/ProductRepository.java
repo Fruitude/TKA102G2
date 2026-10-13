@@ -9,6 +9,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = """
+        SELECT v.vendor_id AS vendorId, v.vendor_name AS name, v.origin AS origin,
+               CASE WHEN OCTET_LENGTH(v.logo)>0 THEN 1 ELSE 0 END AS hasLogo,
+               CASE WHEN v.is_active=1 AND EXISTS (
+                   SELECT 1 FROM farmer f WHERE f.vendor_id=v.vendor_id AND f.show_in_farmers=1
+               ) THEN (
+                   SELECT COUNT(*) FROM farmer f JOIN vendor fv ON fv.vendor_id=f.vendor_id
+                   WHERE f.show_in_farmers=1 AND fv.is_active=1 AND f.vendor_id<=v.vendor_id
+               ) ELSE 0 END AS farmerPosition
+        FROM product p JOIN vendor v ON v.vendor_id=p.vendor_id
+        WHERE p.product_id=:productId
+        """, nativeQuery = true)
+    ProductSupplierRow findProductSupplier(@org.springframework.data.repository.query.Param("productId") Integer productId);
+
+    interface ProductSupplierRow {
+        Integer getVendorId();
+        String getName();
+        String getOrigin();
+        Integer getHasLogo();
+        Integer getFarmerPosition();
+    }
+
+    @Query(value = """
         SELECT s.product_id FROM orders o JOIN orders_detail d ON d.orders_id=o.orders_id
         JOIN product_sku s ON s.sku_id=d.sku_id
         WHERE o.orders_date>=:fromDate AND o.orders_date<:toDate

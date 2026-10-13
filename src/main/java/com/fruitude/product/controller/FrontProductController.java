@@ -123,6 +123,9 @@ public class FrontProductController {
         Integer id = productId != null ? productId : products.stream().filter(p -> name != null && name.equals(p.name())).map(ProductView::productId).findFirst().orElse(null);
         ProductView selected = catalog.getLiveProduct(id);
         model.addAttribute("dbProduct", selected);
+        model.addAttribute("productSupplier", selected == null ? null : catalog.getProductSupplier(selected.productId()));
+        model.addAttribute("reviewSkus",selected==null ? List.of() : selected.skus().stream()
+            .filter(sku->java.util.Set.of(1,2,3,4,6).contains(sku.skuStatus())).toList());
         model.addAttribute("productReviews", selected==null || catalog==null
             ? com.fruitude.product.model.FrontCatalogService.ReviewPage.empty() : catalog.read(selected.productId(),0,3));
         model.addAttribute("relatedProducts", com.fruitude.product.model.FrontCatalogService.recommend(selected,products,5));
@@ -144,10 +147,11 @@ public class FrontProductController {
     @ResponseBody
     @GetMapping("/front/api/product-reviews")
     public ResponseEntity<?> read(@RequestParam int productId,@RequestParam(defaultValue="0") int page,
-        @RequestParam(defaultValue="") String keyword,@RequestParam(defaultValue="latest") String sort) {
+        @RequestParam(defaultValue="") String keyword,@RequestParam(defaultValue="latest") String sort,
+        @RequestParam(required=false) Integer skuId,@RequestParam(defaultValue="20") int size) {
         if(productId<=0 || page<0 || page>100000)return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).build();
         try {
-            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(catalog.read(productId,page,20,keyword,sort));
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(catalog.read(productId,page,size,keyword,sort,skuId));
         } catch(IllegalArgumentException ex) {
             return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).body(java.util.Map.of("message",ex.getMessage()));
         }

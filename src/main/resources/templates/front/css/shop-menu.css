@@ -1,0 +1,15 @@
+/* Shared storefront shop menu: match the current homepage on every page. */
+.nav-bar .storefront-shop-menu.w--open {
+  background-color: rgb(255, 255, 215);
+  border: 1px solid #FFE778;
+}
+.nav-bar .storefront-shop-menu .nav_dropdown-card {
+  background-color: #F4F7F0;
+  border-color: #BDD1A8;
+}
+.nav-bar .storefront-shop-menu .nav_dropdown-card:hover {
+  background-color: #E5EEDC;
+  border-color: #FFE778;
+}
+.nav-bar .storefront-shop-menu .nav_dropdown-title { color: #365624; }
+.nav-bar .storefront-shop-menu .paragraph-16.light-text { color: #7A7A7A; }
