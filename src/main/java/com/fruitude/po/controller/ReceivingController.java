@@ -14,13 +14,17 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.fruitude.employee.model.Employee;
@@ -47,6 +51,9 @@ public class ReceivingController {
 	// 明細的到貨數量、不良品數量欄位名：poDetails[索引].arrivedPcs、poDetails[索引].defectPcs
 	private static final Pattern DETAIL_QUANTITY_FIELD = Pattern.compile("poDetails\\[(\\d+)\\]\\.(arrivedPcs|defectPcs)");
 
+	// 單筆頁、驗收頁查不到採購單時的訊息；ReceivingService 的 getOneApprovedPo 對「不存在」和「狀態不符」都回傳 null，分不出是哪一種
+	private static final String PO_NOT_FOUND_MESSAGE = "查無此採購單，或這張採購單不是申請通過、已結案的狀態";
+
 	// 進貨系統首頁：列出申請通過、尚未驗收的採購單
 	@GetMapping("")
 	public String receiving(Model model) {
@@ -63,11 +70,15 @@ public class ReceivingController {
 
 	// 單筆資料：由首頁列表、驗收紀錄的「詳細」連過來，依 poId 顯示採購單與明細
 	@GetMapping("/listOneReceiving")
-	public String listOneReceiving(@RequestParam("poId") Integer poId, Model model) {
+	public String listOneReceiving(@RequestParam("poId") Integer poId, Model model,
+			RedirectAttributes redirectAttributes) {
 		PoVO poVO = receivingSvc.getOneApprovedPo(poId);
 
-		// 查不到，或不是申請通過、已結案的採購單時回首頁
+		// 查不到，或不是申請通過、已結案的採購單時回首頁顯示錯誤訊息；update 被擋下帶過來的錯誤訊息繼續帶到首頁顯示，沒有才用預設的訊息
 		if (poVO == null) {
+			Object errorMessage = model.containsAttribute("errorMessage") ? model.getAttribute("errorMessage")
+					: PO_NOT_FOUND_MESSAGE;
+			redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
 			return "redirect:/admin/psi/receiving";
 		}
 		model.addAttribute("poVO", poVO);
@@ -78,11 +89,13 @@ public class ReceivingController {
 	// 驗收頁：由單筆頁的「驗收」按鈕，或驗收紀錄、單筆頁的「修改」按鈕連過來
 	// 待驗收的採購單是第一次驗收，數量欄位空白；已結案的採購單是修改驗收紀錄，帶入上次存的內容
 	@PostMapping("/getOneForUpdate")
-	public String getOneForUpdate(@RequestParam("poId") Integer poId, Model model, HttpSession session) {
+	public String getOneForUpdate(@RequestParam("poId") Integer poId, Model model, HttpSession session,
+			RedirectAttributes redirectAttributes) {
 		PoVO poVO = receivingSvc.getOneApprovedPo(poId);
 
-		// 查不到，或不是申請通過、已結案的採購單時回首頁
+		// 查不到，或不是申請通過、已結案的採購單時回首頁顯示錯誤訊息
 		if (poVO == null) {
+			redirectAttributes.addFlashAttribute("errorMessage", PO_NOT_FOUND_MESSAGE);
 			return "redirect:/admin/psi/receiving";
 		}
 
@@ -213,6 +226,16 @@ public class ReceivingController {
 	public void initBinder(WebDataBinder binder) {
 		binder.setAllowedFields("poId", "inboundStatus", "poDetails[*].poDetailId", "poDetails[*].arrivedPcs",
 				"poDetails[*].defectPcs");
+	}
+
+	// 網址的參數型別不對（例如 poId=abc）或少了必要的參數時，回首頁並顯示錯誤訊息
+	// 只處理這支 controller 的方法丟出的例外；例外處理不會經過 receiving 方法，待驗收的採購單要自己再放一次
+	@ExceptionHandler({ MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class })
+	public ModelAndView handleError(Exception e) {
+		ModelAndView mav = new ModelAndView("admin/psi/receiving/index");
+		mav.addObject("errorMessage", "網址的參數不正確，請從進貨系統管理重新操作");
+		mav.addObject("poListData", receivingSvc.getPendingInboundPos());
+		return mav;
 	}
 
 }

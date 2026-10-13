@@ -52,12 +52,14 @@
 						<div class="card-body">
 						
 							<form th:action="@{/admin/psi/vendor/listAllVendor}" method="post" class="form-inline mb-3">
+					            <!-- 預設選「已啟用」；用這個選單查詢而查無資料回到本頁時，保留剛才選的項目（param.isActive 是這次請求帶來的值） -->
 					            <label for="isActiveSelect" class="mr-3" style="width: 120px;">啟用狀態</label>
-					            <select id="isActiveSelect" name="isActive" class="custom-select mr-2">
-					                <option value="">查詢全部</option>
-					                <option value="1" selected>已啟用</option>
-					                <option value="0">尚未啟用</option>
-					                <option value="2">已停用</option>
+					            <select id="isActiveSelect" name="isActive" class="custom-select mr-2"
+					            th:with="selected=${param.isActive != null ? param.isActive[0] : '1'}">
+					                <option value="" th:selected="${selected == ''}">查詢全部</option>
+					                <option value="1" th:selected="${selected == '1'}">已啟用</option>
+					                <option value="0" th:selected="${selected == '0'}">尚未啟用</option>
+					                <option value="2" th:selected="${selected == '2'}">已停用</option>
 					            </select>
 					            <button type="submit" class="btn btn-primary">查詢</button>
 					        </form>

@@ -42,11 +42,11 @@ public class ShippingController {
 			RedirectAttributes redirectAttributes) {
 		Orders orders = shippingSvc.getOneOrders(ordersId);
 
-		// 查不到訂單、或不是待出貨的訂單時回首頁；ship 被擋下帶過來的錯誤訊息繼續帶到首頁顯示
+		// 查不到訂單、或不是待出貨的訂單時回首頁顯示錯誤訊息；ship 被擋下帶過來的錯誤訊息繼續帶到首頁顯示，沒有才用預設的訊息
 		if (orders == null || !Integer.valueOf(0).equals(orders.getOrdersStatus())) {
-			if (model.containsAttribute("errorMessage")) {
-				redirectAttributes.addFlashAttribute("errorMessage", model.getAttribute("errorMessage"));
-			}
+			Object errorMessage = model.containsAttribute("errorMessage") ? model.getAttribute("errorMessage")
+					: "查無此訂單，或訂單已經不是待出貨";
+			redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
 			return "redirect:/admin/psi/shipping";
 		}
 		List<ShippingDetail> shippingDetails = shippingSvc.getShippingDetails(ordersId);
@@ -100,16 +100,18 @@ public class ShippingController {
 	// 歷史出貨紀錄的單筆資料：由歷史出貨紀錄的「詳細」連過來，或剛出貨完由 ship redirect 過來，依 ordersId 顯示訂單與出貨明細
 	// 剛取消出貨由 cancelShip redirect 過來的那一次，訂單已經是待出貨也照樣顯示
 	@GetMapping("/updateShipping")
-	public String updateShipping(@RequestParam("ordersId") Integer ordersId, Model model) {
+	public String updateShipping(@RequestParam("ordersId") Integer ordersId, Model model,
+			RedirectAttributes redirectAttributes) {
 		Orders orders = shippingSvc.getOneOrders(ordersId);
 
-		// 剛取消出貨的那一次才有 cancelled；重新整理後就沒有，待出貨的訂單會照下面的規則回歷史出貨紀錄
+		// 剛取消出貨的那一次才有 cancelled；重新整理後就沒有，待出貨的訂單會照下面的規則回首頁
 		boolean justCancelled = orders != null && model.containsAttribute("cancelled")
 				&& Integer.valueOf(0).equals(orders.getOrdersStatus());
 
-		// 查不到訂單、或不是歷史出貨紀錄會列出的訂單（待出貨、取消）時回歷史出貨紀錄
+		// 查不到訂單、或不是歷史出貨紀錄會列出的訂單（待出貨、取消）時回首頁顯示錯誤訊息
 		if (orders == null || (!shippingSvc.isHistoryOrders(orders) && !justCancelled)) {
-			return "redirect:/admin/psi/shipping/listAllShipping";
+			redirectAttributes.addFlashAttribute("errorMessage", "查無此訂單，或訂單不在歷史出貨紀錄裡");
+			return "redirect:/admin/psi/shipping";
 		}
 		model.addAttribute("orders", orders);
 		model.addAttribute("shippingDetails", shippingSvc.getShippingDetails(ordersId));

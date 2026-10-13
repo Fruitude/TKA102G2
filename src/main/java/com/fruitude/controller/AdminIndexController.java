@@ -11,18 +11,25 @@ public class AdminIndexController {
 	
 	@GetMapping({"", "/"})
 	public String index(Model model) {
-		System.out.println("執行index導向");
 		
 		return "admin/index"; //view
 	}
 	
 	@GetMapping("/psi")
 	public String psi(Model model) {
-		System.out.println("執行psi導向");
 		
 		return "admin/psi/index"; //view
 	}
+	@GetMapping("/account")
+	public String account(Model model) {
+		
+		return "admin/account/index"; //view
+	}
 	
+	@GetMapping({"/psi/", "/psi/index", "/psi/index.html"})
+	public String oldPsi() { return "redirect:/admin/psi"; }
+
+
     @GetMapping("/product")
     public String product() { return "admin/productmanagement/product"; }
 
@@ -35,20 +42,5 @@ public class AdminIndexController {
         String query = request.getQueryString();
         return "redirect:/admin/product/" + page + (query == null ? "" : "?" + query);
     }
-
-    @GetMapping({"/vendor", "/vendor.html", "/vendor/", "/psi/vendor.html"})
-    public String oldVendor() { return "redirect:/admin/psi/vendor"; }
-
-    @GetMapping({"/psi/", "/psi/index", "/psi/index.html"})
-    public String oldPsi() { return "redirect:/admin/psi"; }
-
-    @GetMapping("/account")
-	public String account(Model model) {
-		System.out.println("執行account導向");
-		
-		return "admin/account/index"; //view
-	}
-	
-	
 
 }
