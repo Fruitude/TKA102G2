@@ -22,11 +22,6 @@ public class AdminPsiController {
 	
 	// 進貨系統首頁（/admin/psi/receiving）改由 ReceivingController 的 receiving 處理
 
-	@GetMapping("/stock")
-	public String stock(Model model) {
-		System.out.println("執行stock導向");
-		
-		return "admin/psi/stock/index"; //view
-	}
+	// 庫存管理系統首頁（/admin/psi/stock）改由 StockController 的 stock 處理
 
 }
