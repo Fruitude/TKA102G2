@@ -14,6 +14,51 @@ import com.fruitude.product.model.*;
 import com.fruitude.product.controller.FrontProductController;
 
 public class FrontCatalogTest {
+    @Test public void supplierDetailsUseExistingVendorAndHideMissingLogo() throws Exception {
+        var p=product(92,"產地水果");sku(p,920,100,1);
+        var vendor=new com.fruitude.vendor.model.VendorVO();vendor.setVendorId(42);
+        vendor.setIsActive((byte)1);
+        vendor.setVendorName("測試果園");vendor.setOrigin("臺灣臺南");vendor.setLogo(new byte[]{1});p.setVendor(vendor);
+        var html=mvc(service(List.of(p))).perform(get("/front/product/view/").param("productId","92"))
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(html.contains("測試果園"));assertTrue(html.contains("臺南"));assertFalse(html.contains("臺灣臺南"));
+        assertTrue(html.contains("/vendor/DBGifReader?vendorId=42"));
+        assertTrue(html.contains("href=\"/front/farmers/#farmer-2\""));
+        assertTrue(html.contains("供應："));assertFalse(html.contains("供應廠商："));
+        assertTrue(html.indexOf("pv-supplier-info")>html.indexOf("id=\"pv-description\""));
+        assertTrue(html.contains(">產地水果評價</h2>"));
+        vendor.setLogo(null);vendor.setIsActive((byte)0);vendor.setOrigin("日本青森");
+        html=mvc(service(List.of(p))).perform(get("/front/product/view/").param("productId","92"))
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(html.contains("class=\"pv-supplier-logo\""));assertTrue(html.contains("測試果園"));
+        assertTrue(html.contains("日本青森"));assertFalse(html.contains("class=\"pv-supplier-link\""));
+    }
+    @Test public void reviewSkuButtonsAppearInBothPlacesAndIncludeStoppingSupply() throws Exception {
+        var p=product(90,"評論規格水果");sku(p,900,100,1).setSkuName("正常小盒");
+        sku(p,901,200,4).setSkuName("售完中盒");sku(p,902,300,6).setSkuName("最後一批");
+        sku(p,903,400,0).setSkuName("下架大盒");sku(p,904,500,7).setSkuName("永久停產盒");
+        var html=mvc(service(List.of(p))).perform(get("/front/product/view/").param("productId","90")).andReturn().getResponse().getContentAsString();
+        for(int id:new int[]{900,901,902})assertEquals(2,html.split("data-review-sku=\""+id+"\"",-1).length-1);
+        assertFalse(html.contains("data-review-sku=\"903\""));assertFalse(html.contains("data-review-sku=\"904\""));
+        assertEquals(2,html.split("全部規格",-1).length-1);
+        assertTrue(html.indexOf("data-review-sku=\"900\"",html.indexOf("<dialog"))<html.indexOf("id=\"pv-reviews-search\""));
+    }
+    @Test public void oneVisibleSkuDoesNotShowReviewFilterButtons() throws Exception {
+        var p=product(91,"單規格水果");sku(p,910,100,1);sku(p,911,200,0);sku(p,912,300,7);
+        var html=mvc(service(List.of(p))).perform(get("/front/product/view/").param("productId","91")).andReturn().getResponse().getContentAsString();
+        assertFalse(html.contains("data-review-sku="));assertFalse(html.contains("全部規格"));
+    }
+    @Test public void reviewApiForwardsSkuAndPreviewSize() throws Exception {
+        var catalog=new FrontCatalogService(){
+            @Override public ReviewPage read(int id,int page,int size,String keyword,String sort,Integer skuId){
+                assertEquals(90,id);assertEquals(2,page);assertEquals(3,size);assertEquals("甜",keyword);assertEquals("highest",sort);assertEquals(Integer.valueOf(902),skuId);
+                return ReviewPage.empty();
+            }
+        };
+        var response=mvc(catalog).perform(get("/front/api/product-reviews").param("productId","90").param("page","2")
+            .param("size","3").param("keyword","甜").param("sort","highest").param("skuId","902")).andReturn().getResponse();
+        assertEquals(200,response.getStatus());assertEquals("no-store",response.getHeader("Cache-Control"));
+    }
     @Test public void farmerPageKeepsMainBranchStoriesAndVendorProducts() {
         var fruit=new FrontCatalogService.ProductView(1,"小農水果","",100,100,1,null,false,List.of(),10,0d);
         var catalog=new FrontCatalogService(){
@@ -91,6 +136,17 @@ public class FrontCatalogTest {
             if (method.getName().equals("findBestSellerProductIds") || method.getName().equals("findTopRatedProductIds"))
                 return products.stream().map(Product::getProductId).toList();
             if (method.getName().equals("findCatalogPriorities")) return List.of();
+            if (method.getName().equals("findProductSupplier")) {
+                var vendor = products.stream().filter(p -> p.getProductId().equals(args[0]))
+                    .map(Product::getVendor).filter(Objects::nonNull).findFirst().orElse(null);
+                return vendor == null ? null : projection(ProductRepository.ProductSupplierRow.class, key -> switch (key) {
+                    case "getVendorId" -> vendor.getVendorId(); case "getName" -> vendor.getVendorName();
+                    case "getOrigin" -> vendor.getOrigin();
+                    case "getFarmerPosition" -> Byte.valueOf((byte)1).equals(vendor.getIsActive()) ? 2 : 0;
+                    case "getHasLogo" -> vendor.getLogo() != null && vendor.getLogo().length > 0 ? 1 : 0;
+                    default -> null;
+                });
+            }
             throw new AssertionError(method.getName());
         });
         return new FrontCatalogService(repo) {
@@ -191,7 +247,7 @@ public class FrontCatalogTest {
         }
         String home=catalogMvc.perform(get("/front/")).andReturn().getResponse().getContentAsString();
         assertTrue(home.contains("人氣爆棚"));assertTrue(home.contains("好評如潮"));
-        assertTrue(home.contains("href=\"best-sellers/\""));assertTrue(home.contains("href=\"top-rated/\""));
+        assertTrue(home.contains("href=\"/front/best-sellers/\""));assertTrue(home.contains("href=\"/front/top-rated/\""));
         assertFalse(home.contains("熱銷精選"));
     }
     @Test public void stoppingSupplyLabelAppearsOnCardsAndProductDetails() throws Exception {

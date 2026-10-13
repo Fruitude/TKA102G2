@@ -90,6 +90,19 @@ public class FrontCatalogService {
     public record SkuView(Integer skuId, String name, Integer price, Integer originalPrice, Integer stock, Integer imageId, List<Integer> imageIds, Integer skuStatus) {}
     public record ProductView(Integer productId, String name, String description, Integer price, Integer originalPrice,
         Integer skuId, Integer imageId, boolean giftBox, List<SkuView> skus, Integer stock, Double averageRating) {}
+    public record ProductSupplier(Integer vendorId, String name, String origin, boolean hasLogo, Integer farmerPosition) {
+        public ProductSupplier {
+            if (origin != null) origin = origin.strip().replaceFirst("^(?:台灣|臺灣)[\s、，,／/：:-]*", "");
+        }
+    }
+
+    @Transactional(readOnly=true)
+    public ProductSupplier getProductSupplier(Integer productId) {
+        if (productId == null || repository == null) return null;
+        var row = repository.findProductSupplier(productId);
+        return row == null ? null : new ProductSupplier(row.getVendorId(), row.getName(), row.getOrigin(),
+            Integer.valueOf(1).equals(row.getHasLogo()), row.getFarmerPosition());
+    }
     public record LiveSku(Integer skuId, String name, String skuName, Integer price, Integer originalPrice, int stock, boolean available, Integer skuStatus) {}
 
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
@@ -273,7 +286,12 @@ public class FrontCatalogService {
     public ReviewPage read(int productId,int page,int size) { return read(productId,page,size,"","latest"); }
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public ReviewPage read(int productId, int page, int size, String keyword, String sort) {
+        return read(productId,page,size,keyword,sort,null);
+    }
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public ReviewPage read(int productId, int page, int size, String keyword, String sort, Integer skuId) {
         if(productId<=0 || page<0 || page>100000 || size<1 || size>20) throw new IllegalArgumentException("評論查詢參數不正確");
+        if(skuId!=null && skuId<=0)throw new IllegalArgumentException("評論規格不正確");
         String query=keyword==null?"":keyword.trim();
         if(query.length()>200)throw new IllegalArgumentException("搜尋文字最多200字");
         String order=switch(sort==null?"latest":sort) {
@@ -283,13 +301,22 @@ public class FrontCatalogService {
             default -> throw new IllegalArgumentException("評論排序不正確");
         };
         var params=new HashMap<String,Object>();params.put("id",productId);
+        String scope=FROM;
+        if(skuId!=null) {
+            params.put("sku",skuId);
+            Integer available=reviewJdbc.queryForObject("SELECT COUNT(*) FROM product_sku s JOIN product p ON p.product_id=s.product_id "
+                +"WHERE s.product_id=:id AND s.sku_id=:sku AND s.status IN(1,2,3,4,6) AND s.price>0 "
+                +"AND (p.status=1 OR (p.status=2 AND s.status=6))",params,Integer.class);
+            if(available==null || available!=1)throw new IllegalArgumentException("此規格不屬於商品或已下架、停產");
+            scope+="AND s.sku_id=:sku ";
+        }
         String histogram="";for(int star=1;star<=5;star++)histogram+=", COALESCE(SUM(d.comment_star="+star+"),0) AS star"+star;
-        var summary=reviewJdbc.queryForMap("SELECT COUNT(*) AS amount, COALESCE(ROUND(AVG(d.comment_star),1),0) AS average"+histogram+FROM,params);
+        var summary=reviewJdbc.queryForMap("SELECT COUNT(*) AS amount, COALESCE(ROUND(AVG(d.comment_star),1),0) AS average"+histogram+scope,params);
         long total=((Number)summary.get("amount")).longValue();
         double average=((Number)summary.get("average")).doubleValue();
         var distribution=new ArrayList<StarCount>();
         for(int star=5;star>=1;star--)distribution.add(new StarCount(star,((Number)summary.get("star"+star)).longValue()));
-        String filtered=FROM;
+        String filtered=scope;
         if(!query.isEmpty()) {
             params.put("keyword","%"+query.replace("!","!!").replace("%","!%").replace("_","!_")+"%");
             filtered+="AND d.comment_text LIKE :keyword ESCAPE '!' ";

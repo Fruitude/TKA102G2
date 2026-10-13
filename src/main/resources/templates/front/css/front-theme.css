@@ -57,14 +57,6 @@ body.front-theme {
   border-color: var(--front-green);
 }
 .front-theme select { color: var(--front-text); background-color: #F5DF4D; }
-.front-theme .nav_dropdown-list.w--open {
-  background-color: #F0F5E9;
-  border: 1px solid #BDD1A8;
-}
-.front-theme .nav_dropdown-card { border-color: #BDD1A8; }
-.front-theme .nav_dropdown-card:hover { background-color: #E5EEDC; }
-.front-theme .nav_dropdown-title { color: var(--front-green); }
-
 /* Decorative areas use backgrounds, so no overlay blocks links or menus.
    Circles extend past the edges without creating horizontal scrolling. */
 .front-theme .front-theme-circles {
