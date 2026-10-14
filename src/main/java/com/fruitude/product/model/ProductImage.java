@@ -16,6 +16,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "product_image")
+@jakarta.persistence.EntityListeners(ProductImageService.ImageCacheListener.class)
 public class ProductImage implements java.io.Serializable {
 	
 	@Id
