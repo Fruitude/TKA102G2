@@ -87,6 +87,27 @@
 			display: none;
 		}
 
+		.login-options {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+
+		.remember-me {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			margin: 0;
+			cursor: pointer;
+		}
+
+		.remember-me input {
+			width: 16px;
+			height: 16px;
+			margin: 0;
+		}
+
 		.auth-panel-copy {
 			margin: 0 0 20px;
 			color: #676767;
@@ -495,7 +516,11 @@
 									class="text-field w-input" id="member-password" maxlength="255"
 									name="password" placeholder="輸入密碼" required minlength="8"
 									autocomplete="current-password" type="password" />
-								<div class="login-legal-text-wrapper">
+								<div class="login-legal-text-wrapper login-options">
+									<label class="remember-me" for="remember-me">
+										<input id="remember-me" name="rememberMe" type="checkbox" />
+										<span>記住我</span>
+									</label>
 									<p class="paragraph-18">
 										<a class="login-link" href="#" id="show-forgot-password">忘記密碼？</a>
 									</p>
@@ -613,11 +638,24 @@
 			const resetForm = document.getElementById('reset-password-form');
 			const account = document.getElementById('member-account');
 			const password = document.getElementById('member-password');
+			const rememberMe = document.getElementById('remember-me');
+			const REMEMBER_KEY = 'fruitude:remembered-account';
 			const submit = document.getElementById('login-submit');
 			const feedback = document.getElementById('login-feedback');
 			const contextPath = window.location.pathname.split('/front/')[0];
 			const query = new URLSearchParams(window.location.search);
 			const resetToken = query.get('resetToken');
+
+			// 「記住我」：只記住帳號，不儲存密碼。
+			try {
+				const savedAccount = localStorage.getItem(REMEMBER_KEY);
+				if (savedAccount) {
+					account.value = savedAccount;
+					rememberMe.checked = true;
+				}
+			} catch (error) {
+				// localStorage 不可用時，不影響登入。
+			}
 
 			function showFeedback(element, text, type) {
 				element.textContent = text;
@@ -751,6 +789,7 @@
 				const data = new URLSearchParams();
 				data.set('account', account.value.trim());
 				data.set('password', password.value);
+				data.set('rememberMe', rememberMe.checked ? 'true' : 'false');
 
 				fetch(contextPath + '/api/members/login', {
 					method: 'POST',
@@ -766,6 +805,12 @@
 				}).then(function(result) {
 					if (!result.ok) {
 						throw new Error(result.body.message || '登入失敗，請確認輸入內容');
+					}
+					try {
+						if (rememberMe.checked) localStorage.setItem(REMEMBER_KEY, account.value.trim());
+						else localStorage.removeItem(REMEMBER_KEY);
+					} catch (error) {
+						// localStorage 不可用時，不影響登入。
 					}
 					goToHome();
 				}).catch(function(error) {

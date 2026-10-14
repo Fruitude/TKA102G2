@@ -4,7 +4,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +21,7 @@ import com.fruitude.member.model.MemberService;
 import com.fruitude.member.model.MemberVO;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 
@@ -29,6 +32,8 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/members")
 @Validated
 public class MemberController {
+
+	private static final int REMEMBER_ME_SECONDS = 30 * 24 * 60 * 60;
 
 	private final MemberService memberService;
 
@@ -74,7 +79,9 @@ public class MemberController {
 	/** 使用帳號或 Email 加密碼登入。 */
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestParam("account") String accountOrEmail,
-			@RequestParam("password") String password, HttpServletRequest request) {
+			@RequestParam("password") String password,
+			@RequestParam(value = "rememberMe", defaultValue = "false") boolean rememberMe,
+			HttpServletRequest request, HttpServletResponse response) {
 		try {
 			MemberVO member = memberService.loginOrThrow(accountOrEmail, password);
 			// 登入成功後更新 session ID，並只保存後續頁面需要的會員識別資料。
@@ -82,11 +89,25 @@ public class MemberController {
 			request.changeSessionId();
 			session.setAttribute("loggedInMemberId", member.getMemberId());
 			session.setAttribute("loggedInMemberName", member.getMemberName());
+			if (rememberMe) {
+				keepLoggedIn(request, response, session);
+			}
 			return ResponseEntity.ok(member);
 		} catch (IllegalArgumentException error) {
 			// 將查無會員、密碼錯誤及停權分別說明，避免使用者無法判斷問題。
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(message(error.getMessage()));
 		}
+	}
+
+	/** 勾選「記住我」時，把 session 逾時延長為 30 天，並讓 session cookie 在關閉瀏覽器後仍保留。 */
+	private void keepLoggedIn(HttpServletRequest request, HttpServletResponse response, HttpSession session) {
+		session.setMaxInactiveInterval(REMEMBER_ME_SECONDS);
+		String path = request.getContextPath().isEmpty() ? "/" : request.getContextPath();
+		String cookieName = request.getServletContext().getSessionCookieConfig().getName();
+		ResponseCookie cookie = ResponseCookie.from(cookieName == null ? "JSESSIONID" : cookieName, session.getId())
+				.path(path).maxAge(REMEMBER_ME_SECONDS).httpOnly(true).secure(request.isSecure())
+				.sameSite("Lax").build();
+		response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 	}
 
 	/** 讓前端確認目前瀏覽器是否已有登入中的會員 session。 */
