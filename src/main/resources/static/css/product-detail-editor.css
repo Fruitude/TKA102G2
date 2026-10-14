@@ -93,3 +93,13 @@
 .product-edit-mode .edit-sku-status { width:8em; max-width:100%; text-align:center; }
 
 .product-edit-mode .edit-image-number { position:absolute; right:calc(100% + 6px); top:50%; transform:translateY(-50%); min-width:2ch; text-align:right; color:#6b7280; font-size:13px; font-variant-numeric:tabular-nums; }
+
+.product-edit-mode .edit-product-preview-button { display:block; margin:18px auto 0; padding:8px 24px; border:1px solid #497339; border-radius:6px; background:#497339; color:#fff; font:inherit; cursor:pointer; }
+#product-edit-preview { position:fixed; inset:0; z-index:10000; display:flex; flex-direction:column; box-sizing:border-box; background:#fff; }
+#product-edit-preview header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 18px; border-bottom:1px solid #e4e8df; }
+#product-edit-preview h2 { margin:0; font-size:18px; }
+#product-edit-preview header button { padding:6px 12px; border:1px solid #a9b49f; border-radius:5px; background:#fff; cursor:pointer; font:inherit; }
+#product-edit-preview iframe { width:100%; min-height:0; flex:1; border:0; }
+
+.product-edit-mode .edit-sku-status-choice { display:inline-block; width:8em; max-width:100%; }
+.product-edit-mode .edit-sku-status-choice .edit-choice-trigger:disabled { opacity:.55; cursor:default; }

@@ -88,10 +88,36 @@
 
  }
 
+ function initSearchSound(buttons){
+  var url=script.dataset.searchSoundUrl;if(!url)return;
+  var sound=new Audio(url.replace(/;jsessionid=[^/?#;]+/g,''));
+  sound.preload='none';sound.volume=.55;sound.hidden=true;sound.id='fruit-search-sound';document.body.appendChild(sound);
+  var targets=buttons.filter(function(button){return button.closest('.nav-cta-button-conatiner');});
+  var hovered=null,lastX=null,lastY=null;
+  function stop(){sound.pause();sound.currentTime=0;}
+  function play(){if(!sound.paused)return;sound.currentTime=0;var playing=sound.play();if(playing)playing.catch(function(){/* Hover audio requires a prior user gesture in some browsers. */});}
+  function syncHover(){hovered=targets.find(function(button){return button.matches(':hover');})||null;lastX=null;lastY=null;stop();}
+  // Restoring focus or uncovering a button must not count as moving the mouse into it.
+  document.addEventListener('pointermove',function(event){
+   if(event.pointerType!=='mouse')return;
+   var button=targets.find(function(target){return target.contains(event.target);})||null;
+   var moved=!!(event.movementX||event.movementY)||(lastX!==null&&(event.clientX!==lastX||event.clientY!==lastY));
+   lastX=event.clientX;lastY=event.clientY;
+   if(document.hidden||!document.hasFocus()||document.querySelector('dialog[open]')){hovered=button;stop();return;}
+   if(!moved){hovered=button;return;}
+   if(button!==hovered){hovered=button;stop();if(button)play();}
+  },{passive:true});
+  targets.forEach(function(button){button.addEventListener('click',stop);});
+  document.addEventListener('pointerout',function(event){if(event.pointerType==='mouse'&&!event.relatedTarget){hovered=null;stop();}});
+  document.addEventListener('close',function(){syncHover();requestAnimationFrame(syncHover);},true);
+  window.addEventListener('blur',stop);window.addEventListener('focus',syncHover);window.addEventListener('pagehide',stop);
+  document.addEventListener('visibilitychange',function(){if(document.hidden)stop();else syncHover();});
+ }
+
  function init(){initBrandLogo();var state=document.getElementById('fruit-search-state');if(state)save(state);
   var buttons=Array.from(document.querySelectorAll('.nav-cta-button-conatiner a')).filter(function(a){return a.querySelector('.search-icon')||a.textContent.trim()==='搜尋';}).concat(Array.from(document.querySelectorAll('[data-open-product-search]')));
   buttons.forEach(function(b){if(b.dataset.fruitSearchBound)return;b.dataset.fruitSearchBound='true';
-   if(b.closest('.nav-cta-button-conatiner')){b.classList.add('fruit-nav-search');b.setAttribute('aria-label','搜尋');var label=document.createElement('span');label.className='fruit-nav-search-label';while(b.firstChild)label.appendChild(b.firstChild);b.appendChild(label);var fruits=document.createElement('span');fruits.className='fruit-nav-search-fruits';fruits.setAttribute('aria-hidden','true');['🍊','🍎','🍇','🍓','🍍'].forEach(function(fruit,i){var item=document.createElement('span');item.textContent=fruit;item.style.setProperty('--fruit-index',i);item.style.setProperty('--fruit-tilt',(i%2?-9:8)+'deg');fruits.appendChild(item);});b.appendChild(fruits);}b.setAttribute('aria-haspopup','dialog');if(b.tagName==='A')b.href=resultsUrl;b.addEventListener('click',function(e){e.preventDefault();open(b);});});
+   if(b.closest('.nav-cta-button-conatiner')){b.classList.add('fruit-nav-search');b.setAttribute('aria-label','搜尋');var label=document.createElement('span');label.className='fruit-nav-search-label';while(b.firstChild)label.appendChild(b.firstChild);b.appendChild(label);var fruits=document.createElement('span');fruits.className='fruit-nav-search-fruits';fruits.setAttribute('aria-hidden','true');['🍊','🍎','🍇','🍓','🍍'].forEach(function(fruit,i){var item=document.createElement('span');item.textContent=fruit;item.style.setProperty('--fruit-index',i);item.style.setProperty('--fruit-tilt',(i%2?-9:8)+'deg');fruits.appendChild(item);});b.appendChild(fruits);}b.setAttribute('aria-haspopup','dialog');if(b.tagName==='A')b.href=resultsUrl;b.addEventListener('click',function(e){e.preventDefault();open(b);});});initSearchSound(buttons);
  }
  window.FruitSearch={open:open};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

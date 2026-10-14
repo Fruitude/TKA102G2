@@ -1,5 +1,6 @@
 (() => {
     let dialog, frame, feedback, returnFocus, previousOverflow, currentDetailUrl, editing=false, saving=false, refreshAfterClose=false, returnToDetail=false;
+    let previewFrame, previewFocus, previewClosed, closeGuardUntil=0, previewTransition=false;
     function alignTitleWithImage() {
         if (!dialog.open || frame.hidden) return;
         const imageBox=frame.contentDocument?.querySelector('.gallery');if(!imageBox)return;
@@ -32,11 +33,58 @@
         alignTitleWithImage();
     }
     function closeDialog() {
+        if(previewTransition || performance.now()<closeGuardUntil)return;
+        if(previewFrame){closePreview();return;}
         if(saving)return;
         if(editing&&editor()?.isDirty()&&!window.confirm('尚有未儲存的修改，確定要取消嗎？'))return;
         if(editing && returnToDetail){returnToDetail=false;loadMode(false);return;}
         dialog.close();
     }
+    async function animatePreviewFrame(element,entering) {
+        if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+        const animation=element.animate(entering
+            ?[{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}]
+            :[{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-8px)'}],
+            {duration:entering?240:160,easing:entering?'ease-out':'ease-in',fill:'forwards'});
+        try { await animation.finished; } catch(_) {} finally { animation.cancel(); }
+    }
+    async function closePreview() {
+        if(!previewFrame || previewTransition)return;
+        previewTransition=true;
+        await animatePreviewFrame(previewFrame,false);
+        closeGuardUntil=performance.now()+650;
+        previewFrame.remove();previewFrame=null;
+        dialog.style.removeProperty('--detail-preview-height');
+        dialog.classList.remove('is-previewing');frame.hidden=false;
+        dialog.querySelector('.detail-title-editor').hidden=false;
+        dialog.querySelector('.detail-preview-title').remove();
+        dialog.querySelector('.detail-close-top').setAttribute('aria-label','關閉商品詳細資料');
+        applyMode();
+        const closed=previewClosed;previewClosed=null;closed?.();
+        previewFocus?.focus({preventScroll:true});previewFocus=null;
+        await animatePreviewFrame(frame,true);
+        previewTransition=false;
+    }
+    window.ProductDetailPreviewHost={open(source,content,focus,onClose){
+        if(!dialog?.open || !editing || saving || previewFrame || frame.contentWindow!==source)return null;
+        previewFrame=content;previewFocus=focus;previewClosed=onClose;
+        dialog.style.setProperty('--detail-preview-height',dialog.getBoundingClientRect().height+'px');
+        previewTransition=true;content.hidden=true;dialog.classList.add('is-previewing');
+        dialog.querySelector('.detail-title-editor').hidden=true;
+        const label=document.createElement('span');label.className='detail-preview-title';label.textContent='前台外觀預覽 · 尚未儲存';
+        dialog.querySelector('header').prepend(label);
+        dialog.querySelectorAll('.detail-mode,.detail-edit,.detail-save').forEach(element=>element.hidden=true);
+        dialog.querySelector('.detail-close-bottom').textContent='關閉預覽';
+        dialog.querySelector('.detail-close-top').setAttribute('aria-label','關閉預覽');
+        content.className='detail-preview-frame';dialog.insertBefore(content,dialog.querySelector('footer'));
+        dialog.querySelector('.detail-close-top').focus();
+        animatePreviewFrame(frame,false).then(async()=>{
+            frame.hidden=true;content.hidden=false;
+            await animatePreviewFrame(content,true);
+            previewTransition=false;
+        });
+        return closePreview;
+    }};
     let modeVersion = 0;
     function loadMode(mode) {
         const version = ++modeVersion;
@@ -59,6 +107,10 @@
     function createDialog() {
         const style=document.createElement('style');style.textContent=`
             .product-detail-modal { width:min(900px,95vw);max-width:95vw;max-height:92vh;padding:0;border:0;border-radius:8px;background:#fff;color:#333;box-shadow:0 12px 40px #0003; }
+            .product-detail-modal.is-previewing[open] { height:var(--detail-preview-height); display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box; }
+            .product-detail-modal.is-previewing .detail-preview-frame { flex:1; min-height:0; height:auto; }
+            .product-detail-modal.is-previewing header, .product-detail-modal.is-previewing footer { flex-shrink:0; box-sizing:border-box; }
+            .product-detail-modal .detail-preview-title { margin-right:auto;font-size:18px; }
             .product-detail-modal::backdrop { background:rgb(0 0 0 / 45%); }
             .product-detail-modal header { display:flex;align-items:center;justify-content:flex-end;position:relative;min-height:64px;padding:10px 16px;border-bottom:1px solid #e3e6f0; transition:background-color .28s ease,color .28s ease; }
             .product-detail-modal h2 { position:absolute;left:var(--detail-title-left,16px);right:56px;min-width:0;margin:0;padding-left:1em;font-size:18px;line-height:22px;font-family:inherit;text-align:left;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden; }

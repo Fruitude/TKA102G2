@@ -239,48 +239,92 @@
                 flex-wrap: wrap;
             }
         }
+.product-create-mode .product-meta .value.edit-choice-value { flex:1; min-width:100px; }
+.product-create-mode .edit-choice-dropdown { width:100%;min-width:0; }
+.product-create-mode .edit-choice-trigger { display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;min-width:0;min-height:30px;padding:4px 8px;border:1px solid #767676;border-radius:3px;background:#fff;color:#333;font:inherit;cursor:pointer; }
+.product-create-mode .edit-choice-caption { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left; }
+.product-create-mode .edit-choice-arrow { flex-shrink:0; }
+.product-create-mode .edit-choice-menu, .product-create-mode .edit-choice-submenu { position:fixed;z-index:100;width:12em;padding:5px;box-sizing:border-box;border:1px solid #cbd5cb;border-radius:6px;background:white;box-shadow:0 6px 18px #0002;color:#333; }
+.product-create-mode .edit-choice-submenu { z-index:101;max-height:240px;overflow-y:auto; }
+.product-create-mode .edit-choice-menu [hidden], .product-create-mode .edit-choice-menu[hidden] { display:none !important; }
+.product-create-mode .edit-choice-options { overflow-y:auto;overflow-x:hidden; }
+.product-create-mode .edit-choice-row { display:flex; }
+.product-create-mode .edit-choice-menu button { color:#333;background:transparent;border:0;font:inherit;text-align:left;min-height:32px;border-radius:4px;cursor:pointer; }
+.product-create-mode .edit-choice-item { flex:1;min-width:0;padding:5px 8px;overflow-wrap:anywhere; }
+.product-create-mode .edit-choice-expand { flex:0 0 28px;text-align:center !important; }
+.product-create-mode .edit-choice-menu button:hover, .product-create-mode .edit-choice-menu button:focus-visible { background:#e9f2eb;outline:2px solid #287a4b;outline-offset:-2px; }
+.product-create-mode .edit-choice-menu button[aria-current="true"] { color:#166534;background:#dcfce7; }
+.product-create-mode .edit-choice-search { display:block;width:100%;height:30px;box-sizing:border-box;margin:0 0 5px;padding:4px 8px;font:inherit;border:1px solid #767676;border-radius:3px; }
+.product-create-mode .edit-choice-empty { margin:0;padding:10px;color:#777;font-size:12px; }
+
+        .product-create-mode { font-size:14px; }
+        .product-create-mode .container { max-width:990px; padding:20px; }
+        .product-create-mode form[data-product-status-form] { width:100%; max-width:950px; }
+        .product-create-mode h1 { font-size:28px; }
+        .product-create-columns .form-table th, .product-create-columns .form-table td { padding:8px; }
+        .product-create-columns { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start; }
+        .product-create-columns > section { min-width:0; }
+        .product-create-columns .section-title { margin:0 0 16px; }
+        .product-create-columns .form-table th { width:125px; }
+        .product-create-mode .select-with-add .create-choice-field { flex:1; min-width:0; }
+        .product-create-mode .edit-choice-trigger { height:36px; padding:6px 10px; margin:0; }
+        .product-create-mode .edit-choice-trigger:hover { background:#fff; }
+        .product-create-mode .edit-choice-menu button { margin:0; }
+        .product-create-mode .edit-choice-search { height:36px; padding:6px 8px; }
+        .product-create-mode .edit-choice-trigger[aria-invalid="true"] { border-color:#b42318; }
+        .product-create-mode .create-choice-error { margin:6px 0 0; }
+        .product-create-mode .image-input { max-width:100%; min-width:0; }
+        @media(max-width:760px) { .product-create-columns { grid-template-columns:minmax(0,1fr); gap:24px; } }
+        .product-name-feedback { margin:6px 0 0; font-size:13px; color:#6b7280; }
+        .product-name-feedback.is-error { color:#b42318; }
+        #productName:disabled { background:#f1f3f1; cursor:not-allowed; }
+        .form-actions #create-next-submit[hidden] { display:none; }
+        #carry-product-dialog { width:min(420px,calc(100% - 32px)); padding:24px; border:1px solid #cbd5cb; border-radius:12px; }
+        #carry-product-dialog::backdrop { background:#0005; }
+        #carry-product-title { margin:0 0 20px; font-size:20px; }
+        .carry-product-options { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .carry-product-options label { display:flex; align-items:center; gap:8px; }
+        .carry-product-options .carry-product-left { grid-column:1; }
+        .carry-product-options input { width:auto; accent-color:#287a4b; }
+        .carry-product-actions { display:flex; justify-content:flex-end; gap:8px; }
+        #carry-product-cancel { background:#68736c; }
+        .create-success { padding:12px; background:#e9f2eb; color:#166534; border-radius:6px; }
+        .product-create-basic .form-table th { width:calc(4em + 28px); white-space:nowrap; }
+        .product-create-columns .sku-table th { width:auto; padding:8px 6px; font-size:12px; white-space:nowrap; }
+        .product-create-columns .sku-table td { width:auto; min-width:0; padding:8px 6px; }
+        .sku-table .sku-label-column { width:20%; }
+        .sku-table .sku-value-column { width:30%; }
+        .sku-table input, .sku-table .edit-choice-trigger { min-width:0; }
+        .product-create-mode .image-upload-area { display:flex; flex-direction:column; align-items:stretch; gap:8px; min-width:0; }
+        .create-image-list { display:flex; gap:8px; max-width:100%; overflow-x:auto; padding:2px; }
+        .create-image-list:empty { display:none; }
+        .create-image-tile { position:relative; flex:0 0 80px; padding:4px; border:1px solid #cbd5cb; border-radius:5px; cursor:grab; background:#f7f7f7; }
+        .create-image-tile:focus-visible { outline:2px solid #287a4b; }
+        .create-image-tile.is-dragging { opacity:.5; }
+        .create-image-tile img { display:block; width:70px; height:70px; object-fit:cover; pointer-events:none; }
+        .create-image-tile span { display:block; text-align:center; font-size:11px; color:#777; }
+        .create-image-tile button { position:absolute; top:0; right:0; margin:0; padding:0; width:20px; height:20px; background:#a83c35; font-size:14px; }
+        .image-upload-hint { display:block; font-size:11px; line-height:1.5; color:#888; }
+        .create-field-error, .create-image-error { display:block; margin-top:5px; color:#b42318; font-size:12px; }
+        .create-field-error[hidden], .create-image-error[hidden] { display:none; }
+        .sku-table input[aria-invalid="true"] { border-color:#b42318; }
     </style>
 </head>
-<body>
+<body class="product-create-mode">
 <div class="container">
+    <p class="create-success" role="status" th:if="${success}" th:text="${success}"></p>
 
-    <form data-product-status-form th:attr="data-has-sellable-sku=${product.hasSellableSku},data-has-ready-sku=${product.hasReadySku}" th:action="@{/product/insert}"
+    <form data-product-status-form th:attr="data-has-sellable-sku=${product.hasSellableSku},data-has-ready-sku=${product.hasReadySku},data-name-check-url=@{/product/name-availability}" th:action="@{/product/insert}"
           th:object="${product}"
           method="post"
           enctype="multipart/form-data"><ul class="error" th:if="${#fields.hasAnyErrors()}"><li th:each="e:${#fields.allErrors()}" th:text="${e}"></li></ul><p></p>
 
+        <div class="product-create-columns">
+        <section class="product-create-basic" aria-labelledby="product-basic-heading">
+        <h2 class="section-title" id="product-basic-heading">商品資料</h2>
         <!-- 商品基本資料 -->
         <table class="form-table">
             <tbody>
-            <tr>
-                <th><label for="productName">商品名稱</label></th>
-                <td>
-                    <input id="productName"
-                           type="text"
-                           th:field="*{productName}"
-                           required>
-                    <div class="error"
-                         th:if="${#fields.hasErrors('productName')}"
-                         th:errors="*{productName}"></div>
-                </td>
-            </tr>
-
-            
-
-            <tr>
-                <th><label for="category">商品分類</label></th>
-                <td>
-                    <div class="select-with-add">
-                        <select id="category" name="productCategory.productCategoryId" required><option value="">請選擇分類</option><option th:each="category:${productCategoryListData}" th:value="${category.productCategoryId}" th:text="${category.parentCategory == null ? category.categoryName : category.parentCategory.categoryName + '／' + category.categoryName}" th:selected="${product.productCategory != null and product.productCategory.productCategoryId == category.productCategoryId}"></option></select>
-                        <!-- 請依實際新增分類路徑調整 -->
-                        <a class="add-icon"
-                           th:href="@{/productcategory/add}"
-                           title="新增分類"
-                           aria-label="新增分類">+</a>
-                    </div>
-                </td>
-            </tr>
-
             <tr>
                 <th><label for="vendor">供應廠商</label></th>
                 <td>
@@ -293,8 +337,39 @@
                             </option>
                         </select>
                         <!-- 請依實際新增廠商路徑調整 -->
-                        
+
                     </div>
+                </td>
+            </tr>
+
+
+
+            <tr>
+                <th><label for="category">商品分類</label></th>
+                <td>
+                    <div class="select-with-add">
+                        <select id="category" name="productCategory.productCategoryId" required><option value="">請選擇分類</option><option th:each="category:${productCategoryListData}" th:value="${category.productCategoryId}" th:attr="data-parent-id=${category.parentCategory == null ? '' : category.parentCategory.productCategoryId},data-label=${category.categoryName}" th:text="${category.parentCategory == null ? category.categoryName : category.parentCategory.categoryName + '／' + category.categoryName}" th:selected="${product.productCategory != null and product.productCategory.productCategoryId == category.productCategoryId}"></option></select>
+                        <!-- 請依實際新增分類路徑調整 -->
+                        <a class="add-icon"
+                           th:href="@{/productcategory/add}"
+                           title="新增分類"
+                           aria-label="新增分類">+</a>
+                    </div>
+                </td>
+            </tr>
+
+            <tr>
+                <th><label for="productName">商品名稱</label></th>
+                <td>
+                    <input id="productName"
+                           type="text" maxlength="100" aria-describedby="product-name-feedback"
+                           th:disabled="${product.vendor == null or product.vendor.vendorId == null or product.productCategory == null or product.productCategory.productCategoryId == null}"
+                           th:field="*{productName}"
+                           required>
+                    <p id="product-name-feedback" class="product-name-feedback" role="status" aria-live="polite">請先選取供應廠商</p>
+                    <div class="error"
+                         th:if="${#fields.hasErrors('productName')}"
+                         th:errors="*{productName}"></div>
                 </td>
             </tr>
 
@@ -320,8 +395,10 @@
             </tbody>
         </table>
 
+        </section>
+        <section class="product-create-skus" aria-labelledby="product-skus-heading">
         <!-- 商品規格 -->
-        <h2 class="section-title">商品規格</h2>
+        <h2 class="section-title" id="product-skus-heading">商品規格</h2>
 
         <div id="skuContainer">
             <!-- 第一筆規格 -->
@@ -330,123 +407,62 @@
                     <span th:text="${'商品規格 ' + (stat.index + 1)}">商品規格</span><button type="button" class="remove-sku-button">刪除此規格</button>
                 </div>
 
-                <table class="form-table sku-table">
-                    <tbody>
-                    <tr>
-                        <th><label th:for="|skuName${stat.index}|">規格名稱</label></th>
-                        <td>
-                            <input th:id="|skuName${stat.index}|"
-                                   type="text"
-                                   th:field="*{productSkus[__${stat.index}__].skuName}"
-                                   required>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th><label th:for="|anotherName${stat.index}|">規格別稱</label></th>
-                        <td>
-                            <input th:id="|anotherName${stat.index}|"
-                                   type="text"
-                                   th:field="*{productSkus[__${stat.index}__].anotherName}">
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th><label th:for="|price${stat.index}|">規格價格</label></th>
-                        <td>
-                            <input th:id="|price${stat.index}|"
-                                   type="number"
-                                   th:field="*{productSkus[__${stat.index}__].price}"
-                                   min="1"
-                                   step="1"
-                                   required>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th>規格圖片</th>
-                        <td>
-                            <div class="image-upload-area">
-                                <img class="image-preview"
-                                     src=""
-                                     alt="圖片預覽"
-                                     hidden>
-                                <input class="image-input"
-                                       type="file"
-                                       th:name="|skuImages[${stat.index}]|"
-                                       accept="image/png,image/jpeg,image/gif">
-                                 <p style="text-align: right;">圖片限 PNG、JPEG、GIF，單張最多 5 MB。</p>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th><label th:for="|stock${stat.index}|">庫存量</label></th>
-                        <td>
-                            <input th:id="|stock${stat.index}|"
-                                   type="number"
-                                   th:field="*{productSkus[__${stat.index}__].stock}"
-                                   value="0"
-                                   min="0"
-                                   step="1"
-                                   required>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th><label th:for="|safetyStock${stat.index}|">安全庫存量</label></th>
-                        <td>
-                            <input th:id="|safetyStock${stat.index}|"
-                                   type="number"
-                                   th:field="*{productSkus[__${stat.index}__].safetyStock}"
-                                   value="0"
-                                   min="0"
-                                   step="1"
-                                   required>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th><label th:for="|maxBackorderQty${stat.index}|">預購額度</label></th>
-                        <td>
-                            <input th:id="|maxBackorderQty${stat.index}|"
-                                   type="number"
-                                   th:field="*{productSkus[__${stat.index}__].maxBackorderQty}"
-                                   value="10"
-                                   min="0"
-                                   step="1"
-                                   required>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th><label th:for="|skuStatus${stat.index}|">規格狀態</label></th>
-                        <td>
-                            <select th:id="|skuStatus${stat.index}|"
-                                    th:field="*{productSkus[__${stat.index}__].status}"
-                                    required>
-                                <option value="0">下架</option>
-                                <option value="1">上架</option>
-                                <option value="2">缺貨</option>
-                                <option value="3">即將售完</option><option value="6">即將停產</option><option value="7">永久停產</option><option value="4">售完</option><option value="5">預備上架</option>
-                            </select>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
+                <table class="form-table sku-table"><colgroup><col class="sku-label-column"><col class="sku-value-column"><col class="sku-label-column"><col class="sku-value-column"></colgroup><tbody>
+ <tr><th><label th:for="|skuName${stat.index}|">規格名稱</label></th><td colspan="3"><input th:id="|skuName${stat.index}|" th:field="*{productSkus[__${stat.index}__].skuName}" type="text" maxlength="50"  required></td></tr><tr><th><label th:for="|anotherName${stat.index}|">規格別稱</label></th><td colspan="3"><input th:id="|anotherName${stat.index}|" th:field="*{productSkus[__${stat.index}__].anotherName}" type="text" maxlength="50"  ></td></tr><tr><th><label th:for="|skuImage${stat.index}|">規格圖片</label></th><td colspan="3"><div class="image-upload-area"><input th:id="|skuImage${stat.index}|" th:name="|skuImages[${stat.index}]|" class="image-input" type="file" multiple accept="image/png,image/jpeg,image/gif"><div class="create-image-list" aria-label="規格圖片順序"></div><small class="image-upload-hint">圖片限 PNG、JPEG、GIF，單張最多 5 MB。</small><small class="image-upload-hint">可左右拖曳調整圖片順序，或選取圖片後按 Alt＋←／→。</small><small class="create-image-error" role="alert" hidden></small></div></td></tr>
+ <tr><th><label th:for="|price${stat.index}|">規格價格</label></th><td><input th:id="|price${stat.index}|" th:field="*{productSkus[__${stat.index}__].price}" type="number" min="1" max="10000000" step="1"  required></td><th><label th:for="|skuStatus${stat.index}|">規格狀態</label></th><td><select th:id="|skuStatus${stat.index}|" th:field="*{productSkus[__${stat.index}__].status}" required><option value="0">下架</option><option value="1">上架</option><option value="5" disabled>預備上架</option><option value="6">即將停產</option><option value="2" disabled>缺貨</option><option value="3" disabled>即將售完</option><option value="4" disabled>售完</option><option value="7" disabled>永久停產</option></select></td></tr>
+ <tr><th><label th:for="|stock${stat.index}|">庫存量</label></th><td><input th:id="|stock${stat.index}|" th:field="*{productSkus[__${stat.index}__].stock}" type="number" min="0" max="2147483647" step="1"  required></td><th><label th:for="|safetyStock${stat.index}|">安全庫存量</label></th><td><input th:id="|safetyStock${stat.index}|" th:field="*{productSkus[__${stat.index}__].safetyStock}" type="number" min="0" max="2147483647" step="1"  required></td></tr>
+ <tr><th><label th:for="|inboundQty${stat.index}|">待進貨</label></th><td><input th:id="|inboundQty${stat.index}|" th:field="*{productSkus[__${stat.index}__].inboundQty}" type="number" min="0" max="2147483647" step="1"  required></td><th><label th:for="|outboundQty${stat.index}|">待出貨</label></th><td><input th:id="|outboundQty${stat.index}|" th:field="*{productSkus[__${stat.index}__].outboundQty}" type="number" min="0" max="2147483647" step="1"  required></td></tr>
+ <tr><th><label th:for="|maxBackorderQty${stat.index}|">允許超賣量</label></th><td><input th:id="|maxBackorderQty${stat.index}|" th:field="*{productSkus[__${stat.index}__].maxBackorderQty}" type="number" min="0" max="2147483647" step="1"  required></td><th><label th:for="|purchaseAddOnQty${stat.index}|">採購溢額量</label></th><td><input th:id="|purchaseAddOnQty${stat.index}|" th:field="*{productSkus[__${stat.index}__].purchaseAddOnQty}" type="number" min="0" max="2147483647" step="1"  required></td></tr>
+ </tbody></table>
             </div>
         </div>
 
         <button type="button" id="addSkuButton">＋ 更多規格</button>
+        </section>
+        </div>
 
         <div class="form-actions">
-            <button type="submit">新增商品</button>
+            <button type="submit" id="create-product-submit">新增商品</button>
+            <button type="button" id="create-next-product">新增下一個</button>
+            <button type="submit" id="create-next-submit" name="createNext" value="true" hidden></button>
             <a class="back" th:href="@{/}">返回首頁</a>
         </div>
     </form>
 </div>
 
+<dialog id="carry-product-dialog" aria-labelledby="carry-product-title">
+    <h2 id="carry-product-title">是否要沿用以下資料？</h2>
+    <div class="carry-product-options">
+        <label><input type="checkbox" value="vendor" checked>供應廠商</label>
+        <label><input type="checkbox" value="skuName" checked>規格名稱</label>
+        <label><input type="checkbox" value="category" checked>商品分類</label>
+        <label><input type="checkbox" value="anotherName" checked>規格別稱</label>
+        <label class="carry-product-left"><input type="checkbox" value="name" checked>商品名稱</label>
+        <label class="carry-product-left"><input type="checkbox" value="description" checked>商品描述</label>
+    </div>
+    <div class="carry-product-actions"><button type="button" id="carry-product-cancel">取消</button><button type="button" id="carry-product-confirm">確認並新增下一個</button></div>
+</dialog>
+<script th:src="@{/admin/js/product-edit-choices.js(v=20261015-create-choices)}"></script>
 <script>
+    function enhanceCreateSelect(select) {
+        if (select.dataset.choiceBound) return;
+        select.dataset.choiceBound='true';
+        const label=document.querySelector('label[for="'+select.id+'"]')?.textContent.trim() || '選項';
+        const holder=document.createElement('div');holder.className='create-choice-field';select.after(holder);
+        const choices=Array.from(select.options).filter(option=>option.value!=='').map(option=>({
+            id:option.value,label:option.dataset.label || option.textContent.trim(),
+            parentId:option.dataset.parentId || null,disabled:option.disabled
+        }));
+        const error=document.createElement('p');error.className='error create-choice-error';error.textContent='請選擇'+label;error.hidden=true;
+        const field=window.ProductEditChoices.create(holder,label,choices,select.value,value=>{
+            select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));
+            error.hidden=select.validity.valid;field.trigger.setAttribute('aria-invalid',String(!select.validity.valid));
+        },select.id==='category','adjacent');
+        if(select.id==='vendor')field.menu.querySelector('.edit-choice-empty').textContent='若無符合供應商，請讓有權限新增供應商者先新增。';
+        field.trigger.setAttribute('aria-label',label);error.id=field.menu.id+'-error';field.trigger.setAttribute('aria-describedby',error.id);holder.append(error);
+        select.hidden=true;select.tabIndex=-1;select.setAttribute('aria-hidden','true');
+        select.addEventListener('invalid',event=>{event.preventDefault();error.hidden=false;field.trigger.setAttribute('aria-invalid','true');field.trigger.focus();});
+    }
 
  // 動態新增規格表格
     const skuContainer = document.getElementById("skuContainer");
@@ -464,102 +480,13 @@
                 <button type="button" class="remove-sku-button">刪除此規格</button>
             </div>
 
-            <table class="form-table sku-table">
-                <tbody>
-                    <tr>
-                        <th><label for="skuName${index}">規格名稱</label></th>
-                        <td>
-                            <input id="skuName${index}"
-                                   type="text"
-                                   name="productSkus[${index}].skuName"
-                                   required>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="anotherName${index}">規格別稱</label></th>
-                        <td>
-                            <input id="anotherName${index}"
-                                   type="text"
-                                   name="productSkus[${index}].anotherName">
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="price${index}">規格價格</label></th>
-                        <td>
-                            <input id="price${index}"
-                                   type="number"
-                                   name="productSkus[${index}].price"
-                                   min="1"
-                                   step="1"
-                                   required>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>規格圖片</th>
-                        <td>
-                            <div class="image-upload-area">
-                                <img class="image-preview"
-                                     src=""
-                                     alt="圖片預覽"
-                                     hidden>
-                                <input class="image-input"
-                                       type="file"
-                                       name="skuImages[${index}]"
-                                       accept="image/png,image/jpeg,image/gif">
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="stock${index}">庫存量</label></th>
-                        <td>
-                            <input id="stock${index}"
-                                   type="number"
-                                   name="productSkus[${index}].stock"
-                                   value="0"
-                                   min="0"
-                                   step="1"
-                                   required>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="safetyStock${index}">安全庫存量</label></th>
-                        <td>
-                            <input id="safetyStock${index}"
-                                   type="number"
-                                   name="productSkus[${index}].safetyStock"
-                                   value="0"
-                                   min="0"
-                                   step="1"
-                                   required>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="maxBackorderQty${index}">預購額度</label></th>
-                        <td>
-                            <input id="maxBackorderQty${index}"
-                                   type="number"
-                                   name="productSkus[${index}].maxBackorderQty"
-                                   value="10"
-                                   min="0"
-                                   step="1"
-                                   required>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="skuStatus${index}">規格狀態</label></th>
-                        <td>
-                            <select id="skuStatus${index}"
-                                    name="productSkus[${index}].status"
-                                    required>
-                                <option value="0">下架</option>
-                                <option value="1">上架</option>
-                                <option value="2">缺貨</option>
-                                <option value="3">即將售完</option><option value="6">即將停產</option><option value="7">永久停產</option><option value="4">售完</option><option value="5">預備上架</option>
-                            </select>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <table class="form-table sku-table"><colgroup><col class="sku-label-column"><col class="sku-value-column"><col class="sku-label-column"><col class="sku-value-column"></colgroup><tbody>
+ <tr><th><label for="skuName${index}">規格名稱</label></th><td colspan="3"><input id="skuName${index}" name="productSkus[${index}].skuName" type="text" maxlength="50" value="" required></td></tr><tr><th><label for="anotherName${index}">規格別稱</label></th><td colspan="3"><input id="anotherName${index}" name="productSkus[${index}].anotherName" type="text" maxlength="50" value="" ></td></tr><tr><th><label for="skuImage${index}">規格圖片</label></th><td colspan="3"><div class="image-upload-area"><input id="skuImage${index}" name="skuImages[${index}]" class="image-input" type="file" multiple accept="image/png,image/jpeg,image/gif"><div class="create-image-list" aria-label="規格圖片順序"></div><small class="image-upload-hint">圖片限 PNG、JPEG、GIF，單張最多 5 MB。</small><small class="image-upload-hint">可左右拖曳調整圖片順序，或選取圖片後按 Alt＋←／→。</small><small class="create-image-error" role="alert" hidden></small></div></td></tr>
+ <tr><th><label for="price${index}">規格價格</label></th><td><input id="price${index}" name="productSkus[${index}].price" type="number" min="1" max="10000000" step="1" value="" required></td><th><label for="skuStatus${index}">規格狀態</label></th><td><select id="skuStatus${index}" name="productSkus[${index}].status" required><option value="0">下架</option><option value="1">上架</option><option value="5" disabled>預備上架</option><option value="6">即將停產</option><option value="2" disabled>缺貨</option><option value="3" disabled>即將售完</option><option value="4" disabled>售完</option><option value="7" disabled>永久停產</option></select></td></tr>
+ <tr><th><label for="stock${index}">庫存量</label></th><td><input id="stock${index}" name="productSkus[${index}].stock" type="number" min="0" max="2147483647" step="1" value="0" required></td><th><label for="safetyStock${index}">安全庫存量</label></th><td><input id="safetyStock${index}" name="productSkus[${index}].safetyStock" type="number" min="0" max="2147483647" step="1" value="0" required></td></tr>
+ <tr><th><label for="inboundQty${index}">待進貨</label></th><td><input id="inboundQty${index}" name="productSkus[${index}].inboundQty" type="number" min="0" max="2147483647" step="1" value="0" required></td><th><label for="outboundQty${index}">待出貨</label></th><td><input id="outboundQty${index}" name="productSkus[${index}].outboundQty" type="number" min="0" max="2147483647" step="1" value="0" required></td></tr>
+ <tr><th><label for="maxBackorderQty${index}">允許超賣量</label></th><td><input id="maxBackorderQty${index}" name="productSkus[${index}].maxBackorderQty" type="number" min="0" max="2147483647" step="1" value="10" required></td><th><label for="purchaseAddOnQty${index}">採購溢額量</label></th><td><input id="purchaseAddOnQty${index}" name="productSkus[${index}].purchaseAddOnQty" type="number" min="0" max="2147483647" step="1" value="20" required></td></tr>
+ </tbody></table>
         `;
 
         return card;
@@ -568,6 +495,7 @@
     addSkuButton.addEventListener("click", function () {
         const card = createSkuCard(skuCount);
         skuContainer.appendChild(card);
+        initializeCreateCard(card);
         skuCount++;
     });
 
@@ -578,7 +506,8 @@
         }
 
         if (skuContainer.querySelectorAll(".sku-card").length <= 1) { alert("至少保留一個規格"); return; }
-        event.target.closest(".sku-card").remove();
+        const removedCard=event.target.closest(".sku-card");
+        releaseCreateImages(removedCard);removedCard.remove();
 
         const cards = skuContainer.querySelectorAll(".sku-card");
         cards.forEach((card, index) => {
@@ -602,10 +531,10 @@
                     if (!suffix) return;
 
                     const newId = currentId.replace(/\d+$/, index);
-                    element.id = newId;
-
                     if (element.hasAttribute("for")) {
                         element.htmlFor = newId;
+                    } else {
+                        element.id = newId;
                     }
                 });
         });
@@ -613,34 +542,123 @@
         skuCount = cards.length;
     });
 
-    // 圖片即時預覽
-    skuContainer.addEventListener("change", function (event) {
-        if (!event.target.classList.contains("image-input")) {
-            return;
+    const createImages=new Map();
+    function releaseCreateImages(card){
+        const input=card.querySelector('.image-input');
+        (createImages.get(input)||[]).forEach(image=>URL.revokeObjectURL(image.url));createImages.delete(input);
+    }
+    window.addEventListener('pagehide',()=>skuContainer.querySelectorAll('.sku-card').forEach(releaseCreateImages));
+    function initializeCreateCard(card){
+        card.querySelectorAll('select').forEach(enhanceCreateSelect);
+        card.querySelectorAll('input[type="number"],input[name$=".skuName"]').forEach(control=>{
+            if(control.dataset.validationBound)return;control.dataset.validationBound='true';
+            const error=document.createElement('small');error.className='create-field-error';error.hidden=true;error.setAttribute('role','alert');
+            control.after(error);
+            function validate(){
+                control.setCustomValidity('');let message='';
+                const isName=control.name.endsWith('.skuName'),isPrice=control.name.endsWith('.price');
+                if(isName){if(!control.value.trim())message='規格名稱不能空白';}
+                else if(control.validity.badInput)message='請輸入有效的數字。';
+                else if(control.validity.valueMissing)message=isPrice?'請填寫價格。':'請填寫數量。';
+                else if(control.validity.rangeUnderflow)message=isPrice?'不可低於 1 元。':'不可小於 0。';
+                else if(control.validity.rangeOverflow)message=isPrice?'不可超過 10,000,000 元。':'不可超過 2,147,483,647。';
+                else if(control.validity.stepMismatch)message=isPrice?'須為正整數。':'須為 0 或正整數。';
+                control.setCustomValidity(message);control.setAttribute('aria-invalid',String(!!message));error.textContent=message;error.hidden=!message;
+            }
+            control.addEventListener('input',validate);control.addEventListener('blur',validate);
+            control.addEventListener('invalid',event=>{event.preventDefault();validate();if(!card.closest('form').querySelector(':invalid:focus'))control.focus();});
+        });
+        const input=card.querySelector('.image-input'),list=card.querySelector('.create-image-list'),error=card.querySelector('.create-image-error');
+        const images=[];createImages.set(input,images);let dragging;
+        function syncFiles(){const transfer=new DataTransfer();images.forEach(image=>transfer.items.add(image.file));input.files=transfer.files;}
+        function move(image,target){
+            const from=images.indexOf(image);if(from<0 || target<0 || target>=images.length || from===target)return;
+            images.splice(target,0,images.splice(from,1)[0]);syncFiles();render();
+            list.children[target]?.focus({preventScroll:true});
         }
-
-        const file = event.target.files[0];
-        const preview = event.target
-            .closest(".image-upload-area")
-            .querySelector(".image-preview");
-
-        if (!file) {
-            preview.src = "";
-            preview.hidden = true;
-            return;
+        function render(){
+            list.replaceChildren();
+            images.forEach((image,index)=>{
+                const tile=document.createElement('div');tile.className='create-image-tile';tile.draggable=true;tile.tabIndex=0;
+                tile.setAttribute('aria-label','圖片 '+(index+1)+'：'+image.file.name);
+                const preview=document.createElement('img');preview.src=image.url;preview.alt=image.file.name;preview.draggable=false;
+                const number=document.createElement('span');number.textContent=index+1;
+                const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','移除圖片 '+(index+1));
+                remove.addEventListener('click',()=>{images.splice(images.indexOf(image),1);URL.revokeObjectURL(image.url);syncFiles();render();});
+                tile.append(preview,number,remove);
+                tile.addEventListener('dragstart',event=>{dragging=image;tile.classList.add('is-dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',String(index));});
+                tile.addEventListener('dragend',()=>{dragging=null;tile.classList.remove('is-dragging');});
+                tile.addEventListener('dragover',event=>{if(dragging){event.preventDefault();event.dataTransfer.dropEffect='move';}});
+                tile.addEventListener('drop',event=>{if(!dragging)return;event.preventDefault();move(dragging,images.indexOf(image));dragging=null;});
+                tile.addEventListener('keydown',event=>{if(event.altKey && (event.key==='ArrowLeft'||event.key==='ArrowRight')){event.preventDefault();move(image,images.indexOf(image)+(event.key==='ArrowLeft'?-1:1));}});
+                list.appendChild(tile);
+            });
         }
+        input.addEventListener('change',()=>{
+            const files=Array.from(input.files);const invalid=files.find(file=>!['image/png','image/jpeg','image/gif'].includes(file.type)||file.size>5*1024*1024);
+            if(invalid){error.textContent=invalid.size>5*1024*1024?'圖片不可超過 5 MB':'只接受 PNG、JPEG 或 GIF 圖片';error.hidden=false;syncFiles();return;}
+            error.hidden=true;files.forEach(file=>images.push({file,url:URL.createObjectURL(file)}));syncFiles();render();
+        });
+    }
 
-        if (!file.type.startsWith("image/")) {
-            alert("請選擇圖片檔案。");
-            event.target.value = "";
-            preview.src = "";
-            preview.hidden = true;
-            return;
+    skuContainer.querySelectorAll('.sku-card').forEach(initializeCreateCard);
+    document.querySelectorAll('form select').forEach(enhanceCreateSelect);
+    (function initProductNameCheck(){
+        const form=document.querySelector('form[data-product-status-form]');
+        const vendor=document.getElementById('vendor'),category=document.getElementById('category'),name=document.getElementById('productName');
+        const message=document.getElementById('product-name-feedback');
+        let timer,request,version=0;
+        function feedback(text,error=false){message.textContent=text;message.hidden=!text;message.classList.toggle('is-error',error);name.setAttribute('aria-invalid',String(error));}
+        function cancel(){clearTimeout(timer);if(request)request.abort();request=null;version++;}
+        async function check(){
+            cancel();if(!vendor.value||!category.value||!name.value.trim())return;
+            const current=version,vendorId=vendor.value,productName=name.value.trim();
+            const url=new URL(form.dataset.nameCheckUrl.replace(/;jsessionid=[^/?#;]+/g,''),location.href);
+            url.searchParams.set('vendorId',vendorId);url.searchParams.set('name',productName);
+            request=new AbortController();
+            try{
+                const response=await fetch(url,{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'},signal:request.signal});
+                if(!response.ok)throw new Error('name check unavailable');
+                const result=await response.json();
+                if(current!==version||vendor.value!==vendorId||name.value.trim()!==productName)return;
+                const text=result.exists?'該供應商已有同名的商品名稱':'';
+                name.setCustomValidity(text);feedback(text,!!result.exists);
+            }catch(error){
+                if(error.name==='AbortError'||current!==version)return;
+                name.setCustomValidity('');feedback('系統忙碌中，請稍後再嘗試。');
+            }
         }
+        function schedule(){
+            cancel();name.disabled=!vendor.value||!category.value;name.setCustomValidity('');
+            if(name.disabled){feedback(!vendor.value?'請先選取供應廠商':'請先選取商品分類');return;}
+            if(!name.value.trim()){name.setCustomValidity('商品名稱不能空白');feedback('商品名稱不能空白',true);return;}
+            name.setCustomValidity('商品名稱檢查中，請稍候。');feedback('商品名稱檢查中…');timer=setTimeout(check,450);
+        }
+        vendor.addEventListener('change',schedule);category.addEventListener('change',schedule);name.addEventListener('input',schedule);
+        name.addEventListener('invalid',event=>{event.preventDefault();feedback(name.validationMessage || '商品名稱不能空白',true);name.focus();});
+        name.addEventListener('blur',()=>{if(vendor.value&&category.value&&name.value.trim())check();});
+        window.addEventListener('pagehide',cancel);schedule();
+    })();
 
-        preview.src = URL.createObjectURL(file);
-        preview.hidden = false;
-    });
+    (function initNextProduct(){
+        const form=document.querySelector('form[data-product-status-form]'),dialog=document.getElementById('carry-product-dialog');
+        const choices=Array.from(dialog.querySelectorAll('input[type=checkbox]'));
+        const preferenceKey='fruitude:next-product-fields:v1';
+        document.getElementById('create-next-product').addEventListener('click',()=>{
+            try{const saved=JSON.parse(localStorage.getItem(preferenceKey));choices.forEach(choice=>{choice.checked=typeof saved?.[choice.value]==='boolean'?saved[choice.value]:true;});}catch(_){choices.forEach(choice=>choice.checked=true);}
+            dialog.showModal();
+        });
+        document.getElementById('carry-product-cancel').addEventListener('click',()=>dialog.close());
+        document.getElementById('carry-product-confirm').addEventListener('click',()=>{
+            const preferences=Object.fromEntries(choices.map(choice=>[choice.value,choice.checked]));
+            try{localStorage.setItem(preferenceKey,JSON.stringify(preferences));}catch(_){}
+            form.querySelectorAll('input[data-carry-field]').forEach(input=>input.remove());
+            choices.filter(choice=>choice.checked).forEach(choice=>{
+                const input=document.createElement('input');input.type='hidden';input.name='carryFields';input.value=choice.value;input.dataset.carryField='true';form.appendChild(input);
+            });
+            dialog.close();form.requestSubmit(document.getElementById('create-next-submit'));
+        });
+    })();
 </script>
 <script th:src="@{/admin/js/product-status.js}"></script>
 </body>

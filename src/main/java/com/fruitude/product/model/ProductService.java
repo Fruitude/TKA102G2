@@ -203,6 +203,16 @@ public class ProductService {
             Integer parentCategoryId, Integer categoryId, Integer vendorId, String stockFilter,
             Integer minComments, Integer maxComments, String ratingFilter, String sortBy, String sortDirection,
             String keyword, boolean searchProductName, boolean searchSkuName) {
+        return getOverviewPage(page,size,statusFilter,parentCategoryId,categoryId,vendorId,stockFilter,
+            minComments,maxComments,ratingFilter,sortBy,sortDirection,keyword,searchProductName,searchSkuName,"");
+    }
+
+    public org.springframework.data.domain.Page<com.fruitude.product.model.ProductRepository.ProductOverview> getOverviewPage(int page, int size, String statusFilter,
+            Integer parentCategoryId, Integer categoryId, Integer vendorId, String stockFilter,
+            Integer minComments, Integer maxComments, String ratingFilter, String sortBy, String sortDirection,
+            String keyword, boolean searchProductName, boolean searchSkuName, String origin) {
+        origin = origin == null ? "" : origin.strip();
+        if (origin.length() > 100) throw new IllegalArgumentException("產地條件不正確");
         if (!searchProductName && !searchSkuName) searchProductName = true;
         String normalizedKeyword = normalizeOverviewKeyword(keyword);
         var words = normalizedKeyword.isEmpty() ? java.util.List.<String>of() : java.util.Arrays.stream(normalizedKeyword.toLowerCase(java.util.Locale.ROOT).split(" "))
@@ -217,13 +227,17 @@ public class ProductService {
         Integer ratingBucket = ratingFilter.isEmpty() ? null : "unrated".equals(ratingFilter) ? -1 : ratingFilter.charAt(0) - '0';
         int safeSize = java.util.Set.of(10, 20, 50, 100).contains(size) ? size : 10;
         Integer productStatus = "on".equals(statusFilter) ? Integer.valueOf(1) : "off".equals(statusFilter) ? Integer.valueOf(0) : "discontinued".equals(statusFilter) ? Integer.valueOf(2) : null;
-        var result = repository.findOverviewPage(productStatus, parentCategoryId, categoryId, vendorId, stockFilter, minComments, maxComments, ratingBucket, sortBy, sortDirection, searchPattern, searchProductName, searchSkuName,
+        var result = repository.findOverviewPage(productStatus, parentCategoryId, categoryId, vendorId, stockFilter, minComments, maxComments, ratingBucket, sortBy, sortDirection, searchPattern, searchProductName, searchSkuName, origin,
             org.springframework.data.domain.PageRequest.of(Math.max(0, page - 1), safeSize));
         if (result.getTotalPages() > 0 && result.getNumber() >= result.getTotalPages()) {
-            return repository.findOverviewPage(productStatus, parentCategoryId, categoryId, vendorId, stockFilter, minComments, maxComments, ratingBucket, sortBy, sortDirection, searchPattern, searchProductName, searchSkuName,
+            return repository.findOverviewPage(productStatus, parentCategoryId, categoryId, vendorId, stockFilter, minComments, maxComments, ratingBucket, sortBy, sortDirection, searchPattern, searchProductName, searchSkuName, origin,
             org.springframework.data.domain.PageRequest.of(result.getTotalPages() - 1, safeSize));
         }
         return result;
+    }
+
+    public java.util.List<FrontCatalogService.SearchOption> getOverviewOrigins() {
+        return FrontCatalogService.originOptions(repository.findOverviewOrigins());
     }
 
     public static String normalizeOverviewKeyword(String keyword) {
@@ -252,8 +266,9 @@ public class ProductService {
 
     @Autowired private ProductStatusAccess access;
 
-    public record Choice(Integer id, String label, Integer parentId) {
-        public Choice(Integer id, String label) { this(id,label,null); }
+    public record Choice(Integer id, String label, Integer parentId, String origin, boolean hasLogo) {
+        public Choice(Integer id, String label, Integer parentId) { this(id,label,parentId,null,false); }
+        public Choice(Integer id, String label) { this(id,label,null,null,false); }
     }
     public record SkuForm(Integer skuId, String skuName, String anotherName,
             @tools.jackson.databind.annotation.JsonDeserialize(using=ProductPriceDeserializer.class) Integer price, @tools.jackson.databind.annotation.JsonDeserialize(using=ProductQuantityDeserializer.class) Integer stock,
@@ -301,7 +316,7 @@ public class ProductService {
             zero(s.getStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),false,zero(s.getMaxBackorderQty()))).toList();
         var categoryOptions=categories.findAll().stream().map(c->new Choice(c.getProductCategoryId(),
             c.getCategoryName(),c.getParentCategory()==null?null:c.getParentCategory().getProductCategoryId())).toList();
-        var vendorOptions=vendors.findAll().stream().map(v->new Choice(v.getVendorId(),v.getVendorName())).toList();
+        var vendorOptions=vendors.findAll().stream().map(v->new Choice(v.getVendorId(),v.getVendorName(),null,v.getOrigin(),v.getLogo()!=null && v.getLogo().length>0)).toList();
         var images=p.getProductSkus().stream().flatMap(s->s.getProductImages().stream())
             .map(i->new ImageForm(i.getImageId(),i.getProductSku().getSkuId(),i.getSortOrder(),revision(i.getUpdatedAt()))).toList();
         return new EditData(form,skus,categoryOptions,vendorOptions,access.canRestoreDiscontinued(),images);

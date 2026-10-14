@@ -35,9 +35,23 @@
                 }
                 return count;
             }
+            const imageRows = new Map();
+            function animateOrder(before, moved) {
+                if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+                for (const [image, row] of imageRows) {
+                    const previous = before.get(image); if (!previous || typeof row.animate !== 'function') continue;
+                    const current = row.getBoundingClientRect();
+                    const x = previous.left-current.left, y = previous.top-current.top;
+                    if (!x && !y) continue;
+                    row.animate([
+                        {transform:'translate('+x+'px,'+y+'px)',backgroundColor:image===moved?'#fff1bf':'transparent'},
+                        {transform:'translate(0,0)',backgroundColor:'transparent'}
+                    ], {duration:280,easing:'cubic-bezier(.2,.7,.2,1)'});
+                }
+            }
             function choose(key, label) {
                 if (!groups.has(key)) groups.set(key, []);
-                const images=groups.get(key);root.replaceChildren();
+                const images=groups.get(key);root.replaceChildren();imageRows.clear();
                 root.appendChild(node('h3',label));
                 const switchHint=node('p','請點選右邊規格做切換');switchHint.className='edit-images-switch-hint';root.appendChild(switchHint);
                 const info=node('p','格式僅接受 PNG/JPEG/GIF\n每張最多5 MB\n可拖曳圖片調整順序\n按儲存後才會生效。');info.className='edit-images-hint';
@@ -53,12 +67,13 @@
                     active.splice(active.indexOf(image),1);
                     active.splice(active.indexOf(target)+(after?1:0),0,image);
                     if (active.every((item,index)=>item===previous[index])) return;
+                    const positions = new Map(Array.from(imageRows, ([item,row]) => [item,row.getBoundingClientRect()]));
                     const removed = images.filter(item=>item.remove);
-                    images.splice(0,images.length,...active,...removed); setOrder(images); mark(); choose(key,label);
+                    images.splice(0,images.length,...active,...removed); setOrder(images); mark(); choose(key,label); animateOrder(positions,image);
                 }
                 let imageNumber = imageOffset(key);
                 for(const image of images.filter(i=>!i.remove)) {
-                    const row=node('div');row.className='edit-image-row';
+                    const row=node('div');row.className='edit-image-row';imageRows.set(image,row);
                     const img=node('img');img.alt='規格圖片預覽';img.src=image.preview || base+'image/'+image.imageId+'?v='+encodeURIComponent(image.revision||'');
                     const replace=icon('label','edit-image-replace','替換規格圖片','<path d="M20 7h-6m6 0V1m0 6a9 9 0 0 0-15-2M4 17h6m-6 0v6m0-6a9 9 0 0 0 15 2"/>');
                     const file=node('input');file.type='file';file.accept='image/png,image/jpeg,image/gif';file.setAttribute('aria-label','替換規格圖片');
@@ -102,6 +117,8 @@
                 const addLabel=node('label','+');addLabel.className='sku-add edit-image-add';addLabel.title='新增規格圖片';addLabel.setAttribute('aria-label','新增規格圖片');
                 const add=node('input');add.type='file';add.multiple=true;add.accept='image/png,image/jpeg,image/gif';add.setAttribute('aria-label','新增規格圖片');
                 add.addEventListener('change',()=>{const files=Array.from(add.files);try{files.forEach(validate);for(const file of files){const image={sortOrder:Math.max(-1,...images.filter(i=>!i.remove).map(i=>i.sortOrder??0))+1};preview(image,file);images.push(image);}if(files.length)mark();choose(key,label);}catch(e){add.value='';fail(e);}});addLabel.appendChild(add);root.appendChild(addLabel);root.appendChild(info);
+                const previewButton=node('button','預覽');previewButton.type='button';previewButton.className='edit-product-preview-button';
+                previewButton.addEventListener('click',()=>window.detailEditor?.preview(previewButton));root.appendChild(previewButton);
             }
             const original=window.showSkuInfo;
             window.showSkuInfo=button=>{original(button);choose(String(button.dataset.skuId),button.querySelector('span')?.textContent || '新增規格');};
@@ -109,6 +126,7 @@
             window.addEventListener('pagehide',()=>urls.forEach(url=>URL.revokeObjectURL(url)),{once:true});
             return {
                 removeSku(key){groups.delete(key);},
+                preview(key){return (groups.get(String(key)) || []).filter(image=>!image.remove).map(image=>image.preview || base+'image/'+image.imageId+'?v='+encodeURIComponent(image.revision||''));},
                 build(skus){
                     const changes=[],files=[];
                     for(const [key,images] of groups){
