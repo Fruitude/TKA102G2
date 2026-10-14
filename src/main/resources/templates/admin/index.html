@@ -133,9 +133,9 @@
 
             <!-- Nav Item - 客服聊天室 -->
             <li class="nav-item" th:if="${adminPermissionCodes.contains('CHAT_VIEW')}">
-                <span class="nav-link">
+                <a th:href="@{/admin/chat}" class="nav-link">
                     <i class="fas fa-fw fa-headset"></i>
-                    <span>客服聊天室</span></span>
+                    <span>客服聊天室</span></a>
             </li>
 
             <!-- Nav Item - 進銷存系統 -->
