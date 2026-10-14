@@ -8,13 +8,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @ControllerAdvice(assignableTypes = {ProductController.class, ProductSkuController.class, ProductCategoryController.class, ProductImageController.class})
 public class ProductRequestAdvice {
-    @org.springframework.beans.factory.annotation.Autowired(required=false)
-    private com.fruitude.product.model.ProductImageService imageCache;
-    @org.springframework.web.bind.annotation.ModelAttribute("productImageVersions")
-    public java.util.Map<Integer,String> productImageVersions() {
-        return imageCache==null ? java.util.Map.of() : imageCache.browserVersions();
-    }
-
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public String oversizedUpload(RedirectAttributes redirect) {
         redirect.addFlashAttribute("errorMessage", "單張圖片不可超過 5 MB，整次上傳不可超過 30 MB，請重新選擇檔案");

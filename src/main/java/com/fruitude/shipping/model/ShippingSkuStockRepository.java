@@ -38,19 +38,4 @@ public interface ShippingSkuStockRepository extends JpaRepository<ProductSku,Int
 			""", nativeQuery = true)
 	int shipStock(@Param("skuId") Integer skuId, @Param("quantity") Integer quantity);
 
-	// 取消出貨時把規格的庫存加回去，回傳更新的筆數
-	// stock、outbound_qty 各加回出貨數量（整筆訂購數量）；出貨時 outbound_qty 若不夠扣只扣到 0，這裡仍然加回完整數量
-	// 回傳 0 代表查無此規格，呼叫端要丟例外讓整筆取消出貨還原
-	// 參數順序要和 shipStock 一樣是（規格編號、數量）：商品模組的 ProductAvailabilityScheduler 是照位置取值
-	// 必須在交易裡呼叫（ShippingService 的 cancelShipOrders）
-	@Modifying
-	@Query(value = """
-			UPDATE product_sku
-			SET stock = COALESCE(stock, 0) + :quantity,
-			    outbound_qty = COALESCE(outbound_qty, 0) + :quantity,
-			    updated_at = CURRENT_TIMESTAMP
-			WHERE sku_id = :skuId
-			""", nativeQuery = true)
-	int restoreStock(@Param("skuId") Integer skuId, @Param("quantity") Integer quantity);
-
 }

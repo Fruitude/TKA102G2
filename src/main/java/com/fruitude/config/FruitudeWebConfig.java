@@ -26,9 +26,12 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 	private static final String[] SITES = { "front", "admin" };
 
 	private final FarmerImageStorage farmerImageStorage;
+	private final AdminAccessInterceptor adminAccessInterceptor;
 
-	public FruitudeWebConfig(FarmerImageStorage farmerImageStorage) {
+	public FruitudeWebConfig(FarmerImageStorage farmerImageStorage,
+			AdminAccessInterceptor adminAccessInterceptor) {
 		this.farmerImageStorage = farmerImageStorage;
+		this.adminAccessInterceptor = adminAccessInterceptor;
 	}
 
 	@Override
@@ -66,6 +69,10 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 	public void addInterceptors(InterceptorRegistry registry) {
 		// 結帳流程要先登入會員（細節見 CheckoutLoginInterceptor）
 		registry.addInterceptor(new CheckoutLoginInterceptor()).addPathPatterns("/front/checkout/**");
+		// 後台頁面、後台 API 與商品舊路由統一先驗證員工登入及功能權限。
+		registry.addInterceptor(adminAccessInterceptor)
+				.addPathPatterns("/admin/**", "/api/admin/**", "/product/**", "/productcategory/**",
+						"/productsku/**", "/productimage/**");
 	}
 
 	@Override

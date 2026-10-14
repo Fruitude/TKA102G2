@@ -131,15 +131,14 @@ public class EmployeeAdminApiController {
 		return body;
 	}
 
-	/** 修改員工姓名、帳號、電話與 Email。 */
+	/** 後台只允許調整員工職位；個人資料須由員工本人修改。 */
 	@Transactional
 	@PutMapping("/{employeeId}")
 	public Map<String, Object> updateEmployee(@PathVariable("employeeId") Integer employeeId,
-			@RequestBody EmployeeForm form, HttpServletRequest request) {
-		Employee employee = employeeAdminService.updateEmployee(employeeId, form.getEmployeeName(),
-				form.getEmployeeAccount(), form.getEmployeePhone(), form.getEmployeeEmail(), form.getPositionId());
+			@RequestBody EmployeePositionAssignmentForm form, HttpServletRequest request) {
+		Employee employee = employeeAdminService.updateEmployeePosition(employeeId, form.getPositionId());
 		auditService.record(request, "EMPLOYEE", "UPDATE", employeeId, employee.getEmployeeName(),
-				"更新員工基本資料與職位");
+				"更新員工職位");
 		return employeeResponse(employee);
 	}
 
@@ -151,17 +150,6 @@ public class EmployeeAdminApiController {
 		Employee employee = employeeAdminService.updateStatus(employeeId, form.getEmployeeStatus());
 		auditService.record(request, "EMPLOYEE", "STATUS", employeeId, employee.getEmployeeName(),
 				"員工帳號狀態變更為" + (form.getEmployeeStatus() == 1 ? "正常" : "停用"));
-		return employeeResponse(employee);
-	}
-
-	/** 重設員工密碼，API 回應不包含密碼或密碼雜湊。 */
-	@Transactional
-	@PutMapping("/{employeeId}/password")
-	public Map<String, Object> resetPassword(@PathVariable("employeeId") Integer employeeId,
-			@RequestBody PasswordForm form, HttpServletRequest request) {
-		Employee employee = employeeAdminService.resetPassword(employeeId, form.getEmployeePassword());
-		auditService.record(request, "EMPLOYEE", "PASSWORD", employeeId, employee.getEmployeeName(),
-				"重設員工密碼（未保存密碼內容）");
 		return employeeResponse(employee);
 	}
 
@@ -302,29 +290,18 @@ public class EmployeeAdminApiController {
 		return body;
 	}
 
-	/** 修改權限功能的顯示資料，權限代碼不接受變更。 */
-	@Transactional
-	@PutMapping("/permission-functions/{permissionId}")
-	public EmployeePermissionFunction updatePermissionFunction(
-			@PathVariable("permissionId") Integer permissionId,
-			@RequestBody PermissionFunctionForm form, HttpServletRequest request) {
-		EmployeePermissionFunction function = employeeAdminService.updatePermissionFunction(permissionId,
-				form.getPermissionName(), form.getPermissionDescription(), form.getPermissionGroup());
-		auditService.record(request, "PERMISSION_FUNCTION", "UPDATE", permissionId,
-				function.getPermissionName(), "更新權限功能顯示資料");
-		return function;
-	}
-
-	/** 取得指定員工目前擁有的權限編號。 */
+	/** 取得員工的有效、職位預設及個別額外權限，讓頁面清楚區分可否編輯。 */
 	@GetMapping("/{employeeId}/permissions")
 	public Map<String, Object> findEmployeePermissions(@PathVariable("employeeId") Integer employeeId) {
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("employeeId", employeeId);
-		body.put("permissionIds", employeeAdminService.findEmployeePermissionIds(employeeId));
+		body.put("permissionIds", employeeAdminService.findEffectiveEmployeePermissionIds(employeeId));
+		body.put("positionPermissionIds", employeeAdminService.findEmployeePositionPermissionIds(employeeId));
+		body.put("employeePermissionIds", employeeAdminService.findEmployeePermissionIds(employeeId));
 		return body;
 	}
 
-	/** 一次取代指定員工的權限清單。 */
+	/** 一次取代指定員工的額外權限清單；職位預設權限由職位設定管理。 */
 	@Transactional
 	@PutMapping("/{employeeId}/permissions")
 	public Map<String, Object> replaceEmployeePermissions(@PathVariable("employeeId") Integer employeeId,
@@ -434,7 +411,7 @@ public class EmployeeAdminApiController {
 		return body;
 	}
 
-	/** 員工新增／修改表單；修改時密碼欄位會被忽略。 */
+	/** 新增員工表單；後台修改既有員工時不使用此表單。 */
 	public static class EmployeeForm {
 		private String employeeName;
 		private String employeeAccount;
@@ -452,6 +429,13 @@ public class EmployeeAdminApiController {
 		public void setEmployeePhone(String employeePhone) { this.employeePhone = employeePhone; }
 		public String getEmployeeEmail() { return employeeEmail; }
 		public void setEmployeeEmail(String employeeEmail) { this.employeeEmail = employeeEmail; }
+		public Integer getPositionId() { return positionId; }
+		public void setPositionId(Integer positionId) { this.positionId = positionId; }
+	}
+
+	/** 既有員工只允許變更職位，避免後台直接修改員工個人資料。 */
+	public static class EmployeePositionAssignmentForm {
+		private Integer positionId;
 		public Integer getPositionId() { return positionId; }
 		public void setPositionId(Integer positionId) { this.positionId = positionId; }
 	}
@@ -483,13 +467,6 @@ public class EmployeeAdminApiController {
 		public void setEmployeeStatus(Integer employeeStatus) { this.employeeStatus = employeeStatus; }
 	}
 
-	/** 員工密碼重設表單。 */
-	public static class PasswordForm {
-		private String employeePassword;
-		public String getEmployeePassword() { return employeePassword; }
-		public void setEmployeePassword(String employeePassword) { this.employeePassword = employeePassword; }
-	}
-
 	/** 退回申請時使用的原因。 */
 	public static class ApplicationRejectForm {
 		private String reason;
@@ -504,16 +481,4 @@ public class EmployeeAdminApiController {
 		public void setPermissionIds(List<Integer> permissionIds) { this.permissionIds = permissionIds; }
 	}
 
-	/** 權限功能顯示資料修改表單，不包含不可變更的 permissionCode。 */
-	public static class PermissionFunctionForm {
-		private String permissionName;
-		private String permissionDescription;
-		private String permissionGroup;
-		public String getPermissionName() { return permissionName; }
-		public void setPermissionName(String permissionName) { this.permissionName = permissionName; }
-		public String getPermissionDescription() { return permissionDescription; }
-		public void setPermissionDescription(String permissionDescription) { this.permissionDescription = permissionDescription; }
-		public String getPermissionGroup() { return permissionGroup; }
-		public void setPermissionGroup(String permissionGroup) { this.permissionGroup = permissionGroup; }
-	}
 }

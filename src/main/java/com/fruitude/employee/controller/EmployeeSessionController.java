@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fruitude.employee.model.Employee;
+import com.fruitude.employee.model.EmployeeAdminAccessService;
 import com.fruitude.employee.model.EmployeeAdminService;
 import com.fruitude.employee.model.EmployeePosition;
 import com.fruitude.employee.model.OperationAuditService;
@@ -26,11 +27,14 @@ import jakarta.servlet.http.HttpSession;
 public class EmployeeSessionController {
 
 	private final EmployeeAdminService employeeAdminService;
+	private final EmployeeAdminAccessService accessService;
 	private final OperationAuditService auditService;
 
 	public EmployeeSessionController(EmployeeAdminService employeeAdminService,
+			EmployeeAdminAccessService accessService,
 			OperationAuditService auditService) {
 		this.employeeAdminService = employeeAdminService;
+		this.accessService = accessService;
 		this.auditService = auditService;
 	}
 
@@ -53,7 +57,10 @@ public class EmployeeSessionController {
 	public ResponseEntity<?> login(@RequestBody LoginRequest form, HttpServletRequest request) {
 		try {
 			Employee employee = employeeAdminService.login(form.getAccount(), form.getPassword());
-			request.getSession(true).setAttribute("loggedInEmployeeId", employee.getEmployeeId());
+			HttpSession session = request.getSession(true);
+			// 登入成功後更換 Session ID，避免登入前的識別碼被他人固定後沿用。
+			request.changeSessionId();
+			session.setAttribute("loggedInEmployeeId", employee.getEmployeeId());
 			return ResponseEntity.ok(employeeResponse(employee));
 		} catch (IllegalArgumentException error) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(message(error.getMessage()));
@@ -141,6 +148,10 @@ public class EmployeeSessionController {
 		body.put("positionName", position.getPositionName());
 		body.put("employeeStatus", employee.getEmployeeStatus());
 		body.put("lastLoginAt", employee.getLastLoginAt());
+		accessService.findAccessProfile(employee.getEmployeeId()).ifPresent(profile -> {
+			body.put("systemAdministrator", profile.isAdministrator());
+			body.put("permissionCodes", profile.getPermissionCodes());
+		});
 		return body;
 	}
 

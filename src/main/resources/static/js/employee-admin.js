@@ -91,6 +91,12 @@
         return cleanName ? cleanName.charAt(0).toUpperCase() : '?';
     }
 
+	function maskEmail(email) {
+		const parts = String(email || '').split('@');
+		if (parts.length !== 2) return '已登記信箱';
+		return (parts[0] ? parts[0].charAt(0) : '*') + '***@' + parts[1];
+	}
+
     function makeAction(icon, label, action, employeeId, danger) {
         const button = createElement('button', 'employee-action' + (danger ? ' is-danger' : ''));
         button.type = 'button';
@@ -154,8 +160,14 @@
             positionCell.appendChild(createElement('div', 'employee-secondary', employee.positionCode));
 
             const permissionCell = document.createElement('td');
-            permissionCell.appendChild(createElement('span', 'employee-permission-count',
-                String(employee.permissionCount || 0) + ' 項'));
+            const permissionCount = createElement('button', 'employee-permission-count',
+                String(employee.permissionCount || 0) + ' 個功能');
+            permissionCount.type = 'button';
+            permissionCount.dataset.action = 'view-permissions';
+            permissionCount.dataset.employeeId = String(employee.employeeId);
+            permissionCount.title = '查看' + employee.employeeName + '擁有的功能';
+            permissionCount.setAttribute('aria-label', '查看' + employee.employeeName + '擁有的功能');
+            permissionCell.appendChild(permissionCount);
 
             const statusCell = document.createElement('td');
             const active = Number(employee.employeeStatus) === 1;
@@ -169,7 +181,7 @@
             const actionCell = createElement('td', 'text-right');
             const actions = createElement('div', 'employee-actions');
             actions.appendChild(makeAction('fas fa-pen', '編輯員工', 'edit', employee.employeeId));
-            actions.appendChild(makeAction('fas fa-key', '重設密碼', 'password', employee.employeeId));
+            actions.appendChild(makeAction('fas fa-key', '寄送密碼設定信', 'password', employee.employeeId));
             actions.appendChild(makeAction(active ? 'fas fa-user-slash' : 'fas fa-user-check',
                 active ? '停用帳號' : '啟用帳號', 'status', employee.employeeId, active));
             actionCell.appendChild(actions);
@@ -234,10 +246,15 @@
             const codeCell = document.createElement('td');
             codeCell.appendChild(createElement('code', 'permission-code', position.positionCode));
             const nameCell = createElement('td', 'employee-primary', position.positionName);
-            const descriptionCell = createElement('td', '', position.positionDescription || '—');
-            const permissionCell = document.createElement('td');
-            permissionCell.appendChild(createElement('span', 'employee-permission-count',
-                String(position.permissionCount || 0) + ' 項'));
+			const descriptionCell = createElement('td', '', position.positionDescription || '—');
+			const permissionCell = document.createElement('td');
+			const permissionCount = createElement('button', 'employee-permission-count',
+				String(position.permissionCount || 0) + ' 個功能');
+			permissionCount.type = 'button';
+			permissionCount.dataset.positionAction = 'permissions';
+			permissionCount.dataset.positionId = String(position.positionId);
+			permissionCount.title = '查看並設定' + position.positionName + '的基本權限';
+			permissionCell.appendChild(permissionCount);
             const active = Number(position.positionStatus) === 1;
             const statusCell = document.createElement('td');
             statusCell.appendChild(createElement('span', 'employee-badge ' + (active ? 'is-active' : 'is-disabled'),
@@ -485,7 +502,7 @@
             countEl.textContent = labelPrefix + matched.length + ' 位';
         }
 
-        // 若當前選取的員工不在篩選結果中，自動選中結果的第一位並載入細項權限
+        // 若當前選取的員工不在篩選結果中，自動選中結果的第一位並載入功能權限。
         if (matched.length > 0) {
             const isCurrentInMatched = matched.some((e) => e.employeeId === state.selectedEmployeeId);
             if (!isCurrentInMatched) {
@@ -518,7 +535,7 @@
             const rowBottom = createElement('div', 'permission-employee-row-bottom');
             rowBottom.appendChild(createElement('span', 'permission-employee-account', employee.employeeAccount));
             const countText = (employee.permissionCount !== undefined && employee.permissionCount !== null)
-                ? (employee.permissionCount + ' 項權限') : '';
+                ? (employee.permissionCount + ' 個功能') : '';
             rowBottom.appendChild(createElement('span', 'permission-employee-perms', countText));
 
             button.appendChild(rowTop);
@@ -545,55 +562,15 @@
 
     function updatePermissionCount(containerId, countId) {
         const checked = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]:checked').length;
-        byId(countId).textContent = checked + ' 項已選';
+        byId(countId).textContent = checked + ' 個功能已選';
     }
 
-    // 群組快速操作後立即顯示全選、清除或部分選取狀態，避免收合時看不出結果。
-    function updatePermissionGroupState(group) {
-        const checkboxes = Array.from(group.querySelectorAll('input[type="checkbox"]'));
-        const checkedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
-        const allSelected = checkboxes.length > 0 && checkedCount === checkboxes.length;
-        const empty = checkedCount === 0;
-        const toggle = group.querySelector('[data-group-toggle]');
-        const count = group.querySelector('.permission-group-count');
-
-        group.classList.toggle('is-all-selected', allSelected);
-        group.classList.toggle('is-empty', empty);
-        toggle.classList.toggle('is-all-selected', allSelected);
-        toggle.classList.toggle('is-empty', empty);
-        toggle.textContent = allSelected ? '已全選' : (empty ? '已清除' : '部分選取');
-        toggle.title = allSelected ? '點擊清除此群組' : '點擊全選此群組';
-        toggle.setAttribute('aria-pressed', allSelected ? 'true' : 'false');
-        count.textContent = checkedCount + ' / ' + checkboxes.length;
-        count.setAttribute('aria-label', '已選 ' + checkedCount + ' 項，共 ' + checkboxes.length + ' 項');
-    }
-
-    function setPermissionGroupExpanded(group, expanded) {
-        if (!group) return;
-        const collapse = group.querySelector('[data-group-collapse]');
-        const options = group.querySelector('.permission-group-options');
-        collapse.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-        collapse.setAttribute('aria-label', (expanded ? '收合' : '展開') + collapse.dataset.groupCollapse);
-        collapse.querySelector('i').className = 'fas ' + (expanded ? 'fa-chevron-down' : 'fa-chevron-right');
-        options.classList.toggle('is-collapsed', !expanded);
-    }
-
-    // 桌面版為兩欄排列，同一列必須同步展開，避免另一側留下等高空白區。
-    function setPermissionGroupRowExpanded(container, sourceGroup, expanded) {
-        setPermissionGroupExpanded(sourceGroup, expanded);
-        if (!window.matchMedia('(min-width: 768px)').matches) return;
-        const groups = Array.from(container.querySelectorAll('.permission-group'));
-        const index = groups.indexOf(sourceGroup);
-        const partnerIndex = index % 2 === 0 ? index + 1 : index - 1;
-        setPermissionGroupExpanded(groups[partnerIndex], expanded);
-    }
-
-    // 權限依資料庫群組呈現，同一群組可用「全選／清除」快速操作。
-    function renderPermissionGroups(selectedIds, containerId, countId, collapsed) {
+    // 畫面只顯示功能群組；每個勾選框在儲存時會展開成該群組的全部底層權限編號。
+	function renderPermissionGroups(selectedIds, containerId, countId, collapsed, lockedIds) {
         containerId = containerId || 'permission-groups';
         countId = countId || 'permission-selection-count';
-        collapsed = collapsed !== false;
-        const selected = new Set((selectedIds || []).map(Number));
+		const selected = new Set((selectedIds || []).map(Number));
+		const locked = new Set((lockedIds || []).map(Number));
         const groups = new Map();
         state.functions.forEach((permission) => {
             const groupName = permission.permissionGroup || '其他';
@@ -603,114 +580,41 @@
 
         const container = byId(containerId);
         container.replaceChildren();
-        groups.forEach((permissions, groupName) => {
-            const hasSelectedPermission = permissions.some((permission) =>
-                selected.has(Number(permission.permissionId)));
-            const groupCollapsed = collapsed && !hasSelectedPermission;
-            const group = createElement('section', 'permission-group');
-            const heading = createElement('div', 'permission-group-heading');
-            const headingButton = createElement('button', 'permission-group-collapse');
-            headingButton.type = 'button';
-            headingButton.dataset.groupCollapse = groupName;
-            headingButton.setAttribute('aria-expanded', groupCollapsed ? 'false' : 'true');
-            headingButton.setAttribute('aria-label', (groupCollapsed ? '展開' : '收合') + groupName);
-            const headingIcon = createElement('i', 'fas ' + (groupCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'));
-            headingIcon.setAttribute('aria-hidden', 'true');
-            headingButton.appendChild(headingIcon);
-            headingButton.appendChild(createElement('h3', '', groupName));
-            headingButton.appendChild(createElement('span', 'permission-group-count', '0 / ' + permissions.length));
-            heading.appendChild(headingButton);
-            const toggle = createElement('button', 'permission-group-toggle', '全選／清除');
-            toggle.type = 'button';
-            toggle.dataset.groupToggle = groupName;
-            heading.appendChild(toggle);
-            group.appendChild(heading);
-
-            const options = createElement('div', 'permission-group-options' + (groupCollapsed ? ' is-collapsed' : ''));
-            permissions.forEach((permission) => {
-                const label = createElement('label', 'permission-option');
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.value = String(permission.permissionId);
-                checkbox.checked = selected.has(Number(permission.permissionId));
-                const text = document.createElement('span');
-                text.appendChild(createElement('strong', '', permission.permissionName));
-                text.appendChild(createElement('small', '', permission.permissionDescription || permission.permissionCode));
-                label.appendChild(checkbox);
-                label.appendChild(text);
-                options.appendChild(label);
-            });
-            group.appendChild(options);
+		groups.forEach((permissions, groupName) => {
+			const permissionIds = permissions.map((permission) => Number(permission.permissionId));
+			const isSelected = permissionIds.some((permissionId) => selected.has(permissionId));
+			const isPositionDefault = permissionIds.some((permissionId) => locked.has(permissionId));
+            const group = createElement('section', 'permission-group permission-group-choice'
+                + (isSelected ? ' is-all-selected' : ''));
+            const label = createElement('label', 'permission-option permission-group-option'
+                + (isPositionDefault ? ' is-position-default' : ''));
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = isSelected;
+            checkbox.disabled = isPositionDefault;
+            checkbox.dataset.permissionIds = permissionIds.join(',');
+            const text = document.createElement('span');
+            text.appendChild(createElement('strong', '', groupName));
+            if (isPositionDefault) text.appendChild(createElement('em', 'permission-default-label', '職位預設'));
+            label.appendChild(checkbox);
+            label.appendChild(text);
+            group.appendChild(label);
             container.appendChild(group);
-            updatePermissionGroupState(group);
         });
-        if (collapsed && window.matchMedia('(min-width: 768px)').matches) {
-            const renderedGroups = Array.from(container.querySelectorAll('.permission-group'));
-            for (let index = 0; index < renderedGroups.length; index += 2) {
-                const pair = renderedGroups.slice(index, index + 2);
-                const shouldExpand = pair.some((group) =>
-                    group.querySelector('[data-group-collapse]').getAttribute('aria-expanded') === 'true');
-                pair.forEach((group) => setPermissionGroupExpanded(group, shouldExpand));
-            }
-        }
         if (!state.functions.length) container.textContent = '目前沒有可分配的權限功能。';
         updatePermissionCount(containerId, countId);
     }
 
+    function selectedGroupPermissionIds(containerId, includeDisabled) {
+        const selector = '#' + containerId + ' input[type="checkbox"]:checked'
+            + (includeDisabled ? '' : ':not(:disabled)');
+        return Array.from(document.querySelectorAll(selector))
+            .flatMap((checkbox) => (checkbox.dataset.permissionIds || '').split(','))
+            .filter(Boolean).map(Number);
+    }
+
     function renderPositionPermissionGroups(selectedIds) {
         renderPermissionGroups(selectedIds, 'position-permission-groups', 'position-permission-selection-count', true);
-    }
-
-    function renderFunctionGroupOptions() {
-        const select = byId('function-group-filter');
-        const current = select.value;
-        const groups = Array.from(new Set(state.functions.map((item) => item.permissionGroup).filter(Boolean))).sort();
-        select.replaceChildren();
-        const all = createElement('option', '', '全部群組');
-        all.value = '';
-        select.appendChild(all);
-        groups.forEach((group) => {
-            const option = createElement('option', '', group);
-            option.value = group;
-            select.appendChild(option);
-        });
-        select.value = groups.includes(current) ? current : '';
-    }
-
-    function renderFunctions() {
-        const keyword = byId('function-search').value.trim().toLowerCase();
-        const group = byId('function-group-filter').value;
-        const filtered = state.functions.filter((permission) => {
-            const searchable = [permission.permissionCode, permission.permissionName, permission.permissionDescription]
-                .filter(Boolean).join(' ').toLowerCase();
-            return (!keyword || searchable.includes(keyword))
-                && (!group || permission.permissionGroup === group);
-        });
-
-        const body = byId('function-table-body');
-        body.replaceChildren();
-        filtered.forEach((permission) => {
-            const row = document.createElement('tr');
-            const codeCell = document.createElement('td');
-            codeCell.appendChild(createElement('code', 'permission-code', permission.permissionCode));
-            const nameCell = createElement('td', 'employee-primary', permission.permissionName);
-            const descriptionCell = createElement('td', '', permission.permissionDescription || '—');
-            const groupCell = createElement('td', '', permission.permissionGroup);
-            const actionCell = createElement('td', 'text-right');
-            const button = createElement('button', 'employee-action');
-            button.type = 'button';
-            button.title = '編輯權限功能';
-            button.setAttribute('aria-label', '編輯權限功能');
-            button.dataset.functionId = String(permission.permissionId);
-            const icon = createElement('i', 'fas fa-pen');
-            icon.setAttribute('aria-hidden', 'true');
-            button.appendChild(icon);
-            actionCell.appendChild(button);
-            [codeCell, nameCell, descriptionCell, groupCell, actionCell].forEach((cell) => row.appendChild(cell));
-            body.appendChild(row);
-        });
-        byId('function-result-count').textContent = filtered.length + ' 項';
-        byId('function-empty').hidden = filtered.length !== 0;
     }
 
     const auditModuleLabels = {
@@ -805,9 +709,8 @@
     }
 
     async function loadFunctions() {
+        // 固定權限仍需提供給權限配置、職位預設與功能負責頁使用。
         state.functions = await request('/permission-functions');
-        renderFunctionGroupOptions();
-        renderFunctions();
     }
 
     async function loadPermissionCoverage() {
@@ -822,9 +725,10 @@
             renderPermissionGroups([]);
             return;
         }
-        try {
-            const result = await request('/' + state.selectedEmployeeId + '/permissions');
-            renderPermissionGroups(result.permissionIds);
+		try {
+			const result = await request('/' + state.selectedEmployeeId + '/permissions');
+			renderPermissionGroups(result.permissionIds, 'permission-groups', 'permission-selection-count', true,
+				result.positionPermissionIds);
         } catch (error) {
             renderPermissionGroups([]);
             setFeedback(error.message, 'error');
@@ -845,9 +749,59 @@
         }
     }
 
+    // 員工列表只提供唯讀功能清單，不能在此視窗勾選或儲存權限。
+    async function openEmployeePermissionView(employee) {
+        byId('employee-permission-view-name').textContent = employee.employeeName
+            + '（' + employee.employeeAccount + '）';
+        const list = byId('employee-permission-view-list');
+        list.replaceChildren(createElement('p', 'employee-permission-view-loading', '正在載入功能…'));
+        setModalFeedback('employee-permission-view-modal', '');
+        showModal('employee-permission-view-modal');
+        try {
+            const result = await request('/' + employee.employeeId + '/permissions');
+            const effectiveIds = new Set((result.permissionIds || []).map(Number));
+            const positionIds = new Set((result.positionPermissionIds || []).map(Number));
+            const employeeIds = new Set((result.employeePermissionIds || []).map(Number));
+            const groups = new Map();
+            state.functions.forEach((permission) => {
+                const groupName = permission.permissionGroup || '其他';
+                if (!groups.has(groupName)) groups.set(groupName, []);
+                groups.get(groupName).push(permission);
+            });
+            list.replaceChildren();
+            groups.forEach((permissions, groupName) => {
+                const ids = permissions.map((permission) => Number(permission.permissionId));
+                if (!ids.some((permissionId) => effectiveIds.has(permissionId))) return;
+                const item = createElement('div', 'employee-permission-view-item');
+                const icon = createElement('i', 'fas fa-check-circle');
+                icon.setAttribute('aria-hidden', 'true');
+                item.appendChild(icon);
+                const content = document.createElement('div');
+                content.appendChild(createElement('strong', '', groupName));
+                const sources = createElement('div', 'employee-permission-view-sources');
+                if (ids.some((permissionId) => positionIds.has(permissionId))) {
+                    sources.appendChild(createElement('span', 'permission-source-badge is-position', '職位預設'));
+                }
+                if (ids.some((permissionId) => employeeIds.has(permissionId))) {
+                    sources.appendChild(createElement('span', 'permission-source-badge is-personal', '個別增加'));
+                }
+                content.appendChild(sources);
+                item.appendChild(content);
+                list.appendChild(item);
+            });
+            if (!list.children.length) {
+                list.appendChild(createElement('p', 'employee-permission-view-empty', '目前沒有任何功能權限。'));
+            }
+        } catch (error) {
+            list.replaceChildren();
+            setModalFeedback('employee-permission-view-modal', error.message);
+        }
+    }
+
     function openEmployeeForm(employee) {
         const editing = Boolean(employee);
         const form = byId('employee-form');
+        const profileFieldIds = ['employee-name', 'employee-account', 'employee-phone', 'employee-email'];
         form.reset();
         form.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
         byId('employee-id').value = editing ? employee.employeeId : '';
@@ -856,9 +810,15 @@
         byId('employee-account').value = editing ? employee.employeeAccount : '';
         byId('employee-phone').value = editing ? employee.employeePhone : '';
         byId('employee-email').value = editing ? employee.employeeEmail : '';
+        profileFieldIds.forEach((id) => {
+            byId(id).disabled = editing;
+        });
         renderPositionOptions(editing ? employee.positionId : null);
         byId('employee-password-group').hidden = editing;
         byId('employee-password').required = !editing;
+        byId('employee-form-save').innerHTML = editing
+            ? '<i class="fas fa-save mr-1"></i>儲存職位'
+            : '<i class="fas fa-save mr-1"></i>儲存員工';
         setModalFeedback('employee-form-modal', '');
         showModal('employee-form-modal');
     }
@@ -894,6 +854,7 @@
         byId('password-form').reset();
         byId('password-employee-id').value = employee.employeeId;
         byId('password-employee-name').textContent = employee.employeeName + '（' + employee.employeeAccount + '）';
+		byId('password-employee-email').textContent = maskEmail(employee.employeeEmail);
         setModalFeedback('password-modal', '');
         showModal('password-modal');
     }
@@ -910,17 +871,6 @@
         confirm.textContent = active ? '停用帳號' : '啟用帳號';
         setModalFeedback('status-modal', '');
         showModal('status-modal');
-    }
-
-    function openFunctionForm(permission) {
-        byId('function-form').reset();
-        byId('function-id').value = permission.permissionId;
-        byId('function-code').value = permission.permissionCode;
-        byId('function-name').value = permission.permissionName;
-        byId('function-description').value = permission.permissionDescription || '';
-        byId('function-group').value = permission.permissionGroup;
-        setModalFeedback('function-modal', '');
-        showModal('function-modal');
     }
 
     function bindEvents() {
@@ -947,8 +897,6 @@
         byId('employee-status-filter').addEventListener('change', renderEmployees);
         byId('position-search').addEventListener('input', renderPositions);
         byId('position-status-filter').addEventListener('change', renderPositions);
-        byId('function-search').addEventListener('input', renderFunctions);
-        byId('function-group-filter').addEventListener('change', renderFunctions);
         byId('responsibility-search').addEventListener('input', renderResponsibilityAssignments);
         byId('responsibility-status-filter').addEventListener('change', renderResponsibilityAssignments);
         byId('responsibility-group-filter').addEventListener('change', renderResponsibilityAssignments);
@@ -1009,13 +957,7 @@
             if (button.dataset.action === 'edit') openEmployeeForm(employee);
             if (button.dataset.action === 'password') openPasswordForm(employee);
             if (button.dataset.action === 'status') openStatusForm(employee);
-        });
-
-        byId('function-table-body').addEventListener('click', (event) => {
-            const button = event.target.closest('[data-function-id]');
-            if (!button) return;
-            const permission = state.functions.find((item) => item.permissionId === Number(button.dataset.functionId));
-            if (permission) openFunctionForm(permission);
+            if (button.dataset.action === 'view-permissions') openEmployeePermissionView(employee);
         });
 
         byId('position-table-body').addEventListener('click', (event) => {
@@ -1074,26 +1016,10 @@
                 ? 'permission-selection-count' : 'position-permission-selection-count';
             container.addEventListener('change', (event) => {
                 if (event.target.matches('input[type="checkbox"]')) {
-                    updatePermissionGroupState(event.target.closest('.permission-group'));
+                    event.target.closest('.permission-group').classList
+                        .toggle('is-all-selected', event.target.checked);
                     updatePermissionCount(containerId, countId);
                 }
-            });
-            container.addEventListener('click', (event) => {
-                const collapse = event.target.closest('[data-group-collapse]');
-                if (collapse) {
-                    const group = collapse.closest('.permission-group');
-                    const expanded = collapse.getAttribute('aria-expanded') === 'true';
-                    setPermissionGroupRowExpanded(container, group, !expanded);
-                    return;
-                }
-                const toggle = event.target.closest('[data-group-toggle]');
-                if (!toggle) return;
-                const group = toggle.closest('.permission-group');
-                const checkboxes = Array.from(group.querySelectorAll('input[type="checkbox"]'));
-                const shouldCheck = checkboxes.some((checkbox) => !checkbox.checked);
-                checkboxes.forEach((checkbox) => { checkbox.checked = shouldCheck; });
-                updatePermissionGroupState(group);
-                updatePermissionCount(containerId, countId);
             });
         });
 
@@ -1110,7 +1036,6 @@
         byId('position-status-confirm-button').addEventListener('click', savePositionStatus);
         byId('permission-save-button').addEventListener('click', savePermissions);
         byId('position-permission-save-button').addEventListener('click', savePositionPermissions);
-        byId('function-form').addEventListener('submit', saveFunction);
         byId('employee-application-reject-form').addEventListener('submit', rejectApplication);
     }
 
@@ -1157,14 +1082,15 @@
         const form = event.currentTarget;
         if (!form.reportValidity()) return;
         const employeeId = byId('employee-id').value;
-        const body = {
+        const positionId = Number(byId('employee-position').value);
+        const body = employeeId ? { positionId } : {
             employeeName: byId('employee-name').value,
             employeeAccount: byId('employee-account').value,
             employeePhone: byId('employee-phone').value,
             employeeEmail: byId('employee-email').value,
-            positionId: Number(byId('employee-position').value)
+            employeePassword: byId('employee-password').value,
+            positionId
         };
-        if (!employeeId) body.employeePassword = byId('employee-password').value;
         const button = byId('employee-form-save');
         withBusy(button, true, '儲存中…');
         setModalFeedback('employee-form-modal', '');
@@ -1175,7 +1101,7 @@
             });
             hideModal('employee-form-modal');
             await Promise.all([loadEmployees(true), loadPermissionCoverage()]);
-            setFeedback(employeeId ? '員工資料已更新。' : '員工帳號已新增。', 'success');
+			setFeedback(employeeId ? '員工職位已更新。' : '員工帳號已新增。', 'success');
         } catch (error) {
             setModalFeedback('employee-form-modal', error.message);
             const msg = error.message || '';
@@ -1234,16 +1160,15 @@
     async function savePassword(event) {
         event.preventDefault();
         const form = event.currentTarget;
-        if (!form.reportValidity()) return;
-        const button = form.querySelector('button[type="submit"]');
-        withBusy(button, true, '更新中…');
+		const button = form.querySelector('button[type="submit"]');
+		withBusy(button, true, '寄送中…');
         setModalFeedback('password-modal', '');
         try {
-            await request('/' + byId('password-employee-id').value + '/password', {
-                method: 'PUT', body: JSON.stringify({ employeePassword: byId('new-employee-password').value })
-            });
-            hideModal('password-modal');
-            setFeedback('員工密碼已重設。', 'success');
+			const result = await request('/' + byId('password-employee-id').value + '/password-reset-email', {
+				method: 'POST'
+			});
+			hideModal('password-modal');
+			setFeedback(result.message || '員工密碼設定驗證信已寄出。', 'success');
         } catch (error) {
             setModalFeedback('password-modal', error.message);
         } finally {
@@ -1294,15 +1219,14 @@
 
     async function savePermissions() {
         if (state.selectedEmployeeId === null) return;
-        const permissionIds = Array.from(document.querySelectorAll('#permission-groups input:checked'))
-            .map((checkbox) => Number(checkbox.value));
+		const permissionIds = selectedGroupPermissionIds('permission-groups', false);
         const button = byId('permission-save-button');
         withBusy(button, true, '儲存中…');
         try {
             await request('/' + state.selectedEmployeeId + '/permissions', {
                 method: 'PUT', body: JSON.stringify({ permissionIds: permissionIds })
             });
-            await Promise.all([loadEmployees(true), loadPermissionCoverage()]);
+			await Promise.all([loadEmployees(true), loadPermissionCoverage()]);
             await loadSelectedPermissions();
             setFeedback('員工權限已儲存。', 'success');
         } catch (error) {
@@ -1314,8 +1238,7 @@
 
     async function savePositionPermissions() {
         if (state.selectedPositionId === null) return;
-        const permissionIds = Array.from(document.querySelectorAll('#position-permission-groups input:checked'))
-            .map((checkbox) => Number(checkbox.value));
+        const permissionIds = selectedGroupPermissionIds('position-permission-groups', true);
         const button = byId('position-permission-save-button');
         withBusy(button, true, '儲存中…');
         setModalFeedback('position-permission-modal', '');
@@ -1323,39 +1246,15 @@
             const result = await request('/positions/' + state.selectedPositionId + '/permissions', {
                 method: 'PUT', body: JSON.stringify({ permissionIds: permissionIds })
             });
-            const position = state.positions.find((item) => item.positionId === state.selectedPositionId);
-            if (position) position.permissionCount = result.permissionIds.length;
-            renderPositions();
-            hideModal('position-permission-modal');
-            setFeedback('職位基本權限已儲存。新建、核准或換職位時會自動套用。', 'success');
+			const position = state.positions.find((item) => item.positionId === state.selectedPositionId);
+			if (position) position.permissionCount = document
+				.querySelectorAll('#position-permission-groups input:checked').length;
+			await Promise.all([loadEmployees(true), loadPermissionCoverage()]);
+			renderPositions();
+			hideModal('position-permission-modal');
+			setFeedback('職位基本權限已儲存，使用此職位的員工已立即生效。', 'success');
         } catch (error) {
             setModalFeedback('position-permission-modal', error.message);
-        } finally {
-            withBusy(button, false);
-        }
-    }
-
-    async function saveFunction(event) {
-        event.preventDefault();
-        const form = event.currentTarget;
-        if (!form.reportValidity()) return;
-        const button = form.querySelector('button[type="submit"]');
-        withBusy(button, true, '儲存中…');
-        setModalFeedback('function-modal', '');
-        try {
-            await request('/permission-functions/' + byId('function-id').value, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    permissionName: byId('function-name').value,
-                    permissionDescription: byId('function-description').value,
-                    permissionGroup: byId('function-group').value
-                })
-            });
-            hideModal('function-modal');
-            await loadFunctions();
-            setFeedback('權限功能資料已更新。', 'success');
-        } catch (error) {
-            setModalFeedback('function-modal', error.message);
         } finally {
             withBusy(button, false);
         }

@@ -74,49 +74,57 @@
 		<hr class="sidebar-divider mb-2">
 
             <!-- Nav Item - 後台帳號管理 -->
-            <li class="nav-item" id="employee-admin-nav-item">
+            <li class="nav-item" id="employee-admin-nav-item"
+                th:if="${adminPermissionCodes.contains('EMPLOYEE_VIEW') or adminPermissionCodes.contains('PERMISSION_MANAGE')}">
                 <a th:href="@{/admin/employees/}" class="nav-link" id="employee-admin-nav-link">
                     <i class="fas fa-fw fa-user-cog"></i>
                     <span>後台帳號管理</span></a>
             </li>
 
             <!-- Nav Item - 會員管理 -->
-            <li class="nav-item" id="member-admin-nav-item">
+            <li class="nav-item" id="member-admin-nav-item"
+                th:if="${adminPermissionCodes.contains('MEMBER_VIEW')}">
                 <a th:href="@{/admin/members/}" class="nav-link" id="member-admin-nav-link">
                     <i class="fas fa-fw fa-user-friends"></i>
                     <span>會員管理</span></a>
             </li>
 
             <!-- Nav Item - 評論管理 -->
-            <li class="nav-item" th:classappend="${activeMenu == 'comments'} ? 'active'">
+            <li class="nav-item" th:if="${adminPermissionCodes.contains('COMMENT_VIEW')}"
+                th:classappend="${activeMenu == 'comments'} ? 'active'">
                 <a th:href="@{/admin/comments/}" class="nav-link">
                     <i class="fas fa-fw fa-comments"></i>
                     <span>評論管理</span></a>
             </li>
 
             <!-- Nav Item - 訂單管理 -->
-            <li class="nav-item" th:classappend="${activeMenu == 'orders'} ? 'active'">
+            <li class="nav-item" th:if="${adminPermissionCodes.contains('ORDER_VIEW')}"
+                th:classappend="${activeMenu == 'orders'} ? 'active'">
                 <a th:href="@{/admin/orders/}" class="nav-link">
                     <i class="fas fa-fw fa-file-invoice"></i>
                     <span>訂單管理</span></a>
             </li>
 
             <!-- Nav Item - 活動管理 -->
-            <li class="nav-item" th:classappend="${activeMenu == 'promo'} ? 'active'">
+            <li class="nav-item" th:if="${adminPermissionCodes.contains('PROMOTION_VIEW')}"
+                th:classappend="${activeMenu == 'promo'} ? 'active'">
                 <a th:href="@{/admin/promo/}" class="nav-link">
                     <i class="fas fa-fw fa-calendar-alt"></i>
                     <span>活動管理</span></a>
             </li>
 
             <!-- Nav Item - 資訊管理 -->
-            <li class="nav-item" th:classappend="${activeMenu == 'info'} ? 'active'">
+            <li class="nav-item"
+                th:if="${adminPermissionCodes.contains('FARMER_VIEW') or adminPermissionCodes.contains('FARMER_MANAGE')}"
+                th:classappend="${activeMenu == 'info'} ? 'active'">
                 <a th:href="@{/admin/info/farmers/}" class="nav-link">
                     <i class="fas fa-fw fa-info-circle"></i>
                     <span>資訊管理</span></a>
             </li>
 
             <!-- Nav Item - 商品管理 -->
-            <li class="nav-item" th:classappend="${activeMenu == 'product'} ? 'active'">
+            <li class="nav-item" th:if="${adminPermissionCodes.contains('PRODUCT_VIEW')}"
+                th:classappend="${activeMenu == 'product'} ? 'active'">
                 <a th:href="@{/admin/product}" class="nav-link">
                     <i class="fas fa-fw fa-box-open"></i>
                     <span>商品管理</span>
@@ -124,14 +132,16 @@
             </li>
 
             <!-- Nav Item - 客服聊天室 -->
-            <li class="nav-item">
+            <li class="nav-item" th:if="${adminPermissionCodes.contains('CHAT_VIEW')}">
                 <span class="nav-link">
                     <i class="fas fa-fw fa-headset"></i>
                     <span>客服聊天室</span></span>
             </li>
 
             <!-- Nav Item - 進銷存系統 -->
-            <li class="nav-item" th:classappend="${activeMenu == 'psi'} ? 'active'">
+            <li class="nav-item"
+                th:if="${adminPermissionCodes.contains('PRODUCT_VIEW') or adminPermissionCodes.contains('PURCHASE_VIEW') or adminPermissionCodes.contains('PURCHASE_RECEIVE') or adminPermissionCodes.contains('SUPPLIER_MANAGE') or adminPermissionCodes.contains('INVENTORY_VIEW') or adminPermissionCodes.contains('INVENTORY_MANAGE') or adminPermissionCodes.contains('SHIPPING_VIEW') or adminPermissionCodes.contains('SHIPPING_PROCESS')}"
+                th:classappend="${activeMenu == 'psi'} ? 'active'">
                 <a th:href="@{/admin/psi}" class="nav-link">
                   	<i class="fas fa-fw fa-warehouse"></i>
                   	<span>進銷存系統</span>
@@ -139,7 +149,9 @@
             </li>
 
             <!-- Nav Item - 會計作業系統 -->
-            <li class="nav-item" th:classappend="${activeMenu == 'account'} ? 'active'">
+            <li class="nav-item"
+                th:if="${adminPermissionCodes.contains('REFUND_VIEW') or adminPermissionCodes.contains('PURCHASE_VIEW')}"
+                th:classappend="${activeMenu == 'account'} ? 'active'">
                 <a th:href="@{/admin/account}" class="nav-link">
                     <i class="fas fa-fw fa-calculator"></i>
                     <span>會計作業系統</span>

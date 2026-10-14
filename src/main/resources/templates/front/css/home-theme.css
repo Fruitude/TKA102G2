@@ -70,6 +70,17 @@ body.home-orange-theme {
 .home-orange-theme .home-sku-menu button { color: var(--home-text); }
 .home-orange-theme .home-sku-menu button:hover,
 .home-orange-theme .home-sku-menu button[aria-pressed="true"] { background-color: var(--home-leaf-hover); }
+.home-orange-theme .nav_dropdown-list.w--open {
+  background-color: rgb(255, 255, 215);
+  border: 1px solid var(--home-leaf);
+}
+.home-orange-theme .nav_dropdown-card { border-color: #BDD1A8; }
+.home-orange-theme .nav_dropdown-card:hover {
+  background-color: #E5EEDC;
+  border-color: var(--home-leaf);
+}
+.home-orange-theme .nav_dropdown-title { color: #365624; }
+
 .home-orange-theme .homepage-hero-section h1,
 .home-orange-theme .section:not(.section-black) :is(h1, h2) {
   color: var(--home-heading);

@@ -8,17 +8,13 @@ import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.WebDataBinder;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.fruitude.vendor.model.VendorService;
@@ -32,11 +28,6 @@ public class VendorController {
 
 	@Autowired
 	VendorService vendorSvc;
-	
-	@GetMapping("")
-	public String vendor() {
-	    return "admin/psi/vendor/index";
-	}
 
 	@RequestMapping("/listAllVendor")
 	public String listAllVendor(Model model,
@@ -88,14 +79,12 @@ public class VendorController {
 
 	// 新增、修改成功後 redirect 過來，依 vendorId 顯示單筆資料
 	@GetMapping("/listOneVendor")
-	public String listOneVendor(@RequestParam("vendorId") Integer vendorId, Model model,
-			RedirectAttributes redirectAttributes) {
+	public String listOneVendor(@RequestParam("vendorId") Integer vendorId, Model model) {
 		VendorVO vendorVO = vendorSvc.getOneVendor(vendorId);
 
-		// 查不到供應商時回首頁顯示錯誤訊息
+		// 資料已被刪除時回到列表
 		if (vendorVO == null) {
-			redirectAttributes.addFlashAttribute("errorMessage", "查無此供應商");
-			return "redirect:/admin/psi/vendor";
+			return "redirect:/admin/psi/vendor/listAllVendor";
 		}
 
 		model.addAttribute("vendorVO", vendorVO);
@@ -104,14 +93,12 @@ public class VendorController {
 	}
 
 	@PostMapping("/getOne_For_Update")
-	public String getOne_For_Update(@RequestParam("vendorId") Integer vendorId, Model model,
-			RedirectAttributes redirectAttributes) {
+	public String getOne_For_Update(@RequestParam("vendorId") Integer vendorId, Model model) {
 		VendorVO vendorVO = vendorSvc.getOneVendor(vendorId);
 
-		// 查不到供應商時回首頁顯示錯誤訊息
+		// 資料已被刪除時回到列表
 		if (vendorVO == null) {
-			redirectAttributes.addFlashAttribute("errorMessage", "查無此供應商");
-			return "redirect:/admin/psi/vendor";
+			return "redirect:/admin/psi/vendor/listAllVendor";
 		}
 
 		model.addAttribute("vendorVO", vendorVO);
@@ -123,10 +110,9 @@ public class VendorController {
 	public String update(@Valid VendorVO vendorVO, BindingResult result, Model model,
 			@RequestParam("upFiles") MultipartFile part, RedirectAttributes redirectAttributes) throws IOException {
 
-		// 編號被清空、竄改成不存在的編號，或資料已被刪除時回首頁顯示錯誤訊息
+		// 編號被清空、竄改成不存在的編號，或資料已被刪除時回到列表
 		if (vendorVO.getVendorId() == null || vendorSvc.getOneVendor(vendorVO.getVendorId()) == null) {
-			redirectAttributes.addFlashAttribute("errorMessage", "查無此供應商");
-			return "redirect:/admin/psi/vendor";
+			return "redirect:/admin/psi/vendor/listAllVendor";
 		}
 
 		// 統一編號為非必填，有填寫時不可與其他供應商重複（排除自己）
@@ -178,15 +164,6 @@ public class VendorController {
 	public void initBinder(WebDataBinder binder) {
 	    // true 代表：空字串或只有空白的字串，轉成 null
 	    binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
-	}
-
-	// 網址的參數型別不對（例如 vendorId=abc）或少了必要的參數時，回首頁並顯示錯誤訊息
-	// 只處理這支 controller 的方法丟出的例外；VendorNoController 的條件查詢有自己的 handleError
-	@ExceptionHandler({ MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class })
-	public ModelAndView handleError(Exception e) {
-		ModelAndView mav = new ModelAndView("admin/psi/vendor/index");
-		mav.addObject("errorMessage", "網址的參數不正確，請從供應商管理重新操作");
-		return mav;
 	}
 
 }

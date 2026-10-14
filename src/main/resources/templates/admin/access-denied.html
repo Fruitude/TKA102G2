@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>無法開啟此功能</title>
+    <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+</head>
+<body class="admin-login-page">
+    <main class="admin-login-panel" aria-labelledby="access-denied-title">
+        <header class="admin-login-heading">
+            <h1 class="h4 text-gray-800 mb-1" id="access-denied-title">
+                <i class="fas fa-lock mr-2" aria-hidden="true"></i>無法開啟此功能
+            </h1>
+            <p class="small text-muted mb-0">目前職位沒有這個功能的使用權限</p>
+        </header>
+        <div class="admin-login-form">
+            <p class="text-gray-700 mb-4">如需使用，請由系統管理員至「後台帳號管理」調整你的權限配置。</p>
+            <a class="btn btn-primary btn-block" th:href="@{/admin}">
+                <i class="fas fa-home mr-1" aria-hidden="true"></i>返回後台首頁
+            </a>
+        </div>
+    </main>
+    <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+</body>
+</html>

@@ -14,13 +14,12 @@
 <link href="../../66ecb06b29465580bc39d040/66f9e2f649279bcda23519f4_Shutter_Shop_&ndash;_256.svg" rel="apple-touch-icon"/>
 <script type="text/javascript">window.__WEBFLOW_CURRENCY_SETTINGS = {"currencyCode":"NT","symbol":"$","decimal":".","fractionDigits":2,"group":",","template":"{{wf {\"path\":\"symbol\",\"type\":\"PlainText\"} }} {{wf {\"path\":\"amount\",\"type\":\"CommercePrice\"} }} {{wf {\"path\":\"currencyCode\",\"type\":\"PlainText\"} }}","hideDecimalForWholeNumbers":false};</script>
 
-<link th:href="@{/front/css/home-product-cards.css(v=20261014-white-centered-ribbon)}" rel="stylesheet"/>
+<link th:href="@{/front/css/home-product-cards.css}" rel="stylesheet"/>
 <link th:href="@{/front/css/front-theme.css}" rel="stylesheet" type="text/css"/>
-<link th:href="@{/front/css/product-detail.css(v=20261014-white-centered-ribbon)}" rel="stylesheet"/>
-<link href="/front/css/shop-menu.css?v=20261013" th:href="@{/front/css/shop-menu.css(v=20261013)}" rel="stylesheet" type="text/css"/>
+<link th:href="@{/front/css/product-detail.css}" rel="stylesheet"/>
 </head>
 <body class="front-theme">
-<div class="nav-bar w-nav" data-animation="default" data-collapse="medium" data-duration="300" data-easing="ease" data-easing2="ease" fs-scrolldisable-element="smart-nav" role="banner"><div class="container navigation-container"><a class="nav-logo w-inline-block" href="../../"><img alt="Company Logo" class="nav-logo-image" loading="lazy" src="../../6706de395f0ceac28687d464/6706de395f0ceac28687d5ed_Shutter_Shop.svg" width="Auto"/></a><nav class="nav-links-conatiner w-nav-menu" role="navigation"><div class="nav-inner-container"><div th:replace="~{front/fragments/shop-menu :: shop-menu}"></div><a class="nav-link" href="../../services/">宅配服務</a><a class="nav-link" href="../../about/">關於我們</a><a class="nav-link" href="../../blog/">果物誌</a><a class="nav-link" href="../../farmers/">小農資訊</a><a class="nav-link" href="../../about/login/">會員註冊/登入</a></div><div class="nav-cta-button-conatiner"><a class="secondary-button w-button" href="#"><svg class="search-icon" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" fill="none" r="5.5" stroke="currentColor" stroke-width="1.5"></circle><line stroke="currentColor" stroke-linecap="round" stroke-width="1.5" x1="11.5" x2="15" y1="11.5" y2="15"></line></svg>搜尋</a></div></nav><div class="card-wrapper"><div class="w-commerce-commercecartwrapper" data-node-type="commerce-cart-wrapper" data-open-product="" data-wf-cart-query="query Dynamo3 {
+<div class="nav-bar w-nav" data-animation="default" data-collapse="medium" data-duration="300" data-easing="ease" data-easing2="ease" fs-scrolldisable-element="smart-nav" role="banner"><div class="container navigation-container"><a class="nav-logo w-inline-block" href="../../"><img alt="Company Logo" class="nav-logo-image" loading="lazy" src="../../6706de395f0ceac28687d464/6706de395f0ceac28687d5ed_Shutter_Shop.svg" width="Auto"/></a><nav class="nav-links-conatiner w-nav-menu" role="navigation"><div class="nav-inner-container"><div class="nav-dropdown w-dropdown" data-delay="0" data-hover="false"><div class="nav-link nav-link-dropdown w-dropdown-toggle"><div>商城</div><div class="nav-arrow w-icon-dropdown-toggle"></div></div><nav class="nav_dropdown-list w-dropdown-list"><div class="nav_grid-dropdown-grid"><a class="nav_dropdown-card w-inline-block" href="../../all-products/" id="w-node-f3e67de1-b7f8-9b65-6baf-9e0e4e32b241-fe651a75"><div class="nav_dropdown-title">全部商品</div><div class="paragraph-16 light-text">當季現摘，新鮮直送</div></a><a class="nav_dropdown-card w-inline-block" href="../../category/seasonal-fresh-fruit/" id="w-node-_0e5396c6-dd52-965c-4557-44c56b601c8b-fe651a75"><div class="nav_dropdown-title">當季鮮果</div><div class="paragraph-16 light-text">當季現摘，新鮮直送</div></a><a class="nav_dropdown-card w-inline-block" href="../../category/featured-gift-boxes/"><div class="nav_dropdown-title">精選禮盒</div><div class="paragraph-16 light-text">嚴選禮盒，送禮體面</div></a></div></nav></div><a class="nav-link" href="../../services/">宅配服務</a><a class="nav-link" href="../../about/">關於我們</a><a class="nav-link" href="../../blog/">果物誌</a><a class="nav-link" href="../../farmers/">小農資訊</a><a class="nav-link" href="../../about/login/">會員註冊/登入</a></div><div class="nav-cta-button-conatiner"><a class="secondary-button w-button" href="#"><svg class="search-icon" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" fill="none" r="5.5" stroke="currentColor" stroke-width="1.5"></circle><line stroke="currentColor" stroke-linecap="round" stroke-width="1.5" x1="11.5" x2="15" y1="11.5" y2="15"></line></svg>搜尋</a></div></nav><div class="card-wrapper"><div class="w-commerce-commercecartwrapper" data-node-type="commerce-cart-wrapper" data-open-product="" data-wf-cart-query="query Dynamo3 {
   database {
     id
     commerceOrder {
@@ -157,17 +156,16 @@
 <div id="pv-main" th:if="${dbProduct != null}">
 <div class="w-layout-grid shop-product-grid">
 <div class="shop-product-gallery">
-<span id="pv-promo-ribbon" class="pv-detail-promo" th:hidden="${dbProduct.originalPrice == null or dbProduct.originalPrice <= dbProduct.price}"><span th:replace="~{front/fragments/product-grid :: promoRibbon}"></span></span>
 <div class="shop-product-image-wrapper">
-<img class="shop-product-image" id="pv-image" th:alt="${dbProduct.name}" th:src="@{${dbProduct.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + dbProduct.imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(dbProduct.imageId))}}"/>
+<img class="shop-product-image" id="pv-image" th:alt="${dbProduct.name}" th:src="@{${dbProduct.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + dbProduct.imageId}}"/>
 </div>
 <div class="pv-gallery-navigation" aria-label="商品圖片">
   <button type="button" id="pv-image-prev" class="pv-image-arrow" aria-label="上一張商品圖片">&#8249;</button>
   <div id="pv-thumbnails" class="pv-thumbnails">
     <th:block th:each="s:${dbProduct.skus}">
       <button type="button" class="pv-thumbnail" th:each="imageId, imageIndex:${s.imageIds}"
-              th:attr="data-sku-id=${s.skuId},data-image-url=@{${'/product/image/' + imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(imageId))}},aria-label=${s.name + '，圖片 ' + (imageIndex.index + 1)}" aria-pressed="false">
-        <img loading="lazy" th:src="@{${'/product/image/' + imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(imageId))}}" th:alt="${s.name}"/>
+              th:attr="data-sku-id=${s.skuId},data-image-url=@{'/product/image/' + ${imageId}},aria-label=${s.name + '，圖片 ' + (imageIndex.index + 1)}" aria-pressed="false">
+        <img loading="lazy" th:src="@{'/product/image/' + ${imageId}}" th:alt="${s.name}"/>
       </button>
     </th:block>
   </div>
@@ -188,15 +186,11 @@
 </div>
 </div>
 <p class="paragraph-18" id="pv-description" th:text="${dbProduct.description}" style="margin-top:1rem;"></p>
-<div class="pv-supplier-info paragraph-18">
-  <div class="pv-supplier-row"><span class="pv-supplier-label">供應：</span><a class="pv-supplier-link" th:if="${productSupplier != null and productSupplier.farmerPosition != null and productSupplier.farmerPosition > 0}" th:href="@{${'/front/farmers/#farmer-' + productSupplier.farmerPosition}}" th:text="${productSupplier.name}"></a><span th:unless="${productSupplier != null and productSupplier.farmerPosition != null and productSupplier.farmerPosition > 0}" th:text="${productSupplier != null and !#strings.isEmpty(productSupplier.name) ? productSupplier.name : '未提供'}"></span><img class="pv-supplier-logo" th:if="${productSupplier != null and productSupplier.hasLogo}" th:src="@{/vendor/DBGifReader(vendorId=${productSupplier.vendorId})}" th:alt="${productSupplier.name + ' LOGO'}" width="40" height="40" loading="lazy"/></div>
-  <div class="pv-supplier-row"><span class="pv-supplier-label">產地：</span><span th:text="${productSupplier != null and !#strings.isEmpty(productSupplier.origin) ? productSupplier.origin : '未提供'}"></span></div>
-</div>
 <div class="paragraph-18" data-wf-sku-bindings="f_price_" id="pv-price" th:text="${'NT$ ' + dbProduct.price}" style="font-size:1.5rem; margin:1.5rem 0;"></div>
 <div class="paragraph-18" id="pv-original-price" th:text="${dbProduct.originalPrice != null and dbProduct.originalPrice > dbProduct.price ? 'NT$ ' + dbProduct.originalPrice : ''}" th:style="${dbProduct.originalPrice != null and dbProduct.originalPrice > dbProduct.price ? '' : 'display:none;'} + 'text-decoration:line-through; opacity:.6; margin:-1.25rem 0 1.5rem;'"></div>
 <span class="pv-sku-original" hidden th:each="s:${dbProduct.skus}" th:attr="data-sku-id=${s.skuId},data-original=${s.originalPrice}"></span>
 <form th:attr="data-commerce-sku-id=${dbProduct.skuId}" data-node-type="x-commerce-add-to-cart-form" id="pv-form">
-<label class="form_field-label" for="pv-sku">商品規格</label><div class="pv-spec-quantity-row"><select class="form-input" id="pv-sku"><option th:each="s:${dbProduct.skus}" th:value="${s.skuId}" th:text="${s.name}" th:selected="${s.skuId == dbProduct.skuId}" th:attr="data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(s.imageId))}}"></option></select>
+<label class="form_field-label" for="pv-sku">商品規格</label><div class="pv-spec-quantity-row"><select class="form-input" id="pv-sku"><option th:each="s:${dbProduct.skus}" th:value="${s.skuId}" th:text="${s.name}" th:selected="${s.skuId == dbProduct.skuId}" th:attr="data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId}}"></option></select>
 <div class="home-sku-dropdown" id="pv-sku-dropdown" hidden>
   <button type="button" class="home-sku-trigger" id="pv-sku-trigger" aria-label="選擇商品規格" aria-expanded="false" aria-haspopup="listbox" aria-controls="pv-sku-menu"><span class="home-sku-caption"></span><span class="home-sku-arrow" aria-hidden="true">▾</span></button>
   <div class="home-sku-menu" id="pv-sku-menu" role="listbox" aria-label="商品規格選項"></div>
@@ -218,14 +212,10 @@
 <section class="pv-reviews" aria-labelledby="pv-reviews-heading" th:attr="data-product-id=${dbProduct.productId}">
 <div class="pv-reviews-header">
   <div class="pv-reviews-summary"><span class="pv-reviews-average" th:text="${#numbers.formatDecimal(productReviews.average,1,1)}">0.0</span><span class="pv-reviews-single-star" aria-hidden="true">★</span>
-  <h2 id="pv-reviews-heading" th:text="${'商品評價(' + productReviews.count + ')'}">商品評價(0)</h2>
-  <div th:fragment="review-spec-filters" th:if="${#lists.size(reviewSkus) > 1}" class="pv-review-specs" role="group" aria-label="依商品規格篩選評論">
-    <button type="button" class="is-active" data-review-sku="" aria-pressed="true">全部規格</button>
-    <button type="button" th:each="sku:${reviewSkus}" th:attr="data-review-sku=${sku.skuId}" aria-pressed="false" th:text="${sku.name}"></button>
-  </div></div>
+  <h2 id="pv-reviews-heading" th:text="${'商品評價(' + productReviews.count + ')'}">商品評價(0)</h2></div>
   <button type="button" id="pv-reviews-all" th:if="${productReviews.count > 0}">查看全部 &gt;</button>
 </div>
-<p class="pv-reviews-empty" role="status" th:hidden="${!#lists.isEmpty(productReviews.reviews)}">目前尚無會員評論。</p>
+<p class="pv-reviews-empty" th:if="${#lists.isEmpty(productReviews.reviews)}">目前尚無會員評論。</p>
 <div class="pv-review-list">
 <article class="pv-review" th:each="review:${productReviews.reviews}">
   <span class="pv-review-avatar"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="11" r="6"/><path d="M5 30v-3a11 11 0 0 1 22 0v3Z"/></svg></span>
@@ -238,7 +228,7 @@
 </div>
 </section>
 <dialog id="pv-reviews-dialog" aria-labelledby="pv-reviews-dialog-title">
-  <div class="pv-reviews-dialog-header"><h2 id="pv-reviews-dialog-title" th:text="${dbProduct.name + '評價'}">商品評價</h2><button type="button" class="pv-reviews-close" aria-label="關閉評論">×</button></div>
+  <div class="pv-reviews-dialog-header"><h2 id="pv-reviews-dialog-title">全部商品評價</h2><button type="button" class="pv-reviews-close" aria-label="關閉評論">×</button></div>
   <div class="pv-reviews-overview">
     <div class="pv-reviews-bars" aria-label="評分分布" th:with="maxCount=${#lists.sort(productReviews.distribution.![count])[4]}">
       <div class="pv-reviews-bar-row" th:each="bucket:${productReviews.distribution}" th:attr="data-stars=${bucket.stars}">
@@ -251,7 +241,6 @@
       <div id="pv-reviews-dialog-count" th:text="${productReviews.totalCount + ' 則評論'}"></div>
     </div>
   </div>
-  <div th:replace="~{::review-spec-filters}"></div>
   <div class="pv-reviews-filters">
     <label class="pv-reviews-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="pv-reviews-search" type="search" maxlength="200" placeholder="搜尋評論" aria-label="搜尋評論"/></label>
     <select id="pv-reviews-sort" aria-label="評論排序"><option value="latest">最新</option><option value="highest">評分最高</option><option value="lowest">評分最低</option></select>
@@ -294,7 +283,6 @@
     var originalEl = document.getElementById("pv-original-price");
     var originalHolder = document.querySelector(".pv-sku-original[data-sku-id=\"" + option.value + "\"]");
     var originalValue = originalHolder ? Number(originalHolder.dataset.original) : 0;
-    document.getElementById("pv-promo-ribbon").hidden = originalValue <= Number(option.dataset.price);
     if (originalValue > Number(option.dataset.price)) {
       originalEl.textContent = formatProductPrice(originalValue * quantity);
       originalEl.style.display = "";
