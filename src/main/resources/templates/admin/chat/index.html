@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>客服聊天室</title>
+
+	<!-- 引入css資源 -->
+	<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+	<style>
+		.chat-list { max-height: 70vh; overflow-y: auto; }
+		.chat-list .list-group-item { cursor: pointer; }
+		.chat-messages { height: 60vh; overflow-y: auto; background: #f8f9fc; }
+		.chat-row { display: flex; margin-bottom: .75rem; }
+		.chat-row.staff { justify-content: flex-end; }
+		/* 每則訊息的外層：寬度最多整列的 70%；裡面的泡泡、圖片、時間在會員/系統訊息靠左，客服訊息靠右 */
+		.chat-row > div { max-width: 70%; display: flex; flex-direction: column; align-items: flex-start; }
+		.chat-row.staff > div { align-items: flex-end; }
+		.chat-bubble { padding: .5rem .75rem; border-radius: .5rem; white-space: pre-wrap; word-break: break-word; }
+		.chat-row.member .chat-bubble { background: #fff; border: 1px solid #e3e6f0; }
+		.chat-row.staff .chat-bubble { background: #4e73df; color: #fff; }
+		.chat-row.system .chat-bubble { background: #eaecf4; color: #5a5c69; }
+		.chat-meta { font-size: .75rem; color: #858796; margin-top: .25rem; }
+		.chat-images { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .25rem; }
+		/* 圖片多到換行時，客服訊息的最後一排也靠右 */
+		.chat-row.staff .chat-images { justify-content: flex-end; }
+		.chat-images img { width: 100px; height: 100px; object-fit: cover; border-radius: .25rem; background: #fff; cursor: zoom-in; }
+		.chat-image-broken { font-size: .75rem; padding: .25rem .5rem; border: 1px dashed #d1d3e2; border-radius: .25rem; color: #858796; background: #fff; }
+		.send-previews { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .5rem; }
+		.send-preview { position: relative; }
+		.send-preview img { width: 64px; height: 64px; object-fit: cover; border-radius: .25rem; border: 1px solid #e3e6f0; }
+		.send-preview button { position: absolute; top: -.5rem; right: -.5rem; width: 1.25rem; height: 1.25rem; padding: 0; line-height: 1; border-radius: 50%; }
+		.send-suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+		.send-suggestions .suggestions-label { font-size: .8rem; color: #858796; }
+		/* 看大圖的懸浮視窗：圖片最大是視窗的 90%，保持原比例 */
+		#image-viewer .modal-dialog { max-width: 90vw; }
+		#image-viewer .modal-content { background: transparent; border: 0; }
+		#image-viewer .viewer-stage { position: relative; display: flex; align-items: center; justify-content: center; min-height: 200px; }
+		#image-viewer .viewer-image { max-width: 90vw; max-height: 85vh; object-fit: contain; border-radius: .25rem; background: #fff; }
+		#image-viewer .viewer-status { color: #fff; }
+		#image-viewer .viewer-close { position: absolute; top: -2.5rem; right: 0; color: #fff; opacity: .9; font-size: 2rem; }
+		#image-viewer .viewer-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 2.75rem; height: 2.75rem; border: 0; border-radius: 50%;
+			background: rgba(0, 0, 0, .5); color: #fff; font-size: 1.25rem; }
+		#image-viewer .viewer-nav:hover { background: rgba(0, 0, 0, .75); }
+		#image-viewer .viewer-prev { left: .5rem; }
+		#image-viewer .viewer-next { right: .5rem; }
+		#image-viewer .viewer-counter { color: #fff; text-align: center; margin-top: .5rem; }
+	</style>
+</head>
+<body id="page-top">
+
+    <!-- Page Wrapper -->
+    <div id="wrapper">
+
+        <!-- 引入側邊欄 -->
+        <ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+
+        <!-- Content Wrapper -->
+        <div id="content-wrapper" class="d-flex flex-column">
+
+            <!-- Main Content -->
+            <div id="content">
+
+                <!-- 引入Topbar -->
+                <nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+                <div class="container-fluid">
+					<!-- 錯誤訊息：API 回傳的錯誤由下方 script 顯示在這裡 -->
+					<div class="alert alert-danger d-none" role="alert" id="chat-error"></div>
+
+					<div class="row">
+						<!-- 左邊：對話清單，資料來自 AdminChatController 的 conversations，最後訊息時間由新到舊 -->
+						<div class="col-lg-4 mb-4">
+							<div class="card shadow">
+								<div class="card-header py-3">
+									<h6 class="m-0 font-weight-bold text-primary">會員對話</h6>
+								</div>
+								<div class="list-group list-group-flush chat-list" id="conversation-list">
+									<div class="list-group-item text-muted">載入中…</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- 右邊：目前選取會員的對話；員工送的訊息一律顯示「客服」，不顯示是哪位員工 -->
+						<div class="col-lg-8 mb-4">
+							<div class="card shadow">
+								<div class="card-header py-3">
+									<h6 class="m-0 font-weight-bold text-primary" id="conversation-title">請從左邊選擇會員</h6>
+								</div>
+								<div class="card-body chat-messages" id="message-list"></div>
+								<!-- 沒有 CHAT_REPLY 權限時不顯示輸入框（canReply 由 AdminChatController 的 chat 放入） -->
+								<div class="card-footer" th:if="${canReply}">
+									<!-- 建議回覆：依會員最新一則訊息比對罐頭訊息的關鍵字（AdminChatController 的 suggestions），點了帶入輸入框，可修改後再送出；沒有建議時不顯示 -->
+									<div class="send-suggestions d-none" id="send-suggestions"></div>
+									<!-- 選好、還沒送出的圖片縮圖，可以按 × 移除 -->
+									<div class="send-previews" id="send-previews"></div>
+									<form id="send-form" class="d-flex align-items-start" autocomplete="off">
+										<!-- 只收 PNG、JPEG、GIF，一則最多 5 張、單張 5 MB；後端 ChatImageSupport 會再檢查一次 -->
+										<input type="file" id="send-images" accept="image/png,image/jpeg,image/gif" multiple hidden>
+										<button type="button" class="btn btn-outline-secondary mr-2" id="pick-images-button"
+											title="選擇圖片" aria-label="選擇圖片" disabled><i class="fas fa-image"></i></button>
+										<textarea class="form-control mr-2" id="send-content" rows="2" maxlength="1000"
+											placeholder="輸入訊息，Enter 送出、Shift+Enter 換行" disabled></textarea>
+										<button type="submit" class="btn btn-primary" id="send-button" disabled>送出</button>
+									</form>
+								</div>
+							</div>
+						</div>
+					</div>
+                </div>
+
+            </div>
+
+            <!-- 引入Footer -->
+            <footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+
+        </div>
+    </div>
+
+    <!-- 看大圖的懸浮視窗（Bootstrap Modal）：整頁共用一個，點縮圖時由下方 script 換圖片並打開
+         關閉：按 ×、點視窗外、按 Esc；同一則訊息有多張時可按左右箭頭或鍵盤 ← → 切換 -->
+    <div class="modal fade" id="image-viewer" tabindex="-1" role="dialog" aria-label="查看圖片" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <button type="button" class="close viewer-close" data-dismiss="modal" aria-label="關閉">&times;</button>
+                <div class="viewer-stage">
+                    <button type="button" class="viewer-nav viewer-prev" id="viewer-prev" aria-label="上一張"><i class="fas fa-chevron-left"></i></button>
+                    <img class="viewer-image d-none" id="viewer-image" alt="聊天圖片">
+                    <span class="viewer-status" id="viewer-status"></span>
+                    <button type="button" class="viewer-nav viewer-next" id="viewer-next" aria-label="下一張"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div class="viewer-counter" id="viewer-counter"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scroll to Top Button-->
+    <span class="scroll-to-top rounded">
+        <i class="fas fa-angle-up"></i>
+    </span>
+	<!-- 引入js資源 -->
+    <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+	<script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+	<script th:inline="javascript">
+	(function () {
+		// 網站根路徑（有設定 context path 時也正確）
+		const basePath = /*[[@{/}]]*/ '/';
+		const conversationList = document.getElementById('conversation-list');
+		const messageList = document.getElementById('message-list');
+		const conversationTitle = document.getElementById('conversation-title');
+		const errorBox = document.getElementById('chat-error');
+		const sendForm = document.getElementById('send-form');
+		const sendContent = document.getElementById('send-content');
+		const sendButton = document.getElementById('send-button');
+		const sendImagesInput = document.getElementById('send-images');
+		const pickImagesButton = document.getElementById('pick-images-button');
+		const sendPreviews = document.getElementById('send-previews');
+		const sendSuggestions = document.getElementById('send-suggestions');
+
+		// 圖片上限：和後端 ChatService.MAX_IMAGES、ChatImageSupport.MAX_SIZE、application.properties 的 max-request-size 相同
+		const MAX_IMAGES = 5;
+		const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+		const MAX_REQUEST_SIZE = 30 * 1024 * 1024;
+		const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif'];
+
+		// 目前開著的會員編號；還沒選時是 null
+		let currentMemberId = null;
+		// 選好、還沒送出的圖片
+		let selectedImages = [];
+		// 輸入框的內容是由哪一筆建議回覆帶入的（罐頭訊息編號）；送出時一起送，後端存成罐頭訊息。輸入框清空就取消
+		let selectedCannedId = null;
+		// 目前畫面上的對話清單，切換對話時用來顯示會員姓名
+		let conversations = [];
+
+		function showError(message) {
+			errorBox.textContent = message;
+			errorBox.classList.remove('d-none');
+		}
+
+		function hideError() {
+			errorBox.classList.add('d-none');
+		}
+
+		// 呼叫 API；失敗時丟出帶著後端訊息的錯誤
+		async function callApi(path, options) {
+			const response = await fetch(basePath + path, options);
+			const body = await response.json().catch(() => null);
+			if (!response.ok) {
+				throw new Error(body && body.message ? body.message : '操作失敗（' + response.status + '）');
+			}
+			return body;
+		}
+
+		function formatTime(value) {
+			return value ? value.replace('T', ' ').substring(0, 16) : '';
+		}
+
+		function memberLabel(conversation) {
+			return (conversation.memberName || '（會員已刪除）') + ' #' + conversation.memberId;
+		}
+
+		// 對話清單：每位會員一列，有未讀時顯示紅色數字
+		async function loadConversations() {
+			try {
+				conversations = await callApi('api/admin/chat/conversations');
+			} catch (error) {
+				showError(error.message);
+				return;
+			}
+			conversationList.replaceChildren();
+			if (conversations.length === 0) {
+				const empty = document.createElement('div');
+				empty.className = 'list-group-item text-muted';
+				empty.textContent = '目前沒有對話';
+				conversationList.appendChild(empty);
+				return;
+			}
+			for (const conversation of conversations) {
+				const item = document.createElement('a');
+				item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+				if (conversation.memberId === currentMemberId) {
+					item.classList.add('active');
+				}
+				const text = document.createElement('div');
+				const name = document.createElement('div');
+				name.className = 'font-weight-bold';
+				name.textContent = memberLabel(conversation);
+				const time = document.createElement('small');
+				time.textContent = formatTime(conversation.lastMessageAt);
+				text.append(name, time);
+				item.appendChild(text);
+				if (conversation.unreadCount > 0) {
+					const badge = document.createElement('span');
+					badge.className = 'badge badge-danger badge-pill';
+					badge.textContent = conversation.unreadCount;
+					item.appendChild(badge);
+				}
+				item.addEventListener('click', () => openConversation(conversation.memberId));
+				conversationList.appendChild(item);
+			}
+		}
+
+		// 一則訊息：senderType 1 是會員、2 是客服、0 是系統
+		function appendMessage(message) {
+			const senderClass = message.senderType === 2 ? 'staff' : message.senderType === 1 ? 'member' : 'system';
+			const senderName = message.senderType === 2 ? '客服' : message.senderType === 1 ? '會員' : '系統';
+			const row = document.createElement('div');
+			row.className = 'chat-row ' + senderClass;
+			const wrapper = document.createElement('div');
+			// 圖片訊息可以沒有文字，沒有文字就不顯示泡泡
+			if (message.messageContent) {
+				const bubble = document.createElement('div');
+				bubble.className = 'chat-bubble';
+				bubble.textContent = message.messageContent;
+				wrapper.appendChild(bubble);
+			}
+			if (message.imageIds && message.imageIds.length > 0) {
+				wrapper.appendChild(createImageList(message.imageIds));
+			}
+			const meta = document.createElement('div');
+			meta.className = 'chat-meta';
+			meta.textContent = senderName + '・' + formatTime(message.createdAt);
+			wrapper.appendChild(meta);
+			row.appendChild(wrapper);
+			messageList.appendChild(row);
+		}
+
+		// 訊息裡的圖片：顯示縮圖，點了用懸浮視窗看原圖，可在同一則訊息的圖片之間左右切換
+		// 連結仍指向原圖：Ctrl + 點擊或滑鼠中鍵照樣可以開新分頁
+		// 縮圖讀不到（例如測試資料沒有圖片內容）時顯示「圖片無法顯示」
+		function createImageList(imageIds) {
+			const imageList = document.createElement('div');
+			imageList.className = 'chat-images';
+			imageIds.forEach((imageId, index) => {
+				const link = document.createElement('a');
+				link.href = imageUrl(imageId);
+				link.target = '_blank';
+				link.rel = 'noopener';
+				link.addEventListener('click', event => {
+					// 有按 Ctrl / Cmd / Shift 時照瀏覽器原本的方式開新分頁
+					if (event.ctrlKey || event.metaKey || event.shiftKey) {
+						return;
+					}
+					event.preventDefault();
+					openViewer(imageIds, index);
+				});
+				const thumbnail = document.createElement('img');
+				thumbnail.src = basePath + 'api/admin/chat/images/' + imageId + '/thumbnail';
+				thumbnail.alt = '聊天圖片';
+				thumbnail.loading = 'lazy';
+				thumbnail.addEventListener('error', () => {
+					const broken = document.createElement('span');
+					broken.className = 'chat-image-broken';
+					broken.textContent = '圖片無法顯示';
+					link.replaceWith(broken);
+				});
+				link.appendChild(thumbnail);
+				imageList.appendChild(link);
+			});
+			return imageList;
+		}
+
+		function imageUrl(imageId) {
+			return basePath + 'api/admin/chat/images/' + imageId;
+		}
+
+		// 懸浮視窗：viewerImageIds 是目前這則訊息的圖片編號，viewerIndex 是正在看第幾張
+		const viewer = $('#image-viewer');
+		const viewerImage = document.getElementById('viewer-image');
+		const viewerStatus = document.getElementById('viewer-status');
+		const viewerCounter = document.getElementById('viewer-counter');
+		const viewerPrev = document.getElementById('viewer-prev');
+		const viewerNext = document.getElementById('viewer-next');
+		let viewerImageIds = [];
+		let viewerIndex = 0;
+
+		function openViewer(imageIds, index) {
+			viewerImageIds = imageIds;
+			showViewerImage(index);
+			viewer.modal('show');
+		}
+
+		// 顯示第 index 張；超過頭尾時繞回另一端。原圖讀取中顯示「載入中…」，讀不到顯示「圖片無法顯示」
+		function showViewerImage(index) {
+			const count = viewerImageIds.length;
+			viewerIndex = (index + count) % count;
+			viewerImage.classList.add('d-none');
+			viewerStatus.textContent = '載入中…';
+			viewerImage.onload = () => {
+				viewerStatus.textContent = '';
+				viewerImage.classList.remove('d-none');
+			};
+			viewerImage.onerror = () => {
+				viewerStatus.textContent = '圖片無法顯示';
+			};
+			viewerImage.src = imageUrl(viewerImageIds[viewerIndex]);
+			// 只有一張時不顯示箭頭和張數
+			const multiple = count > 1;
+			viewerPrev.classList.toggle('d-none', !multiple);
+			viewerNext.classList.toggle('d-none', !multiple);
+			viewerCounter.textContent = multiple ? (viewerIndex + 1) + ' / ' + count : '';
+		}
+
+		viewerPrev.addEventListener('click', () => showViewerImage(viewerIndex - 1));
+		viewerNext.addEventListener('click', () => showViewerImage(viewerIndex + 1));
+		// 視窗開著時，鍵盤 ← → 切換（Esc 關閉由 Bootstrap 處理）
+		document.addEventListener('keydown', event => {
+			if (!viewer.hasClass('show') || viewerImageIds.length < 2) {
+				return;
+			}
+			if (event.key === 'ArrowLeft') {
+				showViewerImage(viewerIndex - 1);
+			} else if (event.key === 'ArrowRight') {
+				showViewerImage(viewerIndex + 1);
+			}
+		});
+		// 關閉後清掉圖片，下次打開不會先閃一下上一張
+		viewer.on('hidden.bs.modal', () => {
+			viewerImage.removeAttribute('src');
+			viewerImage.classList.add('d-none');
+		});
+
+		function scrollToBottom() {
+			messageList.scrollTop = messageList.scrollHeight;
+		}
+
+		// 開啟一位會員的對話；後端會把會員送來的未讀訊息改成已讀
+		async function openConversation(memberId) {
+			currentMemberId = memberId;
+			hideError();
+			const conversation = conversations.find(item => item.memberId === memberId);
+			conversationTitle.textContent = conversation ? memberLabel(conversation) : '會員 #' + memberId;
+			let messages;
+			try {
+				messages = await callApi('api/admin/chat/' + memberId + '/messages');
+			} catch (error) {
+				showError(error.message);
+				return;
+			}
+			messageList.replaceChildren();
+			messages.forEach(appendMessage);
+			scrollToBottom();
+			if (sendForm) {
+				sendContent.disabled = false;
+				sendButton.disabled = false;
+				pickImagesButton.disabled = false;
+				sendContent.focus();
+				loadSuggestions(memberId);
+			}
+			loadConversations();
+		}
+
+		// 建議回覆：依會員最新一則訊息比對出來的罐頭訊息，按鈕顯示標題，滑鼠移上去顯示完整內容
+		async function loadSuggestions(memberId) {
+			let suggestions;
+			try {
+				suggestions = await callApi('api/admin/chat/' + memberId + '/suggestions');
+			} catch (error) {
+				// 建議只是輔助，讀不到就不顯示，不影響回覆
+				suggestions = [];
+			}
+			// 等回應期間切換到別的會員時，不要蓋掉新對話的建議
+			if (memberId !== currentMemberId) {
+				return;
+			}
+			renderSuggestions(suggestions);
+		}
+
+		function renderSuggestions(suggestions) {
+			sendSuggestions.replaceChildren();
+			sendSuggestions.classList.toggle('d-none', suggestions.length === 0);
+			if (suggestions.length === 0) {
+				return;
+			}
+			const label = document.createElement('span');
+			label.className = 'suggestions-label';
+			label.textContent = '建議回覆：';
+			sendSuggestions.appendChild(label);
+			for (const suggestion of suggestions) {
+				const button = document.createElement('button');
+				button.type = 'button';
+				button.className = 'btn btn-sm btn-outline-info';
+				button.textContent = suggestion.title;
+				button.title = suggestion.messageContent + '\n（命中關鍵字：' + suggestion.matchedKeywords.join('、') + '）';
+				// 帶入輸入框（取代原本的內容），客服可以修改後再送出
+				button.addEventListener('click', () => {
+					sendContent.value = suggestion.messageContent;
+					selectedCannedId = suggestion.cannedId;
+					sendContent.focus();
+				});
+				sendSuggestions.appendChild(button);
+			}
+		}
+
+		// 選好、還沒送出的圖片縮圖；按 × 從清單移除
+		function renderPreviews() {
+			for (const img of sendPreviews.querySelectorAll('img')) {
+				URL.revokeObjectURL(img.src);
+			}
+			sendPreviews.replaceChildren();
+			selectedImages.forEach((file, index) => {
+				const preview = document.createElement('div');
+				preview.className = 'send-preview';
+				const img = document.createElement('img');
+				img.src = URL.createObjectURL(file);
+				img.alt = file.name;
+				img.title = file.name;
+				const removeButton = document.createElement('button');
+				removeButton.type = 'button';
+				removeButton.className = 'btn btn-sm btn-danger';
+				removeButton.textContent = '×';
+				removeButton.setAttribute('aria-label', '移除 ' + file.name);
+				removeButton.addEventListener('click', () => {
+					selectedImages.splice(index, 1);
+					renderPreviews();
+				});
+				preview.append(img, removeButton);
+				sendPreviews.appendChild(preview);
+			});
+		}
+
+		// 加入選擇的圖片：先在頁面擋下類型不對、太大、超過張數的，後端還會再檢查一次
+		function addImages(files) {
+			hideError();
+			for (const file of files) {
+				if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+					showError('只接受 PNG、JPEG 或 GIF 圖片：' + file.name);
+					continue;
+				}
+				if (file.size > MAX_IMAGE_SIZE) {
+					showError('圖片不可超過 5 MB：' + file.name);
+					continue;
+				}
+				if (selectedImages.length >= MAX_IMAGES) {
+					showError('一則訊息最多 ' + MAX_IMAGES + ' 張圖片');
+					break;
+				}
+				selectedImages.push(file);
+			}
+			renderPreviews();
+		}
+
+		// 送出訊息（文字與圖片一起用 FormData 送）：成功後畫面由 WebSocket 推播的 MESSAGE 事件加上，這裡不重複加
+		async function sendMessage() {
+			const content = sendContent.value.trim();
+			if ((!content && selectedImages.length === 0) || currentMemberId === null) {
+				return;
+			}
+			const totalSize = selectedImages.reduce((sum, file) => sum + file.size, 0);
+			if (totalSize > MAX_REQUEST_SIZE) {
+				showError('圖片合計不可超過 30 MB');
+				return;
+			}
+			const formData = new FormData();
+			formData.append('content', content);
+			for (const file of selectedImages) {
+				formData.append('images', file);
+			}
+			if (selectedCannedId !== null) {
+				formData.append('cannedId', selectedCannedId);
+			}
+			sendButton.disabled = true;
+			try {
+				await callApi('api/admin/chat/' + currentMemberId + '/messages', {
+					method: 'POST',
+					body: formData
+				});
+				sendContent.value = '';
+				selectedCannedId = null;
+				selectedImages = [];
+				renderPreviews();
+				// 已經回覆了，建議列收起來；會員再傳新訊息時才重新比對
+				renderSuggestions([]);
+				hideError();
+			} catch (error) {
+				showError(error.message);
+			} finally {
+				sendButton.disabled = false;
+				sendContent.focus();
+			}
+		}
+
+		if (sendForm) {
+			// 輸入框被清空，就不算是罐頭訊息了
+			sendContent.addEventListener('input', () => {
+				if (sendContent.value.trim() === '') {
+					selectedCannedId = null;
+				}
+			});
+			pickImagesButton.addEventListener('click', () => sendImagesInput.click());
+			sendImagesInput.addEventListener('change', () => {
+				addImages(Array.from(sendImagesInput.files));
+				// 清空，下次選同一個檔案也會觸發 change
+				sendImagesInput.value = '';
+			});
+			sendForm.addEventListener('submit', event => {
+				event.preventDefault();
+				sendMessage();
+			});
+			sendContent.addEventListener('keydown', event => {
+				if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+					event.preventDefault();
+					sendMessage();
+				}
+			});
+		}
+
+		// WebSocket：訂閱 /topic/chat/staff，有新訊息或已讀時更新清單；是目前開著的對話就把新訊息加到畫面
+		const websocketUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + basePath + 'admin/chat/ws';
+		const stompClient = new StompJs.Client({
+			brokerURL: websocketUrl,
+			reconnectDelay: 5000
+		});
+		stompClient.onConnect = () => {
+			stompClient.subscribe('/topic/chat/staff', frame => {
+				const event = JSON.parse(frame.body);
+				if (event.type === 'MESSAGE' && event.memberId === currentMemberId && event.message) {
+					appendMessage(event.message);
+					scrollToBottom();
+				}
+				loadConversations();
+			});
+			// 斷線重連期間可能漏掉訊息，連上時重新整理一次
+			loadConversations();
+		};
+		stompClient.onStompError = frame => showError('即時連線錯誤：' + (frame.headers.message || ''));
+		stompClient.activate();
+
+		loadConversations();
+	})();
+	</script>
+
+</body>
+</html>

@@ -30,20 +30,20 @@ public interface ShippingOrderRepository extends JpaRepository<Orders,Integer>{
 	@Query("select o from Orders o where o.ordersId = :ordersId")
 	Optional<Orders> lockOrders(@Param("ordersId") Integer ordersId);
 
-	// 出貨時把訂單狀態由待出貨（0）改成已出貨（1），回傳更新的筆數
-	// 只更新 orders_status 一個欄位，不把整筆訂單寫回去，才不會蓋掉訂單其他欄位的修改
+	// 出貨時把訂單狀態由待出貨（0）改成已出貨（1），並記下出貨員工編號，回傳更新的筆數
+	// 只更新 orders_status、employee_id 兩個欄位，不把整筆訂單寫回去，才不會蓋掉訂單其他欄位的修改
 	// 條件帶著狀態還是 0：回傳 0 代表訂單不存在或已經不是待出貨，呼叫端要丟例外讓整筆出貨還原
 	// 必須在交易裡呼叫（ShippingService 的 shipOrders）
 	@Modifying
-	@Query("update Orders o set o.ordersStatus = 1 where o.ordersId = :ordersId and o.ordersStatus = 0")
-	int updateStatusToShipped(@Param("ordersId") Integer ordersId);
+	@Query("update Orders o set o.ordersStatus = 1, o.employeeId = :employeeId where o.ordersId = :ordersId and o.ordersStatus = 0")
+	int updateStatusToShipped(@Param("ordersId") Integer ordersId, @Param("employeeId") Integer employeeId);
 
-	// 取消出貨時把訂單狀態由配送中（1）改回待出貨（0），回傳更新的筆數
-	// 和 updateStatusToShipped 一樣只更新 orders_status 一個欄位
+	// 取消出貨時把訂單狀態由配送中（1）改回待出貨（0），並清空出貨員工編號，回傳更新的筆數
+	// 和 updateStatusToShipped 一樣只更新 orders_status、employee_id 兩個欄位
 	// 條件帶著狀態還是 1：回傳 0 代表訂單不存在或已經不是配送中，呼叫端要丟例外讓整筆取消出貨還原
 	// 必須在交易裡呼叫（ShippingService 的 cancelShipOrders）
 	@Modifying
-	@Query("update Orders o set o.ordersStatus = 0 where o.ordersId = :ordersId and o.ordersStatus = 1")
+	@Query("update Orders o set o.ordersStatus = 0, o.employeeId = null where o.ordersId = :ordersId and o.ordersStatus = 1")
 	int updateStatusToPending(@Param("ordersId") Integer ordersId);
 
 }
