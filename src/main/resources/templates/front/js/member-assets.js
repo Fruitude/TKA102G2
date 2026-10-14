@@ -21,7 +21,7 @@
   }
 
   function redirectToLogin() {
-    window.location.replace(contextPath + "/front/about/login/");
+    window.location.replace(contextPath + "/front/about/login/?next=" + encodeURIComponent(window.location.pathname + window.location.search));
   }
 
   function readResponse(response) {

@@ -85,7 +85,7 @@
 
   window.FavoriteStore.ready.then(function(session) {
     if (!session || !session.loggedIn) {
-      window.location.replace(contextPath + "/front/about/login/");
+      window.location.replace(contextPath + "/front/about/login/?next=" + encodeURIComponent(window.location.pathname + window.location.search));
       return;
     }
     window.renderMemberFavorites(window.FavoriteStore.all());
@@ -93,6 +93,6 @@
       window.renderMemberFavorites(window.FavoriteStore.all());
     });
   }).catch(function() {
-    window.location.replace(contextPath + "/front/about/login/");
+    window.location.replace(contextPath + "/front/about/login/?next=" + encodeURIComponent(window.location.pathname + window.location.search));
   });
 })();

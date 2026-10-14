@@ -14,6 +14,13 @@
   const submit = document.getElementById("sign-up-submit");
   const birthday = document.getElementById("member-birthday");
   const contextPath = window.location.pathname.split("/front/")[0];
+  // 從需要登入的頁面被導來註冊時帶著 next，註冊完回登入頁，登入後才能回到原頁面。
+  const nextParam = new URLSearchParams(window.location.search).get("next");
+  const loginUrl = contextPath + "/front/about/login/"
+    + (nextParam ? "?next=" + encodeURIComponent(nextParam) : "");
+  document.querySelectorAll('a[href="../login/"]').forEach(function (link) {
+    link.href = loginUrl;
+  });
   const accountPattern = /^[A-Za-z0-9_]{6,20}$/;
   const checkedValues = { account: "", email: "" };
   const availableValues = { account: false, email: false };
@@ -201,7 +208,7 @@
 				"success",
 			  );
 			  window.location.assign(
-				contextPath + "/front/about/login/",
+				loginUrl,
 			  );
             })
             .catch(function (error) {

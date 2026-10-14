@@ -36,7 +36,7 @@ document.querySelectorAll('.products-purchase-card .products-item-text-wrapper >
       if (!session) return;
       if (!session.loggedIn) {
         var contextPath = location.pathname.split('/front/')[0];
-        location.href = contextPath + '/front/about/login/?next=' + encodeURIComponent(location.pathname);
+        location.href = contextPath + '/front/about/login/?next=' + encodeURIComponent(location.pathname + location.search);
         return;
       }
       if (window.FavoriteStore.has(productId)) window.FavoriteStore.remove(productId);

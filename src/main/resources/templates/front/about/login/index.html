@@ -686,6 +686,14 @@
 					window.location.assign(safeNext ? next : contextPath + '/front/');
 			}
 
+			// 從登入頁前往註冊時，把 next 帶過去，註冊完回到登入頁仍能返回原頁面。
+			const signUpNext = query.get('next');
+			if (signUpNext) {
+				document.querySelectorAll('a[href="../sign-up/"]').forEach(function(link) {
+					link.href = '../sign-up/?next=' + encodeURIComponent(signUpNext);
+				});
+			}
+
 			const authError = query.get('authError');
 			if (authError) showFeedback(feedback, authError, 'error');
 
@@ -765,7 +773,9 @@
 				}).then(function(result) {
 					showFeedback(resetFeedback, result.message, 'success');
 					window.setTimeout(function() {
-						window.location.assign(contextPath + '/front/about/login/');
+						const backNext = query.get('next');
+						window.location.assign(contextPath + '/front/about/login/'
+								+ (backNext ? '?next=' + encodeURIComponent(backNext) : ''));
 					}, 1200);
 				}).catch(function(error) {
 					showFeedback(resetFeedback, error.message, 'error');
