@@ -5,7 +5,7 @@
         const el = document.createElement(tag); if (cls) el.className = cls; if (text != null) el.textContent = text; return el;
     }
     window.ProductEditChoices = {
-        create(value, label, choices, selected, update, hierarchical = false) {
+        create(value, label, choices, selected, update, hierarchical = false, placement = 'overlay') {
             const dropdown = element('div','edit-choice-dropdown');
             const trigger = element('button','edit-choice-trigger'); trigger.type = 'button';
             trigger.setAttribute('aria-haspopup','menu'); trigger.setAttribute('aria-expanded','false');
@@ -32,6 +32,13 @@
                 const rect=trigger.getBoundingClientRect();menu.style.width=Math.max(180,rect.width+12)+'px';
                 menu.style.left=Math.max(4,Math.min(rect.left-6,window.innerWidth-menu.offsetWidth-4))+'px';menu.style.top=Math.max(4,rect.top-6)+'px';
                 options.style.maxHeight=Math.max(60,Math.min(240,window.innerHeight-rect.top-search.offsetHeight-24))+'px';
+                if (placement==='adjacent') {
+                    const below=window.innerHeight-rect.bottom-8,above=rect.top-8;
+                    const upwards=below<Math.min(240,menu.offsetHeight) && above>below;
+                    options.style.maxHeight=Math.max(60,Math.min(240,(upwards?above:below)-search.offsetHeight-16))+'px';
+                    menu.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-menu.offsetWidth-4))+'px';
+                    menu.style.top=Math.max(4,upwards?rect.top-menu.offsetHeight-4:rect.bottom+4)+'px';
+                }
             }
             function openChildren(record) {
                 records.forEach(r=>{if(r.submenu && r!==record && !r.element.contains(record.element)){r.submenu.hidden=true;r.expand.setAttribute('aria-expanded','false');}});
@@ -44,8 +51,9 @@
                 if(visited.has(choice.id))return null;visited.add(choice.id);
                 const group=element('div','edit-choice-group'),row=element('div','edit-choice-row');
                 const button=element('button','edit-choice-item',choice.label+(counts.get(choice.label)>1?' (#'+choice.id+')':''));button.type='button';button.setAttribute('role','menuitem');button.dataset.choiceId=choice.id;
+                button.disabled=!!choice.disabled;
                 const record={choice,element:group,row,button,children:[]};records.push(record);row.appendChild(button);group.appendChild(row);container.appendChild(group);
-                button.addEventListener('click',()=>{selected=choice.id;setCaption(selected);update(selected);close(true);});
+                button.addEventListener('click',()=>{if(choice.disabled)return;selected=choice.id;setCaption(selected);update(selected);close(true);});
                 const children=hierarchical?choices.filter(c=>c.parentId===choice.id && c.id!==choice.id):[];
                 if(hierarchical && (root||children.length)) {
                     record.expand=element('button','edit-choice-expand','▸');record.expand.type='button';record.expand.setAttribute('aria-label','展開'+choice.label+'的小分類');record.expand.setAttribute('aria-expanded','false');
@@ -87,7 +95,7 @@
             document.addEventListener('click',e=>{if(!dropdown.contains(e.target))close();});document.addEventListener('focusin',e=>{if(!dropdown.contains(e.target))close();});
             document.addEventListener('scroll',e=>{if(!menu.contains(e.target))close();else if(e.target===options)closeChildren();},true);
             window.addEventListener('resize',()=>close());setCaption(selected);
-            return {dropdown,trigger,menu,search,records,close};
+            return {dropdown,trigger,menu,search,records,close,setValue(value){selected=value;setCaption(value);}};
         }
     };
 })();

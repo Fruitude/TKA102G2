@@ -326,6 +326,12 @@ public class FrontCatalogService {
             """,params,(r,n)->new SearchPromotion(r.getInt(1),r.getInt(2),r.getString(3)));
         return new SearchData(products,metadata,categories,promotions);
     }
+    public static List<SearchOption> originOptions(Collection<String> origins) {
+        return origins.stream().filter(java.util.Objects::nonNull).map(String::strip).filter(s -> !s.isBlank()).distinct()
+            .sorted(Comparator.comparingInt(FrontCatalogService::searchOriginOrder).thenComparing(FrontCatalogService::searchOriginLabel).thenComparing(s -> s))
+            .map(s -> new SearchOption(s,searchOriginLabel(s))).toList();
+    }
+
     private static String searchOriginLabel(String origin) {
         String label=origin.strip().replaceFirst("^(?:台灣|臺灣)[\\s、，,／/：:-]*", "");
         return label.isBlank()?"全台":label;
@@ -355,7 +361,7 @@ public class FrontCatalogService {
             var names=categoryPath(c.getCategoryId(),categoryMap).stream().map(categoryMap::get).filter(Objects::nonNull).map(ProductRepository.FrontCategoryRow::getName).toList();
             var label=new ArrayList<>(names);Collections.reverse(label);return new SearchOption(c.getCategoryId().toString(),String.join(" › ",label),c.getParentId()==null?"":c.getParentId().toString());
         }).sorted(Comparator.comparing(SearchOption::label)).toList();
-        var originOptions=data.metadata().stream().map(SearchMeta::origin).filter(s->!s.isBlank()).distinct().sorted(Comparator.comparingInt(FrontCatalogService::searchOriginOrder).thenComparing(FrontCatalogService::searchOriginLabel).thenComparing(s->s)).map(s->new SearchOption(s,searchOriginLabel(s))).toList();
+        var originOptions=originOptions(data.metadata().stream().map(SearchMeta::origin).toList());
         var vendors=new TreeMap<Integer,String>();data.metadata().forEach(m->{if(m.vendorId()!=null&&!m.vendorName().isBlank())vendors.put(m.vendorId(),m.vendorName());});
         var vendorOptions=vendors.entrySet().stream().map(e->new SearchOption(e.getKey().toString(),e.getValue())).toList();
         var promos=new TreeMap<Integer,String>();data.promotions().forEach(p->promos.put(p.promotionId(),p.title()));

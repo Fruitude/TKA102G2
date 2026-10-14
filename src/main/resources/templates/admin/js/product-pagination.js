@@ -29,7 +29,7 @@
         const categoryDropdown = document.getElementById('category-dropdown');
         if (categoryDropdown) primaryFilters.parentElement.style.setProperty('--search-width',
             (categoryDropdown.getBoundingClientRect().right - primaryFilters.getBoundingClientRect().left) + 'px');
-        const rating = document.getElementById('rating-filter');
+        const rating = document.getElementById('rating-dropdown') || document.getElementById('rating-filter');
         if (rating && upper[3]) controls.style.setProperty('--rating-control-width',
             Math.max(60, upper[3].getBoundingClientRect().right - rating.getBoundingClientRect().left) + 'px');
         alignActionButtons();
@@ -81,6 +81,7 @@
     const parentCategory = document.getElementById('parent-category');
     const childCategory = document.getElementById('child-category');
     const vendor = document.getElementById('filter-vendor');
+    const origin = document.getElementById('filter-origin');
     const minComments = document.getElementById('min-comments');
     const maxComments = document.getElementById('max-comments');
     const ratingFilter = document.getElementById('rating-filter');
@@ -132,7 +133,7 @@
         sizeSelect.value = '10';
         statusFilter.value = 'all';
         stockFilter.value = 'all';
-        [parentCategory, childCategory, vendor, minComments, maxComments, ratingFilter]
+        [parentCategory, childCategory, vendor, origin, minComments, maxComments, ratingFilter]
             .forEach(control => { if (control) control.value = ''; });
         sortBy = '';
         sortDirection = 'asc';
@@ -145,7 +146,7 @@
                 pageSize: Number(sizeSelect.value), statusFilter: statusFilter.value,
                 stockFilter: stockFilter?.value || 'all',
                 parentCategoryId: parentCategory?.value || '',
-                categoryId: childCategory?.value || '', vendorId: vendor?.value || '',
+                categoryId: childCategory?.value || '', vendorId: vendor?.value || '', origin: origin?.value || '',
                 minComments: minComments?.value || '', maxComments: maxComments?.value || '', ratingFilter: ratingFilter?.value || ''
             }));
         } catch (_) { /* Pagination also works without storage. */ }
@@ -158,7 +159,7 @@
         document.cookie = 'fruitudeProductStockFilter=' + (stockFilter?.value || 'all') + cookieOptions;
         document.cookie = 'fruitudeProductHideOffline=;path=/;max-age=0;SameSite=Lax';
         [[parentCategory, 'fruitudeProductParentCategory'], [childCategory, 'fruitudeProductCategory'],
-            [vendor, 'fruitudeProductVendor']].forEach(([control, name]) => {
+            [vendor, 'fruitudeProductVendor'], [origin, 'fruitudeProductOrigin']].forEach(([control, name]) => {
             document.cookie = name + '=' + encodeURIComponent(control?.value || '') + cookieOptions;
         });
     }
@@ -228,7 +229,7 @@
         url.searchParams.delete('hideOffline');
         url.searchParams.set('statusFilter', statusFilter.value);
         url.searchParams.set('stockFilter', stockFilter?.value || 'all');
-        [[parentCategory, 'parentCategoryId'], [childCategory, 'categoryId'], [vendor, 'vendorId']].forEach(([control, name]) => {
+        [[parentCategory, 'parentCategoryId'], [childCategory, 'categoryId'], [vendor, 'vendorId'], [origin, 'origin']].forEach(([control, name]) => {
             // Explicit empty values clear a remembered filter on the server as well.
             url.searchParams.set(name, control?.value || '');
         });
@@ -286,7 +287,9 @@
             const vendorCaption = document.getElementById('vendor-caption');
             if (categoryCaption) categoryCaption.textContent = categoryChoice?.textContent.trim() || '全部分類';
             if (vendorCaption) vendorCaption.textContent = vendor.selectedOptions[0]?.textContent || '全部';
-            [categoryCaption, vendorCaption].forEach(caption => {if (caption) caption.closest('button').title = caption.textContent;});
+            const originCaption = document.getElementById('origin-caption');
+            if (originCaption) originCaption.textContent = origin.selectedOptions[0]?.textContent || '全部';
+            [categoryCaption, vendorCaption, originCaption].forEach(caption => {if (caption) caption.closest('button').title = caption.textContent;});
             ['page-status-on', 'page-status-off'].forEach(id => {document.getElementById(id).disabled = rows.length === 0;});
             history.replaceState(null, '', url.href);
             render();
@@ -315,7 +318,7 @@
             });
         });
         empty.hidden = rows.length > 0;
-        empty.cells[0].textContent = searchInput?.value.trim() || statusFilter.value !== 'all' || (stockFilter && stockFilter.value !== 'all') || parentCategory?.value || vendor?.value || minComments?.value || maxComments?.value || ratingFilter?.value ? '沒有符合條件的商品' : '目前沒有商品資料';
+        empty.cells[0].textContent = searchInput?.value.trim() || statusFilter.value !== 'all' || (stockFilter && stockFilter.value !== 'all') || parentCategory?.value || vendor?.value || origin?.value || minComments?.value || maxComments?.value || ratingFilter?.value ? '沒有符合條件的商品' : '目前沒有商品資料';
         summary.textContent = totalProducts ? '' : '共 0 個商品';
         pager.replaceChildren();
         if (!totalPages) return;
@@ -351,7 +354,7 @@
         childCategory.value = '';
         navigate(1);
     });
-    [childCategory, vendor].forEach(control => control?.addEventListener('change', () => navigate(1)));
+    [childCategory, vendor, origin].forEach(control => control?.addEventListener('change', () => navigate(1)));
     stockFilter?.addEventListener('change', () => navigate(1));
     ratingFilter?.addEventListener('change', () => navigate(1));
     let reviewTimer;
@@ -497,15 +500,26 @@
             else if (event.target.classList?.contains('category-options')) closeChildren();
         }, true);
     }
-    const vendorDropdown = document.getElementById('vendor-dropdown');
+    function setupListDropdown(prefix, vendor) {
+    const vendorDropdown = document.getElementById(prefix + '-dropdown');
     if (vendorDropdown && vendor) {
-        const trigger = document.getElementById('vendor-trigger');
-        const menu = document.getElementById('vendor-menu');
-        const search = document.getElementById('vendor-search');
-        const options = document.getElementById('vendor-options');
-        const noResults = document.getElementById('vendor-no-results');
-        const caption = document.getElementById('vendor-caption');
-        caption.textContent = vendor.selectedOptions[0]?.textContent || '全部供應廠商';
+        const trigger = document.getElementById(prefix + '-trigger');
+        const menu = document.getElementById(prefix + '-menu');
+        const search = document.getElementById(prefix + '-search');
+        const options = document.getElementById(prefix + '-options');
+        const noResults = document.getElementById(prefix + '-no-results');
+        const caption = document.getElementById(prefix + '-caption');
+        function syncCaption() {
+            caption.textContent = vendor.selectedOptions[0]?.textContent || '全部';
+            trigger.title = caption.textContent;
+            Array.from(options.children).forEach((item,index) => {
+                if (vendor.options[index]?.selected) item.setAttribute('aria-current','true');
+                else item.removeAttribute('aria-current');
+            });
+        }
+        vendor.addEventListener('change',syncCaption);
+        document.addEventListener('product-list-updated',syncCaption);
+        caption.textContent = vendor.selectedOptions[0]?.textContent || '全部';
         trigger.title = caption.textContent;
         const buttons = Array.from(vendor.options, option => {
             const item = document.createElement('button');
@@ -559,6 +573,27 @@
         window.addEventListener('resize', () => close());
         document.addEventListener('scroll', event => { if (!menu.contains(event.target)) close(); }, true);
     }
+    }
+    function enhanceSelect(prefix, select) {
+        if (!select) return;
+        const wrapper = document.createElement('div');wrapper.className='category-dropdown';wrapper.id=prefix+'-dropdown';
+        const label = select.closest('label')?.textContent.trim().split(/\s+/)[0] || prefix;
+        const trigger = document.createElement('button');trigger.type='button';trigger.className='category-trigger';trigger.id=prefix+'-trigger';
+        trigger.setAttribute('aria-label',label);trigger.setAttribute('aria-haspopup','menu');trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-controls',prefix+'-menu');
+        const caption = document.createElement('span');caption.id=prefix+'-caption';
+        const arrow = document.createElement('span');arrow.textContent='▾';arrow.setAttribute('aria-hidden','true');trigger.append(caption,arrow);
+        const menu = document.createElement('div');menu.className='category-menu';menu.id=prefix+'-menu';menu.hidden=true;menu.setAttribute('role','menu');menu.setAttribute('aria-label',label);
+        const search = document.createElement('input');search.id=prefix+'-search';search.className='dropdown-search';search.type='search';search.placeholder='輸入文字篩選';search.setAttribute('aria-label','搜尋'+label);
+        const options = document.createElement('div');options.id=prefix+'-options';options.className='vendor-options';
+        const empty = document.createElement('p');empty.id=prefix+'-no-results';empty.className='dropdown-empty';empty.textContent='沒有符合的選項';empty.hidden=true;empty.setAttribute('role','status');
+        menu.append(search,options,empty);wrapper.append(trigger,menu);select.after(wrapper);
+        select.hidden=true;select.setAttribute('aria-hidden','true');select.tabIndex=-1;
+        setupListDropdown(prefix,select);
+    }
+    enhanceSelect('page-size',sizeSelect);enhanceSelect('stock',stockFilter);enhanceSelect('status',statusFilter);enhanceSelect('rating',ratingFilter);
+    setupListDropdown('vendor', vendor);
+    setupListDropdown('origin', origin);
+    alignFilterColumns();
     // A status update stays visible. The next page request applies the database filter again.
     render();
     {

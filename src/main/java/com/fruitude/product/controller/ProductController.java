@@ -45,11 +45,14 @@ public class ProductController {
     @org.springframework.web.bind.annotation.InitBinder("product")
     void bind(org.springframework.web.bind.WebDataBinder binder) {
         binder.setAllowedFields("productId", "productName", "productDesc", "status", "vendor.vendorId", "productCategory.productCategoryId",
-            "productSkus[*].skuName", "productSkus[*].anotherName", "productSkus[*].price", "productSkus[*].stock", "productSkus[*].safetyStock", "productSkus[*].status");
+            "productSkus[*].skuName", "productSkus[*].anotherName", "productSkus[*].price", "productSkus[*].stock", "productSkus[*].safetyStock", "productSkus[*].inboundQty", "productSkus[*].outboundQty",
+            "productSkus[*].maxBackorderQty", "productSkus[*].purchaseAddOnQty", "productSkus[*].status");
     }
 
     private void validate(Product p, BindingResult result) {
-        if (p.getProductName() == null || p.getProductName().trim().isEmpty() || p.getProductName().trim().length() > 100)
+        if (p.getProductName() == null || p.getProductName().trim().isEmpty())
+            result.rejectValue("productName", "required", "商品名稱不能空白");
+        else if (p.getProductName().trim().length() > 100)
             result.rejectValue("productName", "invalid", "商品名稱須為 1～100 字");
         else p.setProductName(p.getProductName().trim());
         if (p.getProductDesc() != null && p.getProductDesc().length() > 255) result.rejectValue("productDesc", "invalid", "描述不可超過 255 字");
@@ -61,7 +64,7 @@ public class ProductController {
         if (category == null) result.reject("category", "請選擇有效分類"); else p.setProductCategory(category);
         if (vendor == null) result.reject("vendor", "請選擇有效廠商"); else p.setVendor(vendor);
         if (vendor != null && p.getProductName() != null && productSvc.isNameUsed(vendorId, p.getProductName(), p.getProductId()))
-            result.rejectValue("productName", "duplicate", "此廠商已有相同商品名稱");
+            result.rejectValue("productName", "duplicate", "該供應商已有同名的商品名稱");
     }
 
     @Autowired
@@ -76,10 +79,31 @@ public class ProductController {
     /*
      * 顯示新增商品頁面
      */
+    @org.springframework.web.bind.annotation.ResponseBody
+    @GetMapping("/product/name-availability")
+    public org.springframework.http.ResponseEntity<java.util.Map<String,Boolean>> productNameAvailability(
+            @RequestParam Integer vendorId, @RequestParam(defaultValue="") String name) {
+        name=name.trim();
+        if(vendorId<=0 || name.isEmpty() || name.length()>100)
+            return org.springframework.http.ResponseEntity.badRequest().cacheControl(org.springframework.http.CacheControl.noStore()).build();
+        return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+            .body(java.util.Map.of("exists",productSvc.isNameUsed(vendorId,name,null)));
+    }
+
+    private record NextSkuDraft(String name,String alias) implements java.io.Serializable {}
+    private record NextProductDraft(Integer vendorId,Integer categoryId,String name,String description,
+            List<NextSkuDraft> skus) implements java.io.Serializable {}
+
     @GetMapping("/product/addProduct")
     public String addProduct(ModelMap model) {
         Product product = new Product();
-        product.getProductSkus().add(new ProductSku());
+        if(model.get("nextProductDraft") instanceof NextProductDraft draft) {
+            if(draft.vendorId()!=null) product.setVendor(vendorSvc.getOneVendor(draft.vendorId()));
+            if(draft.categoryId()!=null) product.setProductCategory(productCategorySvc.getOneProductCategory(draft.categoryId()));
+            product.setProductName(draft.name());product.setProductDesc(draft.description());
+            for(var value:draft.skus()) { var sku=new ProductSku();sku.setSkuName(value.name());sku.setAnotherName(value.alias());product.getProductSkus().add(sku); }
+        }
+        if(product.getProductSkus().isEmpty()) product.getProductSkus().add(new ProductSku());
         model.addAttribute("product", product);
         
         List<ProductCategory> categoryList =
@@ -122,7 +146,10 @@ public class ProductController {
             BindingResult result,
             @RequestParam(defaultValue = "false") boolean activateSkus,
             MultipartHttpServletRequest multipartRequest,
-            ModelMap model) {
+            ModelMap model,
+            @RequestParam(defaultValue="false") boolean createNext,
+            @RequestParam(required=false) List<String> carryFields,
+            org.springframework.web.servlet.mvc.support.RedirectAttributes redirect) {
 
         product.setProductId(null);
         validate(product, result);
@@ -131,6 +158,9 @@ public class ProductController {
         for (ProductSku sku : product.getProductSkus()) {
             String error = ProductSkuController.validateProductSku(sku);
             if (error != null) result.reject("sku", error);
+            if(sku.getPrice()!=null && sku.getPrice()>ProductService.MAX_PRICE) result.reject("sku", "規格價格不可超過10,000,000元");
+            if(sku.getMaxBackorderQty()==null || sku.getMaxBackorderQty()<0) result.reject("sku", "允許超賣量須為0或正整數");
+            if(sku.getPurchaseAddOnQty()==null || sku.getPurchaseAddOnQty()<0) result.reject("sku", "採購溢額量須為0或正整數");
             if (sku.getSkuName() != null && !names.add(sku.getSkuName().trim().toLowerCase(java.util.Locale.ROOT))) result.reject("sku", "規格名稱不可重複");
         }
 
@@ -222,63 +252,19 @@ public class ProductController {
         	    // SKU 圖片
         	    // =========================
 
-        	    MultipartFile file = multipartRequest.getFile("skuImages[" + i + "]");
-
-        	    if (file != null) {
-
-        	        if (file != null && !file.isEmpty()) {
-
-        	            try {
-
-        	                ProductImage productImage = new ProductImage();
-
-        	                // 圖片 → SKU
-        	                productImage.setProductSku(sku);
-
-        	                // 圖片內容
-        	                productImage.setImageData(file.getBytes());
-
-        	                // 圖片檔名
-        	                productImage.setImageName(
-        	                    file.getOriginalFilename()
-        	                );
-
-        	                // MIME Type
-        	                productImage.setImageType(
-        	                    file.getContentType()
-        	                );
-
-        	                // 檔案大小
-        	                productImage.setFileSize(
-        	                    (int) file.getSize()
-        	                );
-
-        	                // 排序
-        	                productImage.setSortOrder(0);
-
-        	                // 建立時間
-        	                productImage.setCreatedAt(
-        	                    LocalDateTime.now()
-        	                );
-
-        	                // 加入 SKU
-                            com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(productImage, file);
-        	                sku.getProductImages().add(productImage);
-
-        	            } catch (IOException | IllegalArgumentException e) {
-
-        	                e.printStackTrace();
-
-        	                model.addAttribute(
-        	                    "errorMessage",
-        	                    e instanceof IOException ? "圖片上傳失敗" : e.getMessage()
-        	                );
-
-        	                return "admin/productmanagement/product/addProduct";
-        	            }
-        	        }
-        	    }
-        	}
+                int imageOrder=0;
+                for(MultipartFile file:multipartRequest.getFiles("skuImages["+i+"]")) {
+                    if(file.isEmpty())continue;
+                    try {
+                        ProductImage image=new ProductImage();image.setProductSku(sku);
+                        com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(image,file);
+                        image.setSortOrder(imageOrder++);sku.getProductImages().add(image);
+                    } catch(IOException | IllegalArgumentException error) {
+                        model.addAttribute("errorMessage",error instanceof IOException ? "圖片上傳失敗" : error.getMessage());
+                        return "admin/productmanagement/product/addProduct";
+                    }
+                }
+            }
         }
 
         // 新增資料
@@ -291,8 +277,21 @@ public class ProductController {
             return "admin/productmanagement/product/addProduct";
         }
 
+        if(createNext) {
+            var fields=carryFields==null?java.util.Set.<String>of():new java.util.HashSet<>(carryFields);
+            var skus=(fields.contains("skuName")||fields.contains("anotherName"))
+                ? product.getProductSkus().stream().map(sku->new NextSkuDraft(fields.contains("skuName")?sku.getSkuName():null,
+                    fields.contains("anotherName")?sku.getAnotherName():null)).toList():List.<NextSkuDraft>of();
+            redirect.addFlashAttribute("nextProductDraft",new NextProductDraft(
+                fields.contains("vendor")?product.getVendor().getVendorId():null,
+                fields.contains("category")?product.getProductCategory().getProductCategoryId():null,
+                fields.contains("name")?product.getProductName():null,fields.contains("description")?product.getProductDesc():null,skus));
+            redirect.addFlashAttribute("success","商品新增成功，可繼續新增下一個。");
+            return "redirect:/product/addProduct";
+        }
+
         // 新增完成，準備轉交
-        model.addAttribute("success", "- (新增成功)");
+        redirect.addFlashAttribute("success", "- (新增成功)");
 
         return "redirect:/product/listAllProduct";
     }
@@ -418,7 +417,7 @@ public class ProductController {
      */
     private static boolean isLegacyProductPage(jakarta.servlet.http.HttpServletRequest request) {
         String path=request.getRequestURI().substring(request.getContextPath().length());
-        return path.startsWith("/product/") && !java.util.Set.of("/product/editData","/product/saveModal","/product/saveModalWithImages").contains(path);
+        return path.startsWith("/product/") && !java.util.Set.of("/product/editData","/product/saveModal","/product/saveModalWithImages","/product/name-availability").contains(path);
     }
     @ModelAttribute("productCategoryListData")
     protected List<ProductCategory> referenceProductCategoryListData(jakarta.servlet.http.HttpServletRequest request) {
@@ -448,6 +447,7 @@ public class ProductController {
             @RequestParam(required = false) Integer parentCategoryId,
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false) Integer vendorId,
+            @RequestParam(defaultValue = "") String origin,
             @RequestParam(required = false) String minComments,
             @RequestParam(required = false) String maxComments,
             @RequestParam(required = false) String ratingFilter,
@@ -463,6 +463,7 @@ public class ProductController {
             @org.springframework.web.bind.annotation.CookieValue(value = "fruitudeProductParentCategory", defaultValue = "") String savedParentCategory,
             @org.springframework.web.bind.annotation.CookieValue(value = "fruitudeProductCategory", defaultValue = "") String savedCategory,
             @org.springframework.web.bind.annotation.CookieValue(value = "fruitudeProductVendor", defaultValue = "") String savedVendor,
+            @org.springframework.web.bind.annotation.CookieValue(value = "fruitudeProductOrigin", required = false) jakarta.servlet.http.Cookie savedOrigin,
             jakarta.servlet.http.HttpServletRequest request,
             ModelMap model) {
 
@@ -488,6 +489,16 @@ public class ProductController {
         }
         @SuppressWarnings("unchecked")
         var vendors = (List<VendorVO>) model.get("vendorListData");
+        var originOptions = productSvc.getOverviewOrigins();
+        var origins = originOptions.stream().map(com.fruitude.product.model.FrontCatalogService.SearchOption::value).toList();
+        if (!request.getParameterMap().containsKey("origin")) {
+            try { origin = java.net.URLDecoder.decode(savedOrigin == null ? "" : savedOrigin.getValue(), java.nio.charset.StandardCharsets.UTF_8); }
+            catch (IllegalArgumentException invalid) { origin = ""; }
+        }
+        origin = origin.strip();
+        if (!origins.contains(origin)) origin = "";
+        model.addAttribute("originListData", originOptions);
+        model.addAttribute("selectedOrigin", origin);
         Integer requestedVendor = vendorId;
         if (vendors.stream().noneMatch(v -> v.getVendorId().equals(requestedVendor))) vendorId = null;
         Integer minCount = ProductService.normalizeCommentCount(minComments == null ? savedMinComments : minComments);
@@ -496,7 +507,7 @@ public class ProductController {
         sortBy = ProductService.normalizeOverviewSort(sortBy);
         sortDirection = "desc".equals(sortDirection) ? "desc" : "asc";
         var result = productSvc.getOverviewPage(page, size == null ? savedSize : size, status,
-              parentCategoryId, categoryId, vendorId, stock, minCount, maxCount, rating, sortBy, sortDirection, keyword, searchProductName, searchSkuName);
+              parentCategoryId, categoryId, vendorId, stock, minCount, maxCount, rating, sortBy, sortDirection, keyword, searchProductName, searchSkuName, origin);
 
         model.addAttribute("categoryChildrenByParent", categories.stream()
             .filter(c -> c.getParentCategory() != null)

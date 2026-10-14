@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Huninn&amp;display=swap" rel="stylesheet">
-    <link th:href="@{/css/product-overview.css(v=20261014-search-stable)}" rel="stylesheet">
+    <link th:href="@{/css/product-overview.css(v=20261015-sort-stock-width)}" rel="stylesheet">
 </head>
 <body class="products-loading">
 <div class="container">
@@ -25,6 +25,7 @@
             <label><input id="search-product-name" type="checkbox" th:checked="${searchProductName}">商品</label>
             <label><input id="search-sku-name" type="checkbox" th:checked="${searchSkuName}">規格</label>
         </form>
+
             <div class="page-status-buttons">
                 <button type="button" id="page-status-on" title="整頁上架" aria-label="整頁上架" th:disabled="${#lists.isEmpty(productListData)}" onclick="changePageProductStatus(1)">整頁上架</button>
                 <button type="button" id="page-status-off" class="page-status-off" title="整頁下架" aria-label="整頁下架" th:disabled="${#lists.isEmpty(productListData)}" onclick="changePageProductStatus(0)">整頁下架</button>
@@ -83,9 +84,21 @@
                 </div>
             </div>
         </div>
-        <label class="modified-sort-control" for="modified-sort">修改
-            <button type="button" id="modified-sort" aria-label="修改時間排序" th:attr="aria-pressed=${sortBy == 'modified'},data-order=${sortBy == 'modified' and sortDirection == 'asc' ? 'asc' : 'desc'}"><svg class="time-sort-icon" th:if="${sortBy != 'modified'}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span th:if="${sortBy == 'modified'}" th:text="${sortDirection == 'asc' ? '最舊' : '最新'}">最新</span></button><span>排序</span>
-        </label>
+        <div class="category-filter">
+            <span id="origin-label">產地</span>
+            <select id="filter-origin" hidden aria-hidden="true" tabindex="-1">
+                <option value="">全部</option>
+                <option th:each="origin : ${originListData}" th:value="${origin.value}" th:text="${origin.label}" th:selected="${selectedOrigin == origin.value}"></option>
+            </select>
+            <div class="category-dropdown" id="origin-dropdown">
+                <button type="button" class="category-trigger" id="origin-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="origin-menu" aria-labelledby="origin-label origin-caption"><span id="origin-caption">全部</span><span aria-hidden="true">▾</span></button>
+                <div class="category-menu" id="origin-menu" role="menu" aria-label="產地" hidden>
+                    <input id="origin-search" class="dropdown-search" type="search" placeholder="輸入產地名稱" aria-label="搜尋產地" autocomplete="off">
+                    <div id="origin-options" class="vendor-options"></div>
+                    <p id="origin-no-results" class="dropdown-empty" role="status" hidden>沒有符合的產地</p>
+                </div>
+            </div>
+        </div>
         </div>
         <div class="filter-row-secondary">
         <label for="stock-filter">庫存
@@ -125,9 +138,14 @@
                 <option value="4-5" th:selected="${ratingFilter == '4-5'}">4~5</option>
             </select>
         </label>
-        <button type="button" id="reset-product-filters">恢復預設</button>
+
         </div>
         </div>
+        <div class="filter-row-actions">
+        <label class="modified-sort-control" for="modified-sort">修改
+            <button type="button" id="modified-sort" aria-label="修改時間排序" th:attr="aria-pressed=${sortBy == 'modified'},data-order=${sortBy == 'modified' and sortDirection == 'asc' ? 'asc' : 'desc'}"><svg class="time-sort-icon" th:if="${sortBy != 'modified'}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span th:if="${sortBy == 'modified'}" th:text="${sortDirection == 'asc' ? '最舊' : '最新'}">最新</span></button><span>排序</span>
+        </label>
+        <button type="button" id="reset-product-filters">恢復預設</button></div>
         <p id="comment-range-error" role="status" aria-live="polite" hidden></p>
     </div>
     </div>
@@ -374,8 +392,8 @@ async function changePageProductStatus(status) {
 
 </script>
 <script th:src="@{/admin/js/product-action-confirm.js(v=20261014-search-stable)}" defer></script>
-<script th:src="@{/admin/js/product-pagination.js(v=20261014-search-stable)}" defer></script>
-<script th:src="@{/admin/js/product-detail-modal.js(v=20261014-search-stable)}" defer></script>
+<script th:src="@{/admin/js/product-pagination.js(v=20261015-sort-stock-width)}" defer></script>
+<script th:src="@{/admin/js/product-detail-modal.js(v=20261015-preview-animation)}" defer></script>
 <script th:src="@{/admin/js/product-sku-switcher.js(v=20261014-search-stable)}" defer></script>
 <script th:src="@{/admin/js/product-status.js}"></script>
 </body>

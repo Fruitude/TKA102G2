@@ -57,7 +57,7 @@ button, input, select, textarea { font-family: 'Huninn', sans-serif; }
 .product-search-toolbar .page-status-buttons { display: flex; position: absolute; right: var(--actions-right-inset, 0px); top: 50%; transform: translateY(-50%); gap: 4px; }
 #reset-product-filters { position: absolute; top: 50%; left: var(--reset-center-position, calc(100% - 57px)); transform: translate(-50%, -50%); width: 55px; height: 22px; flex: 0 0 55px; padding: 2px 4px; font-size: 10px; line-height: 16px; box-sizing: border-box; border: 1px solid rgb(128, 128, 128); white-space: nowrap; background: #e5e7eb; color: #4b5563; }
 #reset-product-filters:hover { background: #d1d5db; }
-.modified-sort-control button { height: 36px; min-width: 4em; padding: 6px 10px; font: inherit; background: white; color: #333; border: 1px solid #767676; }
+.modified-sort-control button { height: 36px; width:calc(3em + 36px); flex:0 0 calc(3em + 36px); box-sizing:border-box; padding: 6px 10px; font: inherit; background: white; color: #333; border: 1px solid #767676; }
 .modified-sort-control button[aria-pressed="true"][data-order="desc"] { background: #FFFBB4; }
 .modified-sort-control button[aria-pressed="true"][data-order="asc"] { background: #BFA084; }
 .time-sort-icon { display: inline-block; vertical-align: middle; width: 18px; height: 18px; }
@@ -268,3 +268,10 @@ tr.product-off td {
 /* Keep the search controls steady as result counts change. */
 html { scrollbar-gutter: stable; overflow-anchor: none; }
 #product-results { overflow-anchor: none; }
+
+.filter-row-actions .modified-sort-control { display:flex; align-items:center; gap:6px; margin:0; }
+
+.filter-row-actions { display:flex; align-items:center; justify-content:space-between; padding-right:var(--actions-right-inset,0px); padding-bottom:6px; box-sizing:border-box; }
+.filter-row-actions #reset-product-filters { position:static; transform:none; width:auto; height:30px; padding:5px 12px; font-size:12px; line-height:18px; }
+#page-size-dropdown { width:calc(3em + 36px); flex-basis:calc(3em + 36px); }
+#rating-dropdown { width:var(--rating-control-width,10em); flex-basis:var(--rating-control-width,10em); }

@@ -469,7 +469,7 @@
 
 
 </style>
-<link rel="stylesheet" th:href="@{/css/product-detail-editor.css(v=20261015-image-number)}">
+<link rel="stylesheet" th:href="@{/css/product-detail-editor.css(v=20261015-status-choices)}">
 </head>
 <body>
 <div class="container">
@@ -789,8 +789,9 @@
 </script>
 <script th:src="@{/admin/js/product-status.js}"></script>
 <script th:src="@{/admin/js/product-edit-choices.js}"></script>
-<script th:src="@{/admin/js/product-edit-images.js(v=20261015-image-number)}"></script>
-<script th:src="@{/admin/js/product-detail-editor.js}"></script>
-<script th:if="${param.modal == null}" th:src="@{/admin/js/product-detail-modal.js}" defer></script>
+<script th:src="@{/admin/js/product-edit-images.js(v=20261015-preview-animation)}"></script>
+<script th:src="@{/admin/js/product-edit-preview.js(v=20261015-preview-animation)}"></script>
+<script th:src="@{/admin/js/product-detail-editor.js(v=20261015-status-choices)}"></script>
+<script th:if="${param.modal == null}" th:src="@{/admin/js/product-detail-modal.js(v=20261015-preview-animation)}" defer></script>
 </body>
 </html>

@@ -9,6 +9,21 @@ import org.springframework.data.domain.*;
 import org.springframework.test.util.ReflectionTestUtils;
 
 public class ProductOverviewPagingTest {
+    @Test public void originFilterSurvivesPageClampingAndLegacyCallsRemainUnfiltered() {
+        List<String> origins = new ArrayList<>();
+        ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),
+            new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {
+                origins.add((String)args[args.length-2]);
+                Pageable requested = (Pageable)args[args.length-1];
+                return new PageImpl<ProductRepository.ProductOverview>(List.of(),requested,25);
+            });
+        var service = new ProductService(); ReflectionTestUtils.setField(service,"repository",repo);
+        service.getOverviewPage(99,10,"all",null,null,null,"all",null,null,"","","asc","",true,true," 台灣台南 ");
+        assertEquals(List.of("台灣台南","台灣台南"),origins);
+        service.getOverviewPage(1,10,"all");
+        assertEquals("",origins.get(2));
+    }
+
     @Test public void discontinuedFilterQueriesStatusTwo() {
         ProductRepository repo = (ProductRepository) Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),
             new Class<?>[]{ProductRepository.class}, (proxy, method, args) -> {

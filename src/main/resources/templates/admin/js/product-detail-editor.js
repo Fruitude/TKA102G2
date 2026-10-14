@@ -119,7 +119,16 @@
             for(const status of [0,1,2,3,4,5,6,7])panel.classList.remove('status-'+status);
             panel.classList.add('status-'+next);entry.status=next;mark(entry);
         });
-        statusValue.replaceChildren(select); statusValue.title=statusHelp;
+        const holder=node('span','edit-sku-status-choice');
+        select.hidden=true;select.tabIndex=-1;select.setAttribute('aria-hidden','true');
+        statusValue.replaceChildren(select,holder);statusValue.title=statusHelp;
+        const choices=Array.from(select.options).map(option=>({id:option.value,label:option.textContent,disabled:option.disabled}));
+        const statusChoice=window.ProductEditChoices.create(holder,'規格狀態',choices,select.value,id=>{
+            select.value=id;select.dispatchEvent(new Event('change',{bubbles:true}));
+            statusChoice.setValue(select.value);
+        });
+        statusChoice.trigger.disabled=select.disabled;statusChoice.trigger.setAttribute('aria-label','規格狀態');
+        statusChoice.trigger.title=statusHelp;
         nameEditor(button, entry, isNew);
         const notice = valueRow(panel, '異常狀態');
         if (notice) notice.title = '儲存後將依最新庫存重新計算';
@@ -182,6 +191,15 @@
             const empty=!name.trim();const h1=document.querySelector('h1');h1?.setAttribute('aria-invalid',String(empty));
             const error=document.getElementById('edit-product-name-error');if(error)error.hidden=!empty;
         }},
+        preview(returnFocus) {
+            const existing=data.skus.map(sku=>({...sku,key:String(sku.skuId),...(changed.get(String(sku.skuId)) || {})}));
+            const skus=[...existing,...[...changed.values()].filter(sku=>sku.skuId==null)]
+                .map(sku=>({...sku,images:imageEditor.preview(sku.key)}));
+            const vendor=data.vendors.find(value=>value.id===data.product.vendorId);
+            window.ProductEditPreview.open({product:{...data.product},vendor:vendor?{...vendor}:null,skus,
+                selected:document.querySelector('.sku-option.active')?.dataset.skuId,
+                context:location.pathname.split('/product/')[0]},returnFocus);
+        },
         async save() {
             for (const field of nameFields.values()) {
                 if (field.validate()) {

@@ -129,6 +129,9 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
         """, nativeQuery = true)
     java.util.List<LiveSkuRow> findLiveSkus(@org.springframework.data.repository.query.Param("skuIds") java.util.List<Integer> skuIds);
 
+    @Query(value = "SELECT DISTINCT TRIM(v.origin) FROM product p JOIN vendor v ON v.vendor_id=p.vendor_id WHERE v.origin IS NOT NULL AND TRIM(v.origin)<>''", nativeQuery = true)
+    java.util.List<String> findOverviewOrigins();
+
     String STOCK_ABNORMAL = """
         ((COALESCE(s.safety_stock,0) = 0 AND COALESCE(s.stock,0) < 10) 
          OR COALESCE(s.stock,0) > 100
@@ -158,6 +161,8 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
           AND (:parentCategoryId IS NULL OR c.product_category_id = :parentCategoryId OR c.parent_category_id = :parentCategoryId)
           AND (:categoryId IS NULL OR p.product_category_id = :categoryId)
           AND (:vendorId IS NULL OR p.vendor_id = :vendorId)
+          AND (:origin = '' OR EXISTS (SELECT 1 FROM vendor origin_vendor
+            WHERE origin_vendor.vendor_id = p.vendor_id AND TRIM(origin_vendor.origin) = :origin))
           AND (:minComments IS NULL OR COALESCE(p.all_comment_amount,0) >= :minComments)
           AND (:maxComments IS NULL OR COALESCE(p.all_comment_amount,0) <= :maxComments)
           AND (:ratingBucket IS NULL
@@ -221,6 +226,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
         @org.springframework.data.repository.query.Param("keyword") String keyword,
         @org.springframework.data.repository.query.Param("searchProductName") boolean searchProductName,
         @org.springframework.data.repository.query.Param("searchSkuName") boolean searchSkuName,
+        @org.springframework.data.repository.query.Param("origin") String origin,
         org.springframework.data.domain.Pageable pageable);
 
     @Query(value = "SELECT product_id AS productId, sku_name AS skuName, another_name AS anotherName FROM product_sku WHERE product_id IN (:productIds) ORDER BY product_id, sku_id", nativeQuery = true)
