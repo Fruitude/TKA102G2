@@ -312,10 +312,15 @@
     }
     info.appendChild(price);
     info.appendChild(stepper);
-    info.appendChild(removeLink);
+
+    // 「移除」放在商品圖片下方
+    var media = document.createElement("div");
+    media.className = "cart-item-media";
+    media.appendChild(img);
+    media.appendChild(removeLink);
 
     row.appendChild(checkbox);
-    row.appendChild(img);
+    row.appendChild(media);
     row.appendChild(info);
     return row;
   }
