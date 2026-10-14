@@ -87,54 +87,6 @@
 			display: none;
 		}
 
-		.login-divider {
-			display: flex;
-			align-items: center;
-			gap: 12px;
-			color: #8a8a8a;
-			font-size: 14px;
-		}
-
-		.login-divider::before,
-		.login-divider::after {
-			content: "";
-			flex: 1;
-			height: 1px;
-			background: #dedede;
-		}
-
-		.google-login-button {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			gap: 10px;
-			width: 100%;
-			padding: 13px 18px;
-			border: 1px solid #cfcfcf;
-			background: #fff;
-			color: #303030;
-			font: inherit;
-			font-weight: 600;
-			cursor: pointer;
-		}
-
-		.google-login-button:hover {
-			border-color: #777;
-			background: #fafafa;
-		}
-
-		.google-mark {
-			display: inline-block;
-			width: 20px;
-			height: 20px;
-			flex: 0 0 20px;
-			object-fit: contain;
-		}
-
-		.google-mark path {
-			stroke: none;
-		}
-
 		.auth-panel-copy {
 			margin: 0 0 20px;
 			color: #676767;
@@ -555,11 +507,6 @@
 								<button class="primary-button w-button login-submit" id="login-submit"
 									type="submit">登入</button>
 							</div>
-							<div class="login-divider"><span>或</span></div>
-							<button class="google-login-button" id="google-login-button" type="button">
-								<img class="google-mark" src="../../../img/auth/google-g.svg" alt="" aria-hidden="true" />
-								<span>使用 Google 帳號登入</span>
-							</button>
 							<p class="paragraph-18 centered-text">
 								還沒有帳號？<a class="login-link" href="../sign-up/">註冊</a>
 							</p>
@@ -568,7 +515,7 @@
 				</form>
 				<form class="login-form auth-panel" id="forgot-password-form" hidden>
 					<h1 class="heading-h3 margin-bottom-16 centered-text">忘記密碼</h1>
-					<p class="auth-panel-copy">輸入註冊時使用的 Google 信箱，我們會寄送一次性密碼重設連結。</p>
+					<p class="auth-panel-copy">輸入註冊時使用的電子郵件，我們會寄送一次性密碼重設連結。</p>
 					<div class="sign-up-elements-grid">
 						<div class="_100-width">
 							<label class="field-label" for="forgot-email">電子郵件 *</label>
@@ -723,13 +670,6 @@
 						// 狀態檢查失敗不阻擋使用者操作登入表單。
 					});
 			}
-
-			document.getElementById('google-login-button').addEventListener('click', function() {
-				const next = query.get('next');
-				const authorizeUrl = new URL(contextPath + '/api/members/google/authorize', window.location.origin);
-				if (next) authorizeUrl.searchParams.set('next', next);
-				window.location.assign(authorizeUrl.toString());
-			});
 
 			document.getElementById('show-forgot-password').addEventListener('click', function(event) {
 				event.preventDefault();
