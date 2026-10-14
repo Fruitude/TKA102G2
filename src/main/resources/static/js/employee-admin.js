@@ -23,6 +23,24 @@
 
     const byId = (id) => document.getElementById(id);
 
+    // 權限群組名稱來自資料庫（與後台左側選單一致），這裡只決定顯示順序：依左側選單由上到下，
+    // 不在清單內的群組（例如目前沒有選單的測驗管理）排在最後。
+    const GROUP_ORDER = ['後台帳號管理', '會員管理', '評論管理', '訂單管理', '活動管理', '資訊管理',
+        '商品管理', '客服聊天室', '進銷存系統', '會計作業系統'];
+
+    function compareGroupNames(a, b) {
+        const order = (name) => {
+            const index = GROUP_ORDER.indexOf(name);
+            return index < 0 ? GROUP_ORDER.length : index;
+        };
+        return order(a) - order(b) || a.localeCompare(b, 'zh-Hant');
+    }
+
+    // 依左側選單順序排列群組；群組內的功能維持原本的順序。
+    function sortedGroups(groups) {
+        return new Map(Array.from(groups.entries()).sort((a, b) => compareGroupNames(a[0], b[0])));
+    }
+
     // 統一呼叫後端 API，並將後端的中文錯誤訊息交給畫面顯示。
     async function request(path, options) {
         const response = await fetch(apiBase + path, Object.assign({
@@ -309,7 +327,7 @@
             if (!groups.has(groupName)) groups.set(groupName, []);
             groups.get(groupName).push(permission);
         });
-        groups.forEach((permissions, groupName) => {
+        sortedGroups(groups).forEach((permissions, groupName) => {
             const group = createElement('section', 'permission-coverage-group');
             group.appendChild(createElement('h3', '', groupName));
             const list = createElement('div', 'permission-coverage-list');
@@ -331,7 +349,7 @@
         const current = select.value;
         const functions = state.permissionCoverage ? state.permissionCoverage.functions || [] : [];
         const groups = Array.from(new Set(functions.map((permission) =>
-            permission.permissionGroup || '其他'))).sort();
+            permission.permissionGroup || '其他'))).sort(compareGroupNames);
         select.replaceChildren();
         const all = createElement('option', '', '全部群組');
         all.value = '';
@@ -580,7 +598,7 @@
 
         const container = byId(containerId);
         container.replaceChildren();
-		groups.forEach((permissions, groupName) => {
+		sortedGroups(groups).forEach((permissions, groupName) => {
 			const permissionIds = permissions.map((permission) => Number(permission.permissionId));
 			const isSelected = permissionIds.some((permissionId) => selected.has(permissionId));
 			const isPositionDefault = permissionIds.some((permissionId) => locked.has(permissionId));
@@ -769,7 +787,7 @@
                 groups.get(groupName).push(permission);
             });
             list.replaceChildren();
-            groups.forEach((permissions, groupName) => {
+            sortedGroups(groups).forEach((permissions, groupName) => {
                 const ids = permissions.map((permission) => Number(permission.permissionId));
                 if (!ids.some((permissionId) => effectiveIds.has(permissionId))) return;
                 const item = createElement('div', 'employee-permission-view-item');
