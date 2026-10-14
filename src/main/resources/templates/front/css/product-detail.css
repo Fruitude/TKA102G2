@@ -158,3 +158,5 @@
 .pv-supplier-link:focus-visible { outline: 2px solid #497339; outline-offset: 3px; }
 .pv-supplier-label { flex: 0 0 3em; }
 #pv-related .home-card-message { color: #963B1B; }
+
+#pv-main .shop-product-gallery { position: relative; }

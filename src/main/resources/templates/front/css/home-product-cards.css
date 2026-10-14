@@ -6,12 +6,12 @@
 .home-card-controls label { color: inherit; font-size: 12px; margin: 0; }
 .home-card-controls select, .home-card-controls input { box-sizing: border-box; height: 28px; min-width: 0; max-width: 100%; border: 1px solid #d4d8d1; border-radius: 5px; padding: 4px 6px; font: inherit; font-size: 12px; color: #26332b; background: #fff; }
 .home-card-controls select { width: 100%; }
-.home-card-price { margin: 0; font-size: 12px; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-card-price { margin: 0; font-size: 12px; font-weight: 400; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .products-purchase-card .card-add-to-cart-btn { position: static; width: 100%; height: auto; min-height: 38px; padding: 8px 4px; border-radius: 5px; gap: 6px; font: inherit; font-size: 13px; background: #287a4b; color: #fff; }
 .products-purchase-card .card-add-to-cart-btn:hover { background: #1e6039; transform: none; }
 .products-purchase-card .card-add-to-cart-btn:disabled { background: #657369; cursor: default; opacity: .65; }
 .home-card-controls :focus-visible { outline: 2px solid #80c89a; outline-offset: 2px; }
-.home-card-message { margin: 0; color: #ffb6ac; font-size: 12px; }
+.home-card-message { margin: 0; color: #963B1B; font-size: 12px; }
 
 
 .products-purchase-card { overflow: visible; }
@@ -50,3 +50,23 @@
 .home-card-favorite[aria-pressed="true"] svg { fill: currentColor; }
 .home-card-favorite:hover { color: #bb4d48; background: transparent; }
 .home-card-favorite:focus-visible { outline: 2px solid #497339; outline-offset: 2px; }
+
+/* Product supplier links land below the fixed storefront navigation. */
+.farmer-card[id] { scroll-margin-top: 110px; }
+
+/* Only the selected SKU with a visible original price uses the promotional color. */
+.products-purchase-card .home-card-controls:has(> .home-card-original:not([style*="display:none"]):not([style*="display: none"])) .home-card-price { color: #c62828; font-weight: 700; text-align: right; }
+.products-purchase-card .home-card-controls > .home-card-original { display: grid; grid-template-columns: minmax(0, 1fr) max-content 32px; column-gap: 4px; align-items: center; text-align: right; }
+.products-purchase-card .home-card-original s { grid-column: 2; font-size: 12px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Gift ribbon follows the currently selected SKU's promotional price. */
+.products-purchase-card { position: relative; }
+.home-promo-ribbon { display: none; position: absolute; top: -6px; left: -6px; width: 120px; height: 120px; overflow: hidden; z-index: 3; pointer-events: none; }
+.products-purchase-card:has(.home-card-original:not([style*="display:none"]):not([style*="display: none"])) > .home-promo-ribbon { display: block; }
+.home-promo-bow { position: absolute; top: -33px; left: 50%; width: 62px; height: 33px; z-index: 2; transform: translateX(-50%); filter: drop-shadow(0 1px 1px #76102240); }
+.home-promo-label { position: absolute; top: 40px; left: -33px; width: 174px; box-sizing: border-box; padding: 3px 10px; border-top: 1px solid #ff8991; border-bottom: 1px solid #a91930; background: linear-gradient(180deg, #ef4350, #ca203a); color: #fff; font-size: 13px; font-weight: 700; line-height: 1.2; letter-spacing: 1px; text-align: center; text-shadow: 0 1px 1px #83122566; transform: rotate(-45deg); box-shadow: 0 3px 5px #76102240; }
+.home-promo-ribbon::before, .home-promo-ribbon::after { content: ""; position: absolute; background: #8e142a; width: 6px; height: 6px; z-index: -1; }
+.home-promo-ribbon::before { top: 0; left: 104px; }
+.home-promo-ribbon::after { top: 104px; left: 0; }
+.pv-detail-promo { display: contents; }
+.pv-detail-promo[hidden] { display: none; }
+.pv-detail-promo > .home-promo-ribbon { display: block; }
