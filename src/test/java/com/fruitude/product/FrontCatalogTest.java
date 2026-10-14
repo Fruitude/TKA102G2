@@ -14,103 +14,6 @@ import com.fruitude.product.model.*;
 import com.fruitude.product.controller.FrontProductController;
 
 public class FrontCatalogTest {
-    @Test public void discountedOrderableSkuIsPreferredOverCheaperRegularSku() throws Exception {
-        var p=product(93,"活動水果");sku(p,930,100,1);sku(p,931,300,1);sku(p,932,200,1);sku(p,933,500,4);
-        var catalog=service(List.of(p));
-        org.springframework.test.util.ReflectionTestUtils.setField(catalog,"promoPriceService",new com.fruitude.promo.model.PromoPriceService(){
-            @Override public Map<Integer,Integer> findActivePrices(Collection<Integer> ids){return Map.of(931,250,932,150,933,50);}
-        });
-        var view=catalog.getProducts().get(0);
-        assertEquals(Integer.valueOf(932),view.skuId());assertEquals(Integer.valueOf(150),view.price());
-        String html=mvc(catalog).perform(get("/front/"))
-            .andReturn().getResponse().getContentAsString();
-        assertTrue(html.contains("活動優惠"));assertTrue(html.contains("class=\"home-promo-bow\""));
-        org.springframework.test.util.ReflectionTestUtils.setField(catalog,"promoPriceService",null);
-        assertEquals(Integer.valueOf(930),catalog.getProducts().get(0).skuId());
-    }
-    @Test public void catalogBatchesKeepOrderAndDoNotReloadDatabase() throws Exception {
-        var products=new ArrayList<FrontCatalogService.ProductView>();
-        for(int id=1;id<=45;id++) products.add(new FrontCatalogService.ProductView(id,"水果"+id,"",100,100,
-            id,null,false,List.of(new FrontCatalogService.SkuView(id,"小盒",100,100,10,null,List.of(),1)),10,0d));
-        var reads=new java.util.concurrent.atomic.AtomicInteger();
-        var catalog=new FrontCatalogService(){
-            @Override public List<ProductView> getAllProducts(Integer member,Collection<Integer> favorites){
-                reads.incrementAndGet();return List.copyOf(products);
-            }
-        };
-        var client=mvc(catalog);var session=new org.springframework.mock.web.MockHttpSession();
-        var first=client.perform(get("/front/all-products/").session(session)).andReturn().getResponse();
-        String html=first.getContentAsString();
-        assertEquals(20,countCards(html));assertFalse(html.contains("data-product-id=\"21\""));
-        var tokenMatch=java.util.regex.Pattern.compile("data-token=\"([^\"]+)\"").matcher(html);
-        assertTrue(tokenMatch.find());String token=tokenMatch.group(1);
-        for(int offset:new int[]{20,40,20}) {
-            var response=client.perform(get("/front/api/catalog-batch").session(session)
-                .param("token",token).param("offset",String.valueOf(offset))).andReturn().getResponse();
-            assertEquals(200,response.getStatus());assertEquals("no-store",response.getHeader("Cache-Control"));
-            assertEquals(offset==40?5:20,countCards(response.getContentAsString()));
-            assertTrue(response.getContentAsString().contains("data-product-id=\""+(offset+1)+"\""));
-            assertEquals(String.valueOf(Math.min(45,offset+20)),response.getHeader("X-Catalog-Next"));
-        }
-        assertEquals(1,reads.get());
-        assertEquals(410,client.perform(get("/front/api/catalog-batch").session(session)
-            .param("token","unknown").param("offset","20")).andReturn().getResponse().getStatus());
-        assertEquals(400,client.perform(get("/front/api/catalog-batch").session(session)
-            .param("token",token).param("offset","-1")).andReturn().getResponse().getStatus());
-        session.setAttribute("loggedInMemberId",101);
-        assertEquals(410,client.perform(get("/front/api/catalog-batch").session(session)
-            .param("token",token).param("offset","20")).andReturn().getResponse().getStatus());
-    }
-    private int countCards(String html) {
-        var matcher=java.util.regex.Pattern.compile("data-product-id=\"[0-9]+\"").matcher(html);
-        int count=0;while(matcher.find())count++;return count;
-    }
-
-    @Test public void supplierDetailsUseExistingVendorAndHideMissingLogo() throws Exception {
-        var p=product(92,"產地水果");sku(p,920,100,1);
-        var vendor=new com.fruitude.vendor.model.VendorVO();vendor.setVendorId(42);
-        vendor.setIsActive((byte)1);
-        vendor.setVendorName("測試果園");vendor.setOrigin("臺灣臺南");vendor.setLogo(new byte[]{1});p.setVendor(vendor);
-        var html=mvc(service(List.of(p))).perform(get("/front/product/view/").param("productId","92"))
-            .andReturn().getResponse().getContentAsString();
-        assertTrue(html.contains("測試果園"));assertTrue(html.contains("臺南"));assertFalse(html.contains("臺灣臺南"));
-        assertTrue(html.contains("/vendor/DBGifReader?vendorId=42"));
-        assertTrue(html.contains("href=\"/front/farmers/#farmer-2\""));
-        assertTrue(html.contains("供應："));assertFalse(html.contains("供應廠商："));
-        assertTrue(html.indexOf("pv-supplier-info")>html.indexOf("id=\"pv-description\""));
-        assertTrue(html.contains(">產地水果評價</h2>"));
-        vendor.setLogo(null);vendor.setIsActive((byte)0);vendor.setOrigin("日本青森");
-        html=mvc(service(List.of(p))).perform(get("/front/product/view/").param("productId","92"))
-            .andReturn().getResponse().getContentAsString();
-        assertFalse(html.contains("class=\"pv-supplier-logo\""));assertTrue(html.contains("測試果園"));
-        assertTrue(html.contains("日本青森"));assertFalse(html.contains("class=\"pv-supplier-link\""));
-    }
-    @Test public void reviewSkuButtonsAppearInBothPlacesAndIncludeStoppingSupply() throws Exception {
-        var p=product(90,"評論規格水果");sku(p,900,100,1).setSkuName("正常小盒");
-        sku(p,901,200,4).setSkuName("售完中盒");sku(p,902,300,6).setSkuName("最後一批");
-        sku(p,903,400,0).setSkuName("下架大盒");sku(p,904,500,7).setSkuName("永久停產盒");
-        var html=mvc(service(List.of(p))).perform(get("/front/product/view/").param("productId","90")).andReturn().getResponse().getContentAsString();
-        for(int id:new int[]{900,901,902})assertEquals(2,html.split("data-review-sku=\""+id+"\"",-1).length-1);
-        assertFalse(html.contains("data-review-sku=\"903\""));assertFalse(html.contains("data-review-sku=\"904\""));
-        assertEquals(2,html.split("全部規格",-1).length-1);
-        assertTrue(html.indexOf("data-review-sku=\"900\"",html.indexOf("<dialog"))<html.indexOf("id=\"pv-reviews-search\""));
-    }
-    @Test public void oneVisibleSkuDoesNotShowReviewFilterButtons() throws Exception {
-        var p=product(91,"單規格水果");sku(p,910,100,1);sku(p,911,200,0);sku(p,912,300,7);
-        var html=mvc(service(List.of(p))).perform(get("/front/product/view/").param("productId","91")).andReturn().getResponse().getContentAsString();
-        assertFalse(html.contains("data-review-sku="));assertFalse(html.contains("全部規格"));
-    }
-    @Test public void reviewApiForwardsSkuAndPreviewSize() throws Exception {
-        var catalog=new FrontCatalogService(){
-            @Override public ReviewPage read(int id,int page,int size,String keyword,String sort,Integer skuId){
-                assertEquals(90,id);assertEquals(2,page);assertEquals(3,size);assertEquals("甜",keyword);assertEquals("highest",sort);assertEquals(Integer.valueOf(902),skuId);
-                return ReviewPage.empty();
-            }
-        };
-        var response=mvc(catalog).perform(get("/front/api/product-reviews").param("productId","90").param("page","2")
-            .param("size","3").param("keyword","甜").param("sort","highest").param("skuId","902")).andReturn().getResponse();
-        assertEquals(200,response.getStatus());assertEquals("no-store",response.getHeader("Cache-Control"));
-    }
     @Test public void farmerPageKeepsMainBranchStoriesAndVendorProducts() {
         var fruit=new FrontCatalogService.ProductView(1,"小農水果","",100,100,1,null,false,List.of(),10,0d);
         var catalog=new FrontCatalogService(){
@@ -188,17 +91,6 @@ public class FrontCatalogTest {
             if (method.getName().equals("findBestSellerProductIds") || method.getName().equals("findTopRatedProductIds"))
                 return products.stream().map(Product::getProductId).toList();
             if (method.getName().equals("findCatalogPriorities")) return List.of();
-            if (method.getName().equals("findProductSupplier")) {
-                var vendor = products.stream().filter(p -> p.getProductId().equals(args[0]))
-                    .map(Product::getVendor).filter(Objects::nonNull).findFirst().orElse(null);
-                return vendor == null ? null : projection(ProductRepository.ProductSupplierRow.class, key -> switch (key) {
-                    case "getVendorId" -> vendor.getVendorId(); case "getName" -> vendor.getVendorName();
-                    case "getOrigin" -> vendor.getOrigin();
-                    case "getFarmerPosition" -> Byte.valueOf((byte)1).equals(vendor.getIsActive()) ? 2 : 0;
-                    case "getHasLogo" -> vendor.getLogo() != null && vendor.getLogo().length > 0 ? 1 : 0;
-                    default -> null;
-                });
-            }
             throw new AssertionError(method.getName());
         });
         return new FrontCatalogService(repo) {
@@ -224,9 +116,7 @@ public class FrontCatalogTest {
         ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver(); resolver.setPrefix("templates/"); resolver.setSuffix(".html"); resolver.setTemplateMode("HTML"); resolver.setCharacterEncoding("UTF-8");
         SpringTemplateEngine engine = new SpringTemplateEngine(); engine.setTemplateResolver(resolver);
         ThymeleafViewResolver view = new ThymeleafViewResolver(); view.setTemplateEngine(engine); view.setCharacterEncoding("UTF-8");
-        var controller=new FrontProductController(service,noPromos(),new com.fruitude.orders.model.OrdersService());
-        org.springframework.test.util.ReflectionTestUtils.setField(controller,"imageCache",new com.fruitude.product.model.ProductImageService());
-        return MockMvcBuilders.standaloneSetup(controller).setViewResolvers(view).build();
+        return MockMvcBuilders.standaloneSetup(new FrontProductController(service, noPromos(), new com.fruitude.orders.model.OrdersService())).setViewResolvers(view).build();
     }
     @Test public void pricesImagesAndVisibilityComeFromActiveSkus() {
         Product p = product(1, "測試芒果"); sku(p, 1, 1, 0); ProductSku available = sku(p, 2, 200, 1); image(available, 9, 2); image(available, 10, 1);
@@ -253,7 +143,7 @@ public class FrontCatalogTest {
         MockMvc mvc = mvc(service(List.of(p)));
         for (String path : List.of("/front/", "/front/index", "/front/index.html", "/front/all-products/", "/front/all-products/index.html", "/front/category/seasonal-fresh-fruit/")) {
             var response = mvc.perform(get(path)).andReturn().getResponse(); assertEquals(200, response.getStatus());
-            String html = response.getContentAsString(); assertTrue(html.contains("資料庫限定芒果")); assertTrue(html.contains("NT$ 345")); assertTrue(html.contains("productId=5")); assertTrue(html.contains("data-commerce-sku-id=\"42\"")); assertTrue(html.contains("/product/image/9?v=")); assertFalse(html.contains("?v=null")); assertFalse(html.contains("智利櫻桃禮盒"));
+            String html = response.getContentAsString(); assertTrue(html.contains("資料庫限定芒果")); assertTrue(html.contains("NT$ 345")); assertTrue(html.contains("productId=5")); assertTrue(html.contains("data-commerce-sku-id=\"42\"")); assertTrue(html.contains("/product/image/9")); assertFalse(html.contains("智利櫻桃禮盒"));
         }
         String deployed = mvc.perform(get("/TKA102G2/front/").contextPath("/TKA102G2")).andReturn().getResponse().getContentAsString(); assertTrue(deployed.contains("/TKA102G2/product/image/9"));
     }
@@ -301,7 +191,7 @@ public class FrontCatalogTest {
         }
         String home=catalogMvc.perform(get("/front/")).andReturn().getResponse().getContentAsString();
         assertTrue(home.contains("人氣爆棚"));assertTrue(home.contains("好評如潮"));
-        assertTrue(home.contains("href=\"/front/best-sellers/\""));assertTrue(home.contains("href=\"/front/top-rated/\""));
+        assertTrue(home.contains("href=\"best-sellers/\""));assertTrue(home.contains("href=\"top-rated/\""));
         assertFalse(home.contains("熱銷精選"));
     }
     @Test public void stoppingSupplyLabelAppearsOnCardsAndProductDetails() throws Exception {
@@ -371,64 +261,5 @@ public class FrontCatalogTest {
         assertEquals(Integer.valueOf(0),service.getProducts().get(0).skus().get(0).stock());
         String html=mvc(service).perform(get("/front/")).andReturn().getResponse().getContentAsString();
         assertTrue(html.contains("售完規格（售完）"));assertFalse(html.contains("全售完商品"));assertFalse(html.contains("下架規格"));
-    }
-    private record SearchCategory(Integer id,Integer parent,String name) implements ProductRepository.FrontCategoryRow {
-        public Integer getCategoryId(){return id;}public Integer getParentId(){return parent;}public String getName(){return name;}
-    }
-    private FrontCatalogService.SearchData searchFixture() {
-        Product mango=product(1,"台南愛文芒果"),apple=product(2,"Fuji Apple"),low=product(3,"芒果禮盒");
-        sku(mango,1,100,1);sku(apple,2,200,1);sku(low,3,300,1);
-        return new FrontCatalogService.SearchData(service(List.of(mango,apple,low)).getProducts(),
-            List.of(new FrontCatalogService.SearchMeta(1,2,10,"日光果園","台南",4.5),new FrontCatalogService.SearchMeta(2,3,20,"青森果園","日本青森",5),new FrontCatalogService.SearchMeta(3,2,10,"日光果園","台南",3.99)),
-            List.of(new SearchCategory(1,null,"芒果"),new SearchCategory(2,1,"愛文芒果"),new SearchCategory(3,null,"蘋果")),
-            List.of(new FrontCatalogService.SearchPromotion(1,7,"夏日芒果優惠")));
-    }
-    @Test public void productSearchCombinesTextCategoryOriginSupplierPromotionAndRating() {
-        var result=FrontCatalogService.search(searchFixture(),new FrontCatalogService.SearchQuery("臺南 芒果",1,"台南",10,"7",true),0);
-        assertEquals(1,result.total());assertEquals(Integer.valueOf(1),result.products().get(0).productId());assertEquals(6,result.conditions().size());
-        assertEquals(0,FrontCatalogService.search(searchFixture(),new FrontCatalogService.SearchQuery("芒果",1,"日本青森",10,"7",true),0).total());
-    }
-    @Test public void productSearchIsCaseInsensitiveLiteralAndUsesUnroundedRating() {
-        assertEquals(1,FrontCatalogService.search(searchFixture(),new FrontCatalogService.SearchQuery("ＦＵＪＩ",null,"",null,"",false),0).total());
-        assertEquals(0,FrontCatalogService.search(searchFixture(),new FrontCatalogService.SearchQuery("%_",null,"",null,"",false),0).total());
-        var result=FrontCatalogService.search(searchFixture(),new FrontCatalogService.SearchQuery("芒果",null,"",null,"",true),0);assertEquals(1,result.total());
-        assertEquals(1,FrontCatalogService.search(searchFixture(),new FrontCatalogService.SearchQuery("",null,"",null,"any",false),0).total());
-    }
-    @Test public void productSearchPaginatesStablyAndHandlesExpiredFilters() {
-        var data=searchFixture();var products=new java.util.ArrayList<FrontCatalogService.ProductView>();
-        for(int i=1;i<=45;i++)products.add(new FrontCatalogService.ProductView(i,"果物 "+i,"",100,null,i,null,false,List.of(),1,0.0));
-        var many=new FrontCatalogService.SearchData(products,List.of(),List.of(),List.of());
-        assertEquals(20,FrontCatalogService.search(many,FrontCatalogService.SearchQuery.empty(),0).products().size());
-        var second=FrontCatalogService.search(many,FrontCatalogService.SearchQuery.empty(),1);assertEquals(Integer.valueOf(21),second.products().get(0).productId());assertEquals(3,second.pages());
-        assertEquals(5,FrontCatalogService.search(many,FrontCatalogService.SearchQuery.empty(),999).products().size());
-        assertEquals(0,FrontCatalogService.search(data,new FrontCatalogService.SearchQuery("",999,"",null,"",false),0).total());
-    }
-    @Test public void searchDialogAndResultsRenderRememberedQuerySafely() throws Exception {
-        var data=searchFixture();var catalog=new FrontCatalogService(){@Override public SearchData searchData(){return data;}};
-        var mvc=mvc(catalog);var session=new org.springframework.mock.web.MockHttpSession();
-        var result=mvc.perform(get("/front/search/").param("q","芒果").param("category","1").param("origin","台南").param("vendor","10").param("promotion","7").param("highRated","true").session(session)).andReturn().getResponse();
-        assertEquals(200,result.getStatus());assertTrue(result.getContentAsString().contains("找到 1 個商品"));assertTrue(result.getContentAsString().contains("台南愛文芒果"));
-        var saved=(FrontCatalogService.SearchQuery)session.getAttribute("product.lastSearch");assertEquals("芒果",saved.q());assertTrue(saved.highRated());
-        var popup=mvc.perform(get("/front/search-dialog/").session(session)).andReturn().getResponse();assertEquals(200,popup.getStatus());assertTrue(popup.getContentAsString().contains("value=\"芒果\""));assertTrue(popup.getContentAsString().contains("fruit-search-orange")); assertTrue(popup.getContentAsString().contains("data-category-parent=" + (char)34 + "1" + (char)34)); assertFalse(popup.getContentAsString().contains("開始搜尋後，會記住這次的搜尋條件。"));
-        assertTrue(popup.getContentAsString().contains("maxlength="+(char)34+"20"+(char)34));
-        assertEquals(200,mvc.perform(get("/front/search/").param("q","果".repeat(20))).andReturn().getResponse().getStatus());
-        var escaped=mvc.perform(get("/front/search/").param("q","<script>x</script>")).andReturn().getResponse().getContentAsString();assertFalse(escaped.contains("<script>x</script>"));assertTrue(escaped.contains("&lt;script&gt;")); assertFalse(escaped.contains("目前沒有已上架商品。"));
-        assertEquals(400,mvc.perform(get("/front/search/").param("promotion","-1")).andReturn().getResponse().getStatus());
-        assertEquals(400,mvc.perform(get("/front/search/").param("q","x".repeat(21))).andReturn().getResponse().getStatus());
-    }
-    @Test public void searchOriginsHideTaiwanPrefixAndOrderWestThenEastThenIslands() {
-        var fixture=searchFixture();
-        var origins=List.of("日本青森","台灣金門金城","臺灣花蓮壽豐","台灣屏東佳冬","台灣台北市","臺灣宜蘭三星","台灣桃園拉拉山",
-            "台灣台南玉井","台灣澎湖馬公","臺灣臺東卑南","台灣台中東勢","臺灣連江南竿","台灣基隆市","台灣新北市","台灣新竹縣","台灣苗栗縣",
-            "臺灣彰化溪州","台灣南投埔里","台灣雲林古坑","台灣嘉義阿里山","臺灣高雄燕巢");
-        var metadata=new java.util.ArrayList<FrontCatalogService.SearchMeta>();
-        for(int i=0;i<origins.size();i++)metadata.add(new FrontCatalogService.SearchMeta(i+1,2,10,"果園",origins.get(i),4.5));
-        var data=new FrontCatalogService.SearchData(fixture.products(),metadata,fixture.categories(),List.of());
-        var result=FrontCatalogService.search(data,FrontCatalogService.SearchQuery.empty(),0);
-        assertEquals(List.of("基隆市","台北市","新北市","桃園拉拉山","新竹縣","苗栗縣","台中東勢","彰化溪州","南投埔里","雲林古坑","嘉義阿里山","台南玉井","高雄燕巢","屏東佳冬",
-            "宜蘭三星","花蓮壽豐","臺東卑南","澎湖馬公","金門金城","連江南竿","日本青森"),result.options().origins().stream().map(FrontCatalogService.SearchOption::label).toList());
-        assertTrue(result.options().origins().stream().anyMatch(o->o.value().equals("臺灣臺東卑南")&&o.label().equals("臺東卑南")));
-        var selected=FrontCatalogService.search(data,new FrontCatalogService.SearchQuery("",null,"台灣金門金城",null,"",false),0);
-        assertEquals(1,selected.total());assertEquals(List.of("產地：金門金城"),selected.conditions());
     }
 }

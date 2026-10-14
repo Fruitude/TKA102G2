@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>後台帳號管理</title>
     <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
-    <link th:href="@{/css/employee-admin.css?v=13}" rel="stylesheet">
+    <link th:href="@{/css/employee-admin.css?v=17}" rel="stylesheet">
 </head>
 <body id="page-top">
 <div id="wrapper">
@@ -41,9 +41,6 @@
                         </button>
                         <button class="employee-tab" data-tab="positions" type="button">
                             <i class="fas fa-id-badge" aria-hidden="true"></i><span>職位管理</span>
-                        </button>
-                        <button class="employee-tab" data-tab="functions" type="button">
-                            <i class="fas fa-key" aria-hidden="true"></i><span>權限功能</span>
                         </button>
                         <button class="employee-tab" data-tab="coverage" type="button">
                             <i class="fas fa-clipboard-check" aria-hidden="true"></i><span>功能負責</span><span class="employee-tab-count is-warning" id="coverage-tab-count">0</span>
@@ -194,46 +191,16 @@
                                         <div class="permission-target-info" id="permission-target-info">
                                             <span class="permission-target-name" id="permission-target-name">--</span>
                                             <span class="permission-target-role" id="permission-target-role">--</span>
-                                            <span class="permission-selection-badge" id="permission-selection-count">0 項已選</span>
+                                            <span class="permission-selection-badge" id="permission-selection-count">0 個功能已選</span>
                                         </div>
                                     </div>
                                     <button class="btn btn-primary employee-command" id="permission-save-button" type="button">
                                         <i class="fas fa-save" aria-hidden="true"></i><span>儲存權限</span>
                                     </button>
-                                </div>
-                                <div class="permission-groups" id="permission-groups"></div>
+								</div>
+								<div class="permission-groups" id="permission-groups"></div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="employee-panel" data-panel="functions" hidden>
-                        <div class="employee-toolbar">
-                            <div class="employee-filter-row">
-                                <label class="sr-only" for="function-search">搜尋權限功能</label>
-                                <label class="sr-only" for="function-group-filter">權限群組</label>
-                                <select id="function-group-filter"><option value="">全部群組</option></select>
-                                <div class="employee-search-control">
-                                    <i class="fas fa-search" aria-hidden="true"></i>
-                                    <input id="function-search" type="search" placeholder="搜尋代碼、名稱或說明">
-                                </div>
-                            </div>
-                            <span class="employee-result-count" id="function-result-count">0 項</span>
-                        </div>
-                        <div class="table-responsive employee-table-wrap">
-                            <table class="table employee-table mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>功能代碼</th>
-                                        <th>權限名稱</th>
-                                        <th>功能說明</th>
-                                        <th>所屬群組</th>
-                                        <th class="text-right">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="function-table-body"></tbody>
-                            </table>
-                        </div>
-                        <div class="employee-empty" id="function-empty" hidden>找不到符合條件的權限功能。</div>
                     </div>
 
                     <div class="employee-panel" data-panel="coverage" hidden>
@@ -396,6 +363,28 @@
     </div>
 </div>
 
+<!-- 唯讀查看員工目前擁有的功能 -->
+<div class="modal fade" id="employee-permission-view-modal" tabindex="-1" role="dialog" aria-labelledby="employee-permission-view-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5 mb-1" id="employee-permission-view-title">功能權限</h2>
+                    <div class="employee-modal-target mb-0" id="employee-permission-view-name"></div>
+                </div>
+                <button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="employee-permission-view-list" id="employee-permission-view-list"></div>
+                <p class="employee-modal-feedback" data-modal-feedback aria-live="polite"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal">關閉</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 新增與編輯員工職位 -->
 <div class="modal fade" id="position-form-modal" tabindex="-1" role="dialog" aria-labelledby="position-form-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
@@ -427,8 +416,8 @@
                 <button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body">
-                <p class="position-permission-note"><i class="fas fa-info-circle mr-1" aria-hidden="true"></i>這裡設定的是職位範本；新建、核准或換職位時會自動套用，不會覆蓋既有員工的個別權限。</p>
-                <div class="position-permission-summary"><span id="position-permission-selection-count">0 項已選</span></div>
+                <p class="position-permission-note"><i class="fas fa-info-circle mr-1" aria-hidden="true"></i>這裡設定職位的預設權限。儲存後，所有使用此職位的員工會立即套用；員工另外增加的個別權限不會被覆蓋。</p>
+                <div class="position-permission-summary"><span id="position-permission-selection-count">0 個功能已選</span></div>
                 <div class="permission-groups position-permission-groups" id="position-permission-groups"></div>
                 <p class="employee-modal-feedback" data-modal-feedback aria-live="polite"></p>
             </div>
@@ -451,23 +440,21 @@
     </div>
 </div>
 
-<!-- 重設密碼 -->
+<!-- 寄送員工密碼設定驗證信 -->
 <div class="modal fade" id="password-modal" tabindex="-1" role="dialog" aria-labelledby="password-modal-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
         <div class="modal-content">
             <form id="password-form" novalidate>
-                <div class="modal-header"><h2 class="modal-title h5" id="password-modal-title">重設密碼</h2><button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button></div>
+                <div class="modal-header"><h2 class="modal-title h5" id="password-modal-title">發送密碼設定信</h2><button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button></div>
                 <div class="modal-body">
                     <input id="password-employee-id" type="hidden">
                     <div class="employee-modal-target" id="password-employee-name"></div>
-                    <div class="form-group">
-                        <label for="new-employee-password">新密碼 *</label>
-                        <input autocomplete="new-password" class="form-control" id="new-employee-password" maxlength="72" minlength="8" required type="password" placeholder="請輸入 8 碼以上新密碼">
-                        <small class="form-text text-muted">8～72 個字元，建議包含英文與數字。</small>
-                    </div>
+                    <p class="mb-2">系統會將一次性驗證連結寄送至：</p>
+                    <p class="font-weight-bold text-primary mb-3" id="password-employee-email"></p>
+                    <p class="small text-muted mb-0">員工完成信箱確認後，才能自行設定新密碼。連結 15 分鐘內有效，且只能使用一次。</p>
                     <p class="employee-modal-feedback" data-modal-feedback aria-live="polite"></p>
                 </div>
-                <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">取消</button><button class="btn btn-primary" type="submit"><i class="fas fa-key mr-1"></i>更新密碼</button></div>
+                <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">取消</button><button class="btn btn-primary" type="submit"><i class="fas fa-envelope mr-1"></i>發送驗證信</button></div>
             </form>
         </div>
     </div>
@@ -503,27 +490,7 @@
     </div>
 </div>
 
-<!-- 編輯權限功能顯示資料 -->
-<div class="modal fade" id="function-modal" tabindex="-1" role="dialog" aria-labelledby="function-modal-title" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content">
-            <form id="function-form" novalidate>
-                <div class="modal-header"><h2 class="modal-title h5" id="function-modal-title">編輯權限功能</h2><button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button></div>
-                <div class="modal-body">
-                    <input id="function-id" type="hidden">
-                    <div class="form-group"><label for="function-code">功能代碼</label><input class="form-control" id="function-code" readonly type="text"></div>
-                    <div class="form-group"><label for="function-name">權限名稱 *</label><input class="form-control" id="function-name" maxlength="100" required type="text"></div>
-                    <div class="form-group"><label for="function-description">功能說明</label><textarea class="form-control" id="function-description" maxlength="255" rows="3"></textarea></div>
-                    <div class="form-group"><label for="function-group">所屬群組 *</label><input class="form-control" id="function-group" maxlength="50" required type="text"></div>
-                    <p class="employee-modal-feedback" data-modal-feedback aria-live="polite"></p>
-                </div>
-                <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">取消</button><button class="btn btn-primary" type="submit"><i class="fas fa-save mr-1"></i>儲存變更</button></div>
-            </form>
-        </div>
-    </div>
-</div>
-
 <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-<script th:src="@{/js/employee-admin.js?v=22}"></script>
+<script th:src="@{/js/employee-admin.js?v=31}"></script>
 </body>
 </html>

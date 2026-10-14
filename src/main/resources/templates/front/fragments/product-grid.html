@@ -1,17 +1,12 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"><body>
-<span th:fragment="promoRibbon" class="home-promo-ribbon">
-
-        <span class="home-promo-label"><svg class="home-promo-bow" viewBox="0 0 84 44" aria-hidden="true" focusable="false"><path d="M41 25C22 1 6 1 7 17c1 14 17 18 34 8Z" fill="#d82940" stroke="#9f1830" stroke-width="1.3"/><path d="M43 25C62 1 78 1 77 17c-1 14-17 18-34 8Z" fill="#e63848" stroke="#9f1830" stroke-width="1.3"/><path d="M15 12c8-3 17 5 23 11M69 12c-8-3-17 5-23 11" fill="none" stroke="#ff9b9e" stroke-width="2.4" stroke-linecap="round"/><path d="m36 25-14 17 13-3 5 4 4-18m4 0 14 17-13-3-5 4-4-18" fill="#b71933"/><rect x="35" y="18" width="14" height="16" rx="5" fill="#f14b52" stroke="#9f1830" stroke-width="1.3"/></svg><span>活動優惠</span></span>
-      </span>
-
 <th:block th:fragment="cards(products)">
   <div class="w-dyn-item" role="listitem" th:each="p : ${products}">
     <a class="products-card-link w-inline-block" th:href="@{/front/product/view/(productId=${p.productId})}"
        th:attr="data-commerce-sku-id=${p.skuId},data-disable-quick-add=${#lists.size(p.skus) > 1 or p.stock == null or p.stock <= 0}">
       <div class="products-item-image-wrapper"><img class="products-item-image" loading="lazy"
-        th:src="@{${p.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + p.imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(p.imageId))}}" th:alt="${p.name}"></div>
-      <div class="product-carousel-sources" hidden><th:block th:each="s : ${p.skus}"><span th:each="imageId : ${s.imageIds}" th:attr="data-carousel-sku=${s.skuId},data-carousel-url=@{${'/product/image/' + imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(imageId))}}"></span></th:block></div>
+        th:src="@{${p.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + p.imageId}}" th:alt="${p.name}"></div>
+      <div class="product-carousel-sources" hidden><th:block th:each="s : ${p.skus}"><span th:each="imageId : ${s.imageIds}" th:attr="data-carousel-sku=${s.skuId},data-carousel-url=@{'/product/image/' + ${imageId}}"></span></th:block></div>
       <div class="products-item-text-wrapper">
         <h3 class="heading-h4 heading-h4-white" th:title="${p.name}" th:text="${#strings.length(p.name) > 10 ? #strings.substring(p.name, 0, 10) + '...' : p.name}"></h3>
         <div class="products-item-description-wrapper">
@@ -29,11 +24,10 @@
   <div class="w-dyn-item" role="listitem" th:each="p : ${products}">
     <article class="products-card-link products-purchase-card" data-disable-quick-add="true"
              th:attr="data-commerce-sku-id=${p.skuId},data-product-id=${p.productId}">
-      <span th:replace="~{front/fragments/product-grid :: promoRibbon}"></span>
-      <div class="product-carousel-sources" hidden><th:block th:each="s : ${p.skus}"><span th:each="imageId : ${s.imageIds}" th:attr="data-carousel-sku=${s.skuId},data-carousel-url=@{${'/product/image/' + imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(imageId))}}"></span></th:block></div>
+      <div class="product-carousel-sources" hidden><th:block th:each="s : ${p.skus}"><span th:each="imageId : ${s.imageIds}" th:attr="data-carousel-sku=${s.skuId},data-carousel-url=@{'/product/image/' + ${imageId}}"></span></th:block></div>
       <a class="home-product-detail-link" th:href="@{/front/product/view/(productId=${p.productId})}">
         <div class="products-item-image-wrapper"><img class="products-item-image" loading="lazy"
-          th:src="@{${p.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + p.imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(p.imageId))}}" th:alt="${p.name}"></div>
+          th:src="@{${p.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + p.imageId}}" th:alt="${p.name}"></div>
       </a>
       <div class="products-item-text-wrapper">
         <a class="home-product-detail-link" th:href="@{/front/product/view/(productId=${p.productId})}">
@@ -44,7 +38,7 @@
           <select aria-label="商品規格" class="home-card-sku" th:id="${'home-sku-' + p.productId}">
             <option th:each="s : ${p.skus}" th:value="${s.skuId}" th:selected="${s.skuId == p.skuId}"
                     th:text="${s.name + (s.skuStatus == 2 ? '（缺貨）' : (s.skuStatus == 3 ? '（即將售完）' : ''))}"
-                    th:attr="data-sku-name=${s.name},data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(s.imageId))}}"></option>
+                    th:attr="data-sku-name=${s.name},data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId}}"></option>
           </select>
           <div class="home-sku-dropdown" hidden>
             <button type="button" class="home-sku-trigger" aria-label="選擇商品規格" aria-expanded="false" th:attr="aria-controls=${'home-menu-' + p.productId}"><span class="home-sku-caption"></span><span class="home-sku-arrow" aria-hidden="true">▾</span></button>
@@ -52,7 +46,6 @@
               <button type="button" th:each="s : ${p.skus}" th:attr="data-sku-value=${s.skuId}" th:text="${s.name + (s.skuStatus == 2 ? '（缺貨）' : (s.skuStatus == 3 ? '（即將售完）' : ''))}"></button>
             </div>
           </div>
-
           <p class="home-card-original" th:style="${p.originalPrice != null and p.originalPrice > p.price ? '' : 'display:none;'} + 'font-size:.85rem;opacity:.6;margin:0 0 .25rem;'">原價 <s th:text="${'NT$ ' + p.originalPrice}"></s></p>
           <span hidden class="home-sku-original" th:each="s : ${p.skus}" th:attr="data-sku-id=${s.skuId},data-original=${s.originalPrice}"></span>
           <div class="home-card-purchase-row">

@@ -57,7 +57,6 @@
 </script>
 
 <link th:href="@{/front/css/front-theme.css}" rel="stylesheet" type="text/css"/>
-<link href="/front/css/shop-menu.css?v=20261013" th:href="@{/front/css/shop-menu.css(v=20261013)}" rel="stylesheet" type="text/css"/>
 </head>
 <body class="front-theme">
 	<div class="w-commerce-commercecheckoutformcontainer checkout-form"
@@ -587,7 +586,31 @@
 				width="Auto" /></a>
 			<nav class="nav-links-conatiner w-nav-menu" role="navigation">
 				<div class="nav-inner-container">
-					<div th:replace="~{front/fragments/shop-menu :: shop-menu}"></div>
+					<div class="nav-dropdown w-dropdown" data-delay="0"
+						data-hover="false">
+						<div class="nav-link nav-link-dropdown w-dropdown-toggle">
+							<div>商城</div>
+							<div class="nav-arrow w-icon-dropdown-toggle"></div>
+						</div>
+						<nav class="nav_dropdown-list w-dropdown-list">
+							<div class="nav_grid-dropdown-grid">
+								<a class="nav_dropdown-card w-inline-block"
+									href="../all-products/"
+									id="w-node-f3e67de1-b7f8-9b65-6baf-9e0e4e32b241-fe651a75"><div
+										class="nav_dropdown-title">全部商品</div>
+									<div class="paragraph-16 light-text">當季現摘，新鮮直送</div></a><a
+									class="nav_dropdown-card w-inline-block"
+									href="../category/seasonal-fresh-fruit/"
+									id="w-node-_0e5396c6-dd52-965c-4557-44c56b601c8b-fe651a75"><div
+										class="nav_dropdown-title">當季鮮果</div>
+									<div class="paragraph-16 light-text">當季現摘，新鮮直送</div></a><a
+									class="nav_dropdown-card w-inline-block"
+									href="../category/featured-gift-boxes/"><div
+										class="nav_dropdown-title">精選禮盒</div>
+									<div class="paragraph-16 light-text">嚴選禮盒，送禮體面</div></a>
+							</div>
+						</nav>
+					</div>
 					<a class="nav-link" href="../services/">宅配服務</a><a class="nav-link"
 						href="../about/">關於我們</a><a class="nav-link" href="../blog/">果物誌</a><a
 						class="nav-link" href="../farmers/">小農資訊</a><a class="nav-link"

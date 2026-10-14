@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>評論管理</title>
     <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
-    <link th:href="@{/css/comment-admin.css?v=3}" rel="stylesheet">
+    <link th:href="@{/css/comment-admin.css?v=4}" rel="stylesheet">
 </head>
 <body id="page-top">
 <div id="wrapper">
@@ -53,11 +53,15 @@
                             <i class="fas fa-flag" aria-hidden="true"></i><span>檢舉處理</span>
                             <span class="comment-tab-count" id="reported-tab-count">0</span>
                         </button>
+                        <button class="comment-tab" data-comment-tab="handled" type="button">
+                            <i class="fas fa-clipboard-check" aria-hidden="true"></i><span>已處理</span>
+                            <span class="comment-tab-count is-handled" id="handled-tab-count">0</span>
+                        </button>
                     </nav>
 
                     <div class="comment-report-notice" id="comment-report-notice" hidden>
                         <i class="fas fa-shield-alt" aria-hidden="true"></i>
-                        <div><strong>待審核檢舉</strong><span>先查看完整評論，再決定保留或隱藏；系統不會刪除原始訂單明細。</span></div>
+                        <div><strong id="comment-report-notice-title">待審核檢舉</strong><span id="comment-report-notice-copy">先查看完整評論，再決定保留或隱藏；系統不會刪除原始訂單明細。</span></div>
                     </div>
 
                     <div class="comment-toolbar">
@@ -205,6 +209,6 @@
 
 <span class="scroll-to-top rounded"><i class="fas fa-angle-up"></i></span>
 <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-<script th:src="@{/js/comment-admin.js?v=2}"></script>
+<script th:src="@{/js/comment-admin.js?v=3}"></script>
 </body>
 </html>

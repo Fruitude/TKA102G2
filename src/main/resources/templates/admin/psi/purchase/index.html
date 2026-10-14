@@ -68,16 +68,14 @@
 						
 						 <div class="d-flex justify-content-between align-items-start mb-3">
 							<form th:action="@{/admin/psi/purchase/listAllPo}" method="post" class="form-inline">
-					            <!-- 預設選「待審核」；用這個選單查詢而查無資料回到本頁時，保留剛才選的項目（param.poStatus 是這次請求帶來的值） -->
 					            <label for="poStatus" class="mr-3" style="width: 120px;">採購單狀態</label>
-					            <select id="poStatus" name="poStatus" class="custom-select custom-select-sm mr-2"
-					            th:with="selected=${param.poStatus != null ? param.poStatus[0] : '0'}">
-					                <option value="" th:selected="${selected == ''}">查詢全部</option>
-					                <option value="0" th:selected="${selected == '0'}">待審核</option>
-					                <option value="1" th:selected="${selected == '1'}">申請通過</option>
-					                <option value="2" th:selected="${selected == '2'}">申請未通過</option>
-					                <option value="3" th:selected="${selected == '3'}">已取消</option>
-					                <option value="4" th:selected="${selected == '4'}">已結案</option>
+					            <select id="poStatus" name="poStatus" class="custom-select custom-select-sm mr-2">
+					                <option value="">查詢全部</option>
+					                <option value="0" selected>待審核</option>
+					                <option value="1">申請通過</option>
+					                <option value="2">申請未通過</option>
+					                <option value="3">已取消</option>
+					                <option value="4">已結案</option>
 					            </select>
 					            <button type="submit" class="btn btn-primary btn-sm">查詢</button>
 					        </form>

@@ -39,15 +39,6 @@
                 <!-- 這裡放頁面自己的內容 -->
                 <div class="container-fluid">
 
-					<!-- 錯誤訊息：由 ReceivingController 的 handleError 放入 model，或 redirectWithError 帶回首頁 -->
-					<div class="alert alert-danger alert-dismissible fade show" role="alert"
-					     th:if="${errorMessage != null}">
-					    <span th:text="${errorMessage}" style="white-space: pre-line;"></span>
-					    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-					        <span aria-hidden="true">&times;</span>
-					    </button>
-					</div>
-
 					<!-- 申請通過（poStatus = 1）且尚未驗收（inboundStatus = 0）的採購單：poListData 由 ReceivingController 的 receiving 放入 model -->
 					<!-- 表格比照 purchase/listAllPo.html；清單裡都是申請通過、尚未驗收的單，所以不列採購單狀態與驗收相關的欄位 -->
 					<div class="card shadow mb-4">

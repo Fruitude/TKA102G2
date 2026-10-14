@@ -21,7 +21,6 @@
     rel="shortcut icon" type="image/x-icon" />
 
 <link th:href="@{/front/css/front-theme.css}" rel="stylesheet" type="text/css"/>
-<link href="/front/css/shop-menu.css?v=20261013" th:href="@{/front/css/shop-menu.css(v=20261013)}" rel="stylesheet" type="text/css"/>
 </head>
 <body class="front-theme">
   <div class="nav-bar w-nav" data-animation="default" data-collapse="medium"
@@ -33,7 +32,7 @@
       </a>
       <nav class="nav-links-conatiner w-nav-menu" role="navigation">
         <div class="nav-inner-container">
-          <div th:replace="~{front/fragments/shop-menu :: shop-menu}"></div>
+          <a class="nav-link" href="../../../all-products/">商城</a>
           <a class="nav-link" href="../../../services/">宅配服務</a>
           <a class="nav-link" href="../../">關於我們</a>
           <a class="nav-link" href="../../../blog/">果物誌</a>
