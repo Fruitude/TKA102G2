@@ -1,5 +1,4 @@
 package com.fruitude.vendor.controller;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,16 +40,9 @@ public class VendorNoController {
 
 		VendorVO vendorVO = vendorSvc.getOneVendor(vendorId);
 
-		String errorMessage = null;
+		// 不限啟用狀態，尚未啟用、已停用的供應商也查得到；查不到才回首頁顯示訊息
 		if (vendorVO == null) {
-			errorMessage = "查無資料";
-		} else if (vendorVO.getIsActive() == 0) {
-			errorMessage = "供應商尚未啟用";
-		} else if (vendorVO.getIsActive() == 2) {
-			errorMessage = "供應商已停用";
-		}
-		if (errorMessage != null) {
-			model.addAttribute("errorMessage", errorMessage);
+			model.addAttribute("errorMessage", "查無資料");
 			return "admin/psi/vendor/index";
 		}
 
@@ -58,7 +50,7 @@ public class VendorNoController {
 		return "admin/psi/vendor/listOneVendor"; // 查詢成功，轉交 listOneVendor.html 顯示
 	}
 
-	// 依產地模糊查詢已啟用的供應商，結果以 listAllVendor.html 顯示
+	// 依產地模糊查詢供應商（不限啟用狀態），結果以 listAllVendor.html 顯示
 	@PostMapping("/listVendors_ByOrigin")
 	public String listVendors_ByOrigin(Model model, @RequestParam(value = "origin", required = false) String origin) {
 
@@ -71,7 +63,7 @@ public class VendorNoController {
 			// 只接受中、英文字母，不可有空白
 			errorMessage = "產地: 只能是中、英文字母，不可有空白";
 		} else {
-			vendors = vendorSvc.getActiveVendorsByOrigin(origin.trim());
+			vendors = vendorSvc.getVendorsByOrigin(origin.trim());
 			if (vendors.isEmpty()) {
 				errorMessage = "查無資料";
 			}
@@ -86,7 +78,7 @@ public class VendorNoController {
 		return "admin/psi/vendor/listAllVendor";
 	}
 
-	// 依聯絡人姓名模糊查詢已啟用的供應商，結果以 listAllVendor.html 顯示
+	// 依聯絡人姓名模糊查詢供應商（不限啟用狀態），結果以 listAllVendor.html 顯示
 	@PostMapping("/listVendors_ByContactPerson")
 	public String listVendors_ByContactPerson(Model model,
 			@RequestParam(value = "contactPerson", required = false) String contactPerson) {
@@ -100,7 +92,7 @@ public class VendorNoController {
 			// 只接受中、英文字母，字元間可以有一個空白
 			errorMessage = "聯絡人姓名: 只能是中、英文字母，字元間可以有一個空白";
 		} else {
-			vendors = vendorSvc.getActiveVendorsByContactPerson(contactPerson.trim());
+			vendors = vendorSvc.getVendorsByContactPerson(contactPerson.trim());
 			if (vendors.isEmpty()) {
 				errorMessage = "查無資料";
 			}
@@ -115,7 +107,7 @@ public class VendorNoController {
 		return "admin/psi/vendor/listAllVendor";
 	}
 	
-	// 依統一編號模糊查詢，結果以 listAllVendor.html 顯示
+	// 依統一編號模糊查詢供應商（不限啟用狀態），結果以 listAllVendor.html 顯示
 	@PostMapping("/listVendors_ByTaxId")
 	public String listVendors_ByTaxId(Model model, 
 			@RequestParam(value = "taxId", required = false) String taxId) {
@@ -129,7 +121,7 @@ public class VendorNoController {
 			// 只接受數字，不可有空白
 			errorMessage = "統一編號，只能輸入數字";
 		} else {
-			vendors = vendorSvc.getActiveVendorsByTaxId(taxId.trim());
+			vendors = vendorSvc.getVendorsByTaxId(taxId.trim());
 			if (vendors.isEmpty()) {
 				errorMessage = "查無資料";
 			}

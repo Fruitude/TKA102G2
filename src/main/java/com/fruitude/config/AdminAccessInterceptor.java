@@ -106,7 +106,7 @@ public class AdminAccessInterceptor implements HandlerInterceptor {
 
 	private boolean isPublicPath(String path, String method) {
 		// 前台商品卡片共用這個圖片讀取網址；只有純數字圖片編號的 GET 可以公開。
-		if ("GET".equalsIgnoreCase(method) && path.matches("/product/image/\\d+")) return true;
+		if ("GET".equalsIgnoreCase(method) && path.matches("/product/image/\\d+(?:/thumbnail)?")) return true;
 		if (path.equals("/admin/employees/login") || path.equals("/admin/employees/apply")
 				|| path.equals("/admin/employees/reset-password")
 				|| path.equals("/admin/access-denied")) return true;

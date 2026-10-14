@@ -1,7 +1,7 @@
 (() => {
     const table = document.getElementById('product-table');
     if (!table) return;
-    const rows = Array.from(table.querySelectorAll('[data-product-row]'));
+    let rows = Array.from(table.querySelectorAll('[data-product-row]'));
     document.addEventListener('product-status-updated', event => {
         const update = event.detail;
         if (!update || ![0,1].includes(update.status)) return;
@@ -62,11 +62,12 @@
     let searchTimer;
     let searchComposing = false;
     function scheduleSearch() {
+        cancelPendingSearch();
         clearTimeout(searchTimer);
         if (!searchComposing) searchTimer = setTimeout(() => navigate(1), 1500);
     }
     searchInput?.addEventListener('input', scheduleSearch);
-    searchInput?.addEventListener('compositionstart', () => { searchComposing = true; clearTimeout(searchTimer); });
+    searchInput?.addEventListener('compositionstart', () => { searchComposing = true; cancelPendingSearch(); clearTimeout(searchTimer); });
     searchInput?.addEventListener('compositionend', () => { searchComposing = false; scheduleSearch(); });
     [searchProductName, searchSkuName].forEach(control => control?.addEventListener('change', scheduleSearch));
     window.addEventListener('pagehide', () => clearTimeout(searchTimer), { once: true });
@@ -87,12 +88,12 @@
         [maxComments, 'maxComments', 'fruitudeProductMaxComments'], [ratingFilter, 'ratingFilter', 'fruitudeProductRatingFilter']];
     const pager = document.getElementById('product-pagination');
     const summary = document.getElementById('page-summary');
-    const empty = document.getElementById('empty-products');
+    let empty = document.getElementById('empty-products');
     const storageKey = 'fruitude:product-list:' + location.pathname;
     const slideshows = [];
 
-    const page = Number(table.dataset.page) || 1;
-    const totalPages = Number(table.dataset.totalPages) || 0;
+    let page = Number(table.dataset.page) || 1;
+    let totalPages = Number(table.dataset.totalPages) || 0;
     let sortBy = table.dataset.sortBy || '';
     let sortDirection = table.dataset.sortDirection === 'desc' ? 'desc' : 'asc';
     const sortButtons = Array.from(table.querySelectorAll('[data-sort]'));
@@ -121,7 +122,7 @@
             navigate(1);
         });
     }
-    const totalProducts = Number(table.dataset.totalProducts) || 0;
+    let totalProducts = Number(table.dataset.totalProducts) || 0;
     document.getElementById('reset-product-filters')?.addEventListener('click', () => {
         clearTimeout(searchTimer);
         clearTimeout(reviewTimer);
@@ -203,7 +204,15 @@
         return !minMessage && !maxMessage;
     }
 
-    function navigate(target) {
+    let requestVersion = 0;
+    let requestController;
+    function cancelPendingSearch() {
+        requestVersion++;
+        requestController?.abort();
+        table.setAttribute('aria-busy', 'false');
+    }
+    window.addEventListener('pagehide', cancelPendingSearch, {once: true});
+    async function navigate(target) {
         if (!validReviewRange()) return;
         clearTimeout(reviewTimer);
         clearTimeout(searchTimer);
@@ -224,8 +233,72 @@
             url.searchParams.set(name, control?.value || '');
         });
         reviewControls.forEach(([control, name]) => url.searchParams.set(name, control?.value || ''));
-        document.body.classList.add('products-loading');
-        location.assign(url.href);
+        cancelPendingSearch();
+        const version = requestVersion;
+        const controller = requestController = new AbortController();
+        table.setAttribute('aria-busy', 'true');
+        summary.textContent = '正在搜尋…';
+        try {
+            const response = await fetch(url.href, {credentials: 'same-origin', cache: 'no-store',
+                headers: {'Accept': 'text/html'}, signal: controller.signal});
+            if (!response.ok) throw new Error('系統忙碌中，請稍後再嘗試。');
+            const incoming = new DOMParser().parseFromString(await response.text(), 'text/html');
+            if (version !== requestVersion) return;
+            const nextTable = incoming.getElementById('product-table');
+            if (!nextTable?.tBodies[0] || !incoming.getElementById('empty-products'))
+                throw new Error(response.redirected ? '登入狀態已失效，請重新登入。' : '商品資料載入失敗，請稍後再嘗試。');
+            const scrollPositions = [{host: window, left: window.scrollX, top: window.scrollY}];
+            try { if (window.parent !== window) scrollPositions.push({host: window.parent, left: window.parent.scrollX, top: window.parent.scrollY}); } catch (_) {}
+            const restorePosition = () => {
+                if (version !== requestVersion) return;
+                scrollPositions.forEach(({host, left, top}) => host.scrollTo({left, top, behavior: 'instant'}));
+            };
+            // Keep the visible viewport supported when fewer rows come back, including the embedded overview.
+            const results = document.getElementById('product-results');
+            if (results) {
+                let visibleBottom = window.innerHeight;
+                try { if (window.frameElement) visibleBottom = window.parent.innerHeight - window.frameElement.getBoundingClientRect().top; } catch (_) {}
+                results.style.minHeight = Math.max(0, visibleBottom - results.getBoundingClientRect().top) + 'px';
+            }
+            table.tBodies[0].replaceWith(document.importNode(nextTable.tBodies[0], true));
+            Object.assign(table.dataset, nextTable.dataset);
+            rows = Array.from(table.querySelectorAll('[data-product-row]'));
+            empty = document.getElementById('empty-products');
+            page = Number(table.dataset.page) || 1;
+            totalPages = Number(table.dataset.totalPages) || 0;
+            totalProducts = Number(table.dataset.totalProducts) || 0;
+            slideshows.length = 0;
+            sortButtons.forEach(button => {
+                const selected = button.dataset.sort === sortBy;
+                const nextDirection = selected && sortDirection === 'asc' ? 'desc' : 'asc';
+                button.title = '點擊依' + (button.dataset.sort === 'comments' ? '總評數' : '平均分') + (nextDirection === 'asc' ? '升冪' : '降冪') + '排列';
+                button.querySelectorAll('[data-direction]').forEach(arrow => arrow.classList.toggle('active', selected && arrow.dataset.direction === sortDirection));
+            });
+            if (modifiedSort) {
+                const nextSort = incoming.getElementById('modified-sort');
+                modifiedSort.replaceChildren(...Array.from(nextSort.childNodes, node => document.importNode(node, true)));
+                modifiedSort.setAttribute('aria-pressed', String(sortBy === 'modified'));
+                modifiedSort.title = sortBy === 'modified' ? '點擊改為' + (sortDirection === 'desc' ? '最舊' : '最新') + '修改的商品優先' : '點擊依最新修改時間排序';
+            }
+            const categoryCaption = document.getElementById('category-caption');
+            const categoryChoice = Array.from(document.querySelectorAll('[data-category-parent]')).find(item =>
+                (item.dataset.categoryParent || '') === parentCategory.value && (item.dataset.categoryChild || '') === childCategory.value);
+            const vendorCaption = document.getElementById('vendor-caption');
+            if (categoryCaption) categoryCaption.textContent = categoryChoice?.textContent.trim() || '全部分類';
+            if (vendorCaption) vendorCaption.textContent = vendor.selectedOptions[0]?.textContent || '全部';
+            [categoryCaption, vendorCaption].forEach(caption => {if (caption) caption.closest('button').title = caption.textContent;});
+            ['page-status-on', 'page-status-off'].forEach(id => {document.getElementById(id).disabled = rows.length === 0;});
+            history.replaceState(null, '', url.href);
+            render();
+            alignFilterColumns();
+            document.dispatchEvent(new Event('product-list-updated'));
+            restorePosition();
+            requestAnimationFrame(() => {restorePosition();requestAnimationFrame(restorePosition);});
+        } catch (error) {
+            if (version === requestVersion && error.name !== 'AbortError') summary.textContent = '搜尋失敗，原列表保留。' + (error instanceof TypeError ? '系統忙碌中，請稍後再嘗試。' : error.message);
+        } finally {
+            if (version === requestVersion) table.setAttribute('aria-busy', 'false');
+        }
     }
 
     function render() {
@@ -283,6 +356,7 @@
     ratingFilter?.addEventListener('change', () => navigate(1));
     let reviewTimer;
     function scheduleReviewSearch(control) {
+        cancelPendingSearch();
         clearTimeout(reviewTimer);
         if (!validReviewRange()) return;
         reviewTimer = setTimeout(() => {
@@ -487,7 +561,7 @@
     }
     // A status update stays visible. The next page request applies the database filter again.
     render();
-    if (slideshows.length) {
+    {
         const advance = () => {
             if (document.hidden) return;
             let visibleTop = 0, visibleBottom = window.innerHeight;

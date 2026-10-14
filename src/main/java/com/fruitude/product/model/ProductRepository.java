@@ -9,6 +9,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = """
+        SELECT v.vendor_id AS vendorId, v.vendor_name AS name, v.origin AS origin,
+               CASE WHEN OCTET_LENGTH(v.logo)>0 THEN 1 ELSE 0 END AS hasLogo,
+               CASE WHEN v.is_active=1 AND EXISTS (
+                   SELECT 1 FROM farmer f WHERE f.vendor_id=v.vendor_id AND f.show_in_farmers=1
+               ) THEN (
+                   SELECT COUNT(*) FROM farmer f JOIN vendor fv ON fv.vendor_id=f.vendor_id
+                   WHERE f.show_in_farmers=1 AND fv.is_active=1 AND f.vendor_id<=v.vendor_id
+               ) ELSE 0 END AS farmerPosition
+        FROM product p JOIN vendor v ON v.vendor_id=p.vendor_id
+        WHERE p.product_id=:productId
+        """, nativeQuery = true)
+    ProductSupplierRow findProductSupplier(@org.springframework.data.repository.query.Param("productId") Integer productId);
+
+    interface ProductSupplierRow {
+        Integer getVendorId();
+        String getName();
+        String getOrigin();
+        Integer getHasLogo();
+        Integer getFarmerPosition();
+    }
+
+    @Query(value = """
         SELECT s.product_id FROM orders o JOIN orders_detail d ON d.orders_id=o.orders_id
         JOIN product_sku s ON s.sku_id=d.sku_id
         WHERE o.orders_date>=:fromDate AND o.orders_date<:toDate
@@ -21,7 +43,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     @Query(value = """
         SELECT s.product_id FROM orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id
-        WHERE d.comment_status=1 AND d.comment_star BETWEEN 1 AND 5
+        WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5
           AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>''
         GROUP BY s.product_id
         ORDER BY AVG(d.comment_star) DESC, COUNT(*) DESC, s.product_id ASC
@@ -64,12 +86,15 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     // The live purchase query below retains FOR SHARE; order writes still lock and validate quantities.
     @Query(value = """
         SELECT p.product_id AS productId, p.product_name AS name, p.product_desc AS description,
-               CASE WHEN COALESCE(p.all_comment_amount,0)>0 THEN ROUND(COALESCE(p.all_comment_star,0)/p.all_comment_amount,1) ELSE 0 END AS averageRating,
+               COALESCE(ROUND(rating.average,1),0) AS averageRating,
                p.product_category_id AS categoryId, s.sku_id AS skuId, s.sku_name AS skuName, s.another_name AS anotherName,
                s.status AS skuStatus, s.price AS price, s.stock AS stock,
                s.inbound_qty AS inboundQty, s.outbound_qty AS outboundQty,
                s.max_backorder_qty AS maxBackorderQty
         FROM product p JOIN product_sku s ON s.product_id = p.product_id
+        LEFT JOIN (SELECT rs.product_id,AVG(d.comment_star) AS average FROM orders_detail d JOIN product_sku rs ON rs.sku_id=d.sku_id
+          WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5 AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>''
+          GROUP BY rs.product_id) rating ON rating.product_id=p.product_id
         WHERE ((p.status = 1 AND s.status IN (1,2,3,4,6)) OR (p.status = 2 AND s.status = 6)) AND s.price > 0
           AND EXISTS (SELECT 1 FROM product_sku sale WHERE sale.product_id = p.product_id AND sale.price > 0
               AND sale.status IN (1,2,3,6))
@@ -115,12 +140,21 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     String OVERVIEW_FILTER = """
         WHERE (:productStatus IS NULL OR p.status = :productStatus)
-          AND (:keyword = ''
-            OR (:searchProductName = true AND LOWER(p.product_name) LIKE CONCAT('%', :keyword, '%') ESCAPE '!')
-            OR (:searchSkuName = true AND EXISTS (SELECT 1 FROM product_sku search_sku
-                WHERE search_sku.product_id = p.product_id AND
-                  (LOWER(search_sku.sku_name) LIKE CONCAT('%', :keyword, '%') ESCAPE '!'
-                   OR LOWER(search_sku.another_name) LIKE CONCAT('%', :keyword, '%') ESCAPE '!'))))
+          AND NOT EXISTS (
+            SELECT 1 FROM JSON_TABLE(CAST(:keyword AS JSON), '$[*]' COLUMNS(term VARCHAR(120) PATH '$')) search_term
+            WHERE NOT (
+              (:searchProductName = true AND (
+                LOWER(COALESCE(p.product_name,'')) LIKE CONCAT('%', search_term.term, '%') ESCAPE '!'
+                OR LOWER(COALESCE(p.product_desc,'')) LIKE CONCAT('%', search_term.term, '%') ESCAPE '!'
+                OR LOWER(COALESCE(c.category_name,'')) LIKE CONCAT('%', search_term.term, '%') ESCAPE '!'
+                OR EXISTS (SELECT 1 FROM vendor search_vendor WHERE search_vendor.vendor_id = p.vendor_id AND (
+                  LOWER(COALESCE(search_vendor.vendor_name,'')) LIKE CONCAT('%', search_term.term, '%') ESCAPE '!'
+                  OR LOWER(COALESCE(search_vendor.origin,'')) LIKE CONCAT('%', search_term.term, '%') ESCAPE '!'))))
+              OR (:searchSkuName = true AND EXISTS (SELECT 1 FROM product_sku search_sku
+                WHERE search_sku.product_id = p.product_id AND (
+                  LOWER(COALESCE(search_sku.sku_name,'')) LIKE CONCAT('%', search_term.term, '%') ESCAPE '!'
+                  OR LOWER(COALESCE(search_sku.another_name,'')) LIKE CONCAT('%', search_term.term, '%') ESCAPE '!')))
+            ))
           AND (:parentCategoryId IS NULL OR c.product_category_id = :parentCategoryId OR c.parent_category_id = :parentCategoryId)
           AND (:categoryId IS NULL OR p.product_category_id = :categoryId)
           AND (:vendorId IS NULL OR p.vendor_id = :vendorId)

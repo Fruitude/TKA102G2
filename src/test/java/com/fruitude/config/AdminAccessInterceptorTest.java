@@ -2,6 +2,7 @@ package com.fruitude.config;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import java.util.Set;
 
@@ -9,6 +10,29 @@ import org.junit.Test;
 
 /** 後台網址與權限代碼對應測試，避免新增路由時誤放行敏感功能。 */
 public class AdminAccessInterceptorTest {
+
+    @Test
+    public void anonymousStorefrontCanReadImagesButCannotManageThem() throws Exception {
+        var service = new com.fruitude.employee.model.EmployeeAdminAccessService(null,null,null,null) {
+            @Override public java.util.Optional<AccessProfile> findAccessProfile(Integer id) {
+                return java.util.Optional.empty();
+            }
+        };
+        var interceptor = new AdminAccessInterceptor(service);
+        for (String path : new String[]{"/product/image/17","/product/image/17/thumbnail"}) {
+            var response = new org.springframework.mock.web.MockHttpServletResponse();
+            assertTrue(path,interceptor.preHandle(new org.springframework.mock.web.MockHttpServletRequest("GET",path),response,new Object()));
+            assertEquals(200,response.getStatus());
+        }
+        for (String path : new String[]{"/product/image/list","/product/image/17/thumbnail/extra"}) {
+            var response = new org.springframework.mock.web.MockHttpServletResponse();
+            assertFalse(path,interceptor.preHandle(new org.springframework.mock.web.MockHttpServletRequest("GET",path),response,new Object()));
+            assertEquals(302,response.getStatus());
+        }
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        assertFalse(interceptor.preHandle(new org.springframework.mock.web.MockHttpServletRequest("POST","/product/image/17"),response,new Object()));
+        assertEquals(302,response.getStatus());
+    }
 
 	@Test
 	public void memberCreditWriteRequiresCreditPermission() {

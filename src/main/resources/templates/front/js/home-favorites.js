@@ -1,5 +1,6 @@
+function initHomeFavorites(root) {
 // Reuse the existing member store on catalog pages; other pages retain their visual toggle.
-document.querySelectorAll('.products-purchase-card .products-item-text-wrapper > .home-product-detail-link').forEach(function (link) {
+(root || document).querySelectorAll('.products-purchase-card .products-item-text-wrapper > .home-product-detail-link').forEach(function (link) {
   var row = document.createElement('div');
   row.className = 'home-card-title-row';
   link.before(row);
@@ -54,3 +55,7 @@ document.querySelectorAll('.products-purchase-card .products-item-text-wrapper >
   });
   row.append(button);
 });
+
+}
+window.initHomeFavorites = initHomeFavorites;
+initHomeFavorites(document);

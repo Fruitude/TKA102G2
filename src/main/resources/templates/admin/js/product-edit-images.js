@@ -26,6 +26,15 @@
                 if(image.preview){URL.revokeObjectURL(image.preview);urls.delete(image.preview);}
                 image.file=file;image.preview=URL.createObjectURL(file);urls.add(image.preview);
             }
+            function imageOffset(key) {
+                let count = 0;
+                for (const button of document.querySelectorAll('.sku-option')) {
+                    const skuKey = String(button.dataset.skuId);
+                    if (skuKey === key) break;
+                    count += (groups.get(skuKey) || []).filter(image => !image.remove).length;
+                }
+                return count;
+            }
             function choose(key, label) {
                 if (!groups.has(key)) groups.set(key, []);
                 const images=groups.get(key);root.replaceChildren();
@@ -47,6 +56,7 @@
                     const removed = images.filter(item=>item.remove);
                     images.splice(0,images.length,...active,...removed); setOrder(images); mark(); choose(key,label);
                 }
+                let imageNumber = imageOffset(key);
                 for(const image of images.filter(i=>!i.remove)) {
                     const row=node('div');row.className='edit-image-row';
                     const img=node('img');img.alt='規格圖片預覽';img.src=image.preview || base+'image/'+image.imageId+'?v='+encodeURIComponent(image.revision||'');
@@ -84,7 +94,9 @@
                     up.addEventListener('click',()=>moveImage(image,active[index-1],false));
                     const down=icon('button','edit-image-down','圖片下移','<path d="m6 10 6 6 6-6"/>');down.type='button';down.disabled=index===active.length-1;
                     down.addEventListener('click',()=>moveImage(image,active[index+1],true));
-                    row.append(up,img,down,replace,remove);root.appendChild(row);
+                    const number = node('span', String(++imageNumber));number.className='edit-image-number';
+                    number.setAttribute('aria-label','商品第'+imageNumber+'張圖片');
+                    row.append(number,up,img,down,replace,remove);root.appendChild(row);
                 }
                 if(!images.some(i=>!i.remove))root.appendChild(node('p','此規格尚無圖片'));
                 const addLabel=node('label','+');addLabel.className='sku-add edit-image-add';addLabel.title='新增規格圖片';addLabel.setAttribute('aria-label','新增規格圖片');

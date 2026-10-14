@@ -204,9 +204,12 @@ public class ProductService {
             Integer minComments, Integer maxComments, String ratingFilter, String sortBy, String sortDirection,
             String keyword, boolean searchProductName, boolean searchSkuName) {
         if (!searchProductName && !searchSkuName) searchProductName = true;
-        // Treat SQL wildcard characters as literal input, while matching partial names.
-        String searchPattern = (keyword == null ? "" : keyword.strip()).toLowerCase(java.util.Locale.ROOT)
-            .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        String normalizedKeyword = normalizeOverviewKeyword(keyword);
+        var words = normalizedKeyword.isEmpty() ? java.util.List.<String>of() : java.util.Arrays.stream(normalizedKeyword.toLowerCase(java.util.Locale.ROOT).split(" "))
+            .distinct().map(word -> word.replace("!", "!!").replace("%", "!%").replace("_", "!_")).toList();
+        String searchPattern;
+        try { searchPattern = new tools.jackson.databind.ObjectMapper().writeValueAsString(words); }
+        catch (tools.jackson.core.JacksonException error) { throw new IllegalArgumentException("搜尋文字無法處理", error); }
         sortBy = normalizeOverviewSort(sortBy);
         sortDirection = "desc".equals(sortDirection) ? "desc" : "asc";
         stockFilter = normalizeStockFilter(stockFilter);
@@ -221,6 +224,13 @@ public class ProductService {
             org.springframework.data.domain.PageRequest.of(result.getTotalPages() - 1, safeSize));
         }
         return result;
+    }
+
+    public static String normalizeOverviewKeyword(String keyword) {
+        String value = (keyword == null ? "" : keyword).replaceAll("[\\s\\p{Zs}]+", " ").strip();
+        if (value.length() <= 30) return value;
+        int end = Character.isHighSurrogate(value.charAt(29)) ? 29 : 30;
+        return value.substring(0, end).stripTrailing();
     }
 
     /** Compatibility entry point for the unchanged promotion module; events refresh front cards. */

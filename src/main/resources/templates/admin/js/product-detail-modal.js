@@ -155,11 +155,11 @@
         previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';
         dialog.style.removeProperty('--detail-title-left');dialog.style.removeProperty('--detail-title-width');loadMode(edit);dialog.showModal();dialog.querySelector('.detail-close-top').focus();
     };
-    document.querySelectorAll('[data-product-detail], [data-product-edit]').forEach(button=>{
-        button.addEventListener('click',event=>{
+    document.addEventListener('click',event=>{
+            const button=event.target.closest('[data-product-detail], [data-product-edit]');
+            if(!button)return;
             event.preventDefault();let host=window;
             try{if(window.parent!==window&&typeof window.parent.openProductDetails==='function')host=window.parent;}catch(_){}
             host.openProductDetails(button.dataset.detailUrl,button,button.hasAttribute('data-product-edit'));
-        });
     });
 })();

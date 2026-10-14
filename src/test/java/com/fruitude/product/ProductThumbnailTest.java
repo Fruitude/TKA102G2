@@ -14,9 +14,9 @@ import static org.junit.Assert.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 public class ProductThumbnailTest {
-    @Test public void originalImageCanBeCachedForTenMinutesWithoutLoadingEntityRelations() throws Exception {
+    @Test public void versionedOriginalCanBeCachedForThirtyMinutesWithoutLoadingEntityRelations() throws Exception {
         var controller = new ProductImageController();
-        ReflectionTestUtils.setField(controller, "productImageService", new ProductImageService() {
+        var service = new ProductImageService() {
             @Override public com.fruitude.product.model.ProductImageRepository.ProductImageSource getImageSource(Integer id) {
                 return new com.fruitude.product.model.ProductImageRepository.ProductImageSource() {
                     public byte[] getImageData() { return new byte[]{1,2,3}; }
@@ -24,8 +24,9 @@ public class ProductThumbnailTest {
                 };
             }
             @Override public com.fruitude.product.model.ProductImage getOneProductImage(Integer id) { throw new AssertionError("entity should not be loaded"); }
-        });
-        var response = MockMvcBuilders.standaloneSetup(controller).build().perform(get("/product/image/7")).andReturn().getResponse();
+        };
+        ReflectionTestUtils.setField(controller,"productImageService",service);
+        var response = MockMvcBuilders.standaloneSetup(controller).build().perform(get("/product/image/7").param("v",service.imageVersion(7))).andReturn().getResponse();
         assertEquals(200, response.getStatus()); assertEquals("image/png", response.getContentType());
         assertTrue(response.getHeader("Cache-Control").contains("max-age=1800")); assertTrue(response.getHeader("Cache-Control").contains("private"));
     }
@@ -70,5 +71,88 @@ public class ProductThumbnailTest {
         var mvc = MockMvcBuilders.standaloneSetup(controller).build();
         assertEquals(404, mvc.perform(get("/product/image/1/thumbnail")).andReturn().getResponse().getStatus());
         assertEquals(404, mvc.perform(get("/product/image/2/thumbnail")).andReturn().getResponse().getStatus());
+    }
+    private ProductImageService cachedService(java.nio.file.Path directory,byte[][] bytes,
+            java.util.concurrent.atomic.AtomicInteger queries) {
+        var service=new ProductImageService() {
+            @Override public com.fruitude.product.model.ProductImageRepository.ProductImageSource getImageSource(Integer id) {
+                queries.incrementAndGet();if(bytes[0]==null)return null;
+                byte[] current=bytes[0].clone();
+                return new com.fruitude.product.model.ProductImageRepository.ProductImageSource() {
+                    public byte[] getImageData(){return current;}public String getImageType(){return "image/png";}
+                };
+            }
+            @Override public ProductThumbnailSource getThumbnailSource(Integer id) {
+                queries.incrementAndGet();return bytes[0]==null?null:()->bytes[0];
+            }
+        };
+        ReflectionTestUtils.setField(service,"cacheDirectory",directory.toString());service.initializeImageCache();return service;
+    }
+    private final java.util.List<java.nio.file.Path> temporary=new java.util.ArrayList<>();
+    private java.nio.file.Path cacheDirectory() throws Exception {
+        var dir=java.nio.file.Files.createTempDirectory("fruitude-image-cache-test-");temporary.add(dir);return dir;
+    }
+    @org.junit.After public void removeTemporaryCaches() throws Exception {
+        for(var dir:temporary)try(var files=java.nio.file.Files.walk(dir)){for(var p:files.sorted(java.util.Comparator.reverseOrder()).toList())java.nio.file.Files.deleteIfExists(p);}
+    }
+    @Test public void originalAndThumbnailReuseDiskCacheWithoutAnotherBlobQuery() throws Exception {
+        var count=new java.util.concurrent.atomic.AtomicInteger();byte[][] data={image(800,400)};
+        var service=cachedService(cacheDirectory(),data,count);
+        assertArrayEquals(data[0],service.getCachedImage(7,false).data());
+        var thumbnail=service.getCachedImage(7,true);assertEquals("image/jpeg",thumbnail.type());
+        assertArrayEquals(thumbnail.data(),service.getCachedImage(7,true).data());
+        assertArrayEquals(data[0],service.getCachedImage(7,false).data());assertEquals(1,count.get());
+    }
+    @Test public void concurrentColdReadsFetchTheBlobOnce() throws Exception {
+        var count=new java.util.concurrent.atomic.AtomicInteger();byte[][] data={image(800,400)};
+        var service=cachedService(cacheDirectory(),data,count);var pool=java.util.concurrent.Executors.newFixedThreadPool(8);
+        try {var futures=new java.util.ArrayList<java.util.concurrent.Future<byte[]>>();
+            for(int i=0;i<16;i++)futures.add(pool.submit(()->service.getCachedImage(7,true).data()));
+            byte[] first=futures.get(0).get();for(var future:futures)assertArrayEquals(first,future.get());assertEquals(1,count.get());
+        }finally{pool.shutdownNow();}
+    }
+    @Test public void imageListenerInvalidatesBothSizesOnlyAfterCommitAndRollbackKeepsThem() throws Exception {
+        var count=new java.util.concurrent.atomic.AtomicInteger();byte[][] data={image(800,400)};
+        var service=cachedService(cacheDirectory(),data,count);
+        var beans=new org.springframework.beans.factory.support.StaticListableBeanFactory();beans.addBean("images",service);
+        var listener=new ProductImageService.ImageCacheListener();ReflectionTestUtils.setField(listener,"service",beans.getBeanProvider(ProductImageService.class));
+        var entity=new com.fruitude.product.model.ProductImage();entity.setImageId(7);
+        String old=service.imageVersion(7);var original=service.getCachedImage(7,false);var thumbnail=service.getCachedImage(7,true);
+        var tx=org.springframework.transaction.support.TransactionSynchronizationManager.class;
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {listener.changed(entity);assertEquals(old,service.imageVersion(7));}
+        finally {org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();}
+        assertEquals(old,service.imageVersion(7));assertEquals(1,count.get());assertArrayEquals(original.data(),service.getCachedImage(7,false).data());
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {listener.changed(entity);data[0]=image(400,800);for(var callback:org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations())callback.afterCommit();}
+        finally {org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();}
+        assertNotEquals(old,service.imageVersion(7));assertNotEquals(original.etag(),service.getCachedImage(7,false).etag());
+        assertNotEquals(thumbnail.etag(),service.getCachedImage(7,true).etag());assertEquals(2,count.get());
+        data[0]=null;listener.changed(entity);assertNull(service.getCachedImage(7,false));assertNull(service.getCachedImage(7,true));
+    }
+    @Test public void corruptedAndExpiredFilesAreRebuiltAndCacheCapacityIsBounded() throws Exception {
+        var count=new java.util.concurrent.atomic.AtomicInteger();byte[][] data={image(800,400)};var dir=cacheDirectory();
+        var service=cachedService(dir,data,count);service.getCachedImage(7,false);
+        java.nio.file.Path file;try(var paths=java.nio.file.Files.walk(dir)){file=paths.filter(p->p.toString().endsWith(".pic")).findFirst().orElseThrow();}
+        java.nio.file.Files.write(file,new byte[]{0});assertArrayEquals(data[0],service.getCachedImage(7,false).data());assertEquals(2,count.get());
+        try(var writer=new java.io.RandomAccessFile(file.toFile(),"rw")){writer.seek(4);writer.writeLong(0);}
+        assertNotNull(service.getCachedImage(7,false));assertEquals(3,count.get());
+        ReflectionTestUtils.setField(service,"cacheMaxBytes",(long)data[0].length+1100);service.initializeImageCache();
+        service.getCachedImage(8,false);service.getCachedImage(9,false);
+        try(var paths=java.nio.file.Files.walk(dir)){long total=paths.filter(p->p.toString().endsWith(".pic")).mapToLong(p->{try{return java.nio.file.Files.size(p);}catch(Exception e){throw new RuntimeException(e);}}).sum();assertTrue(total<=data[0].length+1100);}
+    }
+    @Test public void unwritableCacheStillServesImagesAndVersionedBrowserCacheRevalidates() throws Exception {
+        var count=new java.util.concurrent.atomic.AtomicInteger();byte[][] data={image(800,400)};var dir=cacheDirectory();
+        var blocking=dir.resolve("not-a-directory");java.nio.file.Files.writeString(blocking,"blocking");
+        var fallback=cachedService(blocking,data,count);assertArrayEquals(data[0],fallback.getCachedImage(7,false).data());
+        var service=cachedService(dir.resolve("good"),data,new java.util.concurrent.atomic.AtomicInteger());
+        var controller=new ProductImageController();ReflectionTestUtils.setField(controller,"productImageService",service);
+        var mvc=MockMvcBuilders.standaloneSetup(controller).build();String version=service.imageVersion(7);
+        var first=mvc.perform(get("/product/image/7").param("v",version)).andReturn().getResponse();
+        assertTrue(first.getHeader("Cache-Control").contains("max-age=1800"));
+        assertEquals(304,mvc.perform(get("/product/image/7").param("v",version).header("If-None-Match",first.getHeader("ETag"))).andReturn().getResponse().getStatus());
+        data[0]=image(400,800);service.invalidateImageAfterCommit(7);
+        var stale=mvc.perform(get("/product/image/7").param("v",version).header("If-None-Match",first.getHeader("ETag"))).andReturn().getResponse();
+        assertEquals(200,stale.getStatus());assertTrue(stale.getHeader("Cache-Control").contains("no-cache"));
     }
 }

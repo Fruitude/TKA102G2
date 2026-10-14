@@ -16,6 +16,13 @@ import jakarta.servlet.http.HttpSession;
 
 @Controller
 public class FrontProductController {
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private com.fruitude.product.model.ProductImageService imageCache;
+    @org.springframework.web.bind.annotation.ModelAttribute("productImageVersions")
+    public java.util.Map<Integer,String> productImageVersions() {
+        return imageCache==null ? java.util.Map.of() : imageCache.browserVersions();
+    }
+
     // 小農資訊頁的一位小農：資料來自 farmer 與 vendor（後台資訊管理勾選「顯示在小農資訊」），故事依換行拆成段落
     public record FarmerView(Integer vendorId, String name, String origin, String growProduct, String imagePath,
         String slogan, List<String> paragraphs, List<ProductView> products) {}
@@ -31,12 +38,40 @@ public class FrontProductController {
         this.ordersService = ordersService;
     }
 
+    @GetMapping("/front/search-dialog/")
+    public String searchDialog(HttpSession session,Model model,jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control","no-store");
+        var query=session.getAttribute("product.lastSearch") instanceof FrontCatalogService.SearchQuery saved?saved:FrontCatalogService.SearchQuery.empty();
+        var result=FrontCatalogService.search(catalog.searchData(),query,0);
+        model.addAttribute("searchQuery",query);model.addAttribute("searchOptions",result.options());
+        return "front/search/dialog";
+    }
+    @GetMapping("/front/search")
+    public String canonicalSearch(jakarta.servlet.http.HttpServletRequest request) {
+        String query=request.getQueryString();return "redirect:/front/search/"+(query==null?"":"?"+query);
+    }
+    @GetMapping("/front/search/")
+    public String searchProducts(@RequestParam(defaultValue="") String q,@RequestParam(required=false) Integer category,
+            @RequestParam(defaultValue="") String origin,@RequestParam(required=false) Integer vendor,
+            @RequestParam(defaultValue="") String promotion,@RequestParam(defaultValue="false") boolean highRated,
+            @RequestParam(defaultValue="0") int page,HttpSession session,Model model,jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control","no-store");
+        try {
+            var query=new FrontCatalogService.SearchQuery(q,category,origin,vendor,promotion,highRated);
+            var result=FrontCatalogService.search(catalog.searchData(),query,page);
+            session.setAttribute("product.lastSearch",query);model.addAttribute("searchQuery",query);model.addAttribute("searchResult",result);
+            model.addAttribute("searchProducts",result.products());return "front/search/index";
+        }catch(IllegalArgumentException invalid){throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST,invalid.getMessage());}
+    }
+
+
     @GetMapping("/front")
     public String canonicalHome() { return "redirect:/front/"; }
 
     @GetMapping({"/front/", "/front/index", "/front/index.html"})
     public String homePage(Model model, HttpSession session, jakarta.servlet.http.HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-store");
+        model.addAttribute("homeFeedback", catalog.getHomeFeedback());
         model.addAttribute("bestSellerProducts", catalog.getBestSellers());
         model.addAttribute("topRatedProducts", catalog.getTopRatedProducts());
         // 首頁活動區塊：限時活動與會員專屬福利。會員身分只信任 session，用來標示目前符合資格的福利（壽星月、新會員首購）
@@ -49,6 +84,7 @@ public class FrontProductController {
     }
 
     public String home(Model model) {
+        model.addAttribute("homeFeedback", catalog.getHomeFeedback());
         List<ProductView> products = catalog.getProducts();
         model.addAttribute("freshProducts", products.stream().filter(p -> !p.giftBox()).toList());
         model.addAttribute("giftProducts", products.stream().filter(ProductView::giftBox).toList());
@@ -79,8 +115,62 @@ public class FrontProductController {
     public String allProducts(Model model, HttpSession session, jakarta.servlet.http.HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-store");
         Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
-        model.addAttribute("allProducts", catalog.getAllProducts(memberId, List.of()));
+        var products = catalog.getAllProducts(memberId, List.of());
+        String token = java.util.UUID.randomUUID().toString();
+        synchronized (session) {
+            var snapshots = catalogSnapshots(session);
+            snapshots.put(token, new CatalogSnapshot(List.copyOf(products), memberId, System.currentTimeMillis(), false));
+            while (snapshots.size() > 4) snapshots.remove(snapshots.keySet().iterator().next());
+        }
+        model.addAttribute("allProducts", products.subList(0, Math.min(20, products.size())));
+        model.addAttribute("catalogToken", token);
+        model.addAttribute("catalogTotal", products.size());
+        model.addAttribute("catalogOffset", Math.min(20, products.size()));
         return "front/all-products/index";
+    }
+
+    private record CatalogSnapshot(List<ProductView> products, Integer memberId, long created, boolean personalized) {}
+
+    @SuppressWarnings("unchecked")
+    private java.util.LinkedHashMap<String, CatalogSnapshot> catalogSnapshots(HttpSession session) {
+        var snapshots = (java.util.LinkedHashMap<String, CatalogSnapshot>) session.getAttribute("product.catalogSnapshots");
+        if (snapshots == null) {
+            snapshots = new java.util.LinkedHashMap<>();
+            session.setAttribute("product.catalogSnapshots", snapshots);
+        }
+        snapshots.values().removeIf(snapshot -> System.currentTimeMillis() - snapshot.created() > 15 * 60_000L);
+        return snapshots;
+    }
+
+    @GetMapping("/front/api/catalog-batch")
+    public String catalogBatch(@RequestParam String token, @RequestParam int offset,
+            @RequestParam(required=false) List<Integer> favoriteProductIds, HttpSession session,
+            Model model, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        if (offset < 0 || (favoriteProductIds != null && (favoriteProductIds.size() > 500
+                || favoriteProductIds.stream().anyMatch(id -> id == null || id <= 0))))
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST);
+        Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
+        List<ProductView> products;
+        synchronized (session) {
+            var snapshots = catalogSnapshots(session);
+            var snapshot = snapshots.get(token);
+            if (snapshot == null || !java.util.Objects.equals(memberId, snapshot.memberId()))
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.GONE);
+            products = snapshot.products();
+            // Personalize once, before fetching later batches; never reshuffle on scrolling or favorite toggles.
+            if (offset == 0 && !snapshot.personalized() && memberId != null
+                    && favoriteProductIds != null && !favoriteProductIds.isEmpty()) {
+                products = catalog.rankExistingProducts(products, memberId, favoriteProductIds);
+                snapshots.put(token, new CatalogSnapshot(List.copyOf(products), memberId, snapshot.created(), true));
+            }
+        }
+        if (offset > products.size()) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST);
+        int end = Math.min(products.size(), offset + 20);
+        model.addAttribute("products", products.subList(offset, end));
+        response.setHeader("X-Catalog-Next", String.valueOf(end));
+        response.setHeader("X-Catalog-Total", String.valueOf(products.size()));
+        return "front/fragments/product-grid :: purchaseCards";
     }
 
     @ResponseBody
@@ -123,9 +213,12 @@ public class FrontProductController {
         Integer id = productId != null ? productId : products.stream().filter(p -> name != null && name.equals(p.name())).map(ProductView::productId).findFirst().orElse(null);
         ProductView selected = catalog.getLiveProduct(id);
         model.addAttribute("dbProduct", selected);
+        model.addAttribute("productSupplier", selected == null ? null : catalog.getProductSupplier(selected.productId()));
+        model.addAttribute("reviewSkus",selected==null ? List.of() : selected.skus().stream()
+            .filter(sku->java.util.Set.of(1,2,3,4,6).contains(sku.skuStatus())).toList());
         model.addAttribute("productReviews", selected==null || catalog==null
             ? com.fruitude.product.model.FrontCatalogService.ReviewPage.empty() : catalog.read(selected.productId(),0,3));
-        model.addAttribute("relatedProducts", com.fruitude.product.model.FrontCatalogService.recommend(selected,products,5));
+        model.addAttribute("relatedProducts", com.fruitude.product.model.FrontCatalogService.recommend(selected,products,60));
         return "front/product/view/index";
     }
 
@@ -137,6 +230,33 @@ public class FrontProductController {
         return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(catalog.getLiveSkus(skuIds));
     }
 
+    @ModelAttribute("productReviewReportToken")
+    public String productReviewReportToken(jakarta.servlet.http.HttpServletRequest request) {
+        var session=request.getSession(false);
+        if(session==null||!(session.getAttribute("loggedInMemberId") instanceof Integer))return "";
+        synchronized(session){var token=session.getAttribute("product.reviewReportToken");
+            if(!(token instanceof String)){token=java.util.UUID.randomUUID().toString();session.setAttribute("product.reviewReportToken",token);}
+            return (String)token;}
+    }
+    public record ReviewReportRequest(Integer productId,String reason,String note) {}
+    @ResponseBody
+    @PostMapping(value="/front/api/product-reviews/{reviewId}/report",consumes=MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> reportReview(@PathVariable int reviewId,@RequestBody ReviewReportRequest form,
+            @RequestHeader(value="X-Product-Review-Token",required=false) String token,HttpSession session,jakarta.servlet.http.HttpServletRequest request) {
+        if(!(session.getAttribute("loggedInMemberId") instanceof Integer memberId))
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(java.util.Map.of("message","請先登入會員後再檢舉"));
+        if(token==null||!token.equals(session.getAttribute("product.reviewReportToken")))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of("message","請重新整理頁面後再試"));
+        if(form==null||form.productId()==null||form.productId()<=0||reviewId<=0)
+            return ResponseEntity.badRequest().body(java.util.Map.of("message","檢舉資料不正確"));
+        try {
+            boolean changed=catalog.reportReview(form.productId(),reviewId,memberId,form.reason(),form.note(),request.getRemoteAddr());
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(java.util.Map.of("reported",changed,
+                "message",changed?"檢舉已送出，評論已暫時隱藏，評分與評論數保留。":"此評論已被檢舉或不再公開。"));
+        }catch(SecurityException invalid){return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of("message",invalid.getMessage()));}
+        catch(IllegalArgumentException invalid){return ResponseEntity.badRequest().body(java.util.Map.of("message",invalid.getMessage()));}
+    }
+
     // ProductController endpoints
 
 
@@ -144,10 +264,11 @@ public class FrontProductController {
     @ResponseBody
     @GetMapping("/front/api/product-reviews")
     public ResponseEntity<?> read(@RequestParam int productId,@RequestParam(defaultValue="0") int page,
-        @RequestParam(defaultValue="") String keyword,@RequestParam(defaultValue="latest") String sort) {
+        @RequestParam(defaultValue="") String keyword,@RequestParam(defaultValue="latest") String sort,
+        @RequestParam(required=false) Integer skuId,@RequestParam(defaultValue="20") int size) {
         if(productId<=0 || page<0 || page>100000)return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).build();
         try {
-            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(catalog.read(productId,page,20,keyword,sort));
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(catalog.read(productId,page,size,keyword,sort,skuId));
         } catch(IllegalArgumentException ex) {
             return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).body(java.util.Map.of("message",ex.getMessage()));
         }

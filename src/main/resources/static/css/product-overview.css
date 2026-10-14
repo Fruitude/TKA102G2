@@ -264,3 +264,7 @@ tr.product-off td {
 #page-status-results[hidden] { display: none; }
 #page-status-results summary { cursor: pointer; }
 #page-status-results ul { margin: 8px 0 0; padding-left: 20px; }
+
+/* Keep the search controls steady as result counts change. */
+html { scrollbar-gutter: stable; overflow-anchor: none; }
+#product-results { overflow-anchor: none; }

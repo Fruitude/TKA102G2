@@ -236,3 +236,23 @@ body.home-orange-theme {
 }
 .home-orange-theme .section-produtcs-hero.front-theme-circles { background-color: var(--home-paper); color: var(--home-text); }
 .home-orange-theme .section-produtcs-hero.front-theme-circles h1 { color: var(--home-heading); }
+
+
+/* Real member comments and fruit-person fallback avatars on the homepage. */
+.home-feedback .quote-slider-2{padding:30px 36px 90px;border-color:#c8d3b8;border-radius:20px;background:#fffdf3}
+.home-feedback .quote-grid{grid-template-columns:210px minmax(0,1fr);gap:36px;align-items:center;min-height:290px}
+.home-feedback .quote-mask-2{min-height:290px}
+.home-feedback .quote-image-wrapper{max-width:210px;overflow:hidden;border-radius:50%;background:#fff3c9}
+.home-feedback .home-review-fruit-avatar{display:block;width:100%;height:auto;aspect-ratio:1}
+.home-feedback .quote-heading-wrapper{min-width:0}
+.home-feedback .quote-heading-2{text-align:left;font-family:inherit;font-style:normal;font-size:clamp(21px,2.1vw,30px);line-height:1.55;margin:10px 0 16px;max-width:15em}.home-review-line{display:block;white-space:pre}
+.home-review-stars{color:#d58e16;font-size:22px;letter-spacing:3px}
+.home-review-meta{display:flex;gap:16px;flex-wrap:wrap;color:#60704f;font-size:14px}.home-review-product{color:#6f795f;font-size:14px;margin:9px 0 0;overflow-wrap:anywhere}
+.home-feedback .quote-arrow{width:44px;height:44px;margin-bottom:22px;margin-right:28px;font-size:18px;border-color:#84946e}.home-feedback .quote-arrow.arrow-left{margin-right:84px}
+.home-feedback .quote-slide-nav{bottom:22px}
+.home-feedback-empty{text-align:center;border:1px solid #c8d3b8;border-radius:20px;background:#fffdf3;padding:25px;color:#60704f}.home-feedback-empty img{display:block;margin:0 auto 15px}
+@media(max-width:767px){.home-feedback .quote-slider-2{padding:24px 20px 85px}.home-feedback .quote-grid{grid-template-columns:130px minmax(0,1fr);gap:20px}.home-feedback .quote-heading-2{font-size:21px}}
+@media(max-width:479px){.home-feedback .quote-grid{grid-template-columns:minmax(0,1fr);gap:16px;min-height:390px;align-content:start}.home-feedback .quote-mask-2{min-height:390px}.home-feedback .quote-image-wrapper{max-width:128px;margin:0 auto}.home-feedback .quote-heading-2{font-size:clamp(14px,calc((100vw - 116px)/15),20px)}.home-review-stars{text-align:center}.home-feedback .quote-metrtics-grid{gap:24px}}
+
+.home-feedback .home-review-link{display:grid;width:100%;color:inherit;text-decoration:none;border-radius:12px}
+.home-feedback .home-review-link:focus-visible{outline:3px solid #be6037;outline-offset:-3px}

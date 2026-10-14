@@ -827,6 +827,8 @@
 
   function initHomePurchaseCards() {
     document.querySelectorAll(".products-purchase-card").forEach(function (card) {
+      if (card.dataset.purchaseInitialized) return;
+      card.dataset.purchaseInitialized = "true";
       var select = card.querySelector(".home-card-sku");
       var qty = card.querySelector(".home-card-quantity");
       var button = card.querySelector(".home-card-add");
@@ -874,9 +876,7 @@
         updateTotalPrice();
         showQuantityNotice();
       }
-      dropdown.addEventListener("mouseenter", function () { setOpen(true); });
-      dropdown.addEventListener("mouseleave", function () { setOpen(false); });
-      trigger.addEventListener("click", function () { setOpen(true); });
+      trigger.addEventListener("click", function () { setOpen(!dropdown.classList.contains("is-open")); });
       dropdown.addEventListener("keydown", function (event) {
         if (event.key === "Escape") { setOpen(false); trigger.focus(); }
       });
@@ -919,12 +919,14 @@
     });
   }
 
+  var slideshows = [];
+  var carouselStarted = false;
   function initProductImageCarousels() {
-    var slideshows = [];
     document.querySelectorAll(".products-card-link").forEach(function (card) {
       var sources = card.querySelectorAll("[data-carousel-url]");
       var image = card.querySelector(".products-item-image");
-      if (!sources.length || !image) return;
+      if (!sources.length || !image || card.dataset.carouselInitialized) return;
+      card.dataset.carouselInitialized = "true";
       var wrapper = image.parentElement;
       wrapper.style.position = "relative";
       wrapper.style.overflow = "hidden";
@@ -945,7 +947,8 @@
       reset();
       slideshows.push(state);
     });
-    if (!slideshows.length) return;
+    if (!slideshows.length || carouselStarted) return;
+    carouselStarted = true;
     function advance() {
       if (document.hidden) return;
       slideshows.forEach(function (state) {
@@ -1424,6 +1427,7 @@
     // this script's own startup pass (e.g. product/view/'s related-items
     // grid) can request the quick-add icon for those new cards too.
     injectCardAddToCartButtons: injectCardAddToCartButtons,
+    initPurchaseCards: function () { initHomePurchaseCards(); initProductImageCarousels(); },
     verify: verifyCart,
     quantityNotice: quantityNotice,
     // 讓會員最愛等其他前台頁面，也能沿用商品頁相同的庫存與價格驗證。

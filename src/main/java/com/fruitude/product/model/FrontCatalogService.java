@@ -27,10 +27,22 @@ public class FrontCatalogService {
     private volatile RankedCatalog rankedCatalog;
 
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public List<ProductView> getBestSellers() { return cachedRankedCatalog().bestSellers(); }
+    public List<ProductView> getBestSellers() { return withCurrentReviewRatings(cachedRankedCatalog().bestSellers()); }
 
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public List<ProductView> getTopRatedProducts() { return cachedRankedCatalog().topRated(); }
+    public List<ProductView> getTopRatedProducts() { return withCurrentReviewRatings(cachedRankedCatalog().topRated()); }
+
+    // Keep the daily ordering while showing ratings from status 1/2, never stale hidden-review totals.
+    private List<ProductView> withCurrentReviewRatings(List<ProductView> products) {
+        if(reviewJdbc==null||products.isEmpty())return products;
+        var ratings=new HashMap<Integer,Double>();
+        reviewJdbc.query("SELECT s.product_id,ROUND(AVG(d.comment_star),1) AS rating FROM orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id "
+            +"WHERE s.product_id IN (:ids) AND d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5 "
+            +"AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' GROUP BY s.product_id",
+            Map.of("ids",products.stream().map(ProductView::productId).toList()),rs->{ratings.put(rs.getInt("product_id"),rs.getDouble("rating"));});
+        return products.stream().map(p->new ProductView(p.productId(),p.name(),p.description(),p.price(),p.originalPrice(),p.skuId(),p.imageId(),
+            p.giftBox(),p.skus(),p.stock(),ratings.getOrDefault(p.productId(),0.0))).toList();
+    }
 
     private RankedCatalog cachedRankedCatalog() {
         var snapshot = rankedCatalog;
@@ -75,7 +87,7 @@ public class FrontCatalogService {
 
     @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public void initializeRankedCatalog() { cachedRankedCatalog(); }
+    public void initializeRankedCatalog() { cachedRankedCatalog(); cachedHomeReviews(); }
 
     // Front catalog and live SKU reads
 
@@ -90,6 +102,19 @@ public class FrontCatalogService {
     public record SkuView(Integer skuId, String name, Integer price, Integer originalPrice, Integer stock, Integer imageId, List<Integer> imageIds, Integer skuStatus) {}
     public record ProductView(Integer productId, String name, String description, Integer price, Integer originalPrice,
         Integer skuId, Integer imageId, boolean giftBox, List<SkuView> skus, Integer stock, Double averageRating) {}
+    public record ProductSupplier(Integer vendorId, String name, String origin, boolean hasLogo, Integer farmerPosition) {
+        public ProductSupplier {
+            if (origin != null) origin = origin.strip().replaceFirst("^(?:台灣|臺灣)[\s、，,／/：:-]*", "");
+        }
+    }
+
+    @Transactional(readOnly=true)
+    public ProductSupplier getProductSupplier(Integer productId) {
+        if (productId == null || repository == null) return null;
+        var row = repository.findProductSupplier(productId);
+        return row == null ? null : new ProductSupplier(row.getVendorId(), row.getName(), row.getOrigin(),
+            Integer.valueOf(1).equals(row.getHasLogo()), row.getFarmerPosition());
+    }
     public record LiveSku(Integer skuId, String name, String skuName, Integer price, Integer originalPrice, int stock, boolean available, Integer skuStatus) {}
 
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
@@ -113,6 +138,12 @@ public class FrontCatalogService {
             if (product != null) result.get(row.getVendorId()).add(product);
         }
         return result;
+    }
+
+    @Transactional(readOnly=true)
+    public List<ProductView> rankExistingProducts(List<ProductView> products, Integer memberId,
+            Collection<Integer> favoriteProductIds) {
+        return rankCatalog(products, repository.findCatalogPriorities(memberId), memberId != null, favoriteProductIds);
     }
 
     public static List<ProductView> rankCatalog(List<ProductView> products,
@@ -174,7 +205,7 @@ public class FrontCatalogService {
            return new SkuView(row.getSkuId(), ProductSku.resolveDisplayName(row.getSkuName(), row.getAnotherName()) + (Integer.valueOf(4).equals(row.getSkuStatus()) ? "（售完）" : (Integer.valueOf(6).equals(row.getSkuStatus()) ? "（即將停產）" : "")), promoPrices.getOrDefault(row.getSkuId(), row.getPrice()), row.getPrice(), quantityLimit(row.getSkuStatus(), row.getStock(), row.getInboundQty(), row.getOutboundQty(), row.getMaxBackorderQty(),rates.getOrDefault(row.getSkuId(),SkuSupplyService.DEFAULT_YIELD)),
                     ids.isEmpty() ? null : ids.get(0), ids, row.getSkuStatus());
             }).toList();
-            SkuView cheapest = skus.stream().filter(s -> s.stock() > 0 && Set.of(1,2,3,6).contains(s.skuStatus())).min(Comparator.comparing(SkuView::price).thenComparing(SkuView::skuId)).orElse(null);
+            SkuView cheapest = skus.stream().filter(s -> s.stock() > 0 && Set.of(1,2,3,6).contains(s.skuStatus())).min(Comparator.comparingInt((SkuView s) -> s.originalPrice() != null && s.price() < s.originalPrice() ? 0 : 1).thenComparing(SkuView::price).thenComparing(SkuView::skuId)).orElse(null);
             if (cheapest == null) continue;
             boolean giftBox = containsGift(product.getName()) || skus.stream().anyMatch(s -> containsGift(s.name())) || group.stream().anyMatch(row -> containsGift(row.getSkuName()));
             Set<Integer> visited = new HashSet<>();
@@ -252,11 +283,189 @@ public class FrontCatalogService {
     /** 保留既有活動／商品更新呼叫的介面；商品資料已取消快取，每次請求直接讀取。 */
     public void clearCache() { }
 
+    public record SearchQuery(String q,Integer category,String origin,Integer vendor,String promotion,boolean highRated) implements java.io.Serializable {
+        public SearchQuery {
+            q=q==null?"":q.strip();origin=origin==null?"":origin.strip();promotion=promotion==null?"":promotion.strip();
+            if(q.length()>20 || origin.length()>100 || (category!=null&&category<1) || (vendor!=null&&vendor<1)
+                    || (!promotion.isEmpty()&&!promotion.equals("any")&&!promotion.matches("[1-9][0-9]{0,8}"))) throw new IllegalArgumentException("搜尋條件不正確");
+        }
+        public static SearchQuery empty(){return new SearchQuery("",null,"",null,"",false);}
+    }
+    public record SearchOption(String value,String label,String parent) { public SearchOption(String value,String label){this(value,label,"");} }
+    public record SearchMeta(Integer productId,Integer categoryId,Integer vendorId,String vendorName,String origin,double rating) {}
+    public record SearchPromotion(Integer productId,Integer promotionId,String title) {}
+    public record SearchData(List<ProductView> products,List<SearchMeta> metadata,
+            List<ProductRepository.FrontCategoryRow> categories,List<SearchPromotion> promotions) {}
+    public record SearchOptions(List<SearchOption> categories,List<SearchOption> origins,List<SearchOption> vendors,List<SearchOption> promotions) {}
+    public record SearchResult(List<ProductView> products,int total,int page,int pages,SearchOptions options,List<String> conditions) {}
+
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public SearchData searchData() {
+        var products=loadProducts(null);var categories=repository.findFrontCategories();
+        if(products.isEmpty()||reviewJdbc==null)return new SearchData(products,List.of(),categories,List.of());
+        var ids=products.stream().map(ProductView::productId).toList();
+        var params=new HashMap<String,Object>();params.put("ids",ids);params.put("now",LocalDateTime.now(java.time.ZoneId.of("Asia/Taipei")));
+        var metadata=reviewJdbc.query("""
+            SELECT p.product_id,p.product_category_id,p.vendor_id,COALESCE(v.vendor_name,'') vendor_name,
+              COALESCE(v.origin,'') origin,COALESCE(r.rating,0) rating
+            FROM product p LEFT JOIN vendor v ON v.vendor_id=p.vendor_id
+            LEFT JOIN (SELECT s.product_id,AVG(d.comment_star) rating FROM orders_detail d
+              JOIN product_sku s ON s.sku_id=d.sku_id WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5
+              AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' GROUP BY s.product_id) r ON r.product_id=p.product_id
+            WHERE p.product_id IN (:ids)
+            """,params,(r,n)->new SearchMeta(r.getInt("product_id"),r.getObject("product_category_id",Integer.class),r.getObject("vendor_id",Integer.class),r.getString("vendor_name"),r.getString("origin").strip(),r.getDouble("rating")));
+        params.put("searchSkuIds",products.stream().flatMap(p->p.skus().stream()).filter(s->s.stock()>0 && Set.of(1,2,3,6).contains(s.skuStatus())).map(SkuView::skuId).distinct().toList());
+        var promotions=reviewJdbc.query("""
+            SELECT DISTINCT s.product_id,pj.promo_project_id,pj.promo_project_title
+            FROM promotion pm JOIN promo_project pj ON pj.promo_project_id=pm.promo_project_id
+            JOIN product_sku s ON s.sku_id=pm.sku_id
+            WHERE s.sku_id IN (:searchSkuIds) AND s.status IN (1,2,3,6) AND s.price>0
+              AND pj.promo_type='SKU' AND pj.status=1 AND pj.promo_project_start<=:now AND pj.promo_project_end>=:now
+              AND pm.promo_price>0 AND pm.promo_price<s.price
+            ORDER BY pj.promo_project_id,s.product_id
+            """,params,(r,n)->new SearchPromotion(r.getInt(1),r.getInt(2),r.getString(3)));
+        return new SearchData(products,metadata,categories,promotions);
+    }
+    private static String searchOriginLabel(String origin) {
+        String label=origin.strip().replaceFirst("^(?:台灣|臺灣)[\\s、，,／/：:-]*", "");
+        return label.isBlank()?"全台":label;
+    }
+    private static int searchOriginOrder(String origin) {
+        String label=searchOriginLabel(origin).replace('臺','台');
+        // 西部由北到南，接著東部由北到南，最後離島；其他產地排在後面。
+        var counties=List.of("基隆","台北","新北","桃園","新竹","苗栗","台中","彰化","南投","雲林","嘉義","台南","高雄","屏東",
+            "宜蘭","花蓮","台東","澎湖","金門","連江","馬祖");
+        for(int i=0;i<counties.size();i++)if(label.startsWith(counties.get(i)))return i;
+        if(origin.strip().startsWith("台灣")||origin.strip().startsWith("臺灣")||label.equals("全台"))return counties.size();
+        return counties.size()+1;
+    }
+
+    private static String searchText(String text) {
+        return java.text.Normalizer.normalize(text==null?"":text,java.text.Normalizer.Form.NFKC).toLowerCase(Locale.ROOT).replace('臺','台');
+    }
+    private static Set<Integer> categoryPath(Integer id,Map<Integer,ProductRepository.FrontCategoryRow> categories) {
+        var path=new LinkedHashSet<Integer>();while(id!=null&&path.add(id)){var row=categories.get(id);id=row==null?null:row.getParentId();}return path;
+    }
+    public static SearchResult search(SearchData data,SearchQuery query,int page) {
+        if(page<0||page>100000)throw new IllegalArgumentException("搜尋頁碼不正確");
+        var categoryMap=new HashMap<Integer,ProductRepository.FrontCategoryRow>();data.categories().forEach(c->categoryMap.put(c.getCategoryId(),c));
+        var meta=new HashMap<Integer,SearchMeta>();data.metadata().forEach(m->meta.put(m.productId(),m));
+        var categoryIds=new HashSet<Integer>();data.metadata().forEach(m->categoryIds.addAll(categoryPath(m.categoryId(),categoryMap)));
+        var categoryOptions=data.categories().stream().filter(c->categoryIds.contains(c.getCategoryId())).map(c->{
+            var names=categoryPath(c.getCategoryId(),categoryMap).stream().map(categoryMap::get).filter(Objects::nonNull).map(ProductRepository.FrontCategoryRow::getName).toList();
+            var label=new ArrayList<>(names);Collections.reverse(label);return new SearchOption(c.getCategoryId().toString(),String.join(" › ",label),c.getParentId()==null?"":c.getParentId().toString());
+        }).sorted(Comparator.comparing(SearchOption::label)).toList();
+        var originOptions=data.metadata().stream().map(SearchMeta::origin).filter(s->!s.isBlank()).distinct().sorted(Comparator.comparingInt(FrontCatalogService::searchOriginOrder).thenComparing(FrontCatalogService::searchOriginLabel).thenComparing(s->s)).map(s->new SearchOption(s,searchOriginLabel(s))).toList();
+        var vendors=new TreeMap<Integer,String>();data.metadata().forEach(m->{if(m.vendorId()!=null&&!m.vendorName().isBlank())vendors.put(m.vendorId(),m.vendorName());});
+        var vendorOptions=vendors.entrySet().stream().map(e->new SearchOption(e.getKey().toString(),e.getValue())).toList();
+        var promos=new TreeMap<Integer,String>();data.promotions().forEach(p->promos.put(p.promotionId(),p.title()));
+        var promoOptions=promos.entrySet().stream().map(e->new SearchOption(e.getKey().toString(),e.getValue())).toList();
+        var options=new SearchOptions(categoryOptions,originOptions,vendorOptions,promoOptions);
+        String text=searchText(query.q());var words=text.isBlank()?List.<String>of():List.of(text.split("\\s+"));
+        var matches=data.products().stream().filter(p->{
+            var m=meta.get(p.productId());
+            if(query.category()!=null&&(m==null||!categoryPath(m.categoryId(),categoryMap).contains(query.category())))return false;
+            if(!query.origin().isBlank()&&(m==null||!query.origin().equals(m.origin())))return false;
+            if(query.vendor()!=null&&(m==null||!query.vendor().equals(m.vendorId())))return false;
+            if(query.highRated()&&(m==null||m.rating()<4||m.rating()>5))return false;
+            if(!query.promotion().isBlank()&&data.promotions().stream().noneMatch(promo->promo.productId().equals(p.productId())&&(query.promotion().equals("any")||query.promotion().equals(promo.promotionId().toString()))))return false;
+            String haystack=searchText(p.name()+" "+p.description()+" "+p.skus().stream().map(SkuView::name).collect(java.util.stream.Collectors.joining(" "))
+                +(m==null?"":" "+m.vendorName()+" "+m.origin())+(m==null?"":" "+categoryPath(m.categoryId(),categoryMap).stream().map(categoryMap::get).filter(Objects::nonNull).map(ProductRepository.FrontCategoryRow::getName).collect(java.util.stream.Collectors.joining(" "))));
+            return words.stream().allMatch(haystack::contains);
+        }).sorted(Comparator.comparingInt((ProductView p)->text.isBlank()||searchText(p.name()).contains(text)?0:1).thenComparing(ProductView::productId)).toList();
+        int pages=Math.max(1,(matches.size()+19)/20),current=Math.min(page,pages-1),start=Math.min(matches.size(),current*20);
+        var conditions=new ArrayList<String>();if(!query.q().isBlank())conditions.add("關鍵字："+query.q());
+        if(query.category()!=null)conditions.add("水果種類："+optionLabel(categoryOptions,query.category().toString()));
+        if(!query.origin().isBlank())conditions.add("產地："+searchOriginLabel(query.origin()));
+        if(query.vendor()!=null)conditions.add("供應商："+optionLabel(vendorOptions,query.vendor().toString()));
+        if(!query.promotion().isBlank())conditions.add("優惠活動："+(query.promotion().equals("any")?"所有商品優惠":optionLabel(promoOptions,query.promotion())));
+        if(query.highRated())conditions.add("評分：4～5 分");
+        return new SearchResult(matches.subList(start,Math.min(start+20,matches.size())),matches.size(),current,pages,options,List.copyOf(conditions));
+    }
+    private static String optionLabel(List<SearchOption> options,String value){return options.stream().filter(o->o.value().equals(value)).map(SearchOption::label).findFirst().orElse("已失效的條件");}
+
+
+    public record HomeReview(int reviewId,int productId,String account,int stars,String productName,String skuName,String text,LocalDateTime date) {
+        public String starsDisplay(){return "★".repeat(stars)+"☆".repeat(5-stars);}
+        public List<String> previewLines() {
+            var characters=new ArrayList<String>();
+            var matcher=Pattern.compile("\\X").matcher(text==null?"":text.strip().replaceAll("[\\s\\p{Zs}]+"," "));
+            while(matcher.find())characters.add(matcher.group());
+            if(characters.size()>60){characters=new ArrayList<>(characters.subList(0,57));characters.addAll(List.of(".",".","."));}
+            var lines=new ArrayList<String>();
+            for(int start=0;start<characters.size();start+=15)lines.add(String.join("",characters.subList(start,Math.min(start+15,characters.size()))));
+            return List.copyOf(lines);
+        }
+    }
+    public record HomeFeedback(List<HomeReview> reviews, long satisfiedMembers, long ratedReviews,
+            long totalStars, long commentedReviews, long recommendedReviews) {
+        public HomeFeedback { reviews=List.copyOf(reviews); }
+        public static HomeFeedback empty() { return new HomeFeedback(List.of(),0,0,0,0,0); }
+        public String satisfiedDisplay() { return Math.max(100,satisfiedMembers/100*100)+"+"; }
+        public String averageDisplay() { return String.format(java.util.Locale.ROOT,"%.1f/5",ratedReviews==0?0.0:(double)totalStars/ratedReviews); }
+        public String recommendationDisplay() { return (commentedReviews==0?0:Math.round(100.0*recommendedReviews/commentedReviews))+"%"; }
+    }
+
+    private volatile List<HomeReview> homeReviews;
+    private List<HomeReview> cachedHomeReviews() {
+        var reviews=homeReviews;
+        if(reviews==null)synchronized(this){if(homeReviews==null)refreshHomeReviews();reviews=homeReviews;}
+        return reviews;
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(cron="0 0 0 * * *",zone="Asia/Taipei")
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public synchronized void refreshHomeReviews() {
+        if(reviewJdbc==null){homeReviews=List.of();return;}
+        homeReviews=List.copyOf(reviewJdbc.query("""
+            SELECT d.orders_detail_id,s.product_id,m.member_account,d.comment_star,p.product_name AS product_name,
+                s.sku_name,s.another_name,d.comment_text,d.comment_date
+            FROM orders_detail d JOIN orders o ON o.orders_id=d.orders_id JOIN product_sku s ON s.sku_id=d.sku_id
+                JOIN product p ON p.product_id=s.product_id LEFT JOIN member m ON m.member_id=o.member_id
+            WHERE d.comment_status=1 AND d.comment_star BETWEEN 1 AND 5
+                AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>''
+            ORDER BY d.comment_star DESC,d.comment_date DESC,d.orders_detail_id DESC LIMIT 5
+            """,Map.<String,Object>of(),(rs,n)->{
+                var date=rs.getTimestamp("comment_date");
+                return new HomeReview(rs.getInt("orders_detail_id"),rs.getInt("product_id"),maskAccount(rs.getString("member_account")),rs.getInt("comment_star"),
+                    rs.getString("product_name"),ProductSku.resolveDisplayName(rs.getString("sku_name"),rs.getString("another_name")),
+                    rs.getString("comment_text"),date==null?null:date.toLocalDateTime());
+            }));
+    }
+
+    /** Live counts and moderation checks; carousel contents are selected only at midnight. */
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public HomeFeedback getHomeFeedback() {
+        if(reviewJdbc==null)return HomeFeedback.empty();
+        var cached=cachedHomeReviews();
+        var params=Map.<String,Object>of();
+        var summary=reviewJdbc.queryForMap("""
+            SELECT COUNT(DISTINCT CASE WHEN d.comment_star>=4 THEN o.member_id END) AS satisfied,
+                COUNT(*) AS rated,
+                COALESCE(SUM(d.comment_star),0) AS total_stars,
+                COUNT(CASE WHEN d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' THEN 1 END) AS commented,
+                COUNT(CASE WHEN d.comment_star>=4 AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' THEN 1 END) AS recommended
+            FROM orders_detail d JOIN orders o ON o.orders_id=d.orders_id JOIN product_sku s ON s.sku_id=d.sku_id
+            WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5
+            """,params);
+        List<HomeReview> reviews=List.of();
+        if(!cached.isEmpty()) {
+            var visible=new HashSet<>(reviewJdbc.queryForList("SELECT orders_detail_id FROM orders_detail WHERE orders_detail_id IN (:ids) AND comment_status=1",
+                Map.of("ids",cached.stream().map(HomeReview::reviewId).toList()),Integer.class));
+            reviews=cached.stream().filter(review->visible.contains(review.reviewId())).toList();
+        }
+        return new HomeFeedback(reviews,((Number)summary.get("satisfied")).longValue(),((Number)summary.get("rated")).longValue(),
+            ((Number)summary.get("total_stars")).longValue(),((Number)summary.get("commented")).longValue(),((Number)summary.get("recommended")).longValue());
+    }
+
+
     // Public product reviews
 
     private final NamedParameterJdbcTemplate reviewJdbc;
 
-    public record Review(String account, int stars, String skuName, String text, LocalDateTime date) {}
+    public record Review(Integer reviewId,String account,int stars,String skuName,String text,LocalDateTime date) {
+        public Review(String account,int stars,String skuName,String text,LocalDateTime date){this(null,account,stars,skuName,text,date);}
+    }
     public record StarCount(int stars,long count) {}
     public record ReviewPage(List<Review> reviews, long count, double average, int page, int size, boolean hasMore,
                              long totalCount,List<StarCount> distribution) {
@@ -265,7 +474,7 @@ public class FrontCatalogService {
     }
     private static final String FROM = " FROM orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id "
         +"JOIN orders o ON o.orders_id=d.orders_id LEFT JOIN member m ON m.member_id=o.member_id "
-        +"WHERE s.product_id=:id AND d.comment_status=1 AND d.comment_star BETWEEN 1 AND 5 "
+        +"WHERE s.product_id=:id AND d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5 "
         +"AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' "
         +"AND EXISTS (SELECT 1 FROM product p JOIN product_sku sale ON sale.product_id=p.product_id "
         +"WHERE p.product_id=s.product_id AND sale.price>0 AND ((p.status=1 AND sale.status IN (1,2,3,6)) OR (p.status=2 AND sale.status=6))) ";
@@ -273,7 +482,12 @@ public class FrontCatalogService {
     public ReviewPage read(int productId,int page,int size) { return read(productId,page,size,"","latest"); }
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public ReviewPage read(int productId, int page, int size, String keyword, String sort) {
+        return read(productId,page,size,keyword,sort,null);
+    }
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public ReviewPage read(int productId, int page, int size, String keyword, String sort, Integer skuId) {
         if(productId<=0 || page<0 || page>100000 || size<1 || size>20) throw new IllegalArgumentException("評論查詢參數不正確");
+        if(skuId!=null && skuId<=0)throw new IllegalArgumentException("評論規格不正確");
         String query=keyword==null?"":keyword.trim();
         if(query.length()>200)throw new IllegalArgumentException("搜尋文字最多200字");
         String order=switch(sort==null?"latest":sort) {
@@ -283,29 +497,65 @@ public class FrontCatalogService {
             default -> throw new IllegalArgumentException("評論排序不正確");
         };
         var params=new HashMap<String,Object>();params.put("id",productId);
+        String scope=FROM;
+        if(skuId!=null) {
+            params.put("sku",skuId);
+            Integer available=reviewJdbc.queryForObject("SELECT COUNT(*) FROM product_sku s JOIN product p ON p.product_id=s.product_id "
+                +"WHERE s.product_id=:id AND s.sku_id=:sku AND s.status IN(1,2,3,4,6) AND s.price>0 "
+                +"AND (p.status=1 OR (p.status=2 AND s.status=6))",params,Integer.class);
+            if(available==null || available!=1)throw new IllegalArgumentException("此規格不屬於商品或已下架、停產");
+            scope+="AND s.sku_id=:sku ";
+        }
         String histogram="";for(int star=1;star<=5;star++)histogram+=", COALESCE(SUM(d.comment_star="+star+"),0) AS star"+star;
-        var summary=reviewJdbc.queryForMap("SELECT COUNT(*) AS amount, COALESCE(ROUND(AVG(d.comment_star),1),0) AS average"+histogram+FROM,params);
+        var summary=reviewJdbc.queryForMap("SELECT COUNT(*) AS amount, COALESCE(ROUND(AVG(d.comment_star),1),0) AS average"+histogram+scope,params);
         long total=((Number)summary.get("amount")).longValue();
         double average=((Number)summary.get("average")).doubleValue();
         var distribution=new ArrayList<StarCount>();
         for(int star=5;star>=1;star--)distribution.add(new StarCount(star,((Number)summary.get("star"+star)).longValue()));
-        String filtered=FROM;
+        String filtered=scope+"AND d.comment_status=1 ";
         if(!query.isEmpty()) {
             params.put("keyword","%"+query.replace("!","!!").replace("%","!%").replace("_","!_")+"%");
             filtered+="AND d.comment_text LIKE :keyword ESCAPE '!' ";
         }
-        long count=query.isEmpty()?total:reviewJdbc.queryForObject("SELECT COUNT(*)"+filtered,params,Long.class);
+        long count=reviewJdbc.queryForObject("SELECT COUNT(*)"+filtered,params,Long.class);
         long offset=(long)page*size;
         if(offset>=count)return new ReviewPage(List.of(),count,average,page,size,false,total,List.copyOf(distribution));
         params.put("limit",size);params.put("offset",offset);
-        var reviews=reviewJdbc.query("SELECT m.member_account,d.comment_star,s.sku_name,s.another_name,d.comment_text,d.comment_date"+filtered
+        var reviews=reviewJdbc.query("SELECT d.orders_detail_id,m.member_account,d.comment_star,s.sku_name,s.another_name,d.comment_text,d.comment_date"+filtered
             +"ORDER BY "+order+" LIMIT :limit OFFSET :offset",params,(rs,n)-> {
                 var date=rs.getTimestamp("comment_date");
-                return new Review(maskAccount(rs.getString("member_account")),rs.getInt("comment_star"),
+                return new Review(rs.getInt("orders_detail_id"),maskAccount(rs.getString("member_account")),rs.getInt("comment_star"),
                     ProductSku.resolveDisplayName(rs.getString("sku_name"),rs.getString("another_name")),rs.getString("comment_text"),date==null?null:date.toLocalDateTime());
             });
         return new ReviewPage(List.copyOf(reviews),count,average,page,size,offset+reviews.size()<count,total,List.copyOf(distribution));
     }
+    public static String reportReasonLabel(String reason) {
+        return switch(reason==null?"":reason) {
+            case "FALSE_SPAM" -> "不實言論與垃圾內容";
+            case "CONFLICT" -> "利益衝突";
+            case "HARASSMENT" -> "騷擾與仇恨言論";
+            case "PRIVACY_ILLEGAL" -> "個資或違法內容";
+            default -> throw new IllegalArgumentException("請選擇有效的檢舉原因");
+        };
+    }
+
+    /** Member reports enter the existing status-2 queue; employee audit records are reserved for staff moderation. */
+    @Transactional
+    public boolean reportReview(int productId,int reviewId,int memberId,String reason,String note,String ip) {
+        String label=reportReasonLabel(reason),detail=note==null?"":note.strip();
+        if(productId<=0||reviewId<=0||memberId<=0||detail.length()>500)throw new IllegalArgumentException("檢舉資料不正確，補充說明最多 500 字");
+        Integer active=reviewJdbc.queryForObject("SELECT COUNT(*) FROM member WHERE member_id=:member AND member_status=1",Map.of("member",memberId),Integer.class);
+        if(active==null||active!=1)throw new SecurityException("請使用有效的會員帳號");
+        var params=new HashMap<String,Object>();params.put("id",productId);params.put("review",reviewId);params.put("member",memberId);
+        var statuses=reviewJdbc.queryForList("SELECT d.comment_status"+FROM+"AND d.orders_detail_id=:review",params,Integer.class);
+        if(statuses.isEmpty())throw new IllegalArgumentException("此評論不存在或已不公開");
+        if(statuses.get(0)==2)return false;
+        int changed=reviewJdbc.update("UPDATE orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id SET d.comment_status=2 "
+            +"WHERE d.orders_detail_id=:review AND s.product_id=:id AND d.comment_status=1",params);
+        if(changed==0)return false;
+        return true;
+    }
+
     public static String maskAccount(String account) {
         String clean=account==null?"":account.replaceAll("[^A-Za-z0-9]", "");
         if(clean.isEmpty())return "會員";
@@ -341,7 +591,7 @@ public class FrontCatalogService {
             .sorted(Comparator.comparingInt(Match::score).reversed()
                 .thenComparing(m->m.product().giftBox()!=selected.giftBox())
                 .thenComparing(m->m.product().productId()))
-            .limit(Math.min(5,limit)).map(Match::product).toList();
+            .limit(Math.min(60,limit)).map(Match::product).toList();
     }
 
     public static class ProductUnavailableException extends IllegalArgumentException {

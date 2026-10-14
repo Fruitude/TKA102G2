@@ -466,6 +466,7 @@ public class ProductController {
             jakarta.servlet.http.HttpServletRequest request,
             ModelMap model) {
 
+        keyword = ProductService.normalizeOverviewKeyword(keyword);
         // Migrate the previous checkbox preference when no new status preference exists yet.
         String status = statusFilter == null ? (savedStatus.isEmpty() ? (savedHideOffline ? "on" : "all") : savedStatus) : statusFilter;
           if (!java.util.Set.of("all", "on", "off", "discontinued").contains(status)) status = "all";

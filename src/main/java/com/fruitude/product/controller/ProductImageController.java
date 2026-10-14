@@ -28,30 +28,27 @@ public class ProductImageController {
     @Autowired private ProductImageService productImageService;
     @Autowired private ProductSkuService productSkuService;
     @GetMapping("/{imageId}")
-    public ResponseEntity<byte[]> getImage(@PathVariable Integer imageId) {
-        var image = productImageService.getImageSource(imageId);
-        if (image == null || image.getImageData() == null) return ResponseEntity.notFound().build();
-        String type = image.getImageType();
-        if (!java.util.Set.of("image/png", "image/jpeg", "image/gif").contains(type == null ? "" : type)) type = "application/octet-stream";
-        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(30)).cachePrivate())
-            .header("X-Content-Type-Options", "nosniff")
-            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename("image-" + imageId).build().toString())
-            .contentType(MediaType.parseMediaType(type)).body(image.getImageData());
+    public ResponseEntity<byte[]> getImage(@PathVariable Integer imageId,
+            @RequestParam(required=false) String v, org.springframework.web.context.request.WebRequest request) throws IOException {
+        return imageResponse(imageId,false,v,request);
     }
     @GetMapping("/{imageId}/thumbnail")
     public ResponseEntity<byte[]> getThumbnail(@PathVariable Integer imageId,
+            @RequestParam(required=false) String v, org.springframework.web.context.request.WebRequest request) throws IOException {
+        return imageResponse(imageId,true,v,request);
+    }
+    private ResponseEntity<byte[]> imageResponse(Integer id,boolean thumbnail,String version,
             org.springframework.web.context.request.WebRequest request) throws IOException {
-        var source = productImageService.getThumbnailSource(imageId);
-        if (source == null || source.getImageData() == null || source.getImageData().length == 0)
-            return ResponseEntity.notFound().build();
-        byte[] original = source.getImageData();
-        String etag = "\"" + org.springframework.util.DigestUtils.md5DigestAsHex(original) + "-thumb100\"";
-        var cache = org.springframework.http.CacheControl.noCache().cachePrivate();
-        if (request.checkNotModified(etag)) return ResponseEntity.status(304).eTag(etag).cacheControl(cache).build();
-        byte[] thumbnail = com.fruitude.product.model.ProductImageService.ProductThumbnailSupport.resize(original);
-        if (thumbnail == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok().eTag(etag).cacheControl(cache)
-            .header("X-Content-Type-Options", "nosniff").contentType(MediaType.IMAGE_JPEG).body(thumbnail);
+        var image=productImageService.getCachedImage(id,thumbnail);
+        if(image==null) return ResponseEntity.notFound().cacheControl(org.springframework.http.CacheControl.noStore()).build();
+        var cache=productImageService.imageVersion(id).equals(version)
+            ? org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(30)).cachePrivate()
+            : org.springframework.http.CacheControl.noCache().cachePrivate();
+        if(request.checkNotModified(image.etag())) return ResponseEntity.status(304).eTag(image.etag()).cacheControl(cache).build();
+        return ResponseEntity.ok().eTag(image.etag()).cacheControl(cache)
+            .header("X-Content-Type-Options","nosniff")
+            .header(HttpHeaders.CONTENT_DISPOSITION,ContentDisposition.inline().filename("image-"+id).build().toString())
+            .contentType(MediaType.parseMediaType(image.type())).body(image.data());
     }
     @GetMapping("/list")
     public String list(@RequestParam(required = false) Integer skuId, Model model) {
