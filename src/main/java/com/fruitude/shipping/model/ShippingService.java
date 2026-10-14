@@ -13,6 +13,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fruitude.employee.model.Employee;
+import com.fruitude.employee.model.EmployeeRepository;
 import com.fruitude.orders.model.Orders;
 import com.fruitude.orders.model.OrdersDetail;
 import com.fruitude.product.model.ProductSku;
@@ -40,6 +42,9 @@ public class ShippingService {
 
 	@Autowired
 	private ShippingSkuStockRepository skuStockRepository;
+
+	@Autowired
+	private EmployeeRepository employeeRepository;
 
 	// 待出貨的訂單（orders_status = 0）的其中一頁，訂單日期由舊到新
 	// page 是畫面上的頁碼，從 1 開始；小於 1 當作第 1 頁，超過最後一頁就回傳最後一頁
@@ -75,6 +80,11 @@ public class ShippingService {
 	// 單筆訂單，查不到回傳 null
 	public Orders getOneOrders(Integer ordersId) {
 		return ordersRepository.findById(ordersId).orElse(null);
+	}
+
+	// 單筆員工，查不到或沒有員工編號時回傳 null
+	public Employee getOneEmployee(Integer employeeId) {
+		return employeeId == null ? null : employeeRepository.findById(employeeId).orElse(null);
 	}
 
 	// 一張訂單的出貨明細：每筆訂單明細配上它的商品規格，依明細編號由小到大
@@ -114,10 +124,14 @@ public class ShippingService {
 		return true;
 	}
 
-	// 確認出貨：訂單狀態由待出貨（0）改成已出貨（1），明細的規格扣掉庫存與預計出貨
+	// 確認出貨：訂單狀態由待出貨（0）改成已出貨（1）並記下出貨員工編號，明細的規格扣掉庫存與預計出貨
 	// 整張訂單一次出完，全部寫在同一個交易；任何一項檢查沒過就丟 IllegalArgumentException，訂單與庫存都不會被改到
 	@Transactional
-	public void shipOrders(Integer ordersId) {
+	public void shipOrders(Integer ordersId, Integer employeeId) {
+		if (employeeId == null) {
+			throw new IllegalArgumentException("登入逾時，請重新登入");
+		}
+
 		// 先鎖住訂單再看狀態：連按兩次、兩個人同時出同一張單、訂單剛好被取消時，後來的那一個會在這裡被擋下
 		Orders orders = ordersRepository.lockOrders(ordersId).orElse(null);
 		if (orders == null) {
@@ -172,13 +186,13 @@ public class ShippingService {
 			}
 		}
 
-		// 只更新狀態一個欄位；前面已經鎖住並確認是待出貨，正常不會更新到 0 筆
-		if (ordersRepository.updateStatusToShipped(ordersId) == 0) {
+		// 只更新狀態與出貨員工兩個欄位；前面已經鎖住並確認是待出貨，正常不會更新到 0 筆
+		if (ordersRepository.updateStatusToShipped(ordersId, employeeId) == 0) {
 			throw new IllegalArgumentException("訂單 " + ordersId + " 已經不是待出貨，無法出貨");
 		}
 	}
 
-	// 取消出貨：訂單狀態由配送中（1）改回待出貨（0），明細的規格把庫存與預計出貨加回去
+	// 取消出貨：訂單狀態由配送中（1）改回待出貨（0）並清空出貨員工編號，明細的規格把庫存與預計出貨加回去
 	// 只有配送中的訂單可以取消；和 shipOrders 一樣全部寫在同一個交易，任何一項檢查沒過就丟 IllegalArgumentException，訂單與庫存都不會被改到
 	@Transactional
 	public void cancelShipOrders(Integer ordersId) {
@@ -228,7 +242,7 @@ public class ShippingService {
 			}
 		}
 
-		// 只更新狀態一個欄位；前面已經鎖住並確認是配送中，正常不會更新到 0 筆
+		// 只更新狀態與出貨員工兩個欄位；前面已經鎖住並確認是配送中，正常不會更新到 0 筆
 		if (ordersRepository.updateStatusToPending(ordersId) == 0) {
 			throw new IllegalArgumentException("訂單編號-" + ordersId + " 已經不是配送中，無法取消出貨");
 		}
