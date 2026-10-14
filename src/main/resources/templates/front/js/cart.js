@@ -623,6 +623,14 @@
   // 庫存不足的錯誤：訊息是「庫存不足，剩下 N 個」（購物車裡已經有這個規格時，補充還能再加幾個）。
   // 標記 stockShortage，讓呼叫端一律用對話框顯示，不是只放在卡片的小字訊息裡
   function stockShortageError(stock, inCart, skuStatus) {
+    // 供貨狀態 1、6 的可購買量上限是每單 10 箱（不是庫存不足）：已達上限就請客人電話聯繫
+    var status = Number(skuStatus);
+    if (stock > 0 && ((status === 1 || status === 6) && stock >= 10 || status === 3)) {
+      // 狀態 3（即將售完）也是數量上限，不是庫存不足：顯示與商品卡相同的提示
+      var capError = new Error(status === 3 ? quantityNotice(3, 0) : "若數量需求超過10箱，請電話聯繫。");
+      capError.stockShortage = true;
+      return capError;
+    }
     var text = shortageText(skuStatus, stock);
     if (inCart > 0) text += "（購物車已有 " + inCart + " 個，還能再加 " + Math.max(0, stock - inCart) + " 個）";
     var error = new Error(text);
