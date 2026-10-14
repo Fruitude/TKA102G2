@@ -97,6 +97,11 @@
 											<th class="bg-light">訂單備註</th>
 											<td th:text="${orders.ordersNote}" style="white-space: pre-line;"></td>
 										</tr>
+										<!-- 出貨人員：資料庫裡記錄的出貨員工；舊資料沒記錄或已取消出貨時顯示 — -->
+										<tr>
+											<th class="bg-light">出貨人員</th>
+											<td th:text="${shippingEmployee != null ? shippingEmployee.employeeName : '—'}"></td>
+										</tr>
 									</tbody>
 								</table>
 							</div>

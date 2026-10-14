@@ -15,9 +15,12 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.fruitude.employee.model.Employee;
 import com.fruitude.orders.model.Orders;
 import com.fruitude.shipping.model.ShippingDetail;
 import com.fruitude.shipping.model.ShippingService;
+
+import jakarta.servlet.http.HttpSession;
 
 @Controller
 @RequestMapping("/admin/psi/shipping")
@@ -39,7 +42,7 @@ public class ShippingController {
 	// 只顯示待出貨（ordersStatus = 0）的訂單
 	@GetMapping("/listOneShipping")
 	public String listOneShipping(@RequestParam("ordersId") Integer ordersId, Model model,
-			RedirectAttributes redirectAttributes) {
+			RedirectAttributes redirectAttributes, HttpSession session) {
 		Orders orders = shippingSvc.getOneOrders(ordersId);
 
 		// 查不到訂單、或不是待出貨的訂單時回首頁顯示錯誤訊息；ship 被擋下帶過來的錯誤訊息繼續帶到首頁顯示，沒有才用預設的訊息
@@ -54,16 +57,21 @@ public class ShippingController {
 		model.addAttribute("shippingDetails", shippingDetails);
 		// 「確認出貨」能不能按：有明細而且庫存都夠
 		model.addAttribute("shippable", shippingSvc.isShippable(shippingDetails));
+		// 出貨人員：目前登入的員工，按下「確認出貨」時會記錄這位員工
+		model.addAttribute("shippingEmployee", getLoggedInEmployee(session));
 
 		return "admin/psi/shipping/listOneShipping"; //view
 	}
 
-	// 確認出貨：由單筆頁的「確認出貨」按鈕送過來
+	// 確認出貨：由單筆頁的「確認出貨」按鈕送過來，出貨員工取自 session 的登入員工
 	// 成功時 redirect 到出貨紀錄的單筆頁（updateShipping）顯示「出貨完成」；被擋下時 redirect 回待出貨的單筆頁顯示原因
 	@PostMapping("/ship")
-	public String ship(@RequestParam("ordersId") Integer ordersId, RedirectAttributes redirectAttributes) {
+	public String ship(@RequestParam("ordersId") Integer ordersId, RedirectAttributes redirectAttributes,
+			HttpSession session) {
+		// 沒登入、登入逾時或查無此員工時是 null，shipOrders 會擋下
+		Employee shippingEmployee = getLoggedInEmployee(session);
 		try {
-			shippingSvc.shipOrders(ordersId);
+			shippingSvc.shipOrders(ordersId, shippingEmployee == null ? null : shippingEmployee.getEmployeeId());
 		} catch (IllegalArgumentException e) {
 			redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
 			return "redirect:/admin/psi/shipping/listOneShipping?ordersId=" + ordersId;
@@ -115,8 +123,17 @@ public class ShippingController {
 		}
 		model.addAttribute("orders", orders);
 		model.addAttribute("shippingDetails", shippingSvc.getShippingDetails(ordersId));
+		// 出貨人員：資料庫裡記錄的出貨員工；舊資料沒記錄或剛取消出貨時是 null
+		model.addAttribute("shippingEmployee", shippingSvc.getOneEmployee(orders.getEmployeeId()));
 
 		return "admin/psi/shipping/updateShipping"; //view
+	}
+
+	// 目前登入後台的員工（EmployeeSessionController 登入時放進 session 的 loggedInEmployeeId）
+	// 沒登入、登入逾時或查無此員工時回傳 null
+	private Employee getLoggedInEmployee(HttpSession session) {
+		Object employeeId = session.getAttribute("loggedInEmployeeId");
+		return employeeId instanceof Number ? shippingSvc.getOneEmployee(((Number) employeeId).intValue()) : null;
 	}
 
 	// 網址的參數型別不對（例如 page=abc）或少了必要的參數時，回首頁第 1 頁並顯示錯誤訊息
