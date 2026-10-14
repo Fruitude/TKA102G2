@@ -29,23 +29,27 @@
 
 					<div class="d-flex justify-content-between align-items-center mb-3">
 						<!-- 剛出貨完由 ShippingController 的 ship redirect 過來的那一次才有 shipped：返回按鈕回出貨管理，方便接著出下一張 -->
-						<a th:href="@{/admin/psi/shipping}" class="btn btn-secondary btn-icon-split" th:if="${shipped != null}">
+						<!-- 剛取消出貨的訂單已經改回待出貨（ordersStatus = 0），返回按鈕同樣回出貨管理，方便接著重新出貨 -->
+						<a th:href="@{/admin/psi/shipping}" class="btn btn-secondary btn-icon-split"
+							th:if="${shipped != null or orders.ordersStatus == 0}">
 							<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
 							<span class="text">回出貨管理</span>
 						</a>
 						<!-- 從歷史出貨紀錄的「詳細」連過來時，返回按鈕回歷史出貨紀錄 -->
-						<a th:href="@{/admin/psi/shipping/listAllShipping}" class="btn btn-secondary btn-icon-split" th:if="${shipped == null}">
+						<a th:href="@{/admin/psi/shipping/listAllShipping}" class="btn btn-secondary btn-icon-split"
+							th:if="${shipped == null and orders.ordersStatus != 0}">
 							<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
 							<span class="text">回歷史出貨紀錄</span>
 						</a>
-						<div class="d-flex align-items-center">
-							<!-- 剛出貨完的那一次顯示，重新整理後不再顯示 -->
-							<span class="text-danger font-weight-bold mr-3" th:if="${shipped != null}">出貨完成</span>
-							<!-- 配送中（ordersStatus = 1）的訂單才顯示；取消出貨的功能還沒做，按鈕先不動作 -->
-							<button type="button" class="btn btn-danger" th:if="${orders.ordersStatus == 1}">取消出貨</button>
-						</div>
+						<!-- 配送中（ordersStatus = 1）的訂單才顯示，送到 ShippingController 的 cancelShip；送出前先跳確認視窗 -->
+						<form method="post" th:action="@{/admin/psi/shipping/cancelShip}" class="m-0"
+							th:if="${orders.ordersStatus == 1}" onsubmit="return confirm('確定要取消出貨嗎？');">
+							<input type="hidden" name="ordersId" th:value="${orders.ordersId}">
+							<button type="submit" class="btn btn-danger">取消出貨</button>
+						</form>
 					</div>
 
+					<!-- 出貨完成、已取消出貨的提示：由 ShippingController 的 ship、cancelShip redirect 過來的那一次顯示，重新整理後不再顯示 -->
 					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
 					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
 

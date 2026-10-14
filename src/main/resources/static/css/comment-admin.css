@@ -299,7 +299,7 @@
     background: #edf0f5;
 }
 
-.comment-table { min-width: 1120px; }
+.comment-table { min-width: 1260px; }
 
 .comment-table thead th {
     padding: .8rem 1rem;
@@ -352,6 +352,14 @@
 .comment-status.is-visible { background: var(--comment-green-soft); color: #17664f; }
 .comment-status.is-reported { background: var(--comment-amber-soft); color: #80580b; }
 .comment-status.is-hidden { background: var(--comment-red-soft); color: #9f3140; }
+
+.comment-handler-cell { min-width: 130px; }
+.comment-handler-pending {
+    color: #80580b;
+    font-size: .76rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
 
 .comment-view-button {
     width: 38px;
@@ -434,6 +442,42 @@
     white-space: pre-wrap;
 }
 
+.comment-moderation-record {
+    margin-top: 1.25rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid #cfd8ed;
+    background: #f7f9ff;
+}
+
+.comment-moderation-record-heading {
+    margin-bottom: .9rem;
+    color: var(--comment-blue);
+    align-items: center;
+    gap: .7rem;
+    display: flex;
+}
+
+.comment-moderation-record-heading strong,
+.comment-moderation-record-heading span { display: block; }
+.comment-moderation-record-heading span { margin-top: .1rem; color: var(--comment-muted); font-size: .78rem; }
+
+.comment-moderation-record-meta {
+    border-top: 1px solid #dfe4f0;
+    border-bottom: 1px solid #dfe4f0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: grid;
+}
+
+.comment-moderation-record-meta > div { padding: .7rem .8rem; border-right: 1px solid #dfe4f0; }
+.comment-moderation-record-meta > div:last-child { border-right: 0; }
+.comment-moderation-record-meta span,
+.comment-moderation-record-meta strong { display: block; }
+.comment-moderation-record-meta span,
+.comment-moderation-record-note > span { color: var(--comment-muted); font-size: .72rem; }
+.comment-moderation-record-meta strong { margin-top: .15rem; color: var(--comment-ink); font-size: .84rem; }
+.comment-moderation-record-note { padding: .75rem .8rem 0; }
+.comment-moderation-record-note p { margin: .2rem 0 0; color: var(--comment-ink); font-size: .84rem; line-height: 1.55; }
+
 .comment-moderation {
     margin-top: 1.25rem;
     padding-top: 1.25rem;
@@ -474,6 +518,9 @@
     .comment-detail-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .comment-detail-meta > div:nth-child(2) { border-right: 0; }
     .comment-detail-meta > div:nth-child(-n+2) { border-bottom: 1px solid var(--comment-line); }
+    .comment-moderation-record-meta { grid-template-columns: 1fr; }
+    .comment-moderation-record-meta > div { border-right: 0; border-bottom: 1px solid #dfe4f0; }
+    .comment-moderation-record-meta > div:last-child { border-bottom: 0; }
     .comment-decision-actions { width: 100%; }
     .comment-decision-actions .btn { flex: 1; }
 }

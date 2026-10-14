@@ -218,8 +218,8 @@ public class ProductAvailabilityScheduler {
     @ConditionalOnProperty(name="product.availability-scheduler.enabled",havingValue="true",matchIfMissing=true)
     public static class WriteObserver implements BeanPostProcessor {
         private final BeanFactory beans;
-        private static final Set<String> STOCK_WRITES=Set.of("deductStock","shipStock","releaseOutbound","releaseStock","addInboundQty","receiveStock","adjustStock");
-        private static final Set<String> STOCK_BEANS=Set.of("skuStockRepository","shippingSkuStockRepository","poSkuStockRepository");
+        private static final Set<String> STOCK_WRITES=Set.of("deductStock","shipStock","releaseOutbound","releaseStock","addInboundQty","receiveStock","adjustStock","restoreStock","updateQuantities");
+        private static final Set<String> STOCK_BEANS=Set.of("skuStockRepository","shippingSkuStockRepository","poSkuStockRepository","stockSkuRepository");
         private static final Set<String> PRODUCT_BEANS=Set.of("productRepository","productSkuRepository","productImageRepository");
         private static final Set<String> TIMING_BEANS=Set.of("promoRepository","promotionRepository");
         public WriteObserver(BeanFactory beans){this.beans=beans;}

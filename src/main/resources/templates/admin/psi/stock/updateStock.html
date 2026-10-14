@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>調整庫存</title>
+
+<!-- 引入css資源 -->
+<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<style>
+.update_form label {
+	font-weight: bold;
+}
+</style>
+</head>
+<body id="page-top">
+
+	<!-- Page Wrapper -->
+	<div id="wrapper">
+
+		<!-- 引入側邊欄 -->
+		<ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+
+		<!-- Content Wrapper -->
+		<div id="content-wrapper" class="d-flex flex-column">
+
+			<!-- Main Content -->
+			<div id="content">
+
+				<!-- 引入Topbar -->
+				<nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+				<!-- 這裡放頁面自己的內容 -->
+				<div class="container-fluid">
+
+					<!-- 回這個規格的單筆頁 -->
+					<a th:href="@{/admin/psi/stock/listOneStock(skuId=${productSku.skuId})}" class="btn btn-secondary btn-icon-split mb-3">
+						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
+						<span class="text">回規格資料</span>
+					</a>
+
+					<!-- 規格資料：只顯示，productSku 由 StockController 的 updateStock 放入 model -->
+					<div class="card shadow mb-4">
+						<div class="card-header py-3">
+							<h6 class="m-0 font-weight-bold text-primary">規格資料</h6>
+						</div>
+						<div class="card-body">
+							<div class="table-responsive">
+								<table class="table table-bordered" width="100%" cellspacing="0">
+									<tbody>
+										<tr>
+											<th class="bg-light" style="width: 150px;">規格編號</th>
+											<td th:text="${productSku.skuId}"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">商品名稱</th>
+											<td th:text="${productSku.product != null ? productSku.product.productName : ''}"></td>
+										</tr>
+										<tr>
+											<th class="bg-light">規格名稱</th>
+											<td th:text="${productSku.skuName}"></td>
+										</tr>
+										<!-- 商品所屬的供應商；商品或供應商沒有資料時留空白 -->
+										<tr>
+											<th class="bg-light">供應商</th>
+											<td th:text="${productSku.product != null and productSku.product.vendor != null ? productSku.product.vendor.vendorName : ''}"></td>
+										</tr>
+										<!-- 狀態的中文取自 ProductSku 的 getStatusLabel -->
+										<tr>
+											<th class="bg-light">規格狀態</th>
+											<td th:text="${productSku.statusLabel}"></td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+
+							<!-- 調整庫存數量：和規格資料放在同一張卡片，版面和單筆頁（listOneStock.html）相同；送到 StockController 的 updateStock（POST） -->
+							<form class="update_form" th:action="@{/admin/psi/stock/updateStock}" method="post" novalidate>
+								<input type="hidden" name="skuId" th:value="${productSku.skuId}" />
+								<!-- 這一頁顯示當時的內容字串（庫存數量;安全庫存;允許超賣量;採購溢額量），存檔時和資料庫當下的內容比對，不一樣就不存檔 -->
+								<input type="hidden" name="stockContent" th:value="${stockContent}" />
+
+								<div class="table-responsive">
+									<table class="table table-bordered" width="100%" cellspacing="0">
+										<!-- 六個數字橫向排成一列 -->
+										<thead>
+											<tr>
+												<th class="bg-light">庫存數量</th>
+												<th class="bg-light">安全庫存</th>
+												<th class="bg-light">待進貨</th>
+												<th class="bg-light">待出貨</th>
+												<th class="bg-light">允許超賣量</th>
+												<th class="bg-light">採購溢額量</th>
+											</tr>
+										</thead>
+										<tbody>
+											<!-- 四個可以改的數字都必須是 0 以上的整數，由 StockController 檢查；fieldErrors 是各欄位的錯誤訊息，顯示在輸入框下方 -->
+											<tr>
+												<td>
+													<input type="text" name="stock" class="form-control"
+														th:classappend="${fieldErrors != null and fieldErrors['stock'] != null} ? 'is-invalid'"
+														th:value="${stock}">
+													<div class="text-danger small mt-1" th:if="${fieldErrors != null and fieldErrors['stock'] != null}"
+														th:text="${fieldErrors['stock']}"></div>
+												</td>
+												<td>
+													<input type="text" name="safetyStock" class="form-control"
+														th:classappend="${fieldErrors != null and fieldErrors['safetyStock'] != null} ? 'is-invalid'"
+														th:value="${safetyStock}">
+													<div class="text-danger small mt-1" th:if="${fieldErrors != null and fieldErrors['safetyStock'] != null}"
+														th:text="${fieldErrors['safetyStock']}"></div>
+												</td>
+												<!-- 待進貨、待出貨由採購與訂單流程維護，這一頁只顯示、不能修改 -->
+												<td class="align-middle" th:text="${productSku.inboundQty}"></td>
+												<td class="align-middle" th:text="${productSku.outboundQty}"></td>
+												<td>
+													<input type="text" name="maxBackorderQty" class="form-control"
+														th:classappend="${fieldErrors != null and fieldErrors['maxBackorderQty'] != null} ? 'is-invalid'"
+														th:value="${maxBackorderQty}">
+													<div class="text-danger small mt-1" th:if="${fieldErrors != null and fieldErrors['maxBackorderQty'] != null}"
+														th:text="${fieldErrors['maxBackorderQty']}"></div>
+												</td>
+												<td>
+													<input type="text" name="purchaseAddOnQty" class="form-control"
+														th:classappend="${fieldErrors != null and fieldErrors['purchaseAddOnQty'] != null} ? 'is-invalid'"
+														th:value="${purchaseAddOnQty}">
+													<div class="text-danger small mt-1" th:if="${fieldErrors != null and fieldErrors['purchaseAddOnQty'] != null}"
+														th:text="${fieldErrors['purchaseAddOnQty']}"></div>
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
+
+								<button type="submit" class="btn btn-primary">儲存</button>
+							</form>
+						</div>
+					</div>
+
+				</div>
+
+			</div>
+
+			<!-- 引入Footer -->
+			<footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+
+		</div>
+	</div>
+
+	<!-- Scroll to Top Button-->
+	<span class="scroll-to-top rounded"> <i class="fas fa-angle-up"></i>
+	</span>
+
+	<!-- 引入js資源 -->
+	<th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+
+</body>
+</html>

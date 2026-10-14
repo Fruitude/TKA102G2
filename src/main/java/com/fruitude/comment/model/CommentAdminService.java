@@ -1,5 +1,7 @@
 package com.fruitude.comment.model;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,7 +29,23 @@ public class CommentAdminService {
 	private static final String COMMENT_FROM =
 			" FROM orders_detail detail "
 			+ "JOIN orders orders_data ON orders_data.orders_id = detail.orders_id "
-			+ "LEFT JOIN member member_data ON member_data.member_id = orders_data.member_id ";
+			+ "LEFT JOIN member member_data ON member_data.member_id = orders_data.member_id "
+			+ "LEFT JOIN operation_audit_log moderation_log ON moderation_log.audit_id = ("
+			+ "SELECT MAX(log_lookup.audit_id) FROM operation_audit_log log_lookup "
+			+ "WHERE log_lookup.target_module = 'COMMENT' "
+			+ "AND log_lookup.target_id = CAST(detail.orders_detail_id AS CHAR) "
+			+ "AND log_lookup.action_type IN ('KEEP', 'HIDE')) ";
+
+	private static final String COMMENT_SELECT =
+			"SELECT detail.orders_detail_id, detail.orders_id, detail.sku_id, "
+			+ "detail.product_name, orders_data.member_id, member_data.member_name, "
+			+ "member_data.member_account, detail.comment_text, detail.comment_date, "
+			+ "detail.comment_status, detail.comment_star, "
+			+ "moderation_log.employee_id AS moderation_employee_id, "
+			+ "moderation_log.employee_name AS moderation_employee_name, "
+			+ "moderation_log.action_type AS moderation_action, "
+			+ "moderation_log.detail_content AS moderation_detail, "
+			+ "moderation_log.created_at AS moderation_at ";
 
 	private final NamedParameterJdbcTemplate jdbc;
 
@@ -48,26 +66,11 @@ public class CommentAdminService {
 		parameters.addValue("limit", size);
 		parameters.addValue("offset", page * size);
 
-		String query = "SELECT detail.orders_detail_id, detail.orders_id, detail.sku_id, "
-				+ "detail.product_name, orders_data.member_id, member_data.member_name, "
-				+ "member_data.member_account, detail.comment_text, detail.comment_date, "
-				+ "detail.comment_status, detail.comment_star "
-				+ COMMENT_FROM + where
+		String query = COMMENT_SELECT + COMMENT_FROM + where
 				+ " ORDER BY CASE WHEN detail.comment_status = 2 THEN 0 ELSE 1 END, "
 				+ "detail.comment_date DESC, detail.orders_detail_id DESC LIMIT :limit OFFSET :offset";
-		List<CommentAdminRow> comments = jdbc.query(query, parameters, (result, rowNumber) ->
-				new CommentAdminRow(
-						(Integer) result.getObject("orders_detail_id"),
-						(Integer) result.getObject("orders_id"),
-						(Integer) result.getObject("sku_id"),
-						result.getString("product_name"),
-						(Integer) result.getObject("member_id"),
-						result.getString("member_name"),
-						result.getString("member_account"),
-						result.getString("comment_text"),
-						toLocalDateTime(result.getTimestamp("comment_date")),
-						(Integer) result.getObject("comment_status"),
-						(Integer) result.getObject("comment_star")));
+		List<CommentAdminRow> comments = jdbc.query(query, parameters,
+				(result, rowNumber) -> mapComment(result));
 
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("comments", comments);
@@ -110,22 +113,11 @@ public class CommentAdminService {
 
 	/** 讀取單筆評論，供處理完成後回傳最新狀態。 */
 	public CommentAdminRow findOne(Integer ordersDetailId) {
-		String query = "SELECT detail.orders_detail_id, detail.orders_id, detail.sku_id, "
-				+ "detail.product_name, orders_data.member_id, member_data.member_name, "
-				+ "member_data.member_account, detail.comment_text, detail.comment_date, "
-				+ "detail.comment_status, detail.comment_star " + COMMENT_FROM
+		String query = COMMENT_SELECT + COMMENT_FROM
 				+ "WHERE detail.orders_detail_id = :id";
 		List<CommentAdminRow> rows = jdbc.query(query,
-				new MapSqlParameterSource("id", ordersDetailId), (result, rowNumber) ->
-						new CommentAdminRow(
-								(Integer) result.getObject("orders_detail_id"),
-								(Integer) result.getObject("orders_id"),
-								(Integer) result.getObject("sku_id"), result.getString("product_name"),
-								(Integer) result.getObject("member_id"), result.getString("member_name"),
-								result.getString("member_account"), result.getString("comment_text"),
-								toLocalDateTime(result.getTimestamp("comment_date")),
-								(Integer) result.getObject("comment_status"),
-								(Integer) result.getObject("comment_star")));
+				new MapSqlParameterSource("id", ordersDetailId),
+				(result, rowNumber) -> mapComment(result));
 		if (rows.isEmpty()) throw new NoSuchElementException("找不到評論");
 		return rows.get(0);
 	}
@@ -195,6 +187,27 @@ public class CommentAdminService {
 		Long count = jdbc.queryForObject("SELECT COUNT(*) FROM orders_detail WHERE orders_detail_id = :id",
 				new MapSqlParameterSource("id", ordersDetailId), Long.class);
 		return count != null && count > 0;
+	}
+
+	/** 將評論與最近一次檢舉處理紀錄整理成同一筆後台顯示資料。 */
+	private CommentAdminRow mapComment(ResultSet result) throws SQLException {
+		return new CommentAdminRow(
+				(Integer) result.getObject("orders_detail_id"),
+				(Integer) result.getObject("orders_id"),
+				(Integer) result.getObject("sku_id"),
+				result.getString("product_name"),
+				(Integer) result.getObject("member_id"),
+				result.getString("member_name"),
+				result.getString("member_account"),
+				result.getString("comment_text"),
+				toLocalDateTime(result.getTimestamp("comment_date")),
+				(Integer) result.getObject("comment_status"),
+				(Integer) result.getObject("comment_star"),
+				(Integer) result.getObject("moderation_employee_id"),
+				result.getString("moderation_employee_name"),
+				result.getString("moderation_action"),
+				result.getString("moderation_detail"),
+				toLocalDateTime(result.getTimestamp("moderation_at")));
 	}
 
 	private long number(Object value) { return value instanceof Number ? ((Number) value).longValue() : 0L; }
