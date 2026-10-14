@@ -25,4 +25,10 @@ public class EmployeeAdminPageController {
 	public String applicationPage() {
 		return "admin/employees/apply";
 	}
+
+	/** 顯示信箱驗證後的員工密碼設定頁；是否可修改仍由一次性 Token 決定。 */
+	@GetMapping("/reset-password")
+	public String resetPasswordPage() {
+		return "admin/employees/reset-password";
+	}
 }

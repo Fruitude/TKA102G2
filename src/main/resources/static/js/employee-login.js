@@ -23,7 +23,14 @@
             });
             const body = await response.json();
             if (!response.ok) throw new Error(body.message || '登入失敗');
-            window.location.assign(contextPath + '/admin');
+            const requestedPage = new URLSearchParams(window.location.search).get('next');
+            const adminRoot = contextPath + '/admin';
+            // 只接受本站後台路徑，避免 next 參數被利用來導向外部網站。
+            const allowedRoots = [adminRoot, contextPath + '/product/', contextPath + '/productcategory/',
+                contextPath + '/productsku/', contextPath + '/productimage/'];
+            const destination = requestedPage && allowedRoots.some((root) => requestedPage.startsWith(root))
+                ? requestedPage : adminRoot;
+            window.location.assign(destination);
         } catch (error) {
             feedback.textContent = error.message;
             button.disabled = false;

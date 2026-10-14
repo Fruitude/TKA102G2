@@ -18,6 +18,16 @@ public class ProductScriptCacheTest {
     @Import(FruitudeWebConfig.class)
     static class WebConfig {
         @org.springframework.context.annotation.Bean
+        com.fruitude.config.AdminAccessInterceptor adminAccessInterceptor() {
+            return new com.fruitude.config.AdminAccessInterceptor(
+                new com.fruitude.employee.model.EmployeeAdminAccessService(null,null,null,null) {
+                    @Override public java.util.Optional<AccessProfile> findAccessProfile(Integer id) {
+                        return id == null ? java.util.Optional.empty() : java.util.Optional.of(
+                            new AccessProfile(null,null,true,java.util.Set.of()));
+                    }
+                });
+        }
+        @org.springframework.context.annotation.Bean
         com.fruitude.farmer.model.FarmerImageStorage farmerImageStorage() {
             return new com.fruitude.farmer.model.FarmerImageStorage("target/test-farmer-images",null);
         }
@@ -28,7 +38,7 @@ public class ProductScriptCacheTest {
             context.setServletContext(new MockServletContext());
             context.register(WebConfig.class);
             context.refresh();
-            var mvc = MockMvcBuilders.webAppContextSetup(context).build();
+            var mvc = MockMvcBuilders.webAppContextSetup(context).defaultRequest(get("/").sessionAttr("loggedInEmployeeId",1)).build();
             for (String name : new String[]{"product-pagination.js", "product-tabs.js", "product-action-confirm.js"}) {
                 var response = mvc.perform(get("/admin/js/" + name)).andReturn().getResponse();
                 assertEquals(name, 200, response.getStatus());
@@ -42,7 +52,7 @@ public class ProductScriptCacheTest {
             context.setServletContext(new MockServletContext());
             context.register(WebConfig.class);
             context.refresh();
-            var mvc = MockMvcBuilders.webAppContextSetup(context).build();
+            var mvc = MockMvcBuilders.webAppContextSetup(context).defaultRequest(get("/").sessionAttr("loggedInEmployeeId",1)).build();
             var first = mvc.perform(get("/css/product-overview.css")).andReturn().getResponse();
             assertEquals(200, first.getStatus());
             assertEquals("no-cache", first.getHeader("Cache-Control"));

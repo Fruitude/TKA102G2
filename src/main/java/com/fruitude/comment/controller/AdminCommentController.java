@@ -42,6 +42,7 @@ public class AdminCommentController {
 	public ResponseEntity<?> findComments(
 			@RequestParam(name = "keyword", required = false) String keyword,
 			@RequestParam(name = "status", required = false) Integer status,
+			@RequestParam(name = "handled", required = false) Boolean handled,
 			@RequestParam(name = "rating", required = false) Integer rating,
 			@RequestParam(name = "startDate", required = false)
 			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -51,7 +52,8 @@ public class AdminCommentController {
 			@RequestParam(name = "size", defaultValue = "20") int size,
 			HttpServletRequest request) {
 		if (auditService.resolveEmployeeId(request) == null) return unauthorized();
-		return ResponseEntity.ok(commentAdminService.search(keyword, status, rating, startDate, endDate, page, size));
+		return ResponseEntity.ok(commentAdminService.search(
+				keyword, status, handled, rating, startDate, endDate, page, size));
 	}
 
 	/** 管理員判定被檢舉評論要保留或隱藏，判定說明另外保存到操作紀錄。 */

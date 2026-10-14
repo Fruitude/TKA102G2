@@ -53,12 +53,12 @@ public class CommentAdminService {
 		this.jdbc = jdbc;
 	}
 
-	/** 依關鍵字、狀態、星等與日期分頁查詢評論，回傳頁面需要的統計資料。 */
-	public Map<String, Object> search(String keyword, Integer status, Integer rating,
+	/** 依關鍵字、狀態、是否已處理、星等與日期分頁查詢評論，回傳頁面需要的統計資料。 */
+	public Map<String, Object> search(String keyword, Integer status, Boolean handled, Integer rating,
 			LocalDate startDate, LocalDate endDate, int page, int size) {
 		validateSearch(status, rating, startDate, endDate, page, size);
 		MapSqlParameterSource parameters = new MapSqlParameterSource();
-		String where = buildWhere(keyword, status, rating, startDate, endDate, parameters);
+		String where = buildWhere(keyword, status, handled, rating, startDate, endDate, parameters);
 
 		long totalElements = jdbc.queryForObject(
 				"SELECT COUNT(*)" + COMMENT_FROM + where, parameters, Long.class);
@@ -122,7 +122,7 @@ public class CommentAdminService {
 		return rows.get(0);
 	}
 
-	private String buildWhere(String keyword, Integer status, Integer rating,
+	private String buildWhere(String keyword, Integer status, Boolean handled, Integer rating,
 			LocalDate startDate, LocalDate endDate, MapSqlParameterSource parameters) {
 		StringBuilder where = new StringBuilder(" WHERE detail.comment_text IS NOT NULL "
 				+ "AND TRIM(detail.comment_text) <> '' AND detail.comment_status IN (1, 2, 3) ");
@@ -138,6 +138,10 @@ public class CommentAdminService {
 		if (status != null) {
 			where.append("AND detail.comment_status = :status ");
 			parameters.addValue("status", status);
+		}
+		// 已處理頁籤直接依既有操作紀錄判斷，不另外建立評論處理 Table。
+		if (Boolean.TRUE.equals(handled)) {
+			where.append("AND moderation_log.audit_id IS NOT NULL ");
 		}
 		if (rating != null) {
 			where.append("AND detail.comment_star = :rating ");
@@ -157,16 +161,19 @@ public class CommentAdminService {
 	private Map<String, Object> loadSummary() {
 		Map<String, Object> values = jdbc.queryForMap(
 				"SELECT COUNT(*) AS total_count, "
-				+ "COALESCE(SUM(comment_status = 1), 0) AS visible_count, "
-				+ "COALESCE(SUM(comment_status = 2), 0) AS reported_count, "
-				+ "COALESCE(SUM(comment_status = 3), 0) AS hidden_count "
-				+ "FROM orders_detail WHERE comment_text IS NOT NULL AND TRIM(comment_text) <> '' "
-				+ "AND comment_status IN (1, 2, 3)", new MapSqlParameterSource());
+				+ "COALESCE(SUM(detail.comment_status = 1), 0) AS visible_count, "
+				+ "COALESCE(SUM(detail.comment_status = 2), 0) AS reported_count, "
+				+ "COALESCE(SUM(detail.comment_status = 3), 0) AS hidden_count, "
+				+ "COALESCE(SUM(moderation_log.audit_id IS NOT NULL), 0) AS handled_count "
+				+ COMMENT_FROM
+				+ "WHERE detail.comment_text IS NOT NULL AND TRIM(detail.comment_text) <> '' "
+				+ "AND detail.comment_status IN (1, 2, 3)", new MapSqlParameterSource());
 		Map<String, Object> summary = new LinkedHashMap<>();
 		summary.put("total", number(values.get("total_count")));
 		summary.put("visible", number(values.get("visible_count")));
 		summary.put("reported", number(values.get("reported_count")));
 		summary.put("hidden", number(values.get("hidden_count")));
+		summary.put("handled", number(values.get("handled_count")));
 		return summary;
 	}
 

@@ -147,9 +147,7 @@ public class EmployeeAdminService {
 		employee.setEmployeePassword(hashPassword(password));
 		employee.setEmployeeStatus(STATUS_ACTIVE);
 		employee.setEmployeeReviewStatus(REVIEW_APPROVED);
-		employee = employeeRepository.save(employee);
-		applyPositionDefaultPermissions(employee.getEmployeeId(), positionId);
-		return employee;
+		return employeeRepository.save(employee);
 	}
 
 	/** 公開申請流程：先建立不可登入的待審核員工資料，核准後沿用同一筆資料啟用。 */
@@ -183,9 +181,7 @@ public class EmployeeAdminService {
 		employee.setReviewedByEmployeeId(reviewerId);
 		employee.setReviewedAt(java.time.LocalDateTime.now());
 		employee.setRejectionReason(null);
-		employee = employeeRepository.save(employee);
-		applyPositionDefaultPermissions(employee.getEmployeeId(), employee.getPositionId());
-		return employee;
+		return employeeRepository.save(employee);
 	}
 
 	/** 退回申請並留下原因；退回資料不可登入，仍保留供後續追蹤。 */
@@ -208,18 +204,17 @@ public class EmployeeAdminService {
 		}
 	}
 
-	/** 修改員工基本資料；密碼與狀態由各自獨立的操作處理。 */
+	/** 後台只調整員工職位；姓名、帳號、電話及信箱由員工本人維護。 */
 	@Transactional
-	public Employee updateEmployee(Integer employeeId, String name, String account, String phone, String email,
-			Integer positionId) {
+	public Employee updateEmployeePosition(Integer employeeId, Integer positionId) {
 		Employee employee = findEmployee(employeeId);
-		Integer previousPositionId = employee.getPositionId();
-		applyProfile(employee, name, account, phone, email, positionId, employeeId);
-		employee = employeeRepository.save(employee);
-		if (!java.util.Objects.equals(previousPositionId, positionId)) {
-			applyPositionDefaultPermissions(employee.getEmployeeId(), positionId);
+		EmployeePosition position = findPosition(positionId);
+		if (position.getPositionStatus() == null || position.getPositionStatus() != STATUS_ACTIVE) {
+			throw new IllegalArgumentException("請選擇啟用中的員工職位");
 		}
-		return employee;
+		employee.setPositionId(positionId);
+		// 職位權限會於查詢及登入時即時計算，換職位不再把預設權限複製到員工個別權限。
+		return employeeRepository.save(employee);
 	}
 
 	/** 啟用或停用員工帳號，不刪除被其他業務資料引用的員工。 */
@@ -231,9 +226,9 @@ public class EmployeeAdminService {
 		return employeeRepository.save(employee);
 	}
 
-	/** 重設密碼時只回傳員工資料，雜湊值仍由 @JsonIgnore 保護。 */
+	/** 信箱 Token 驗證成功後才允許更新密碼；Controller 不可直接略過驗證呼叫。 */
 	@Transactional
-	public Employee resetPassword(Integer employeeId, String password) {
+	public Employee updatePasswordAfterEmailVerification(Integer employeeId, String password) {
 		validatePassword(password);
 		Employee employee = findEmployee(employeeId);
 		employee.setEmployeePassword(hashPassword(password));
@@ -301,7 +296,7 @@ public class EmployeeAdminService {
 		return positionRepository.save(position);
 	}
 
-	/** 取得員工目前擁有的權限編號。 */
+	/** 取得員工額外增加的權限編號；此清單不包含職位預設權限。 */
 	public List<Integer> findEmployeePermissionIds(Integer employeeId) {
 		findEmployee(employeeId);
 		return employeePermissionRepository.findByEmployeeIdOrderByPermissionIdAsc(employeeId).stream()
@@ -309,34 +304,25 @@ public class EmployeeAdminService {
 				.collect(Collectors.toList());
 	}
 
-	/** 回傳員工目前的權限數量，供帳號清單快速顯示。 */
-	public long countPermissions(Integer employeeId) {
-		return employeePermissionRepository.countByEmployeeId(employeeId);
+	/** 取得員工職位提供的預設權限編號。 */
+	public List<Integer> findEmployeePositionPermissionIds(Integer employeeId) {
+		Employee employee = findEmployee(employeeId);
+		return findPositionPermissionIds(employee.getPositionId());
 	}
 
-	/**
-	 * 依職位設定補入基本權限。只新增目前沒有的項目，不移除管理者後續手動增加的個別權限。
-	 */
-	@Transactional
-	public int applyPositionDefaultPermissions(Integer employeeId, Integer positionId) {
-		findEmployee(employeeId);
-		findPosition(positionId);
-		Set<Integer> defaultIds = positionPermissionRepository.findByPositionIdOrderByPermissionIdAsc(positionId)
-				.stream().map(EmployeePositionPermission::getPermissionId).collect(Collectors.toSet());
-		if (defaultIds.isEmpty()) return 0;
-		Set<Integer> currentIds = employeePermissionRepository.findByEmployeeIdOrderByPermissionIdAsc(employeeId)
-				.stream().map(EmployeePermission::getPermissionId).collect(Collectors.toSet());
-		List<EmployeePermission> additions = new ArrayList<>();
-		for (Integer permissionId : defaultIds) {
-			if (!currentIds.contains(permissionId)) {
-				EmployeePermission item = new EmployeePermission();
-				item.setEmployeeId(employeeId);
-				item.setPermissionId(permissionId);
-				additions.add(item);
-			}
-		}
-		if (!additions.isEmpty()) employeePermissionRepository.saveAll(additions);
-		return additions.size();
+	/** 合併職位預設與員工額外權限，重複項目只計算一次。 */
+	public List<Integer> findEffectiveEmployeePermissionIds(Integer employeeId) {
+		Employee employee = findEmployee(employeeId);
+		Set<Integer> effectiveIds = new LinkedHashSet<>();
+		// ADMIN 也依職位預設加個別權限計算，避免取消後又被程式強制補回全部功能。
+		effectiveIds.addAll(findPositionPermissionIds(employee.getPositionId()));
+		effectiveIds.addAll(findEmployeePermissionIds(employeeId));
+		return effectiveIds.stream().sorted().collect(Collectors.toList());
+	}
+
+	/** 回傳員工實際可用的功能群組數量，供帳號清單快速顯示。 */
+	public long countPermissions(Integer employeeId) {
+		return countPermissionGroups(findEffectiveEmployeePermissionIds(employeeId));
 	}
 
 	/** 取得職位目前保存的基本權限編號，供職位管理視窗顯示勾選狀態。 */
@@ -346,9 +332,9 @@ public class EmployeeAdminService {
 				.map(EmployeePositionPermission::getPermissionId).collect(Collectors.toList());
 	}
 
-	/** 回傳職位目前保存的基本權限數量，供職位清單顯示。 */
+	/** 回傳職位目前保存的基本功能群組數量，供職位清單顯示。 */
 	public long countPositionPermissions(Integer positionId) {
-		return positionPermissionRepository.countByPositionId(positionId);
+		return countPermissionGroups(findPositionPermissionIds(positionId));
 	}
 
 	/**
@@ -366,6 +352,18 @@ public class EmployeeAdminService {
 				assignments.computeIfAbsent(permission.getPermissionId(), id -> new ArrayList<>()).add(employee);
 			}
 		}
+		// 職位預設也代表該員工實際負責的功能；與個別權限重複時以員工編號去重。
+		java.util.Map<Integer, List<Integer>> defaultsByPosition = positionPermissionRepository.findAll().stream()
+				.collect(Collectors.groupingBy(EmployeePositionPermission::getPositionId,
+						Collectors.mapping(EmployeePositionPermission::getPermissionId, Collectors.toList())));
+		for (Employee employee : activeEmployees.values()) {
+			for (Integer permissionId : defaultsByPosition.getOrDefault(employee.getPositionId(), List.of())) {
+				String pairKey = permissionId + ":" + employee.getEmployeeId();
+				if (assignedPairs.add(pairKey)) {
+					assignments.computeIfAbsent(permissionId, id -> new ArrayList<>()).add(employee);
+				}
+			}
+		}
 		return assignments;
 	}
 
@@ -375,12 +373,7 @@ public class EmployeeAdminService {
 	@Transactional
 	public List<Integer> replacePositionPermissions(Integer positionId, List<Integer> requestedIds) {
 		findPosition(positionId);
-		Set<Integer> targetIds = requestedIds == null ? new LinkedHashSet<>()
-				: requestedIds.stream().filter(id -> id != null)
-						.collect(Collectors.toCollection(LinkedHashSet::new));
-		if (permissionFunctionRepository.findAllById(targetIds).size() != targetIds.size()) {
-			throw new IllegalArgumentException("包含不存在的權限功能，請重新整理後再試");
-		}
+		Set<Integer> targetIds = expandPermissionGroups(requestedIds);
 
 		List<EmployeePositionPermission> current = positionPermissionRepository
 				.findByPositionIdOrderByPermissionIdAsc(positionId);
@@ -408,13 +401,7 @@ public class EmployeeAdminService {
 	@Transactional
 	public List<Integer> replaceEmployeePermissions(Integer employeeId, List<Integer> requestedIds) {
 		findEmployee(employeeId);
-		Set<Integer> targetIds = requestedIds == null ? new LinkedHashSet<>()
-				: requestedIds.stream().filter(id -> id != null).collect(Collectors.toCollection(LinkedHashSet::new));
-
-		List<EmployeePermissionFunction> functions = permissionFunctionRepository.findAllById(targetIds);
-		if (functions.size() != targetIds.size()) {
-			throw new IllegalArgumentException("包含不存在的權限功能，請重新整理後再試");
-		}
+		Set<Integer> targetIds = expandPermissionGroups(requestedIds);
 
 		List<EmployeePermission> current = employeePermissionRepository
 				.findByEmployeeIdOrderByPermissionIdAsc(employeeId);
@@ -438,16 +425,27 @@ public class EmployeeAdminService {
 		return targetIds.stream().sorted().collect(Collectors.toList());
 	}
 
-	/** 修改權限顯示名稱、說明與群組；程式使用的權限代碼保持不變。 */
-	@Transactional
-	public EmployeePermissionFunction updatePermissionFunction(Integer permissionId,
-			String name, String description, String group) {
-		EmployeePermissionFunction function = permissionFunctionRepository.findById(permissionId)
-				.orElseThrow(() -> new NoSuchElementException("找不到這個權限功能"));
-		function.setPermissionName(requireText(name, "權限名稱不可空白", 100, "權限名稱最多 100 個字"));
-		function.setPermissionDescription(normalizeOptional(description, 255, "權限說明最多 255 個字"));
-		function.setPermissionGroup(requireText(group, "權限群組不可空白", 50, "權限群組最多 50 個字"));
-		return permissionFunctionRepository.save(function);
+	/** 將任何被勾選的權限編號展開成同群組全部權限，確保功能不會再被拆成細項。 */
+	private Set<Integer> expandPermissionGroups(List<Integer> requestedIds) {
+		Set<Integer> requested = requestedIds == null ? new LinkedHashSet<>()
+				: requestedIds.stream().filter(id -> id != null)
+						.collect(Collectors.toCollection(LinkedHashSet::new));
+		List<EmployeePermissionFunction> requestedFunctions = permissionFunctionRepository.findAllById(requested);
+		if (requestedFunctions.size() != requested.size()) {
+			throw new IllegalArgumentException("包含不存在的權限功能，請重新整理後再試");
+		}
+		Set<String> selectedGroups = requestedFunctions.stream()
+				.map(EmployeePermissionFunction::getPermissionGroup).collect(Collectors.toSet());
+		return permissionFunctionRepository.findAllByOrderByPermissionGroupAscPermissionIdAsc().stream()
+				.filter(function -> selectedGroups.contains(function.getPermissionGroup()))
+				.map(EmployeePermissionFunction::getPermissionId)
+				.collect(Collectors.toCollection(LinkedHashSet::new));
+	}
+
+	/** 將底層權限編號換算成畫面顯示的相異功能群組數量。 */
+	private long countPermissionGroups(List<Integer> permissionIds) {
+		return permissionFunctionRepository.findAllById(permissionIds).stream()
+				.map(EmployeePermissionFunction::getPermissionGroup).distinct().count();
 	}
 
 	private void applyProfile(Employee employee, String name, String account, String phone,

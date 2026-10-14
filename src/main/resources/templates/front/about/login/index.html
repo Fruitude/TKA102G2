@@ -87,52 +87,25 @@
 			display: none;
 		}
 
-		.login-divider {
+		.login-options {
 			display: flex;
 			align-items: center;
+			justify-content: space-between;
 			gap: 12px;
-			color: #8a8a8a;
-			font-size: 14px;
 		}
 
-		.login-divider::before,
-		.login-divider::after {
-			content: "";
-			flex: 1;
-			height: 1px;
-			background: #dedede;
-		}
-
-		.google-login-button {
-			display: flex;
+		.remember-me {
+			display: inline-flex;
 			align-items: center;
-			justify-content: center;
-			gap: 10px;
-			width: 100%;
-			padding: 13px 18px;
-			border: 1px solid #cfcfcf;
-			background: #fff;
-			color: #303030;
-			font: inherit;
-			font-weight: 600;
+			gap: 6px;
+			margin: 0;
 			cursor: pointer;
 		}
 
-		.google-login-button:hover {
-			border-color: #777;
-			background: #fafafa;
-		}
-
-		.google-mark {
-			display: inline-block;
-			width: 20px;
-			height: 20px;
-			flex: 0 0 20px;
-			object-fit: contain;
-		}
-
-		.google-mark path {
-			stroke: none;
+		.remember-me input {
+			width: 16px;
+			height: 16px;
+			margin: 0;
 		}
 
 		.auth-panel-copy {
@@ -153,7 +126,6 @@
 	</style>
 
 <link th:href="@{/front/css/front-theme.css}" rel="stylesheet" type="text/css"/>
-<link href="/front/css/shop-menu.css?v=20261013" th:href="@{/front/css/shop-menu.css(v=20261013)}" rel="stylesheet" type="text/css"/>
 </head>
 <body class="front-theme">
 	<div class="nav-bar w-nav" data-animation="default"
@@ -520,7 +492,11 @@
 									class="text-field w-input" id="member-password" maxlength="255"
 									name="password" placeholder="輸入密碼" required minlength="8"
 									autocomplete="current-password" type="password" />
-								<div class="login-legal-text-wrapper">
+								<div class="login-legal-text-wrapper login-options">
+									<label class="remember-me" for="remember-me">
+										<input id="remember-me" name="rememberMe" type="checkbox" />
+										<span>記住我</span>
+									</label>
 									<p class="paragraph-18">
 										<a class="login-link" href="#" id="show-forgot-password">忘記密碼？</a>
 									</p>
@@ -532,11 +508,6 @@
 								<button class="primary-button w-button login-submit" id="login-submit"
 									type="submit">登入</button>
 							</div>
-							<div class="login-divider"><span>或</span></div>
-							<button class="google-login-button" id="google-login-button" type="button">
-								<img class="google-mark" src="../../../img/auth/google-g.svg" alt="" aria-hidden="true" />
-								<span>使用 Google 帳號登入</span>
-							</button>
 							<p class="paragraph-18 centered-text">
 								還沒有帳號？<a class="login-link" href="../sign-up/">註冊</a>
 							</p>
@@ -545,7 +516,7 @@
 				</form>
 				<form class="login-form auth-panel" id="forgot-password-form" hidden>
 					<h1 class="heading-h3 margin-bottom-16 centered-text">忘記密碼</h1>
-					<p class="auth-panel-copy">輸入註冊時使用的 Google 信箱，我們會寄送一次性密碼重設連結。</p>
+					<p class="auth-panel-copy">輸入註冊時使用的電子郵件，我們會寄送一次性密碼重設連結。</p>
 					<div class="sign-up-elements-grid">
 						<div class="_100-width">
 							<label class="field-label" for="forgot-email">電子郵件 *</label>
@@ -643,11 +614,24 @@
 			const resetForm = document.getElementById('reset-password-form');
 			const account = document.getElementById('member-account');
 			const password = document.getElementById('member-password');
+			const rememberMe = document.getElementById('remember-me');
+			const REMEMBER_KEY = 'fruitude:remembered-account';
 			const submit = document.getElementById('login-submit');
 			const feedback = document.getElementById('login-feedback');
 			const contextPath = window.location.pathname.split('/front/')[0];
 			const query = new URLSearchParams(window.location.search);
 			const resetToken = query.get('resetToken');
+
+			// 「記住我」：只記住帳號，不儲存密碼。
+			try {
+				const savedAccount = localStorage.getItem(REMEMBER_KEY);
+				if (savedAccount) {
+					account.value = savedAccount;
+					rememberMe.checked = true;
+				}
+			} catch (error) {
+				// localStorage 不可用時，不影響登入。
+			}
 
 			function showFeedback(element, text, type) {
 				element.textContent = text;
@@ -678,6 +662,14 @@
 					window.location.assign(safeNext ? next : contextPath + '/front/');
 			}
 
+			// 從登入頁前往註冊時，把 next 帶過去，註冊完回到登入頁仍能返回原頁面。
+			const signUpNext = query.get('next');
+			if (signUpNext) {
+				document.querySelectorAll('a[href="../sign-up/"]').forEach(function(link) {
+					link.href = '../sign-up/?next=' + encodeURIComponent(signUpNext);
+				});
+			}
+
 			const authError = query.get('authError');
 			if (authError) showFeedback(feedback, authError, 'error');
 
@@ -700,13 +692,6 @@
 						// 狀態檢查失敗不阻擋使用者操作登入表單。
 					});
 			}
-
-			document.getElementById('google-login-button').addEventListener('click', function() {
-				const next = query.get('next');
-				const authorizeUrl = new URL(contextPath + '/api/members/google/authorize', window.location.origin);
-				if (next) authorizeUrl.searchParams.set('next', next);
-				window.location.assign(authorizeUrl.toString());
-			});
 
 			document.getElementById('show-forgot-password').addEventListener('click', function(event) {
 				event.preventDefault();
@@ -764,7 +749,9 @@
 				}).then(function(result) {
 					showFeedback(resetFeedback, result.message, 'success');
 					window.setTimeout(function() {
-						window.location.assign(contextPath + '/front/about/login/');
+						const backNext = query.get('next');
+						window.location.assign(contextPath + '/front/about/login/'
+								+ (backNext ? '?next=' + encodeURIComponent(backNext) : ''));
 					}, 1200);
 				}).catch(function(error) {
 					showFeedback(resetFeedback, error.message, 'error');
@@ -788,6 +775,7 @@
 				const data = new URLSearchParams();
 				data.set('account', account.value.trim());
 				data.set('password', password.value);
+				data.set('rememberMe', rememberMe.checked ? 'true' : 'false');
 
 				fetch(contextPath + '/api/members/login', {
 					method: 'POST',
@@ -803,6 +791,12 @@
 				}).then(function(result) {
 					if (!result.ok) {
 						throw new Error(result.body.message || '登入失敗，請確認輸入內容');
+					}
+					try {
+						if (rememberMe.checked) localStorage.setItem(REMEMBER_KEY, account.value.trim());
+						else localStorage.removeItem(REMEMBER_KEY);
+					} catch (error) {
+						// localStorage 不可用時，不影響登入。
 					}
 					goToHome();
 				}).catch(function(error) {

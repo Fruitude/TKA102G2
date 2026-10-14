@@ -124,6 +124,9 @@
         icon.className = Number(comment.commentStatus) === 2 ? 'fas fa-gavel' : 'fas fa-eye';
         icon.setAttribute('aria-hidden', 'true');
         viewButton.appendChild(icon);
+        const actionText = document.createElement('span');
+        actionText.textContent = Number(comment.commentStatus) === 2 ? '處理' : '查看';
+        viewButton.appendChild(actionText);
         actionCell.appendChild(viewButton);
         return row;
     }
@@ -136,6 +139,7 @@
         byId('summary-hidden').textContent = Number(values.hidden || 0).toLocaleString('zh-TW');
         byId('reported-heading-count').textContent = Number(values.reported || 0).toLocaleString('zh-TW');
         byId('reported-tab-count').textContent = Number(values.reported || 0).toLocaleString('zh-TW');
+        byId('handled-tab-count').textContent = Number(values.handled || 0).toLocaleString('zh-TW');
     }
 
     function renderResult(result) {
@@ -162,12 +166,15 @@
     function buildQuery() {
         const query = new URLSearchParams();
         const keyword = byId('comment-search').value.trim();
-        const status = state.tab === 'reported' ? '2' : byId('comment-status-filter').value;
+        const reported = state.tab === 'reported';
+        const handled = state.tab === 'handled';
+        const status = reported ? '2' : byId('comment-status-filter').value;
         const rating = byId('comment-rating-filter').value;
         const startDate = byId('comment-start-date').value;
         const endDate = byId('comment-end-date').value;
         if (keyword) query.set('keyword', keyword);
         if (status) query.set('status', status);
+        if (handled) query.set('handled', 'true');
         if (rating) query.set('rating', rating);
         if (startDate) query.set('startDate', startDate);
         if (endDate) query.set('endDate', endDate);
@@ -188,14 +195,24 @@
     function switchTab(tab) {
         state.tab = tab;
         state.page = 0;
+        byId('comment-status-filter').value = '';
         document.querySelectorAll('[data-comment-tab]').forEach((button) => {
             button.classList.toggle('is-active', button.dataset.commentTab === tab);
         });
         const reported = tab === 'reported';
-        byId('comment-report-notice').hidden = !reported;
+        const handled = tab === 'handled';
+        const notice = byId('comment-report-notice');
+        notice.hidden = !reported && !handled;
+        notice.classList.toggle('is-handled', handled);
+        byId('comment-report-notice-title').textContent = handled ? '已處理檢舉' : '待審核檢舉';
+        byId('comment-report-notice-copy').textContent = handled
+            ? '可查看處理結果、經手人員、時間與判定說明。'
+            : '先查看完整評論，再決定保留或隱藏；系統不會刪除原始訂單明細。';
         byId('comment-status-control').hidden = reported;
-        byId('comment-empty-title').textContent = reported ? '目前沒有待處理檢舉' : '找不到符合條件的評論';
-        byId('comment-empty-copy').textContent = reported ? '新的檢舉會顯示在這裡。' : '請調整搜尋或篩選條件。';
+        byId('comment-empty-title').textContent = reported ? '目前沒有待處理檢舉'
+            : handled ? '目前沒有已處理檢舉' : '找不到符合條件的評論';
+        byId('comment-empty-copy').textContent = reported ? '新的檢舉會顯示在這裡。'
+            : handled ? '完成檢舉判定後，紀錄會顯示在這裡。' : '請調整搜尋或篩選條件。';
         loadComments();
     }
 

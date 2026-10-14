@@ -34,7 +34,6 @@
     rel="shortcut icon" type="image/x-icon" />
 
 <link th:href="@{/front/css/front-theme.css}" rel="stylesheet" type="text/css"/>
-<link href="/front/css/shop-menu.css?v=20261013" th:href="@{/front/css/shop-menu.css(v=20261013)}" rel="stylesheet" type="text/css"/>
 </head>
 <body class="front-theme">
   <div class="nav-bar w-nav" data-animation="default" data-collapse="medium"
@@ -315,7 +314,7 @@
 
       fetch(contextPath + "/api/members/me/orders", { credentials: "same-origin", headers: { "Accept": "application/json" } })
         .then(function(res) {
-          if (res.status === 401) { window.location.href = contextPath + "/front/about/login/"; return null; }
+          if (res.status === 401) { window.location.href = contextPath + "/front/about/login/?next=" + encodeURIComponent(window.location.pathname + window.location.search); return null; }
           return res.ok ? res.json() : [];
         })
         .then(function(orders) {
