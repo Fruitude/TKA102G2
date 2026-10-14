@@ -93,8 +93,9 @@
     };
 
     const approvedForms = new WeakSet();
-    document.querySelectorAll('form[data-product-delete]').forEach(form => {
-        form.addEventListener('submit', async event => {
+    document.addEventListener('submit', async event => {
+            const form = event.target.closest('form[data-product-delete]');
+            if (!form) return;
             if (approvedForms.delete(form)) return;
             event.preventDefault();
             const submitter = event.submitter;
@@ -103,6 +104,5 @@
             if (!confirmed) return;
             approvedForms.add(form);
             form.requestSubmit(submitter || undefined);
-        });
     });
 })();

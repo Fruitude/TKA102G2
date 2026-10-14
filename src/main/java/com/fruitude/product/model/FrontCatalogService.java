@@ -27,10 +27,22 @@ public class FrontCatalogService {
     private volatile RankedCatalog rankedCatalog;
 
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public List<ProductView> getBestSellers() { return cachedRankedCatalog().bestSellers(); }
+    public List<ProductView> getBestSellers() { return withCurrentReviewRatings(cachedRankedCatalog().bestSellers()); }
 
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public List<ProductView> getTopRatedProducts() { return cachedRankedCatalog().topRated(); }
+    public List<ProductView> getTopRatedProducts() { return withCurrentReviewRatings(cachedRankedCatalog().topRated()); }
+
+    // Keep the daily ordering while showing ratings from status 1/2, never stale hidden-review totals.
+    private List<ProductView> withCurrentReviewRatings(List<ProductView> products) {
+        if(reviewJdbc==null||products.isEmpty())return products;
+        var ratings=new HashMap<Integer,Double>();
+        reviewJdbc.query("SELECT s.product_id,ROUND(AVG(d.comment_star),1) AS rating FROM orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id "
+            +"WHERE s.product_id IN (:ids) AND d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5 "
+            +"AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' GROUP BY s.product_id",
+            Map.of("ids",products.stream().map(ProductView::productId).toList()),rs->{ratings.put(rs.getInt("product_id"),rs.getDouble("rating"));});
+        return products.stream().map(p->new ProductView(p.productId(),p.name(),p.description(),p.price(),p.originalPrice(),p.skuId(),p.imageId(),
+            p.giftBox(),p.skus(),p.stock(),ratings.getOrDefault(p.productId(),0.0))).toList();
+    }
 
     private RankedCatalog cachedRankedCatalog() {
         var snapshot = rankedCatalog;
@@ -75,7 +87,7 @@ public class FrontCatalogService {
 
     @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public void initializeRankedCatalog() { cachedRankedCatalog(); }
+    public void initializeRankedCatalog() { cachedRankedCatalog(); cachedHomeReviews(); }
 
     // Front catalog and live SKU reads
 
@@ -298,7 +310,7 @@ public class FrontCatalogService {
               COALESCE(v.origin,'') origin,COALESCE(r.rating,0) rating
             FROM product p LEFT JOIN vendor v ON v.vendor_id=p.vendor_id
             LEFT JOIN (SELECT s.product_id,AVG(d.comment_star) rating FROM orders_detail d
-              JOIN product_sku s ON s.sku_id=d.sku_id WHERE d.comment_status=1 AND d.comment_star BETWEEN 1 AND 5
+              JOIN product_sku s ON s.sku_id=d.sku_id WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5
               AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' GROUP BY s.product_id) r ON r.product_id=p.product_id
             WHERE p.product_id IN (:ids)
             """,params,(r,n)->new SearchMeta(r.getInt("product_id"),r.getObject("product_category_id",Integer.class),r.getObject("vendor_id",Integer.class),r.getString("vendor_name"),r.getString("origin").strip(),r.getDouble("rating")));
@@ -373,11 +385,87 @@ public class FrontCatalogService {
     private static String optionLabel(List<SearchOption> options,String value){return options.stream().filter(o->o.value().equals(value)).map(SearchOption::label).findFirst().orElse("已失效的條件");}
 
 
+    public record HomeReview(int reviewId,int productId,String account,int stars,String productName,String skuName,String text,LocalDateTime date) {
+        public String starsDisplay(){return "★".repeat(stars)+"☆".repeat(5-stars);}
+        public List<String> previewLines() {
+            var characters=new ArrayList<String>();
+            var matcher=Pattern.compile("\\X").matcher(text==null?"":text.strip().replaceAll("[\\s\\p{Zs}]+"," "));
+            while(matcher.find())characters.add(matcher.group());
+            if(characters.size()>60){characters=new ArrayList<>(characters.subList(0,57));characters.addAll(List.of(".",".","."));}
+            var lines=new ArrayList<String>();
+            for(int start=0;start<characters.size();start+=15)lines.add(String.join("",characters.subList(start,Math.min(start+15,characters.size()))));
+            return List.copyOf(lines);
+        }
+    }
+    public record HomeFeedback(List<HomeReview> reviews, long satisfiedMembers, long ratedReviews,
+            long totalStars, long commentedReviews, long recommendedReviews) {
+        public HomeFeedback { reviews=List.copyOf(reviews); }
+        public static HomeFeedback empty() { return new HomeFeedback(List.of(),0,0,0,0,0); }
+        public String satisfiedDisplay() { return Math.max(100,satisfiedMembers/100*100)+"+"; }
+        public String averageDisplay() { return String.format(java.util.Locale.ROOT,"%.1f/5",ratedReviews==0?0.0:(double)totalStars/ratedReviews); }
+        public String recommendationDisplay() { return (commentedReviews==0?0:Math.round(100.0*recommendedReviews/commentedReviews))+"%"; }
+    }
+
+    private volatile List<HomeReview> homeReviews;
+    private List<HomeReview> cachedHomeReviews() {
+        var reviews=homeReviews;
+        if(reviews==null)synchronized(this){if(homeReviews==null)refreshHomeReviews();reviews=homeReviews;}
+        return reviews;
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(cron="0 0 0 * * *",zone="Asia/Taipei")
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public synchronized void refreshHomeReviews() {
+        if(reviewJdbc==null){homeReviews=List.of();return;}
+        homeReviews=List.copyOf(reviewJdbc.query("""
+            SELECT d.orders_detail_id,s.product_id,m.member_account,d.comment_star,p.product_name AS product_name,
+                s.sku_name,s.another_name,d.comment_text,d.comment_date
+            FROM orders_detail d JOIN orders o ON o.orders_id=d.orders_id JOIN product_sku s ON s.sku_id=d.sku_id
+                JOIN product p ON p.product_id=s.product_id LEFT JOIN member m ON m.member_id=o.member_id
+            WHERE d.comment_status=1 AND d.comment_star BETWEEN 1 AND 5
+                AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>''
+            ORDER BY d.comment_star DESC,d.comment_date DESC,d.orders_detail_id DESC LIMIT 5
+            """,Map.<String,Object>of(),(rs,n)->{
+                var date=rs.getTimestamp("comment_date");
+                return new HomeReview(rs.getInt("orders_detail_id"),rs.getInt("product_id"),maskAccount(rs.getString("member_account")),rs.getInt("comment_star"),
+                    rs.getString("product_name"),ProductSku.resolveDisplayName(rs.getString("sku_name"),rs.getString("another_name")),
+                    rs.getString("comment_text"),date==null?null:date.toLocalDateTime());
+            }));
+    }
+
+    /** Live counts and moderation checks; carousel contents are selected only at midnight. */
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public HomeFeedback getHomeFeedback() {
+        if(reviewJdbc==null)return HomeFeedback.empty();
+        var cached=cachedHomeReviews();
+        var params=Map.<String,Object>of();
+        var summary=reviewJdbc.queryForMap("""
+            SELECT COUNT(DISTINCT CASE WHEN d.comment_star>=4 THEN o.member_id END) AS satisfied,
+                COUNT(*) AS rated,
+                COALESCE(SUM(d.comment_star),0) AS total_stars,
+                COUNT(CASE WHEN d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' THEN 1 END) AS commented,
+                COUNT(CASE WHEN d.comment_star>=4 AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' THEN 1 END) AS recommended
+            FROM orders_detail d JOIN orders o ON o.orders_id=d.orders_id JOIN product_sku s ON s.sku_id=d.sku_id
+            WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5
+            """,params);
+        List<HomeReview> reviews=List.of();
+        if(!cached.isEmpty()) {
+            var visible=new HashSet<>(reviewJdbc.queryForList("SELECT orders_detail_id FROM orders_detail WHERE orders_detail_id IN (:ids) AND comment_status=1",
+                Map.of("ids",cached.stream().map(HomeReview::reviewId).toList()),Integer.class));
+            reviews=cached.stream().filter(review->visible.contains(review.reviewId())).toList();
+        }
+        return new HomeFeedback(reviews,((Number)summary.get("satisfied")).longValue(),((Number)summary.get("rated")).longValue(),
+            ((Number)summary.get("total_stars")).longValue(),((Number)summary.get("commented")).longValue(),((Number)summary.get("recommended")).longValue());
+    }
+
+
     // Public product reviews
 
     private final NamedParameterJdbcTemplate reviewJdbc;
 
-    public record Review(String account, int stars, String skuName, String text, LocalDateTime date) {}
+    public record Review(Integer reviewId,String account,int stars,String skuName,String text,LocalDateTime date) {
+        public Review(String account,int stars,String skuName,String text,LocalDateTime date){this(null,account,stars,skuName,text,date);}
+    }
     public record StarCount(int stars,long count) {}
     public record ReviewPage(List<Review> reviews, long count, double average, int page, int size, boolean hasMore,
                              long totalCount,List<StarCount> distribution) {
@@ -386,7 +474,7 @@ public class FrontCatalogService {
     }
     private static final String FROM = " FROM orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id "
         +"JOIN orders o ON o.orders_id=d.orders_id LEFT JOIN member m ON m.member_id=o.member_id "
-        +"WHERE s.product_id=:id AND d.comment_status=1 AND d.comment_star BETWEEN 1 AND 5 "
+        +"WHERE s.product_id=:id AND d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5 "
         +"AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' "
         +"AND EXISTS (SELECT 1 FROM product p JOIN product_sku sale ON sale.product_id=p.product_id "
         +"WHERE p.product_id=s.product_id AND sale.price>0 AND ((p.status=1 AND sale.status IN (1,2,3,6)) OR (p.status=2 AND sale.status=6))) ";
@@ -424,23 +512,50 @@ public class FrontCatalogService {
         double average=((Number)summary.get("average")).doubleValue();
         var distribution=new ArrayList<StarCount>();
         for(int star=5;star>=1;star--)distribution.add(new StarCount(star,((Number)summary.get("star"+star)).longValue()));
-        String filtered=scope;
+        String filtered=scope+"AND d.comment_status=1 ";
         if(!query.isEmpty()) {
             params.put("keyword","%"+query.replace("!","!!").replace("%","!%").replace("_","!_")+"%");
             filtered+="AND d.comment_text LIKE :keyword ESCAPE '!' ";
         }
-        long count=query.isEmpty()?total:reviewJdbc.queryForObject("SELECT COUNT(*)"+filtered,params,Long.class);
+        long count=reviewJdbc.queryForObject("SELECT COUNT(*)"+filtered,params,Long.class);
         long offset=(long)page*size;
         if(offset>=count)return new ReviewPage(List.of(),count,average,page,size,false,total,List.copyOf(distribution));
         params.put("limit",size);params.put("offset",offset);
-        var reviews=reviewJdbc.query("SELECT m.member_account,d.comment_star,s.sku_name,s.another_name,d.comment_text,d.comment_date"+filtered
+        var reviews=reviewJdbc.query("SELECT d.orders_detail_id,m.member_account,d.comment_star,s.sku_name,s.another_name,d.comment_text,d.comment_date"+filtered
             +"ORDER BY "+order+" LIMIT :limit OFFSET :offset",params,(rs,n)-> {
                 var date=rs.getTimestamp("comment_date");
-                return new Review(maskAccount(rs.getString("member_account")),rs.getInt("comment_star"),
+                return new Review(rs.getInt("orders_detail_id"),maskAccount(rs.getString("member_account")),rs.getInt("comment_star"),
                     ProductSku.resolveDisplayName(rs.getString("sku_name"),rs.getString("another_name")),rs.getString("comment_text"),date==null?null:date.toLocalDateTime());
             });
         return new ReviewPage(List.copyOf(reviews),count,average,page,size,offset+reviews.size()<count,total,List.copyOf(distribution));
     }
+    public static String reportReasonLabel(String reason) {
+        return switch(reason==null?"":reason) {
+            case "FALSE_SPAM" -> "不實言論與垃圾內容";
+            case "CONFLICT" -> "利益衝突";
+            case "HARASSMENT" -> "騷擾與仇恨言論";
+            case "PRIVACY_ILLEGAL" -> "個資或違法內容";
+            default -> throw new IllegalArgumentException("請選擇有效的檢舉原因");
+        };
+    }
+
+    /** Member reports enter the existing status-2 queue; employee audit records are reserved for staff moderation. */
+    @Transactional
+    public boolean reportReview(int productId,int reviewId,int memberId,String reason,String note,String ip) {
+        String label=reportReasonLabel(reason),detail=note==null?"":note.strip();
+        if(productId<=0||reviewId<=0||memberId<=0||detail.length()>500)throw new IllegalArgumentException("檢舉資料不正確，補充說明最多 500 字");
+        Integer active=reviewJdbc.queryForObject("SELECT COUNT(*) FROM member WHERE member_id=:member AND member_status=1",Map.of("member",memberId),Integer.class);
+        if(active==null||active!=1)throw new SecurityException("請使用有效的會員帳號");
+        var params=new HashMap<String,Object>();params.put("id",productId);params.put("review",reviewId);params.put("member",memberId);
+        var statuses=reviewJdbc.queryForList("SELECT d.comment_status"+FROM+"AND d.orders_detail_id=:review",params,Integer.class);
+        if(statuses.isEmpty())throw new IllegalArgumentException("此評論不存在或已不公開");
+        if(statuses.get(0)==2)return false;
+        int changed=reviewJdbc.update("UPDATE orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id SET d.comment_status=2 "
+            +"WHERE d.orders_detail_id=:review AND s.product_id=:id AND d.comment_status=1",params);
+        if(changed==0)return false;
+        return true;
+    }
+
     public static String maskAccount(String account) {
         String clean=account==null?"":account.replaceAll("[^A-Za-z0-9]", "");
         if(clean.isEmpty())return "會員";
@@ -476,7 +591,7 @@ public class FrontCatalogService {
             .sorted(Comparator.comparingInt(Match::score).reversed()
                 .thenComparing(m->m.product().giftBox()!=selected.giftBox())
                 .thenComparing(m->m.product().productId()))
-            .limit(Math.min(5,limit)).map(Match::product).toList();
+            .limit(Math.min(60,limit)).map(Match::product).toList();
     }
 
     public static class ProductUnavailableException extends IllegalArgumentException {

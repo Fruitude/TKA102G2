@@ -71,6 +71,7 @@ public class FrontProductController {
     @GetMapping({"/front/", "/front/index", "/front/index.html"})
     public String homePage(Model model, HttpSession session, jakarta.servlet.http.HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-store");
+        model.addAttribute("homeFeedback", catalog.getHomeFeedback());
         model.addAttribute("bestSellerProducts", catalog.getBestSellers());
         model.addAttribute("topRatedProducts", catalog.getTopRatedProducts());
         // 首頁活動區塊：限時活動與會員專屬福利。會員身分只信任 session，用來標示目前符合資格的福利（壽星月、新會員首購）
@@ -83,6 +84,7 @@ public class FrontProductController {
     }
 
     public String home(Model model) {
+        model.addAttribute("homeFeedback", catalog.getHomeFeedback());
         List<ProductView> products = catalog.getProducts();
         model.addAttribute("freshProducts", products.stream().filter(p -> !p.giftBox()).toList());
         model.addAttribute("giftProducts", products.stream().filter(ProductView::giftBox).toList());
@@ -216,7 +218,7 @@ public class FrontProductController {
             .filter(sku->java.util.Set.of(1,2,3,4,6).contains(sku.skuStatus())).toList());
         model.addAttribute("productReviews", selected==null || catalog==null
             ? com.fruitude.product.model.FrontCatalogService.ReviewPage.empty() : catalog.read(selected.productId(),0,3));
-        model.addAttribute("relatedProducts", com.fruitude.product.model.FrontCatalogService.recommend(selected,products,5));
+        model.addAttribute("relatedProducts", com.fruitude.product.model.FrontCatalogService.recommend(selected,products,60));
         return "front/product/view/index";
     }
 
@@ -226,6 +228,33 @@ public class FrontProductController {
         if (skuIds.size() > 500 || skuIds.stream().anyMatch(id -> id == null || id <= 0))
             return org.springframework.http.ResponseEntity.badRequest().cacheControl(org.springframework.http.CacheControl.noStore()).build();
         return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(catalog.getLiveSkus(skuIds));
+    }
+
+    @ModelAttribute("productReviewReportToken")
+    public String productReviewReportToken(jakarta.servlet.http.HttpServletRequest request) {
+        var session=request.getSession(false);
+        if(session==null||!(session.getAttribute("loggedInMemberId") instanceof Integer))return "";
+        synchronized(session){var token=session.getAttribute("product.reviewReportToken");
+            if(!(token instanceof String)){token=java.util.UUID.randomUUID().toString();session.setAttribute("product.reviewReportToken",token);}
+            return (String)token;}
+    }
+    public record ReviewReportRequest(Integer productId,String reason,String note) {}
+    @ResponseBody
+    @PostMapping(value="/front/api/product-reviews/{reviewId}/report",consumes=MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> reportReview(@PathVariable int reviewId,@RequestBody ReviewReportRequest form,
+            @RequestHeader(value="X-Product-Review-Token",required=false) String token,HttpSession session,jakarta.servlet.http.HttpServletRequest request) {
+        if(!(session.getAttribute("loggedInMemberId") instanceof Integer memberId))
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(java.util.Map.of("message","請先登入會員後再檢舉"));
+        if(token==null||!token.equals(session.getAttribute("product.reviewReportToken")))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of("message","請重新整理頁面後再試"));
+        if(form==null||form.productId()==null||form.productId()<=0||reviewId<=0)
+            return ResponseEntity.badRequest().body(java.util.Map.of("message","檢舉資料不正確"));
+        try {
+            boolean changed=catalog.reportReview(form.productId(),reviewId,memberId,form.reason(),form.note(),request.getRemoteAddr());
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(java.util.Map.of("reported",changed,
+                "message",changed?"檢舉已送出，評論已暫時隱藏，評分與評論數保留。":"此評論已被檢舉或不再公開。"));
+        }catch(SecurityException invalid){return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of("message",invalid.getMessage()));}
+        catch(IllegalArgumentException invalid){return ResponseEntity.badRequest().body(java.util.Map.of("message",invalid.getMessage()));}
     }
 
     // ProductController endpoints

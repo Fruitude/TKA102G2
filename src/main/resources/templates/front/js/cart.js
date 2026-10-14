@@ -863,9 +863,7 @@
         updateTotalPrice();
         showQuantityNotice();
       }
-      dropdown.addEventListener("mouseenter", function () { setOpen(true); });
-      dropdown.addEventListener("mouseleave", function () { setOpen(false); });
-      trigger.addEventListener("click", function () { setOpen(true); });
+      trigger.addEventListener("click", function () { setOpen(!dropdown.classList.contains("is-open")); });
       dropdown.addEventListener("keydown", function (event) {
         if (event.key === "Escape") { setOpen(false); trigger.focus(); }
       });

@@ -22,7 +22,7 @@
     avatarTemplate.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="11" r="6"/><path d="M5 30v-3a11 11 0 0 1 22 0v3Z"/></svg>';
   }
   function render(review, list) {
-    var row = element('article', 'pv-review'); row.append(avatarTemplate.cloneNode(true));
+    var row = element('article', 'pv-review'); if(review.reviewId)row.dataset.reviewId=review.reviewId;row.append(avatarTemplate.cloneNode(true));
     var body = element('div', 'pv-review-body');
     var member = element('div', 'pv-review-member'); member.append(element('span', '', review.account));
     if (review.date) member.append(element('time', '', review.date.slice(0, 10)));
@@ -35,7 +35,7 @@
     filled.style.width = Math.max(0, Math.min(5, review.stars)) * 20 + '%';
     stars.append(empty, filled); body.append(stars);
     body.append(element('div', 'pv-review-sku', '購買規格：' + (review.skuName || '')));
-    body.append(element('p', 'pv-review-text', review.text)); row.append(body); list.append(row);
+    body.append(element('p', 'pv-review-text', review.text));if(review.reviewId){var report=element('button','pv-review-report','檢舉');report.type='button';report.dataset.reviewReport=review.reviewId;report.setAttribute('aria-haspopup','dialog');body.append(report);}row.append(body); list.append(row);
   }
   function renderSummary(data) {
     document.getElementById('pv-reviews-dialog-average').textContent = Number(data.average).toFixed(1);
@@ -74,19 +74,19 @@
         if (reset) state.list.replaceChildren(rows); else state.list.append(rows);
         if (isModal) {
           renderSummary(data); state.page++; more.hidden = !data.hasMore;
-          state.message.textContent = data.count ? '已顯示 ' + state.list.children.length + '／' + data.count + ' 則' + (query ? '符合的' : '') + '評論' : (query ? '沒有符合搜尋條件的評論。' : (selectedSku ? '此規格目前尚無會員評論。' : '目前尚無會員評論。'));
+          state.message.textContent = data.count ? '已顯示 ' + state.list.children.length + '／' + data.count + ' 則' + (query ? '符合條件且可顯示的' : '可顯示的') + '評論' : (query ? '沒有符合搜尋條件的評論。' : (data.totalCount ? '目前沒有可顯示的評論。' : (selectedSku ? '此規格目前尚無會員評論。' : '目前尚無會員評論。')));
         } else {
           section.querySelector('.pv-reviews-average').textContent = Number(data.average).toFixed(1);
           document.getElementById('pv-reviews-heading').textContent = '商品評價(' + data.totalCount + ')';
           state.message.hidden = data.reviews.length > 0;
-          state.message.textContent = selectedSku ? '此規格目前尚無會員評論。' : '目前尚無會員評論。';
+          state.message.textContent = data.totalCount ? '目前沒有可顯示的評論。' : (selectedSku ? '此規格目前尚無會員評論。' : '目前尚無會員評論。');
           section.style.minHeight = section.getBoundingClientRect().height + 'px';
         }
         if (isModal) dialog.scrollTop = scrollTop;
       })
       .catch(function (error) {
         if (version !== state.version || error.name === 'AbortError') return;
-        state.message.hidden = false; state.message.textContent = error.message;
+        state.message.hidden = false; state.message.textContent = error instanceof TypeError ? '系統忙碌中，請稍後再嘗試。' : error.message;
         if (isModal) more.hidden = false;
       })
       .finally(function () {
@@ -113,6 +113,33 @@
   search.addEventListener('keydown', function (event) { if (event.key === 'Enter') { event.preventDefault(); resetResults(); } });
   sort.addEventListener('change', resetResults);
   if (trigger) trigger.addEventListener('click', function () { dialog.showModal(); resetResults(); });
+  var reportDialog=document.getElementById('pv-report-dialog'),reportForm=document.getElementById('pv-report-form'),reportMessage=document.getElementById('pv-report-message'),reportSubmit=document.getElementById('pv-report-submit'),reportReviewId=null,reporting=false,reportTrigger=null;
+  if(reportDialog&&reportForm){
+    function openReport(button){
+      reportTrigger=button;reportReviewId=Number(button.dataset.reviewReport);if(!Number.isInteger(reportReviewId)||reportReviewId<=0)return;
+      reportForm.reset();reportMessage.textContent=section.dataset.reportToken?'':'請先登入會員後再檢舉';
+      reportDialog.querySelector('.pv-report-login').hidden=!!section.dataset.reportToken;reportSubmit.disabled=!section.dataset.reportToken;
+      reportDialog.showModal();reportForm.querySelector('input[name=reason]').focus();
+    }
+    document.addEventListener('click',function(event){var button=event.target.closest('[data-review-report]');if(button&&(section.contains(button)||dialog.contains(button)))openReport(button);});
+    reportDialog.querySelectorAll('[data-close-review-report]').forEach(function(button){button.addEventListener('click',function(){if(!reporting)reportDialog.close();});});
+    reportDialog.addEventListener('close',function(){var target=reportTrigger&&reportTrigger.isConnected?reportTrigger:(dialog.open?search:trigger);if(target)target.focus({preventScroll:true});});
+    reportDialog.addEventListener('cancel',function(event){if(reporting)event.preventDefault();});
+    reportForm.addEventListener('submit',function(event){
+      event.preventDefault();if(reporting||!section.dataset.reportToken||!reportForm.reportValidity())return;
+      var choice=reportForm.querySelector('input[name=reason]:checked');if(!choice)return;
+      reporting=true;reportSubmit.disabled=true;reportMessage.textContent='正在送出檢舉…';
+      fetch(context+'/front/api/product-reviews/'+reportReviewId+'/report',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json','X-Product-Review-Token':section.dataset.reportToken},body:JSON.stringify({productId:Number(section.dataset.productId),reason:choice.value})})
+        .then(function(response){return response.json().then(function(data){if(!response.ok){if(response.status===401)reportDialog.querySelector('.pv-report-login').hidden=false;throw new Error(data.message||'系統忙碌中，請稍後再嘗試。');}return data;});})
+        .then(function(data){
+          document.querySelectorAll('.pv-review[data-review-id="'+reportReviewId+'"]').forEach(function(row){row.remove();});
+          reportDialog.close();document.getElementById('pv-report-status').textContent=data.message;
+          read(preview,true,false);if(dialog.open)resetResults();
+        }).catch(function(error){reportMessage.textContent=error instanceof TypeError?'系統忙碌中，請稍後再嘗試。':error.message;})
+        .finally(function(){reporting=false;reportSubmit.disabled=!section.dataset.reportToken;});
+    });
+  }
+
   var pressedOutside = false;
   function outside(event) {
     var bounds = dialog.getBoundingClientRect();

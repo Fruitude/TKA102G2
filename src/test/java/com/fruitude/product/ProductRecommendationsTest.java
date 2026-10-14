@@ -82,12 +82,12 @@ public class ProductRecommendationsTest {
         assertEquals(List.of(2,3,4,5,6),result.stream().map(ProductView::productId).toList());
         assertEquals(2,FrontCatalogService.recommend(selected,catalog,2).size());
     }
-    @Test public void capsFiveAndDoesNotMatchOnlyGenericGiftBoxText() {
+    @Test public void capsSixtyAndDoesNotMatchOnlyGenericGiftBoxText() {
         var selected=product(1,"草莓禮盒");var catalog=new ArrayList<ProductView>();
         catalog.add(selected);catalog.add(product(99,"蘋果禮盒"));
-        for(int i=2;i<10;i++)catalog.add(product(i,"草莓"+i));
-        var result=FrontCatalogService.recommend(selected,catalog,50);
-        assertEquals(5,result.size());assertFalse(result.stream().anyMatch(p->p.productId()==99));
+        for(int i=2;i<82;i++)catalog.add(product(i,"草莓"+i));
+        var result=FrontCatalogService.recommend(selected,catalog,100);
+        assertEquals(60,result.size());assertFalse(result.stream().anyMatch(p->p.productId()==99));
         assertTrue(FrontCatalogService.recommend(null,catalog,5).isEmpty());
     }
 }

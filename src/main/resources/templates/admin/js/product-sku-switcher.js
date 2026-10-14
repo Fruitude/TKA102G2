@@ -1,5 +1,9 @@
 (() => {
+    const initialized = new WeakSet();
+    function initializeSwitchers() {
     document.querySelectorAll('.sku-switcher').forEach(switcher => {
+        if (initialized.has(switcher)) return;
+        initialized.add(switcher);
         const names = Array.from(switcher.querySelectorAll('.sku-name-options > span'), item => item.textContent);
         const button = switcher.querySelector('.sku-counter');
         const track = switcher.querySelector('.sku-name-track');
@@ -42,4 +46,7 @@
             }
         });
     });
+    }
+    initializeSwitchers();
+    document.addEventListener('product-list-updated', initializeSwitchers);
 })();

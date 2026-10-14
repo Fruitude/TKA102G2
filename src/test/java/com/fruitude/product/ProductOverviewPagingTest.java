@@ -80,13 +80,13 @@ public class ProductOverviewPagingTest {
         var service = new ProductService(); ReflectionTestUtils.setField(service, "repository", repo);
         service.getOverviewPage(99, 10, "all", null, null, null, "all", null, null, "", "", "asc",
             "  APPLE%_!  ", false, true);
-        assertEquals(List.of(List.of("apple!%!_!!", false, true), List.of("apple!%!_!!", false, true)), searches);
+        assertEquals(List.of(List.of("[\"apple!%!_!!\"]", false, true), List.of("[\"apple!%!_!!\"]", false, true)), searches);
         service.getOverviewPage(1, 10, "all", null, null, null, "all", null, null, "", "", "asc",
             "   ", true, true);
-        assertEquals(List.of("", true, true), searches.get(2));
+        assertEquals(List.of("[]", true, true), searches.get(2));
         service.getOverviewPage(1, 10, "all", null, null, null, "all", null, null, "", "", "asc",
             "芒果", false, false);
-        assertEquals(List.of("芒果", true, false), searches.get(3));
+        assertEquals(List.of("[\"芒果\"]", true, false), searches.get(3));
     }
 
     @Test public void sortSurvivesPageClampingAndInvalidSortIsSanitized() {
@@ -102,5 +102,11 @@ public class ProductOverviewPagingTest {
         assertEquals(List.of(List.of("rating", "desc"), List.of("rating", "desc")), sorts);
         service.getOverviewPage(1, 10, "all", null, null, null, "all", null, null, "", "unknown", "invalid");
         assertEquals(List.of("", "asc"), sorts.get(2));
+    }
+    @Test public void overviewKeywordsNormalizeWhitespaceAndRespectThirtyCharacters() {
+        assertEquals("芒果 台南", ProductService.normalizeOverviewKeyword("  芒果　 台南\t "));
+        assertEquals("", ProductService.normalizeOverviewKeyword(null));
+        assertEquals("果".repeat(30), ProductService.normalizeOverviewKeyword("果".repeat(31)));
+        assertEquals("果".repeat(29), ProductService.normalizeOverviewKeyword("果".repeat(29)+"🍊"));
     }
 }

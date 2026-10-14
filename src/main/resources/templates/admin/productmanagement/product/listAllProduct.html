@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Huninn&amp;display=swap" rel="stylesheet">
-    <link th:href="@{/css/product-overview.css}" rel="stylesheet">
+    <link th:href="@{/css/product-overview.css(v=20261014-search-stable)}" rel="stylesheet">
 </head>
 <body class="products-loading">
 <div class="container">
@@ -21,7 +21,7 @@
         <div class="product-search-toolbar">
         <form class="product-search-row" id="product-search-form" role="search" aria-label="商品模糊搜尋">
             <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
-            <input id="product-search-input" type="search" maxlength="200" th:value="${keyword}" placeholder="輸入搜尋文字" aria-label="模糊搜尋文字" autocomplete="off">
+            <input id="product-search-input" type="search" maxlength="30" th:value="${keyword}" placeholder="輸入搜尋文字" aria-label="模糊搜尋文字" autocomplete="off">
             <label><input id="search-product-name" type="checkbox" th:checked="${searchProductName}">商品</label>
             <label><input id="search-sku-name" type="checkbox" th:checked="${searchSkuName}">規格</label>
         </form>
@@ -140,6 +140,7 @@
         <summary>查看未完成、略過或供應量調整的商品</summary>
         <ul></ul>
     </details>
+    <div id="product-results">
     <table id="product-table" th:attr="data-page=${currentPage},data-total-pages=${totalPages},data-total-products=${totalProducts},data-sort-by=${sortBy},data-sort-direction=${sortDirection}">
         <colgroup>
             <col class="col-number"><col class="col-image"><col class="col-name"><col class="col-sku"><col class="col-vendor"><col class="col-stock">
@@ -242,6 +243,7 @@
     <div class="page-footer">
         <span id="page-summary" role="status" aria-live="polite"></span>
         <nav class="pagination" id="product-pagination" aria-label="商品總覽分頁"></nav>
+    </div>
     </div>
 </div>
 <script th:inline="javascript">
@@ -371,10 +373,10 @@ async function changePageProductStatus(status) {
 }
 
 </script>
-<script th:src="@{/admin/js/product-action-confirm.js}" defer></script>
-<script th:src="@{/admin/js/product-pagination.js}" defer></script>
-<script th:src="@{/admin/js/product-detail-modal.js}" defer></script>
-<script th:src="@{/admin/js/product-sku-switcher.js}" defer></script>
+<script th:src="@{/admin/js/product-action-confirm.js(v=20261014-search-stable)}" defer></script>
+<script th:src="@{/admin/js/product-pagination.js(v=20261014-search-stable)}" defer></script>
+<script th:src="@{/admin/js/product-detail-modal.js(v=20261014-search-stable)}" defer></script>
+<script th:src="@{/admin/js/product-sku-switcher.js(v=20261014-search-stable)}" defer></script>
 <script th:src="@{/admin/js/product-status.js}"></script>
 </body>
 </html>

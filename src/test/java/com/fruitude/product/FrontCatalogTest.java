@@ -431,4 +431,70 @@ public class FrontCatalogTest {
         var selected=FrontCatalogService.search(data,new FrontCatalogService.SearchQuery("",null,"台灣金門金城",null,"",false),0);
         assertEquals(1,selected.total());assertEquals(List.of("產地：金門金城"),selected.conditions());
     }
+    @Test public void homepageFeedbackUsesReviewAverageAndCommentedReviewRecommendationShare() {
+        assertEquals("100+",FrontCatalogService.HomeFeedback.empty().satisfiedDisplay());
+        assertEquals("0.0/5",FrontCatalogService.HomeFeedback.empty().averageDisplay());
+        assertEquals("0%",FrontCatalogService.HomeFeedback.empty().recommendationDisplay());
+        for(long members:new long[]{99,100,199,200,299}) {
+            var feedback=new FrontCatalogService.HomeFeedback(List.of(),members,10,43,3,2);
+            assertEquals(Math.max(100,members/100*100)+"+",feedback.satisfiedDisplay());
+            assertEquals("4.3/5",feedback.averageDisplay());assertEquals("67%",feedback.recommendationDisplay());
+        }
+    }
+    @Test public void homepageReviewPreviewsLimitFourFifteenCharacterLinesAndKeepEmojiTogether() {
+        var sixty=new FrontCatalogService.HomeReview(1,42,"會員",5,"芒果","盒裝","果".repeat(60),null);
+        assertEquals(List.of("果".repeat(15),"果".repeat(15),"果".repeat(15),"果".repeat(15)),sixty.previewLines());
+        var longer=new FrontCatalogService.HomeReview(2,42,"會員",4,"芒果","盒裝","果".repeat(61),null);
+        assertEquals(4,longer.previewLines().size());assertEquals("果".repeat(12)+"...",longer.previewLines().get(3));
+        var emoji=new FrontCatalogService.HomeReview(3,42,"會員",5,"芒果","盒裝","👩‍🌾".repeat(61),null);
+        assertEquals("👩‍🌾".repeat(15),emoji.previewLines().get(0));assertEquals("👩‍🌾".repeat(12)+"...",emoji.previewLines().get(3));
+        assertEquals("★★★★☆",longer.starsDisplay());
+    }
+    @Test public void homepageRendersFiveRealReviewsFruitAvatarsAndFiveSecondCarousel() throws Exception {
+        var reviews=new ArrayList<FrontCatalogService.HomeReview>();
+        for(int id=1;id<=5;id++)reviews.add(new FrontCatalogService.HomeReview(id,100+id,"m***"+id,5,"芒果","盒裝",
+            id==1?"<script>x</script>":"鮮甜好吃".repeat(20),java.time.LocalDateTime.of(2026,10,14,0,0)));
+        var catalog=new FrontCatalogService(){
+            @Override public List<ProductView> getBestSellers(){return List.of();}
+            @Override public List<ProductView> getTopRatedProducts(){return List.of();}
+            @Override public HomeFeedback getHomeFeedback(){return new HomeFeedback(reviews,299,10,43,3,2);}
+        };
+        String html=mvc(catalog).perform(get("/front/")).andReturn().getResponse().getContentAsString();
+        assertEquals(5,java.util.regex.Pattern.compile("class=\"quote-slide w-slide\"").matcher(html).results().count());
+        assertTrue(html.contains("data-delay=\"5000\""));assertTrue(html.contains("data-autoplay=\"true\""));
+        for(int id=1;id<=5;id++)assertTrue(html.contains("href=\"/front/product/view/?productId="+(100+id)+"\""));
+        assertEquals(5,java.util.regex.Pattern.compile("class=\"quote-grid home-review-link\"").matcher(html).results().count());
+        assertTrue(html.contains("review-fruit-person.svg"));assertFalse(html.contains("Sophie_headshot.webp"));
+        assertTrue(html.contains("顧客平均評分"));assertFalse(html.contains("顧客給予五星好評"));
+        assertTrue(html.contains("200+"));assertTrue(html.contains("4.3/5"));assertTrue(html.contains("67%"));
+        assertTrue(html.contains("&lt;script&gt;"));assertFalse(html.contains("<script>x</script>"));
+        var schedule=FrontCatalogService.class.getMethod("refreshHomeReviews").getAnnotation(org.springframework.scheduling.annotation.Scheduled.class);
+        assertEquals("0 0 0 * * *",schedule.cron());assertEquals("Asia/Taipei",schedule.zone());
+    }
+    @Test public void reviewReportRequiresLoginAndSessionToken() throws Exception {
+        var client=mvc(new FrontCatalogService());
+        String body="{\"productId\":1,\"reason\":\"FALSE_SPAM\",\"note\":\"\"}";
+        var request=org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/front/api/product-reviews/10/report").contentType("application/json").content(body);
+        assertEquals(401,client.perform(request).andReturn().getResponse().getStatus());
+        var session=new org.springframework.mock.web.MockHttpSession();session.setAttribute("loggedInMemberId",2);session.setAttribute("product.reviewReportToken","correct-token");
+        assertEquals(403,client.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/front/api/product-reviews/10/report").session(session).header("X-Product-Review-Token","wrong-token").contentType("application/json").content(body)).andReturn().getResponse().getStatus());
+    }
+    @Test public void reviewReportUsesSessionMemberAndValidatesCategory() throws Exception {
+        final int[] received=new int[3];
+        var catalog=new FrontCatalogService(){@Override public boolean reportReview(int product,int review,int member,String reason,String note,String ip){
+            FrontCatalogService.reportReasonLabel(reason);received[0]=product;received[1]=review;received[2]=member;return true;
+        }};
+        var client=mvc(catalog);var session=new org.springframework.mock.web.MockHttpSession();session.setAttribute("loggedInMemberId",2);session.setAttribute("product.reviewReportToken","test-token");
+        var response=client.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/front/api/product-reviews/10/report").session(session).header("X-Product-Review-Token","test-token").contentType("application/json").content("{\"productId\":1,\"reason\":\"HARASSMENT\",\"note\":\"測試說明\",\"memberId\":999}")).andReturn().getResponse();
+        assertEquals(200,response.getStatus());assertArrayEquals(new int[]{1,10,2},received);assertTrue(response.getContentAsString().contains("評分與評論數保留"));
+        assertEquals(400,client.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/front/api/product-reviews/10/report").session(session).header("X-Product-Review-Token","test-token").contentType("application/json").content("{\"productId\":1,\"reason\":\"OTHER\"}")).andReturn().getResponse().getStatus());
+        for(String code:List.of("FALSE_SPAM","CONFLICT","HARASSMENT","PRIVACY_ILLEGAL"))assertFalse(FrontCatalogService.reportReasonLabel(code).isBlank());
+    }
+    @Test public void productReviewReportDialogRendersAllFourReasonsAndToken() throws Exception {
+        var p=product(90,"檢舉水果");sku(p,900,100,1);var session=new org.springframework.mock.web.MockHttpSession();session.setAttribute("loggedInMemberId",2);
+        String html=mvc(service(List.of(p))).perform(get("/front/product/view/").param("productId","90").session(session)).andReturn().getResponse().getContentAsString();
+        for(String label:List.of("不實言論與垃圾內容","利益衝突","騷擾與仇恨言論","個資或違法內容"))assertTrue(html.contains(label));
+        assertTrue(html.contains("id=\"pv-report-dialog\""));assertTrue(html.contains("data-report-token=\""+session.getAttribute("product.reviewReportToken")+"\""));
+        assertTrue(html.contains("id=\"pv-report-status\""));
+    }
 }
