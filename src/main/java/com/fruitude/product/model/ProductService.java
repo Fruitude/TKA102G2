@@ -74,8 +74,47 @@ public class ProductService {
     @org.springframework.transaction.annotation.Transactional
     public void addProduct(Product product) { addProduct(product, false); }
 
+    public static LocalDateTime earliestListingTime() {
+        return java.time.LocalDate.now(java.time.ZoneId.of("Asia/Taipei")).plusDays(1).atStartOfDay();
+    }
+    public static LocalDateTime latestListingTime() {
+        return earliestListingTime().toLocalDate().minusDays(1).plusYears(1).atTime(23,59);
+    }
+    public static String listingTimeError(ProductSku sku,LocalDateTime earliest) {
+        return listingTimeError(sku.getStatus(),sku.getDefaultListingTime(),earliest);
+    }
+    private static String listingTimeError(Byte status,LocalDateTime time,LocalDateTime earliest) {
+        if(!Byte.valueOf((byte)5).equals(status))return null;
+        if(time==null)return "請選擇預計上架時間";
+        if(time.isBefore(earliest))return "預計上架時間最早為隔天 00:00（臺灣時間）";
+        var latest=earliest.toLocalDate().minusDays(1).plusYears(1).atTime(23,59);
+        if(time.isAfter(latest))return "預計上架時間不可超過一年後同日 23:59（臺灣時間）";
+        return null;
+    }
+
     @org.springframework.transaction.annotation.Transactional
     public void addProduct(Product product, boolean activateSkus) {
+        var earliest=earliestListingTime();
+        var prepared=new ArrayList<ProductSku>();
+        for(var sku:product.getProductSkus()) {
+            var error=listingTimeError(sku,earliest);if(error!=null)throw new IllegalArgumentException(error);
+            if(Byte.valueOf((byte)5).equals(sku.getStatus()))prepared.add(sku);
+            else sku.setDefaultListingTime(null);
+        }
+        if(!prepared.isEmpty()) {
+            if(Byte.valueOf((byte)2).equals(product.getStatus()))throw new IllegalArgumentException("永久停產商品不可設定預備上架");
+            // Listing the parent must not activate newly scheduled SKUs ahead of their chosen time.
+            prepared.forEach(sku->sku.setStatus((byte)0));
+            try {
+                lifecycle.closeDepletedSkus(product);
+                boolean hasSellable=product.getProductSkus().stream().anyMatch(sku->ProductLifecycleService.isSellable(sku.getStatus()));
+                product.setStatus(hasSellable?(byte)1:(byte)0);
+                lifecycle.changeProduct(product,product.getStatus(),activateSkus);
+            } finally { prepared.forEach(sku->sku.setStatus((byte)5)); }
+            lifecycle.synchronize(product);
+            repository.saveAndFlush(product);
+            return;
+        }
         if (product.getStatus() != 2 && product.getProductSkus().stream().anyMatch(s -> ProductLifecycleService.isSellable(s.getStatus()) && !(s.getStatus() == 3 && ProductLifecycleService.isDepleted(s)))) product.setStatus((byte)1);
         lifecycle.changeProduct(product, product.getStatus(), activateSkus);
         // A sellable SKU takes precedence on creation, unless the product is permanently retired.
@@ -273,7 +312,13 @@ public class ProductService {
     public record SkuForm(Integer skuId, String skuName, String anotherName,
             @tools.jackson.databind.annotation.JsonDeserialize(using=ProductPriceDeserializer.class) Integer price, @tools.jackson.databind.annotation.JsonDeserialize(using=ProductQuantityDeserializer.class) Integer stock,
             @tools.jackson.databind.annotation.JsonDeserialize(using=ProductQuantityDeserializer.class) Integer safetyStock, @tools.jackson.databind.annotation.JsonDeserialize(using=ProductQuantityDeserializer.class) Integer inboundQty, @tools.jackson.databind.annotation.JsonDeserialize(using=ProductQuantityDeserializer.class) Integer outboundQty, Byte status, String revision,
-            Integer originalStock, Integer originalInbound, Integer originalOutbound, Boolean restockConfirmed, @tools.jackson.databind.annotation.JsonDeserialize(using=ProductQuantityDeserializer.class) Integer maxBackorderQty) {
+            Integer originalStock, Integer originalInbound, Integer originalOutbound, Boolean restockConfirmed, @tools.jackson.databind.annotation.JsonDeserialize(using=ProductQuantityDeserializer.class) Integer maxBackorderQty, LocalDateTime defaultListingTime) {
+        public SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
+                Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
+                Integer originalStock, Integer originalInbound, Integer originalOutbound, Boolean restockConfirmed, Integer maxBackorderQty) {
+            this(skuId,skuName,anotherName,price,stock,safetyStock,inboundQty,outboundQty,status,revision,
+                originalStock,originalInbound,originalOutbound,restockConfirmed,maxBackorderQty,null);
+        }
         public SkuForm(Integer skuId, String skuName, String anotherName, Integer price, Integer stock,
                 Integer safetyStock, Integer inboundQty, Integer outboundQty, Byte status, String revision,
                 Integer originalStock, Integer originalInbound, Integer originalOutbound, Integer maxBackorderQty) {
@@ -313,7 +358,7 @@ public class ProductService {
             p.getVendor()==null?null:p.getVendor().getVendorId(),p.getStatus(),revision(p.getUpdatedAt()));
         var skus=p.getProductSkus().stream().map(s->new SkuForm(s.getSkuId(),s.getSkuName(),s.getAnotherName(),s.getPrice(),
             zero(s.getStock()),zero(s.getSafetyStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),s.getStatus(),revision(s.getUpdatedAt()),
-            zero(s.getStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),false,zero(s.getMaxBackorderQty()))).toList();
+            zero(s.getStock()),zero(s.getInboundQty()),zero(s.getOutboundQty()),false,zero(s.getMaxBackorderQty()),s.getDefaultListingTime())).toList();
         var categoryOptions=categories.findAll().stream().map(c->new Choice(c.getProductCategoryId(),
             c.getCategoryName(),c.getParentCategory()==null?null:c.getParentCategory().getProductCategoryId())).toList();
         var vendorOptions=vendors.findAll().stream().map(v->new Choice(v.getVendorId(),v.getVendorName(),null,v.getOrigin(),v.getLogo()!=null && v.getLogo().length>0)).toList();
@@ -353,6 +398,8 @@ public class ProductService {
         request.skus().stream().filter(s->s!=null && s.skuId()!=null && s.skuName()!=null).forEach(s->renamedIds.add(s.skuId()));
         var usedNames=new HashSet<String>();
         p.getProductSkus().stream().filter(s->!renamedIds.contains(s.getSkuId())).forEach(s->usedNames.add(s.getSkuName().trim()));
+        var newPrepared=new ArrayList<ProductSku>();
+        var earliest=earliestListingTime();
         for(var input:request.skus()) {
             if(input==null) throw new IllegalArgumentException("規格資料不可空白");
             var existing=input.skuId()==null?null:p.getProductSkus().stream().filter(s->s.getSkuId().equals(input.skuId())).findFirst()
@@ -377,14 +424,21 @@ public class ProductService {
                 lifecycle.validateSkuChange(previous,requested,Boolean.TRUE.equals(input.restockConfirmed()));
             }
             if(existing==null) {
+                String timeError=listingTimeError(requested,input.defaultListingTime(),earliest);
+                if(timeError!=null)throw new IllegalArgumentException(timeError);
+                if(Byte.valueOf((byte)5).equals(requested) && Byte.valueOf((byte)2).equals(request.productStatusChanged()?f.status():p.getStatus()))
+                    throw new IllegalArgumentException("永久停產商品不可設定預備上架");
                 existing=new ProductSku();existing.setProduct(p);existing.setSkuName(skuName);existing.setCreatedAt(LocalDateTime.now());existing.setStatus(ProductLifecycleService.SKU_PREPARED);
                 existing.setStock(quantity(input.stock(),0,"庫存量"));
                 existing.setSafetyStock(quantity(input.safetyStock(),0,"安全庫存量"));
                 existing.setInboundQty(quantity(input.inboundQty(),0,"待進貨"));
                 existing.setOutboundQty(quantity(input.outboundQty(),0,"待出貨"));
                 existing.setMaxBackorderQty(quantity(input.maxBackorderQty(),10,"允許超賣量"));
+                existing.setDefaultListingTime(Byte.valueOf((byte)5).equals(requested)?input.defaultListingTime():null);
+                if(Byte.valueOf((byte)5).equals(requested))newPrepared.add(existing);
                 p.getProductSkus().add(existing);
             }
+            if(!Byte.valueOf((byte)5).equals(requested))existing.setDefaultListingTime(null);
             existing.setStatus(requested);
             existing.setSkuName(skuName);
             existing.setAnotherName(input.anotherName()==null?null:input.anotherName().trim());
@@ -393,7 +447,18 @@ public class ProductService {
             existing.setUpdatedAt(LocalDateTime.now());
         }
         p.setProductName(name);p.setProductDesc(f.productDesc());p.setProductCategory(category);p.setVendor(vendor);
-        if(request.productStatusChanged()) lifecycle.changeProduct(p,f.status(),request.activateSkus());
+        if(request.productStatusChanged() && !newPrepared.isEmpty()) {
+            // A simultaneous parent-status change must not activate the newly scheduled SKUs early.
+            newPrepared.forEach(sku->sku.setStatus((byte)0));
+            try {
+                Byte target=f.status();
+                if(Byte.valueOf((byte)1).equals(target) && p.getProductSkus().stream().filter(sku->!newPrepared.contains(sku))
+                        .noneMatch(sku->ProductLifecycleService.isSellable(sku.getStatus()) || Byte.valueOf((byte)0).equals(sku.getStatus()) || Byte.valueOf((byte)5).equals(sku.getStatus())))target=(byte)0;
+                lifecycle.changeProduct(p,target,request.activateSkus());
+            } finally { newPrepared.forEach(sku->sku.setStatus((byte)5)); }
+            lifecycle.synchronize(p);
+        }
+        else if(request.productStatusChanged()) lifecycle.changeProduct(p,f.status(),request.activateSkus());
         else if(!request.skus().isEmpty()) lifecycle.synchronize(p);
         p.setUpdatedAt(LocalDateTime.now());
     }

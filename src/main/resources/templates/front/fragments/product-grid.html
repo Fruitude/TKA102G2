@@ -41,13 +41,13 @@
         </a>
         <div class="home-card-controls">
 
-          <select aria-label="商品規格" class="home-card-sku" th:id="${'home-sku-' + p.productId}">
+          <select aria-label="商品規格" class="home-card-sku" hidden th:id="${'home-sku-' + p.productId}">
             <option th:each="s : ${p.skus}" th:value="${s.skuId}" th:selected="${s.skuId == p.skuId}"
                     th:text="${s.name + (s.skuStatus == 2 ? '（缺貨）' : (s.skuStatus == 3 ? '（即將售完）' : ''))}"
                     th:attr="data-sku-name=${s.name},data-price=${s.price},data-stock=${s.stock},data-sku-status=${s.skuStatus},data-image-url=@{${s.imageId == null ? '/front/img/image-placeholder.svg' : '/product/image/' + s.imageId + '?v=' + (productImageVersions == null ? '0' : productImageVersions.get(s.imageId))}}"></option>
           </select>
-          <div class="home-sku-dropdown" hidden>
-            <button type="button" class="home-sku-trigger" aria-label="選擇商品規格" aria-expanded="false" th:attr="aria-controls=${'home-menu-' + p.productId}"><span class="home-sku-caption"></span><span class="home-sku-arrow" aria-hidden="true">▾</span></button>
+          <div class="home-sku-dropdown">
+            <button type="button" class="home-sku-trigger" disabled aria-label="選擇商品規格" aria-expanded="false" th:attr="aria-controls=${'home-menu-' + p.productId}"><span class="home-sku-caption"><th:block th:each="s : ${p.skus}" th:if="${s.skuId == p.skuId}" th:text="${s.name + (s.skuStatus == 2 ? '（缺貨）' : (s.skuStatus == 3 ? '（即將售完）' : ''))}"></th:block></span><span class="home-sku-arrow" aria-hidden="true">▾</span></button>
             <div class="home-sku-menu" th:id="${'home-menu-' + p.productId}">
               <button type="button" th:each="s : ${p.skus}" th:attr="data-sku-value=${s.skuId}" th:text="${s.name + (s.skuStatus == 2 ? '（缺貨）' : (s.skuStatus == 3 ? '（即將售完）' : ''))}"></button>
             </div>

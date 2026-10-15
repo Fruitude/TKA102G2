@@ -89,4 +89,47 @@ public class ProductLifecycleTest {
         var l=new ProductLifecycleService(access(true));var p=product(2,5);var sku=p.getProductSkus().get(0);sku.setStock(0);sku.setMaxBackorderQty(0);
         l.changeProduct(p,(byte)1,false);assertEquals(Byte.valueOf((byte)4),sku.getStatus());assertEquals(Byte.valueOf((byte)0),p.getStatus());
     }
+
+    @Test public void newScheduledSkusStayPreparedEvenWhenTheProductIsListed() {
+        var lifecycle=new ProductLifecycleService(access(false));
+        var service=new ProductService();org.springframework.test.util.ReflectionTestUtils.setField(service,"lifecycle",lifecycle);
+        var saves=new java.util.concurrent.atomic.AtomicInteger();
+        var repository=(ProductRepository)java.lang.reflect.Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),new Class<?>[]{ProductRepository.class},(proxy,method,args)->{saves.incrementAndGet();return args[0];});
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"repository",repository);
+        for(int[] states:new int[][]{{5},{1,5}}) {
+            var p=product(1,states);var prepared=p.getProductSkus().get(p.getProductSkus().size()-1);
+            prepared.setDefaultListingTime(ProductService.earliestListingTime());
+            service.addProduct(p,true);assertEquals(Byte.valueOf((byte)5),prepared.getStatus());
+            assertEquals(Byte.valueOf(states.length==1?(byte)0:(byte)1),p.getStatus());
+            assertEquals(ProductService.earliestListingTime(),prepared.getDefaultListingTime());
+        }
+        assertEquals(2,saves.get());
+        var invalid=product(0,5);invalid.getProductSkus().get(0).setDefaultListingTime(ProductService.earliestListingTime().minusMinutes(1));
+        try{service.addProduct(invalid,false);fail();}catch(IllegalArgumentException expected){}
+        assertEquals(2,saves.get());
+    }
+
+
+    @Test public void listingWindowIncludesLastMinuteAndHandlesLeapYears() {
+        var sku=new ProductSku();sku.setStatus((byte)5);
+        var earliest=java.time.LocalDateTime.of(2026,10,17,0,0);
+        sku.setDefaultListingTime(java.time.LocalDateTime.of(2027,10,16,23,59));assertNull(ProductService.listingTimeError(sku,earliest));
+        sku.setDefaultListingTime(java.time.LocalDateTime.of(2027,10,17,0,0));assertNotNull(ProductService.listingTimeError(sku,earliest));
+        earliest=java.time.LocalDateTime.of(2024,3,1,0,0);
+        sku.setDefaultListingTime(java.time.LocalDateTime.of(2025,2,28,23,59));assertNull(ProductService.listingTimeError(sku,earliest));
+        sku.setDefaultListingTime(java.time.LocalDateTime.of(2025,3,1,0,0));assertNotNull(ProductService.listingTimeError(sku,earliest));
+    }
+
+
+    @Test public void scheduledCreationStillSavesWhenTheOtherListedSkuHasNoStock() {
+        var service=new ProductService();org.springframework.test.util.ReflectionTestUtils.setField(service,"lifecycle",new ProductLifecycleService(access(false)));
+        var saved=new java.util.concurrent.atomic.AtomicReference<Product>();
+        var repository=(ProductRepository)java.lang.reflect.Proxy.newProxyInstance(ProductRepository.class.getClassLoader(),new Class<?>[]{ProductRepository.class},(proxy,method,args)->{saved.set((Product)args[0]);return args[0];});
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"repository",repository);
+        var p=product(1,1,5);p.getProductSkus().get(0).setStock(0);
+        p.getProductSkus().get(1).setDefaultListingTime(ProductService.earliestListingTime());
+        service.addProduct(p,false);
+        assertSame(p,saved.get());assertEquals(List.of((byte)4,(byte)5),states(p));assertEquals(Byte.valueOf((byte)0),p.getStatus());
+    }
+
 }

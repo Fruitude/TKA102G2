@@ -11,7 +11,9 @@
 .products-purchase-card .card-add-to-cart-btn:hover { background: #1e6039; transform: none; }
 .products-purchase-card .card-add-to-cart-btn:disabled { background: #657369; cursor: default; opacity: .65; }
 .home-card-controls :focus-visible { outline: 2px solid #80c89a; outline-offset: 2px; }
-.home-card-message { margin: 0; color: #963B1B; font-size: 12px; }
+.home-card-message { margin: 0; color: #963B1B; font-size: 12px; line-height: 18px; min-height: 18px; }
+/* Keep one hint line below the purchase row even while the message is hidden. */
+.products-purchase-card .home-card-message[hidden] { display: block !important; visibility: hidden; }
 
 
 .products-purchase-card { overflow: visible; }
@@ -36,7 +38,7 @@
 .products-purchase-card .home-card-add { width: 2rem; height: 2rem; min-height: 0; padding: 0; border-radius: 50%; justify-self: center; align-self: center; background: var(--brand--primary--action,#302f2d); }
 .products-purchase-card .home-card-add:hover { background: var(--brand--primary--action-hover,#4a4842); transform: scale(1.08); }
 
-.home-card-purchase-row { display: grid; grid-template-columns: 78px minmax(0, 1fr) 32px; gap: 4px; align-items: center; }
+.home-card-purchase-row { order: 1; display: grid; grid-template-columns: 78px minmax(0, 1fr) 32px; gap: 4px; align-items: center; }
 
 .products-purchase-card .products-item-image-wrapper { margin-bottom: 8px; }
 
@@ -55,8 +57,8 @@
 .farmer-card[id] { scroll-margin-top: 110px; }
 
 /* Only the selected SKU with a visible original price uses the promotional color. */
-.products-purchase-card .home-card-controls:has(> .home-card-original:not([style*="display:none"]):not([style*="display: none"])) .home-card-price { color: #c62828; font-weight: 700; text-align: right; }
-.products-purchase-card .home-card-controls > .home-card-original { display: grid; grid-template-columns: minmax(0, 1fr) max-content 32px; column-gap: 4px; align-items: center; text-align: right; }
+.products-purchase-card .home-card-controls:has(> .home-card-original:not([style*="display:none"]):not([style*="display: none"])) .home-card-price { color: #c62828; font-weight: 700; text-align: center; }
+.products-purchase-card .home-card-controls > .home-card-original { order: 2; min-height: 18px; line-height: 18px; margin: 0 !important; display: grid; grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr); padding-left: 46px; box-sizing: border-box; column-gap: 4px; align-items: center; text-align: right; }
 .products-purchase-card .home-card-original s { grid-column: 2; font-size: 12px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* Gift ribbon follows the currently selected SKU's promotional price. */
 .products-purchase-card { position: relative; }
@@ -70,3 +72,12 @@
 .pv-detail-promo { display: contents; }
 .pv-detail-promo[hidden] { display: none; }
 .pv-detail-promo > .home-promo-ribbon { display: block; }
+
+/* Place promotional original prices and the reserved hint line below purchase controls. */
+.products-purchase-card .home-card-message { order: 3; }
+/* Open card SKU options above the trigger; keep the bottom padding clear of it. */
+.products-purchase-card .home-sku-menu { top: auto; bottom: -5px; padding: 6px 0 42px; max-height: min(260px, 50vh); box-sizing: border-box; overflow-y: auto; transform-origin: bottom center; }
+/* A visible original price occupies the reserved line when no hint is shown. */
+.products-purchase-card .home-card-controls:has(> .home-card-original:not([style*="display:none"]):not([style*="display: none"])) > .home-card-message[hidden] { display: none !important; }
+/* Server-rendered SKU captions retain their finished appearance while events load. */
+.products-purchase-card .home-sku-trigger:disabled { opacity: 1; cursor: wait; }

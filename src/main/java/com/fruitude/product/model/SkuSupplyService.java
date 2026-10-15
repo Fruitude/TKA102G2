@@ -183,7 +183,7 @@ public class SkuSupplyService {
                     args.put("id",id); args.put("next",next); args.put("now",now);
                     StringBuilder guards=new StringBuilder("s.sku_id=:id");
                     for(var column:List.of("status","stock","inbound_qty","outbound_qty","safety_stock",
-                            "max_backorder_qty","purchase_add_on_qty","price","updated_at")) {
+                            "max_backorder_qty","purchase_add_on_qty","price","updated_at","default_listing_time")) {
                         guards.append(" AND s.").append(column).append(" <=> :").append(column);
                         args.put(column,row.get(column));
                     }
@@ -208,9 +208,9 @@ public class SkuSupplyService {
         return Boolean.TRUE.equals(value) || (value instanceof Number n && n.intValue()!=0);
     }
     private static String duePromotion() {
-        return "EXISTS(SELECT 1 FROM promotion pr JOIN promo_project a ON a.promo_project_id=pr.promo_project_id "
+        return "((s.default_listing_time IS NOT NULL AND s.default_listing_time<=:now) OR (s.default_listing_time IS NULL AND EXISTS(SELECT 1 FROM promotion pr JOIN promo_project a ON a.promo_project_id=pr.promo_project_id "
             +"WHERE pr.sku_id=s.sku_id AND a.status=1 AND a.promo_type='SKU' "
-            +"AND a.promo_project_start<=:now AND (a.promo_project_end IS NULL OR a.promo_project_end>:now))";
+            +"AND a.promo_project_start<=:now AND (a.promo_project_end IS NULL OR a.promo_project_end>:now))))";
     }
     private boolean synchronizeParent(int id,boolean activated) {
         String listed="EXISTS(SELECT 1 FROM product_sku s WHERE s.product_id=p.product_id AND s.status IN(1,2,3,6) AND s.price>0)";

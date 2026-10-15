@@ -251,6 +251,7 @@
 .product-create-mode .edit-choice-row { display:flex; }
 .product-create-mode .edit-choice-menu button { color:#333;background:transparent;border:0;font:inherit;text-align:left;min-height:32px;border-radius:4px;cursor:pointer; }
 .product-create-mode .edit-choice-item { flex:1;min-width:0;padding:5px 8px;overflow-wrap:anywhere; }
+.product-create-mode select[name$=".status"] + .create-choice-field .edit-choice-item:disabled { background:#e5e7eb;color:#6b7280;opacity:1;cursor:not-allowed;outline:none; }
 .product-create-mode .edit-choice-expand { flex:0 0 28px;text-align:center !important; }
 .product-create-mode .edit-choice-menu button:hover, .product-create-mode .edit-choice-menu button:focus-visible { background:#e9f2eb;outline:2px solid #287a4b;outline-offset:-2px; }
 .product-create-mode .edit-choice-menu button[aria-current="true"] { color:#166534;background:#dcfce7; }
@@ -308,6 +309,9 @@
         .create-field-error, .create-image-error { display:block; margin-top:5px; color:#b42318; font-size:12px; }
         .create-field-error[hidden], .create-image-error[hidden] { display:none; }
         .sku-table input[aria-invalid="true"] { border-color:#b42318; }
+        .product-create-basic .create-preview-button { display:block; margin:18px auto 0; padding:8px 24px; border:1px solid #497339; border-radius:6px; background:#497339; color:#fff; font:inherit; cursor:pointer; }
+        .product-create-skus #addSkuButton { display:flex; align-items:center; justify-content:center; width:34px; height:32px; box-sizing:border-box; margin:12px auto; padding:0; border:1px dashed #4e73df; border-radius:5px; background:#fff; color:#4e73df; font-size:22px; line-height:1; cursor:pointer; }
+        .product-create-skus #addSkuButton:focus-visible { outline:2px solid #4e73df; outline-offset:2px; }
     </style>
 </head>
 <body class="product-create-mode">
@@ -333,7 +337,7 @@
                             <option value="">請選擇廠商</option>
                             <option th:each="vendor : ${vendorListData}"
                                     th:value="${vendor.vendorId}"
-                                    th:text="${vendor.vendorName}" th:selected="${product.vendor != null and product.vendor.vendorId == vendor.vendorId}">
+                                    th:text="${vendor.vendorName}" th:attr="data-origin=${vendor.origin},data-has-logo=${vendor.logo != null and #arrays.length(vendor.logo) > 0}" th:selected="${product.vendor != null and product.vendor.vendorId == vendor.vendorId}">
                             </option>
                         </select>
                         <!-- 請依實際新增廠商路徑調整 -->
@@ -395,29 +399,38 @@
             </tbody>
         </table>
 
+        <button type="button" id="create-product-preview" class="create-preview-button">預覽</button>
         </section>
         <section class="product-create-skus" aria-labelledby="product-skus-heading">
         <!-- 商品規格 -->
         <h2 class="section-title" id="product-skus-heading">商品規格</h2>
 
         <div id="skuContainer">
-            <!-- 第一筆規格 -->
-            <div class="sku-card" th:each="sku, stat : *{productSkus}">
+            <th:block th:each="sku, stat : *{productSkus}">
+                <div th:replace="~{:: createSkuCard(${stat.index})}"></div>
+            </th:block>
+        </div>
+
+
+        <!-- Initial and added SKUs share this markup. Template controls are inert and are not submitted. -->
+        <template id="create-sku-template" th:with="index=0">
+            <div class="sku-card" th:fragment="createSkuCard(index)">
                 <div class="sku-heading">
-                    <span th:text="${'商品規格 ' + (stat.index + 1)}">商品規格</span><button type="button" class="remove-sku-button">刪除此規格</button>
+                    <span th:text="${'商品規格 ' + (index + 1)}">商品規格</span><button type="button" class="remove-sku-button">刪除此規格</button>
                 </div>
 
                 <table class="form-table sku-table"><colgroup><col class="sku-label-column"><col class="sku-value-column"><col class="sku-label-column"><col class="sku-value-column"></colgroup><tbody>
- <tr><th><label th:for="|skuName${stat.index}|">規格名稱</label></th><td colspan="3"><input th:id="|skuName${stat.index}|" th:field="*{productSkus[__${stat.index}__].skuName}" type="text" maxlength="50"  required></td></tr><tr><th><label th:for="|anotherName${stat.index}|">規格別稱</label></th><td colspan="3"><input th:id="|anotherName${stat.index}|" th:field="*{productSkus[__${stat.index}__].anotherName}" type="text" maxlength="50"  ></td></tr><tr><th><label th:for="|skuImage${stat.index}|">規格圖片</label></th><td colspan="3"><div class="image-upload-area"><input th:id="|skuImage${stat.index}|" th:name="|skuImages[${stat.index}]|" class="image-input" type="file" multiple accept="image/png,image/jpeg,image/gif"><div class="create-image-list" aria-label="規格圖片順序"></div><small class="image-upload-hint">圖片限 PNG、JPEG、GIF，單張最多 5 MB。</small><small class="image-upload-hint">可左右拖曳調整圖片順序，或選取圖片後按 Alt＋←／→。</small><small class="create-image-error" role="alert" hidden></small></div></td></tr>
- <tr><th><label th:for="|price${stat.index}|">規格價格</label></th><td><input th:id="|price${stat.index}|" th:field="*{productSkus[__${stat.index}__].price}" type="number" min="1" max="10000000" step="1"  required></td><th><label th:for="|skuStatus${stat.index}|">規格狀態</label></th><td><select th:id="|skuStatus${stat.index}|" th:field="*{productSkus[__${stat.index}__].status}" required><option value="0">下架</option><option value="1">上架</option><option value="5" disabled>預備上架</option><option value="6">即將停產</option><option value="2" disabled>缺貨</option><option value="3" disabled>即將售完</option><option value="4" disabled>售完</option><option value="7" disabled>永久停產</option></select></td></tr>
- <tr><th><label th:for="|stock${stat.index}|">庫存量</label></th><td><input th:id="|stock${stat.index}|" th:field="*{productSkus[__${stat.index}__].stock}" type="number" min="0" max="2147483647" step="1"  required></td><th><label th:for="|safetyStock${stat.index}|">安全庫存量</label></th><td><input th:id="|safetyStock${stat.index}|" th:field="*{productSkus[__${stat.index}__].safetyStock}" type="number" min="0" max="2147483647" step="1"  required></td></tr>
- <tr><th><label th:for="|inboundQty${stat.index}|">待進貨</label></th><td><input th:id="|inboundQty${stat.index}|" th:field="*{productSkus[__${stat.index}__].inboundQty}" type="number" min="0" max="2147483647" step="1"  required></td><th><label th:for="|outboundQty${stat.index}|">待出貨</label></th><td><input th:id="|outboundQty${stat.index}|" th:field="*{productSkus[__${stat.index}__].outboundQty}" type="number" min="0" max="2147483647" step="1"  required></td></tr>
- <tr><th><label th:for="|maxBackorderQty${stat.index}|">允許超賣量</label></th><td><input th:id="|maxBackorderQty${stat.index}|" th:field="*{productSkus[__${stat.index}__].maxBackorderQty}" type="number" min="0" max="2147483647" step="1"  required></td><th><label th:for="|purchaseAddOnQty${stat.index}|">採購溢額量</label></th><td><input th:id="|purchaseAddOnQty${stat.index}|" th:field="*{productSkus[__${stat.index}__].purchaseAddOnQty}" type="number" min="0" max="2147483647" step="1"  required></td></tr>
+ <tr><th><label th:for="|skuName${index}|">規格名稱</label></th><td colspan="3"><input th:id="|skuName${index}|" th:field="*{productSkus[__${index}__].skuName}" type="text" maxlength="50"  required></td></tr><tr><th><label th:for="|anotherName${index}|">規格別稱</label></th><td colspan="3"><input th:id="|anotherName${index}|" th:field="*{productSkus[__${index}__].anotherName}" type="text" maxlength="50"  ></td></tr><tr><th><label th:for="|skuImage${index}|">規格圖片</label></th><td colspan="3"><div class="image-upload-area"><input th:id="|skuImage${index}|" th:name="|skuImages[${index}]|" class="image-input" type="file" multiple accept="image/png,image/jpeg,image/gif"><div class="create-image-list" aria-label="規格圖片順序"></div><small class="image-upload-hint">圖片限 PNG、JPEG、GIF，單張最多 5 MB。</small><small class="image-upload-hint">可左右拖曳調整圖片順序，或選取圖片後按 Alt＋←／→。</small><small class="create-image-error" role="alert" hidden></small></div></td></tr>
+ <tr><th><label th:for="|price${index}|">規格價格</label></th><td><input th:id="|price${index}|" th:field="*{productSkus[__${index}__].price}" type="number" min="1" max="10000000" step="1"  required></td><th><label th:for="|skuStatus${index}|">規格狀態</label></th><td><select th:id="|skuStatus${index}|" th:field="*{productSkus[__${index}__].status}" required><option value="0">下架</option><option value="1">上架</option><option value="5">預備上架</option><option value="6">即將停產</option><option value="2" disabled>缺貨</option><option value="3" disabled>即將售完</option><option value="4" disabled>售完</option><option value="7" disabled>永久停產</option></select></td></tr>
+
+ <tr class="create-listing-time-row" th:with="prepared=${product.productSkus[index].status == 5}" th:hidden="${!prepared}"><th><label th:for="|defaultListingTime${index}|">預計上架時間</label></th><td colspan="3"><input type="datetime-local" step="60" th:id="|defaultListingTime${index}|" th:field="*{productSkus[__${index}__].defaultListingTime}" th:attr="min=${earliestSkuListingTime},max=${latestSkuListingTime}" th:disabled="${!prepared}" th:required="${prepared}"><small class="image-upload-hint">可設定隔天 00:00 起至一年後同日 23:59（臺灣時間）。</small><small class="create-listing-time-error create-field-error" role="alert" hidden></small></td></tr>
+ <tr><th><label th:for="|stock${index}|">庫存量</label></th><td><input th:id="|stock${index}|" th:field="*{productSkus[__${index}__].stock}" type="number" min="0" max="2147483647" step="1"  required></td><th><label th:for="|safetyStock${index}|">安全庫存量</label></th><td><input th:id="|safetyStock${index}|" th:field="*{productSkus[__${index}__].safetyStock}" type="number" min="0" max="2147483647" step="1"  required></td></tr>
+ <tr><th><label th:for="|inboundQty${index}|">待進貨</label></th><td><input th:id="|inboundQty${index}|" th:field="*{productSkus[__${index}__].inboundQty}" type="number" min="0" max="2147483647" step="1"  required></td><th><label th:for="|outboundQty${index}|">待出貨</label></th><td><input th:id="|outboundQty${index}|" th:field="*{productSkus[__${index}__].outboundQty}" type="number" min="0" max="2147483647" step="1"  required></td></tr>
+ <tr><th><label th:for="|maxBackorderQty${index}|">允許超賣量</label></th><td><input th:id="|maxBackorderQty${index}|" th:field="*{productSkus[__${index}__].maxBackorderQty}" type="number" min="0" max="2147483647" step="1"  required></td><th><label th:for="|purchaseAddOnQty${index}|">採購溢額量</label></th><td><input th:id="|purchaseAddOnQty${index}|" th:field="*{productSkus[__${index}__].purchaseAddOnQty}" type="number" min="0" max="2147483647" step="1"  required></td></tr>
  </tbody></table>
             </div>
-        </div>
-
-        <button type="button" id="addSkuButton">＋ 更多規格</button>
+        </template>
+        <button type="button" id="addSkuButton" title="新增規格" aria-label="新增規格">+</button>
         </section>
         </div>
 
@@ -443,6 +456,7 @@
     <div class="carry-product-actions"><button type="button" id="carry-product-cancel">取消</button><button type="button" id="carry-product-confirm">確認並新增下一個</button></div>
 </dialog>
 <script th:src="@{/admin/js/product-edit-choices.js(v=20261015-create-choices)}"></script>
+<script th:src="@{/admin/js/product-edit-preview.js(v=20261016-listing-time)}"></script>
 <script>
     function enhanceCreateSelect(select) {
         if (select.dataset.choiceBound) return;
@@ -471,24 +485,19 @@
     let skuCount = skuContainer.querySelectorAll(".sku-card").length;
 
     function createSkuCard(index) {
-        const card = document.createElement("div");
-        card.className = "sku-card";
-
-        card.innerHTML = `
-            <div class="sku-heading">
-                <span>商品規格 ${index + 1}</span>
-                <button type="button" class="remove-sku-button">刪除此規格</button>
-            </div>
-
-            <table class="form-table sku-table"><colgroup><col class="sku-label-column"><col class="sku-value-column"><col class="sku-label-column"><col class="sku-value-column"></colgroup><tbody>
- <tr><th><label for="skuName${index}">規格名稱</label></th><td colspan="3"><input id="skuName${index}" name="productSkus[${index}].skuName" type="text" maxlength="50" value="" required></td></tr><tr><th><label for="anotherName${index}">規格別稱</label></th><td colspan="3"><input id="anotherName${index}" name="productSkus[${index}].anotherName" type="text" maxlength="50" value="" ></td></tr><tr><th><label for="skuImage${index}">規格圖片</label></th><td colspan="3"><div class="image-upload-area"><input id="skuImage${index}" name="skuImages[${index}]" class="image-input" type="file" multiple accept="image/png,image/jpeg,image/gif"><div class="create-image-list" aria-label="規格圖片順序"></div><small class="image-upload-hint">圖片限 PNG、JPEG、GIF，單張最多 5 MB。</small><small class="image-upload-hint">可左右拖曳調整圖片順序，或選取圖片後按 Alt＋←／→。</small><small class="create-image-error" role="alert" hidden></small></div></td></tr>
- <tr><th><label for="price${index}">規格價格</label></th><td><input id="price${index}" name="productSkus[${index}].price" type="number" min="1" max="10000000" step="1" value="" required></td><th><label for="skuStatus${index}">規格狀態</label></th><td><select id="skuStatus${index}" name="productSkus[${index}].status" required><option value="0">下架</option><option value="1">上架</option><option value="5" disabled>預備上架</option><option value="6">即將停產</option><option value="2" disabled>缺貨</option><option value="3" disabled>即將售完</option><option value="4" disabled>售完</option><option value="7" disabled>永久停產</option></select></td></tr>
- <tr><th><label for="stock${index}">庫存量</label></th><td><input id="stock${index}" name="productSkus[${index}].stock" type="number" min="0" max="2147483647" step="1" value="0" required></td><th><label for="safetyStock${index}">安全庫存量</label></th><td><input id="safetyStock${index}" name="productSkus[${index}].safetyStock" type="number" min="0" max="2147483647" step="1" value="0" required></td></tr>
- <tr><th><label for="inboundQty${index}">待進貨</label></th><td><input id="inboundQty${index}" name="productSkus[${index}].inboundQty" type="number" min="0" max="2147483647" step="1" value="0" required></td><th><label for="outboundQty${index}">待出貨</label></th><td><input id="outboundQty${index}" name="productSkus[${index}].outboundQty" type="number" min="0" max="2147483647" step="1" value="0" required></td></tr>
- <tr><th><label for="maxBackorderQty${index}">允許超賣量</label></th><td><input id="maxBackorderQty${index}" name="productSkus[${index}].maxBackorderQty" type="number" min="0" max="2147483647" step="1" value="10" required></td><th><label for="purchaseAddOnQty${index}">採購溢額量</label></th><td><input id="purchaseAddOnQty${index}" name="productSkus[${index}].purchaseAddOnQty" type="number" min="0" max="2147483647" step="1" value="20" required></td></tr>
- </tbody></table>
-        `;
-
+        const card = document.getElementById('create-sku-template').content.firstElementChild.cloneNode(true);
+        card.querySelector('.sku-heading span').textContent = '商品規格 ' + (index + 1);
+        const defaults = {stock:'0',safetyStock:'0',inboundQty:'0',outboundQty:'0',maxBackorderQty:'10',purchaseAddOnQty:'20',status:'0'};
+        card.querySelectorAll('[name]').forEach(control => {
+            control.name = control.name.replace(/productSkus\[\d+\]/, 'productSkus[' + index + ']')
+                .replace(/skuImages\[\d+\]/, 'skuImages[' + index + ']');
+            const field = control.name.split('.').pop();
+            control.value = defaults[field] ?? '';
+        });
+        card.querySelectorAll('input[id], select[id], label[for]').forEach(element => {
+            if(element.hasAttribute('for')) element.htmlFor = element.htmlFor.replace(/\d+$/, index);
+            else element.id = element.id.replace(/\d+$/, index);
+        });
         return card;
     }
 
@@ -548,7 +557,36 @@
         (createImages.get(input)||[]).forEach(image=>URL.revokeObjectURL(image.url));createImages.delete(input);
     }
     window.addEventListener('pagehide',()=>skuContainer.querySelectorAll('.sku-card').forEach(releaseCreateImages));
+    function listingTimeBounds(){
+        const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+        const part=type=>Number(parts.find(value=>value.type===type).value);
+        const year=part('year'),month=part('month'),day=part('day');
+        const lastDay=new Date(Date.UTC(year+1,month,0)).getUTCDate();
+        return {min:new Date(Date.UTC(year,month-1,day+1)).toISOString().slice(0,10)+'T00:00',
+            max:new Date(Date.UTC(year+1,month-1,Math.min(day,lastDay))).toISOString().slice(0,10)+'T23:59'};
+    }
     function initializeCreateCard(card){
+        const status=card.querySelector('select[name$=".status"]');
+        const listing=card.querySelector('input[name$=".defaultListingTime"]');
+        const listingRow=card.querySelector('.create-listing-time-row'),listingError=card.querySelector('.create-listing-time-error');
+        function refreshListingTime(){
+            const prepared=status.value==='5';listingRow.hidden=!prepared;listing.disabled=!prepared;listing.required=prepared;
+            const bounds=listingTimeBounds();listing.min=bounds.min;listing.max=bounds.max;
+            if(prepared && !listing.value && !listing.dataset.listingTouched)listing.value=listing.min;
+            let message='';
+            if(prepared){
+                if(!listing.value)message='請選擇預計上架時間';
+                else if(listing.value<listing.min)message='預計上架時間最早為隔天 00:00（臺灣時間）';
+                else if(listing.value>listing.max)message='預計上架時間不可超過一年後同日 23:59（臺灣時間）';
+                else if(listing.validity.badInput || listing.validity.stepMismatch)message='請選擇有效的日期與時間（精確至分鐘）';
+            }
+            listing.setCustomValidity(message);listing.setAttribute('aria-invalid',String(!!message));listingError.textContent=message;listingError.hidden=!message;
+        }
+        status.addEventListener('change',refreshListingTime);
+        listing.addEventListener('focus',refreshListingTime);
+        listing.addEventListener('input',()=>{listing.dataset.listingTouched='true';refreshListingTime();});
+        listing.addEventListener('invalid',event=>{event.preventDefault();refreshListingTime();listing.focus();});
+        refreshListingTime();
         card.querySelectorAll('select').forEach(enhanceCreateSelect);
         card.querySelectorAll('input[type="number"],input[name$=".skuName"]').forEach(control=>{
             if(control.dataset.validationBound)return;control.dataset.validationBound='true';
@@ -601,6 +639,20 @@
         });
     }
 
+    document.getElementById('create-product-preview').addEventListener('click',event=>{
+        const vendor=document.getElementById('vendor'),option=vendor.selectedOptions[0];
+        const skus=Array.from(skuContainer.querySelectorAll('.sku-card')).map((card,index)=>{
+            const field=name=>card.querySelector('[name$=".'+name+'"]');
+            return {key:String(index),skuName:field('skuName').value,anotherName:field('anotherName').value,
+                price:field('price').value==='' || !field('price').validity.valid?null:field('price').valueAsNumber,
+                skuStatus:Number(field('status').value),defaultListingTime:field('defaultListingTime').value,
+                images:(createImages.get(card.querySelector('.image-input')) || []).map(image=>image.url)};
+        });
+        window.ProductEditPreview.open({mode:'create',context:location.pathname.split('/product/')[0],
+            product:{productName:document.getElementById('productName').value,productDesc:document.getElementById('productDesc').value},
+            vendor:vendor.value?{id:Number(vendor.value),label:option.textContent.trim(),origin:option.dataset.origin || '',hasLogo:option.dataset.hasLogo==='true'}:null,
+            skus,selected:skus[0]?.key},event.currentTarget);
+    });
     skuContainer.querySelectorAll('.sku-card').forEach(initializeCreateCard);
     document.querySelectorAll('form select').forEach(enhanceCreateSelect);
     (function initProductNameCheck(){

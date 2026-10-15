@@ -176,7 +176,8 @@ body.home-orange-theme {
 .home-orange-theme .section.home-gifting-section h2 { color: #FFE778; }
 
 /* Homepage product collection headings and labels. */
-.home-orange-theme .section-black[data-record-id] h1 { color: #FFE778; }
+.home-orange-theme .section-black[data-record-id] h1,
+.home-orange-theme #home-all-products h1 { color: #FFE778; }
 .home-orange-theme .section-black[data-record-id] .hero-label { color: #263323; }
 
 /* Neutral fruit banner shared visually with the all-products page. */

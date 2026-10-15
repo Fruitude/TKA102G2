@@ -46,7 +46,17 @@ public class ProductController {
     void bind(org.springframework.web.bind.WebDataBinder binder) {
         binder.setAllowedFields("productId", "productName", "productDesc", "status", "vendor.vendorId", "productCategory.productCategoryId",
             "productSkus[*].skuName", "productSkus[*].anotherName", "productSkus[*].price", "productSkus[*].stock", "productSkus[*].safetyStock", "productSkus[*].inboundQty", "productSkus[*].outboundQty",
-            "productSkus[*].maxBackorderQty", "productSkus[*].purchaseAddOnQty", "productSkus[*].status");
+            "productSkus[*].maxBackorderQty", "productSkus[*].purchaseAddOnQty", "productSkus[*].status", "productSkus[*].defaultListingTime");
+    }
+
+    @ModelAttribute("earliestSkuListingTime")
+    public String earliestSkuListingTime() {
+        return ProductService.earliestListingTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+    }
+
+    @ModelAttribute("latestSkuListingTime")
+    public String latestSkuListingTime() {
+        return ProductService.latestListingTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
     }
 
     private void validate(Product p, BindingResult result) {
@@ -155,7 +165,14 @@ public class ProductController {
         validate(product, result);
         java.util.Set<String> names = new java.util.HashSet<>();
         if (product.getProductSkus().isEmpty()) result.reject("sku", "至少新增一個規格");
-        for (ProductSku sku : product.getProductSkus()) {
+        var earliestListing=ProductService.earliestListingTime();
+        for (int skuIndex=0;skuIndex<product.getProductSkus().size();skuIndex++) {
+            ProductSku sku=product.getProductSkus().get(skuIndex);
+            String listingError=ProductService.listingTimeError(sku,earliestListing);
+            if(listingError!=null)result.rejectValue("productSkus["+skuIndex+"].defaultListingTime","listingTime",listingError);
+            if(!Byte.valueOf((byte)5).equals(sku.getStatus()))sku.setDefaultListingTime(null);
+            if(Byte.valueOf((byte)2).equals(product.getStatus()) && Byte.valueOf((byte)5).equals(sku.getStatus()))
+                result.reject("sku","永久停產商品不可設定預備上架");
             String error = ProductSkuController.validateProductSku(sku);
             if (error != null) result.reject("sku", error);
             if(sku.getPrice()!=null && sku.getPrice()>ProductService.MAX_PRICE) result.reject("sku", "規格價格不可超過10,000,000元");
