@@ -3,7 +3,9 @@ package com.fruitude.promo.model;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -36,7 +38,7 @@ public class PromoGrabService {
 	public record GrabState(long serverNow, boolean loggedIn, Integer shoppingCredit, List<GrabEvent> events) {
 	}
 
-	public record Slot(int slotNo, Integer memberId) {
+	public record Slot(int slotNo, Integer memberId, String memberAccount) {
 	}
 
 	public record AdminView(int quota, int granted, List<Slot> slots) {
@@ -131,16 +133,28 @@ public class PromoGrabService {
 				events);
 	}
 
-	// 後台方塊畫面：名額、已搶出數，以及每個已搶到名額的序號與會員編號。找不到或不是搶購物金活動回傳 null
+	// 後台方塊畫面：名額、已搶出數，以及每個已搶到名額的序號與會員帳號。找不到或不是搶購物金活動回傳 null
 	@Transactional(readOnly = true)
 	public AdminView adminView(Integer promoProjectId) {
 		PromoProject promo = promoRepository.findById(promoProjectId).orElse(null);
 		if (promo == null || !PromoType.WALLET_GRAB.name().equals(promo.getPromoType()) || promo.getQuota() == null) {
 			return null;
 		}
+		List<PromoGrab> winners = promoGrabRepository.findByPromoProjectIdAndSlotNoIsNotNullOrderBySlotNo(promoProjectId);
+		// 一次查出得標會員的帳號，不要一位一位查
+		List<Integer> memberIds = new ArrayList<>();
+		for (PromoGrab g : winners) {
+			memberIds.add(g.getMemberId());
+		}
+		Map<Integer, String> accounts = new HashMap<>();
+		if (!memberIds.isEmpty()) {
+			for (Object[] row : memberRepository.findAccountsByIds(memberIds)) {
+				accounts.put((Integer) row[0], (String) row[1]);
+			}
+		}
 		List<Slot> slots = new ArrayList<>();
-		for (PromoGrab g : promoGrabRepository.findByPromoProjectIdAndSlotNoIsNotNullOrderBySlotNo(promoProjectId)) {
-			slots.add(new Slot(g.getSlotNo(), g.getMemberId()));
+		for (PromoGrab g : winners) {
+			slots.add(new Slot(g.getSlotNo(), g.getMemberId(), accounts.get(g.getMemberId())));
 		}
 		return new AdminView(promo.getQuota(), promo.getGrantedCount(), slots);
 	}

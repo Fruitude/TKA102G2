@@ -36,10 +36,6 @@ public class FruitudeWebConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addViewControllers(ViewControllerRegistry registry) {
-        // Preserve the latest vendor controller's model for its old directory URLs.
-        for (String url : java.util.List.of("/admin/psi/vendor/", "/admin/psi/vendor/index", "/admin/psi/vendor/index.html")) {
-            registry.addRedirectViewController(url, "/admin/psi/vendor");
-        }
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
 		for (String site : SITES) {
 			try {

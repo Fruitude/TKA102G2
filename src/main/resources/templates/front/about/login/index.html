@@ -653,13 +653,29 @@
 				});
 			}
 
+			function safeFrontReturnUrl(candidate) {
+				if (!candidate) return null;
+				try {
+					const url = new URL(candidate, window.location.origin);
+					const frontRoot = contextPath + '/front/';
+					const loginRoot = frontRoot + 'about/login/';
+					const signUpRoot = frontRoot + 'about/sign-up/';
+					if (url.origin !== window.location.origin || url.pathname.indexOf(frontRoot) !== 0
+							|| url.pathname.indexOf(loginRoot) === 0 || url.pathname.indexOf(signUpRoot) === 0) {
+						return null;
+					}
+					return url.pathname + url.search + url.hash;
+				} catch (error) {
+					return null;
+				}
+			}
+
 			function goToHome() {
-				// 從結帳頁被導來登入時，網址會帶 ?next=原本的頁面，登入後回去；
-					// next 只接受本站 /front/ 底下的路徑，避免被拿來導去別的網站
-					const next = query.get('next');
-					const safeNext = next && next.indexOf(contextPath + '/front/') === 0
-							&& next.indexOf('//') === -1 && next.indexOf('\\') === -1;
-					window.location.assign(safeNext ? next : contextPath + '/front/');
+				// 需要登入的功能會帶 next；從導覽列進入登入頁時，則回到上一個本站前台頁面。
+				const returnUrl = safeFrontReturnUrl(query.get('next'))
+						|| safeFrontReturnUrl(document.referrer)
+						|| contextPath + '/front/';
+				window.location.assign(returnUrl);
 			}
 
 			// 從登入頁前往註冊時，把 next 帶過去，註冊完回到登入頁仍能返回原頁面。

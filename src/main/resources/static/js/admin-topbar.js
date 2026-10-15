@@ -10,8 +10,36 @@
     let currentEmployee = null;
     let notificationsLoaded = false;
 	let pendingProfile = null;
+	let reviewQueueLoading = null;
+
+	const reviewSources = [
+		{
+			key: 'employee',
+			url: '/api/admin/employees/applications',
+			allowed: (employee) => Boolean(employee.systemAdministrator),
+			count: (body) => Array.isArray(body) ? body.length : 0
+		},
+		{
+			key: 'credit',
+			url: '/api/admin/members/credit-adjustment-requests?status=0&page=0&size=1',
+			allowed: (employee) => hasPermission(employee, 'MEMBER_CREDIT_REVIEW'),
+			count: (body) => Number(body && body.totalElements || 0)
+		},
+		{
+			key: 'comment',
+			url: '/api/admin/comments?status=2&page=0&size=1',
+			allowed: (employee) => hasPermission(employee, 'COMMENT_VIEW')
+				&& hasPermission(employee, 'COMMENT_MODERATE'),
+			count: (body) => Number(body && body.totalElements || 0)
+		}
+	];
 
     const byId = (id) => document.getElementById(id);
+
+	function hasPermission(employee, code) {
+		return Boolean(employee && (employee.systemAdministrator
+			|| Array.isArray(employee.permissionCodes) && employee.permissionCodes.indexOf(code) !== -1));
+	}
 
     async function request(url, options) {
         const response = await fetch(url, Object.assign({
@@ -56,7 +84,62 @@
         byId('admin-password-button').disabled = !authenticated;
         byId('admin-login-link').hidden = authenticated;
         byId('admin-logout-button').hidden = !authenticated;
+		configureReviewQueue();
     }
+
+	function configureReviewQueue() {
+		const allowedSources = currentEmployee
+			? reviewSources.filter((source) => source.allowed(currentEmployee)) : [];
+		byId('admin-review-item').hidden = allowedSources.length === 0;
+		if (allowedSources.length === 0) {
+			byId('admin-review-badge').hidden = true;
+			return;
+		}
+		refreshReviewQueue();
+	}
+
+	function renderReviewQueue(results, allowedSources) {
+		let total = 0;
+		let failed = 0;
+		allowedSources.forEach((source, index) => {
+			const result = results[index];
+			const row = byId('admin-review-' + source.key);
+			const countElement = byId('admin-review-' + source.key + '-count');
+			if (result.status !== 'fulfilled') {
+				failed += 1;
+				row.hidden = true;
+				return;
+			}
+			const count = Math.max(0, Number(source.count(result.value)) || 0);
+			total += count;
+			countElement.textContent = count.toLocaleString('zh-TW');
+			row.hidden = count === 0;
+		});
+
+		reviewSources.filter((source) => allowedSources.indexOf(source) === -1)
+			.forEach((source) => { byId('admin-review-' + source.key).hidden = true; });
+		const badge = byId('admin-review-badge');
+		badge.textContent = total > 99 ? '99+' : String(total);
+		badge.hidden = total === 0;
+		byId('admin-review-empty').hidden = total > 0;
+		byId('admin-review-empty').textContent = failed === allowedSources.length
+			? '待審核資料暫時無法載入' : '目前沒有待審核工作';
+		byId('admin-review-summary').textContent = failed > 0
+			? '部分資料未載入' : total + ' 筆待處理';
+	}
+
+	async function refreshReviewQueue() {
+		if (!currentEmployee) return;
+		if (reviewQueueLoading) return reviewQueueLoading;
+		const allowedSources = reviewSources.filter((source) => source.allowed(currentEmployee));
+		if (allowedSources.length === 0) return;
+		byId('admin-review-summary').textContent = '正在整理...';
+		reviewQueueLoading = Promise.allSettled(allowedSources.map((source) =>
+			request(contextPath + source.url)))
+			.then((results) => renderReviewQueue(results, allowedSources))
+			.finally(() => { reviewQueueLoading = null; });
+		return reviewQueueLoading;
+	}
 
     function appendProfileRow(list, label, value) {
         const term = document.createElement('dt');
@@ -253,6 +336,9 @@
     }
 
     byId('admin-notification-toggle').addEventListener('click', loadNotifications);
+	byId('admin-review-toggle').addEventListener('click', refreshReviewQueue);
+	window.addEventListener('admin:review-queue-changed', refreshReviewQueue);
+	window.addEventListener('focus', refreshReviewQueue);
     byId('admin-profile-button').addEventListener('click', openProfile);
     byId('admin-password-button').addEventListener('click', () => {
         if (!currentEmployee) return;

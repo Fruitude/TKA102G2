@@ -17,10 +17,21 @@
         creditAllLogs: [],
         creditAllPage: 0,
         creditAllTotalPages: 0,
-        creditAllTotalElements: 0
+        creditAllTotalElements: 0,
+        creditRequests: [],
+        creditRequestPage: 0,
+        creditRequestTotalPages: 0,
+        creditRequestTotalElements: 0,
+        creditRequestPendingCount: 0,
+        highlightedRequestId: null,
+        currentEmployeeId: null,
+        canAdjustCredit: false,
+        canReviewCredit: false,
+        pendingReview: null
     };
     let searchTimer = null;
     let creditSearchTimer = null;
+    let creditRequestSearchTimer = null;
 
     const byId = (id) => document.getElementById(id);
 
@@ -79,11 +90,17 @@
         button.title = label;
         button.setAttribute('aria-label', label);
         button.dataset.action = action;
-        button.dataset.memberId = String(memberId);
+        if (memberId !== undefined && memberId !== null) button.dataset.memberId = String(memberId);
         const symbol = createElement('i', icon);
         symbol.setAttribute('aria-hidden', 'true');
         button.appendChild(symbol);
         return button;
+    }
+
+    function hasPermission(code) {
+        if (code === 'MEMBER_CREDIT') return state.canAdjustCredit;
+        if (code === 'MEMBER_CREDIT_REVIEW') return state.canReviewCredit;
+        return false;
     }
 
     const creditTypeMap = {
@@ -126,7 +143,9 @@
             const actions = createElement('div', 'member-actions');
             actions.appendChild(makeAction('fas fa-eye', '查看會員資料', 'detail', member.memberId));
             actions.appendChild(makeAction('fas fa-history', '查看購物金紀錄', 'credit-history', member.memberId));
-            actions.appendChild(makeAction('fas fa-coins', '調整購物金', 'credit', member.memberId));
+            if (hasPermission('MEMBER_CREDIT')) {
+                actions.appendChild(makeAction('fas fa-coins', '申請調整購物金', 'credit', member.memberId));
+            }
             actions.appendChild(makeAction(active ? 'fas fa-user-slash' : 'fas fa-user-check',
                 active ? '停權會員' : '恢復會員', 'status', member.memberId, active));
             actionCell.appendChild(actions);
@@ -280,12 +299,41 @@
         window.jQuery('#member-detail-modal').modal('show');
     }
 
+    function selectedAdjustmentType() {
+        const checked = document.querySelector('input[name="member-credit-type"]:checked');
+        return Number(checked ? checked.value : 1);
+    }
+
+    function currentCreditBalance() {
+        return Number(byId('member-credit-current').dataset.balance || 0);
+    }
+
+    function updateCreditPreview() {
+        const preview = byId('member-credit-preview');
+        const amount = Number(byId('member-credit-amount').value);
+        const current = currentCreditBalance();
+        if (!Number.isInteger(amount) || amount <= 0) {
+            preview.textContent = '送出後不會立刻改餘額，需主管核准才入帳。';
+            preview.classList.remove('is-invalid');
+            return;
+        }
+        const next = selectedAdjustmentType() === 1 ? current + amount : current - amount;
+        preview.textContent = '預估核准後餘額：' + formatCredit(next) + '（送出後需待主管審核）';
+        preview.classList.toggle('is-invalid', next < 0);
+    }
+
     function openCredit(member) {
         byId('member-credit-id').value = String(member.memberId);
         byId('member-credit-subject').textContent = member.memberName + '（' + member.memberAccount + '）';
-        byId('member-credit-value').value = String(member.shoppingCredit || 0);
+        const current = byId('member-credit-current');
+        current.dataset.balance = String(member.shoppingCredit || 0);
+        current.textContent = '目前購物金：' + formatCredit(member.shoppingCredit);
+        document.querySelector('input[name="member-credit-type"][value="1"]').checked = true;
+        byId('member-credit-amount').value = '';
+        byId('member-credit-reason-category').value = '';
         byId('member-credit-reason').value = '';
         byId('member-credit-feedback').textContent = '';
+        updateCreditPreview();
         window.jQuery('#member-credit-modal').modal('show');
     }
 
@@ -371,22 +419,30 @@
         const form = event.currentTarget;
         if (!form.reportValidity()) return;
         const memberId = Number(byId('member-credit-id').value);
-        const shoppingCredit = Number(byId('member-credit-value').value);
-        const reason = byId('member-credit-reason').value.trim();
+        const amount = Number(byId('member-credit-amount').value);
+        const reasonCategory = byId('member-credit-reason-category').value.trim();
+        const reasonDetail = byId('member-credit-reason').value.trim();
         const button = byId('member-credit-save');
-        setBusy(button, true, '儲存中...');
+        setBusy(button, true, '送出中...');
         byId('member-credit-feedback').textContent = '';
         try {
-            await request('/' + memberId + '/credit', {
-                method: 'PATCH',
-                body: JSON.stringify({ shoppingCredit: shoppingCredit, reason: reason })
+            const created = await request('/' + memberId + '/credit-adjustment-requests', {
+                method: 'POST',
+                body: JSON.stringify({
+                    adjustmentType: selectedAdjustmentType(),
+                    amount: amount,
+                    reasonCategory: reasonCategory,
+                    reasonDetail: reasonDetail
+                })
             });
             window.jQuery('#member-credit-modal').modal('hide');
-            await loadMembers();
-            if (state.activeTab === 'credit-records') {
-                await loadCreditAllLogs();
-            }
-            showFeedback('會員購物金已更新。', 'success');
+            state.highlightedRequestId = created && created.creditAdjustmentRequestId
+                ? created.creditAdjustmentRequestId : null;
+            byId('credit-request-status-filter').value = '0';
+            state.creditRequestPage = 0;
+            switchTab('credit-requests');
+			window.dispatchEvent(new Event('admin:review-queue-changed'));
+            showFeedback('已送出，待主管審核。', 'success');
         } catch (error) {
             byId('member-credit-feedback').textContent = error.message;
         } finally {
@@ -428,6 +484,9 @@
         });
         if (tabKey === 'credit-records') {
             loadCreditAllLogs();
+        }
+        if (tabKey === 'credit-requests') {
+            loadCreditRequests();
         }
     }
 
@@ -525,10 +584,261 @@
                 loadCreditAllLogs();
             }
         });
+
+        byId('credit-request-search').addEventListener('input', () => {
+            window.clearTimeout(creditRequestSearchTimer);
+            creditRequestSearchTimer = window.setTimeout(() => {
+                state.creditRequestPage = 0;
+                loadCreditRequests();
+            }, 250);
+        });
+        byId('credit-request-status-filter').addEventListener('change', () => {
+            state.creditRequestPage = 0;
+            loadCreditRequests();
+        });
+        byId('credit-request-refresh-button').addEventListener('click', loadCreditRequests);
+        byId('credit-request-reset-button').addEventListener('click', () => {
+            byId('credit-request-search').value = '';
+            byId('credit-request-status-filter').value = '';
+            state.creditRequestPage = 0;
+            loadCreditRequests();
+        });
+        byId('credit-request-page-previous').addEventListener('click', () => {
+            if (state.creditRequestPage > 0) {
+                state.creditRequestPage -= 1;
+                loadCreditRequests();
+            }
+        });
+        byId('credit-request-page-next').addEventListener('click', () => {
+            if (state.creditRequestPage < state.creditRequestTotalPages - 1) {
+                state.creditRequestPage += 1;
+                loadCreditRequests();
+            }
+        });
+        byId('credit-request-table-body').addEventListener('click', (event) => {
+            const button = event.target.closest('[data-action]');
+            if (!button) return;
+            const requestItem = state.creditRequests.find((item) =>
+                item.creditAdjustmentRequestId === Number(button.dataset.requestId));
+            if (!requestItem) return;
+            if (button.dataset.action === 'review') openCreditReview(requestItem);
+            if (button.dataset.action === 'cancel-request') cancelCreditRequest(requestItem);
+        });
+        document.querySelectorAll('input[name="member-credit-type"]').forEach((input) => {
+            input.addEventListener('change', updateCreditPreview);
+        });
+        byId('member-credit-amount').addEventListener('input', updateCreditPreview);
+        byId('member-credit-review-approve').addEventListener('click', () => submitCreditReview(true));
+        byId('member-credit-review-reject').addEventListener('click', () => submitCreditReview(false));
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    async function loadSessionPermissions() {
+        try {
+            const response = await fetch(contextPath + '/api/admin/session', {
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const body = response.ok ? await response.json() : null;
+            const codes = body && Array.isArray(body.permissionCodes) ? body.permissionCodes : [];
+            state.currentEmployeeId = body && body.employeeId ? Number(body.employeeId) : null;
+            state.canAdjustCredit = codes.indexOf('MEMBER_CREDIT') !== -1;
+            state.canReviewCredit = codes.indexOf('MEMBER_CREDIT_REVIEW') !== -1;
+        } catch (error) {
+            state.canAdjustCredit = false;
+            state.canReviewCredit = false;
+        }
+    }
+
+    function requestStatusMap() {
+        return {
+            0: { text: '待審核', className: 'is-pending' },
+            1: { text: '已核准', className: 'is-approved' },
+            2: { text: '已退回', className: 'is-rejected' },
+            3: { text: '已取消', className: 'is-cancelled' }
+        };
+    }
+
+    function renderCreditRequests() {
+        const body = byId('credit-request-table-body');
+        body.replaceChildren();
+        const statusMap = requestStatusMap();
+        state.creditRequests.forEach((item) => {
+            const row = document.createElement('tr');
+            if (state.highlightedRequestId === item.creditAdjustmentRequestId) {
+                row.className = 'is-highlighted';
+            }
+            const typeText = Number(item.adjustmentType) === 1 ? '增加' : '扣除';
+            const typeClass = Number(item.adjustmentType) === 1 ? 'is-add' : 'is-deduct';
+            const status = statusMap[item.requestStatus] || { text: '其他', className: '' };
+            const typeCell = document.createElement('td');
+            typeCell.appendChild(createElement('span', 'credit-type-badge ' + typeClass, typeText));
+            const amountCell = document.createElement('td');
+            amountCell.appendChild(createElement('span',
+                'credit-amount-num ' + (Number(item.adjustmentType) === 1 ? 'is-positive' : 'is-negative'),
+                (Number(item.adjustmentType) === 1 ? '+' : '-') + formatCredit(item.amount)));
+            const reasonCell = document.createElement('td');
+            reasonCell.appendChild(createElement('div', 'member-primary', item.reasonCategory || '—'));
+            reasonCell.appendChild(createElement('div', 'member-secondary', item.reasonDetail || ''));
+            const statusCell = document.createElement('td');
+            statusCell.appendChild(createElement('span', 'member-badge ' + status.className, status.text));
+            const actionCell = createElement('td', 'text-right');
+            const actions = createElement('div', 'member-actions');
+            const pending = Number(item.requestStatus) === 0;
+            if (pending && hasPermission('MEMBER_CREDIT_REVIEW')
+                    && Number(item.requestedByEmployeeId) !== Number(state.currentEmployeeId)) {
+                const reviewButton = makeAction('fas fa-check', '審核申請', 'review');
+                reviewButton.dataset.requestId = String(item.creditAdjustmentRequestId);
+                actions.appendChild(reviewButton);
+            }
+            if (pending && Number(item.requestedByEmployeeId) === Number(state.currentEmployeeId)) {
+                const cancelButton = makeAction('fas fa-times', '取消申請', 'cancel-request', null, true);
+                cancelButton.dataset.requestId = String(item.creditAdjustmentRequestId);
+                actions.appendChild(cancelButton);
+            }
+            actionCell.appendChild(actions);
+
+            const memberCell = document.createElement('td');
+            const person = createElement('div', 'member-person');
+            person.appendChild(createElement('span', 'member-avatar', memberInitial(item.memberName)));
+            const identity = document.createElement('div');
+            identity.appendChild(createElement('div', 'member-primary', item.memberName || ('會員 #' + item.memberId)));
+            identity.appendChild(createElement('div', 'member-secondary', item.memberAccount || ''));
+            person.appendChild(identity);
+            memberCell.appendChild(person);
+
+            [
+                createElement('td', '', formatDate(item.requestedAt, true)),
+                memberCell,
+                typeCell,
+                amountCell,
+                createElement('td', '', formatCredit(item.balanceAtRequest)),
+                reasonCell,
+                createElement('td', '', item.requestedByEmployeeName || ('員工 #' + item.requestedByEmployeeId)),
+                statusCell,
+                actionCell
+            ].forEach((cell) => row.appendChild(cell));
+            body.appendChild(row);
+        });
+        byId('credit-request-empty').hidden = state.creditRequests.length !== 0;
+        const visiblePage = state.creditRequestTotalPages === 0 ? 0 : state.creditRequestPage + 1;
+        byId('credit-request-page-summary').textContent = '第 ' + visiblePage + ' / ' + state.creditRequestTotalPages
+            + ' 頁，共 ' + state.creditRequestTotalElements + ' 筆';
+        byId('credit-request-page-previous').disabled = state.creditRequestPage <= 0;
+        byId('credit-request-page-next').disabled = state.creditRequestTotalPages === 0
+            || state.creditRequestPage >= state.creditRequestTotalPages - 1;
+        const count = byId('credit-request-pending-count');
+        count.textContent = String(state.creditRequestPendingCount);
+        count.hidden = state.creditRequestPendingCount <= 0;
+    }
+
+    async function loadCreditRequests() {
+        const parameters = new URLSearchParams();
+        const keyword = byId('credit-request-search').value.trim();
+        const status = byId('credit-request-status-filter').value;
+        if (keyword) parameters.set('keyword', keyword);
+        if (status) parameters.set('status', status);
+        parameters.set('page', String(state.creditRequestPage));
+        parameters.set('size', '20');
+        try {
+            const result = await request('/credit-adjustment-requests?' + parameters.toString());
+            state.creditRequests = result.requests || [];
+            state.creditRequestPage = Number(result.page || 0);
+            state.creditRequestTotalPages = Number(result.totalPages || 0);
+            state.creditRequestTotalElements = Number(result.totalElements || 0);
+            if (status === '' || status === '0') {
+                state.creditRequestPendingCount = status === '0'
+                    ? state.creditRequestTotalElements
+                    : state.creditRequests.filter((item) => Number(item.requestStatus) === 0).length;
+            }
+            renderCreditRequests();
+            if (status !== '0') {
+                refreshPendingCount();
+            }
+        } catch (error) {
+            state.creditRequests = [];
+            state.creditRequestTotalPages = 0;
+            state.creditRequestTotalElements = 0;
+            renderCreditRequests();
+            showFeedback(error.message, 'error');
+        }
+    }
+
+    async function refreshPendingCount() {
+        try {
+            const result = await request('/credit-adjustment-requests?status=0&page=0&size=1');
+            state.creditRequestPendingCount = Number(result.totalElements || 0);
+            const count = byId('credit-request-pending-count');
+            count.textContent = String(state.creditRequestPendingCount);
+            count.hidden = state.creditRequestPendingCount <= 0;
+        } catch (error) {
+            // 待審核數量只是提示，失敗時不擋住申請列表。
+        }
+    }
+
+    function openCreditReview(item) {
+        state.pendingReview = item;
+        byId('member-credit-review-id').value = String(item.creditAdjustmentRequestId);
+        byId('member-credit-review-subject').textContent =
+            (item.memberName || '會員') + '（' + (item.memberAccount || '') + '）';
+        const list = byId('member-credit-review-summary');
+        list.replaceChildren();
+        addDetailRow(list, '調整類型', Number(item.adjustmentType) === 1 ? '增加' : '扣除');
+        addDetailRow(list, '調整金額', formatCredit(item.amount));
+        addDetailRow(list, '申請時餘額', formatCredit(item.balanceAtRequest));
+        addDetailRow(list, '原因分類', item.reasonCategory || '—');
+        addDetailRow(list, '詳細說明', item.reasonDetail || '—');
+        addDetailRow(list, '申請人', item.requestedByEmployeeName || ('員工 #' + item.requestedByEmployeeId));
+        byId('member-credit-review-note').value = '';
+        byId('member-credit-review-feedback').textContent = '';
+        window.jQuery('#member-credit-review-modal').modal('show');
+    }
+
+    async function submitCreditReview(approve) {
+        if (!state.pendingReview) return;
+        const note = byId('member-credit-review-note').value.trim();
+        const button = byId(approve ? 'member-credit-review-approve' : 'member-credit-review-reject');
+        setBusy(button, true, approve ? '核准中...' : '退回中...');
+        byId('member-credit-review-feedback').textContent = '';
+        try {
+            await request('/credit-adjustment-requests/' + state.pendingReview.creditAdjustmentRequestId + '/review', {
+                method: 'PATCH',
+                body: JSON.stringify({ approved: approve, reviewNote: note })
+            });
+            window.jQuery('#member-credit-review-modal').modal('hide');
+            state.pendingReview = null;
+            await loadCreditRequests();
+            await loadMembers();
+            if (state.activeTab === 'credit-records') await loadCreditAllLogs();
+			window.dispatchEvent(new Event('admin:review-queue-changed'));
+            showFeedback(approve ? '已核准，購物金已入帳。' : '已退回申請。', 'success');
+        } catch (error) {
+            byId('member-credit-review-feedback').textContent = error.message;
+        } finally {
+            setBusy(button, false);
+        }
+    }
+
+    async function cancelCreditRequest(item) {
+        try {
+            await request('/credit-adjustment-requests/' + item.creditAdjustmentRequestId + '/cancel', {
+                method: 'PATCH'
+            });
+            await loadCreditRequests();
+			window.dispatchEvent(new Event('admin:review-queue-changed'));
+            showFeedback('已取消申請。', 'success');
+        } catch (error) {
+            showFeedback(error.message, 'error');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
         bindEvents();
+        await loadSessionPermissions();
         loadMembers();
+		const requestedTab = new URLSearchParams(window.location.search).get('tab');
+		if (['members', 'credit-requests', 'credit-records'].indexOf(requestedTab) !== -1) {
+			switchTab(requestedTab);
+		} else {
+			refreshPendingCount();
+		}
     });
 }());

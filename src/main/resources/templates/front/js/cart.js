@@ -1168,6 +1168,15 @@
       '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 5h6M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
       "</svg><span>我的訂單</span>";
 
+    var reviewsLink = document.createElement("a");
+    reviewsLink.className = "member-menu-link";
+    reviewsLink.href = getContextPath() + "/front/about/member/comments/";
+    reviewsLink.setAttribute("role", "menuitem");
+    reviewsLink.innerHTML =
+      '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12ZM8.5 12h7M8.5 9h7M8.5 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      "</svg><span>我的評論</span>";
+
     var logout = document.createElement("button");
     logout.type = "button";
     logout.className = "member-menu-logout";
@@ -1186,6 +1195,7 @@
     dropdown.appendChild(cardLink);
     dropdown.appendChild(phoneLink);
     dropdown.appendChild(ordersLink);
+    dropdown.appendChild(reviewsLink);
     dropdown.appendChild(logout);
     menu.appendChild(trigger);
     menu.appendChild(dropdown);

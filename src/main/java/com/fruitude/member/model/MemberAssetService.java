@@ -149,7 +149,7 @@ public class MemberAssetService {
 		MemberCreditCard item = new MemberCreditCard();
 		item.setMemberId(memberId);
 		item.setCardToken(UUID.randomUUID().toString());
-		item.setCardBrand(requireText(brand, "信用卡品牌不可空白", 20, "信用卡品牌最多 20 個字"));
+		item.setCardBrand(normalizeCardBrand(brand));
 		item.setCardLastFour(lastFour.trim());
 		item.setCardholderName(requireText(cardholderName, "持卡人姓名不可空白", 50, "持卡人姓名最多 50 個字"));
 		item.setExpiryYearMonth(expiryYearMonth.trim());
@@ -164,7 +164,7 @@ public class MemberAssetService {
 		MemberCreditCard item = creditCardRepository.findByCreditCardIdAndMemberId(creditCardId, memberId)
 				.orElseThrow(() -> new NoSuchElementException("找不到這張信用卡"));
 		validateCard(lastFour, expiryYearMonth);
-		item.setCardBrand(requireText(brand, "信用卡品牌不可空白", 20, "信用卡品牌最多 20 個字"));
+		item.setCardBrand(normalizeCardBrand(brand));
 		item.setCardLastFour(lastFour.trim());
 		item.setCardholderName(requireText(cardholderName, "持卡人姓名不可空白", 50, "持卡人姓名最多 50 個字"));
 		item.setExpiryYearMonth(expiryYearMonth.trim());
@@ -235,6 +235,17 @@ public class MemberAssetService {
 			throw new IllegalArgumentException("電話格式不正確，請輸入 6～20 碼電話號碼");
 		}
 		return cleanPhone;
+	}
+
+	// 只接受 Visa、Mastercard、JCB、Amex（大小寫不拘），一律存成標準寫法
+	private String normalizeCardBrand(String brand) {
+		String clean = requireText(brand, "信用卡品牌不可空白", 20, "信用卡品牌最多 20 個字");
+		for (String allowed : new String[] { "Visa", "Mastercard", "JCB", "Amex" }) {
+			if (allowed.equalsIgnoreCase(clean)) {
+				return allowed;
+			}
+		}
+		throw new IllegalArgumentException("信用卡品牌只能是 Visa、Mastercard、JCB、Amex");
 	}
 
 	private void validateCard(String lastFour, String expiryYearMonth) {

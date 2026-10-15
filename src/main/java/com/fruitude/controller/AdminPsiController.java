@@ -41,17 +41,17 @@ public class AdminPsiController {
 		return "redirect:/admin/psi/vendor";
 	}
 
-	// 進銷存各分頁底下以 .html 結尾的網址（例如 /admin/psi/vendor/listOneVendor.html）導回該分頁的首頁
-	// FruitudeWebConfig 把 templates/admin 整個資料夾當成靜態檔案提供，沒有 controller 接的 .html 網址會直接送出樣板原始檔；
-	// 這裡先接住，就輪不到那個機制。分頁名稱不是進銷存的五個分頁時回 404
-	// 目前先註解起來，用來展示沒有攔截時 .html 會被直接打開的樣子；要啟用時把下面 8 行開頭的 // 拿掉
-//	@GetMapping("/{tab}/{page}.html")
-//	public String oldPsiHtmlPage(@org.springframework.web.bind.annotation.PathVariable("tab") String tab) {
-//		if (!java.util.Set.of("shipping", "receiving", "purchase", "stock", "vendor").contains(tab)) {
-//			throw new org.springframework.web.server.ResponseStatusException(
-//					org.springframework.http.HttpStatus.NOT_FOUND);
-//		}
-//		return "redirect:/admin/psi/" + tab;
-//	}
+//	 進銷存各分頁底下以 .html 結尾的網址（例如 /admin/psi/vendor/listOneVendor.html）導回該分頁的首頁
+//	 FruitudeWebConfig 把 templates/admin 整個資料夾當成靜態檔案提供，沒有 controller 接的 .html 網址會直接送出樣板原始檔；
+//	 這裡先接住，就輪不到那個機制。分頁名稱不是進銷存的五個分頁時回 404
+//	 目前先註解起來，用來展示沒有攔截時 .html 會被直接打開的樣子；要啟用時把下面 8 行開頭的 // 拿掉
+	@GetMapping("/{tab}/{page}.html")
+	public String oldPsiHtmlPage(@org.springframework.web.bind.annotation.PathVariable("tab") String tab) {
+		if (!java.util.Set.of("shipping", "receiving", "purchase", "stock", "vendor").contains(tab)) {
+			throw new org.springframework.web.server.ResponseStatusException(
+					org.springframework.http.HttpStatus.NOT_FOUND);
+		}
+		return "redirect:/admin/psi/" + tab;
+	}
 
 }
