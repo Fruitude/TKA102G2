@@ -20,25 +20,27 @@ public interface StockSkuRepository extends JpaRepository<ProductSku,Integer>
 			countQuery = "select count(s) from ProductSku s")
 	Page<ProductSku> findSkusWithProduct(Pageable pageable);
 
-	// 指定狀態（product_sku 的 status）的規格
-	@Query(value = "select s from ProductSku s left join fetch s.product where s.status = :status",
-			countQuery = "select count(s) from ProductSku s where s.status = :status")
-	Page<ProductSku> findByStatusWithProduct(@Param("status") Byte status, Pageable pageable);
-
-	// 指定編號的規格，查不到時回傳沒有內容的一頁；回傳 Page 是為了和其他查詢共用同一個列表
-	@Query(value = "select s from ProductSku s left join fetch s.product where s.skuId = :skuId",
-			countQuery = "select count(s) from ProductSku s where s.skuId = :skuId")
-	Page<ProductSku> findBySkuIdWithProduct(@Param("skuId") Integer skuId, Pageable pageable);
-
-	// 商品名稱符合 pattern 的規格；pattern 是 LIKE 的樣式（例如 %芒果%），裡面的 %、_、! 要先用 ! 跳脫（StockService 的 toLikePattern）
-	@Query(value = "select s from ProductSku s left join fetch s.product p where p.productName like :pattern escape '!'",
-			countQuery = "select count(s) from ProductSku s where s.product.productName like :pattern escape '!'")
-	Page<ProductSku> findByProductNameWithProduct(@Param("pattern") String pattern, Pageable pageable);
-
-	// 規格名稱（sku_name，不含別名）符合 pattern 的規格；pattern 的規則和 findByProductNameWithProduct 相同
-	@Query(value = "select s from ProductSku s left join fetch s.product where s.skuName like :pattern escape '!'",
-			countQuery = "select count(s) from ProductSku s where s.skuName like :pattern escape '!'")
-	Page<ProductSku> findBySkuNameWithProduct(@Param("pattern") String pattern, Pageable pageable);
+	// 複合條件查詢：規格編號、狀態（product_sku 的 status）、商品名稱、規格名稱（sku_name，不含別名）可以同時使用，條件之間是「而且」
+	// 條件沒填就用「不篩選」的值讓那一項條件恆成立，寫法和 OrdersRepository 的 search 相同：
+	// skuId 0、statusFilter 0（有選狀態時是 1，status 才有作用）、名稱的 pattern 空字串
+	// 名稱的 pattern 是 LIKE 的樣式（例如 %芒果%），裡面的 %、_、! 要先用 ! 跳脫（StockService 的 toLikePattern）
+	// 商品沒有資料的規格在沒查商品名稱時照樣列出（left join）
+	@Query(value = "select s from ProductSku s left join fetch s.product p "
+			+ "where (:skuId = 0 or s.skuId = :skuId) "
+			+ "and (:statusFilter = 0 or s.status = :status) "
+			+ "and (:productNamePattern = '' or p.productName like :productNamePattern escape '!') "
+			+ "and (:skuNamePattern = '' or s.skuName like :skuNamePattern escape '!')",
+			countQuery = "select count(s) from ProductSku s left join s.product p "
+			+ "where (:skuId = 0 or s.skuId = :skuId) "
+			+ "and (:statusFilter = 0 or s.status = :status) "
+			+ "and (:productNamePattern = '' or p.productName like :productNamePattern escape '!') "
+			+ "and (:skuNamePattern = '' or s.skuName like :skuNamePattern escape '!')")
+	Page<ProductSku> searchSkus(@Param("skuId") int skuId,
+			@Param("statusFilter") int statusFilter,
+			@Param("status") Byte status,
+			@Param("productNamePattern") String productNamePattern,
+			@Param("skuNamePattern") String skuNamePattern,
+			Pageable pageable);
 
 	// 調整頁可以改的四個數字組成的內容字串：庫存;安全庫存;允許超賣量;採購溢額量（例如 50;10;10;20）
 	// 顯示調整頁與存檔時都用這一段 SQL 由資料庫算出來，兩邊的格式才會完全一樣

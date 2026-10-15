@@ -1,8 +1,11 @@
 package com.fruitude.shipping.controller;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -19,12 +22,17 @@ import com.fruitude.employee.model.Employee;
 import com.fruitude.orders.model.Orders;
 import com.fruitude.shipping.model.ShippingDetail;
 import com.fruitude.shipping.model.ShippingService;
+import com.fruitude.utils.PsiUtils;
+import com.fruitude.utils.Utils;
 
 import jakarta.servlet.http.HttpSession;
 
 @Controller
 @RequestMapping("/admin/psi/shipping")
 public class ShippingController {
+
+	// 歷史出貨紀錄查詢的收件人姓名字數上限，和 Orders 的 receiverName 欄位長度相同
+	private static final int RECEIVER_NAME_MAX_LENGTH = 20;
 
 	@Autowired
 	ShippingService shippingSvc;
@@ -34,7 +42,10 @@ public class ShippingController {
 	public String shipping(@RequestParam(value = "page", defaultValue = "1") int page, Model model) {
 		System.out.println("執行shipping導向");
 
-		model.addAttribute("ordersPage", shippingSvc.getPendingOrders(page));
+		Page<Orders> ordersPage = shippingSvc.getPendingOrders(page);
+		model.addAttribute("ordersPage", ordersPage);
+		// 頁碼清單，0 代表「…」；ordersPage.number 從 0 開始，buildPageNumbers 從 1 開始
+		model.addAttribute("pageNumbers", PsiUtils.buildPageNumbers(ordersPage.getNumber() + 1, ordersPage.getTotalPages()));
 		return "admin/psi/shipping/index"; //view
 	}
 
@@ -83,10 +94,113 @@ public class ShippingController {
 	}
 
 	// 歷史出貨紀錄：由首頁的「查看歷史出貨紀錄」連過來，列出狀態不是待出貨、也不是取消的訂單，每頁 10 筆
+	// 查詢條件都是選填，由頁面上方的查詢表單送過來；翻頁時頁碼連結會帶著同樣的條件
+	// 查詢條件用 String 接，在 validateHistorySearch 檢查格式（寫法比照 StockController 的 stock），網址被改成 abc 之類的值也能顯示原因
+	// 輸入不正確：所有錯誤一行一個顯示在紅框，列表改列出全部紀錄的第 1 頁
+	// 條件正確但查無資料：紅框顯示「查無資料」，表格顯示查無符合條件的出貨紀錄
 	@GetMapping("/listAllShipping")
-	public String listAllShipping(@RequestParam(value = "page", defaultValue = "1") int page, Model model) {
-		model.addAttribute("ordersPage", shippingSvc.getHistoryOrders(page));
+	public String listAllShipping(@RequestParam(value = "page", defaultValue = "1") int page,
+			@RequestParam(value = "ordersId", required = false) String ordersId,
+			@RequestParam(value = "ordersStatus", required = false) String ordersStatus,
+			@RequestParam(value = "receiverName", required = false) String receiverName,
+			@RequestParam(value = "startDate", required = false) String startDate,
+			@RequestParam(value = "endDate", required = false) String endDate,
+			Model model) {
+		List<Utils.OrderStatus> historyStatuses = shippingSvc.getHistoryStatuses();
+		String ordersIdText = ordersId == null ? "" : ordersId.trim();
+		String ordersStatusText = ordersStatus == null ? "" : ordersStatus.trim();
+		String receiverNameText = receiverName == null ? "" : receiverName.strip();
+		String startDateText = startDate == null ? "" : startDate.trim();
+		String endDateText = endDate == null ? "" : endDate.trim();
+		boolean searching = !ordersIdText.isEmpty() || !ordersStatusText.isEmpty() || !receiverNameText.isEmpty()
+				|| !startDateText.isEmpty() || !endDateText.isEmpty();
+
+		List<String> errors = validateHistorySearch(ordersIdText, ordersStatusText, receiverNameText, startDateText,
+				endDateText, historyStatuses);
+		Page<Orders> ordersPage;
+		if (!errors.isEmpty()) {
+			// 條件不正確：列出全部紀錄的第 1 頁，翻頁連結不帶條件；表單由 param 回填使用者原本輸入的內容
+			model.addAttribute("errorMessage", String.join("\n", errors));
+			ordersPage = shippingSvc.getHistoryOrders(1, null, null, null, null, null);
+			searching = false;
+		} else {
+			Integer ordersIdValue = null;
+			boolean ordersIdOverflow = false;
+			if (!ordersIdText.isEmpty()) {
+				try {
+					ordersIdValue = Integer.valueOf(ordersIdText);
+				} catch (NumberFormatException e) {
+					// 數字太大，超過訂單編號的範圍，一定查不到
+					ordersIdOverflow = true;
+				}
+			}
+			ordersPage = ordersIdOverflow ? Page.empty()
+					: shippingSvc.getHistoryOrders(page, ordersIdValue,
+							ordersStatusText.isEmpty() ? null : Integer.valueOf(ordersStatusText), receiverNameText,
+							startDateText.isEmpty() ? null : LocalDate.parse(startDateText),
+							endDateText.isEmpty() ? null : LocalDate.parse(endDateText));
+			if (searching && ordersPage.getTotalElements() == 0) {
+				model.addAttribute("errorMessage", "查無資料");
+			}
+			// 查詢條件：組翻頁連結用（條件不正確時不放，翻頁連結就不帶條件）
+			model.addAttribute("ordersId", ordersIdText.isEmpty() ? null : ordersIdText);
+			model.addAttribute("ordersStatus", ordersStatusText.isEmpty() ? null : ordersStatusText);
+			model.addAttribute("receiverName", receiverNameText.isEmpty() ? null : receiverNameText);
+			model.addAttribute("startDate", startDateText.isEmpty() ? null : startDateText);
+			model.addAttribute("endDate", endDateText.isEmpty() ? null : endDateText);
+		}
+
+		model.addAttribute("ordersPage", ordersPage);
+		// 頁碼清單，0 代表「…」；ordersPage.number 從 0 開始，buildPageNumbers 從 1 開始
+		model.addAttribute("pageNumbers", PsiUtils.buildPageNumbers(ordersPage.getNumber() + 1, ordersPage.getTotalPages()));
+		model.addAttribute("historyStatuses", historyStatuses);
+		// 有沒有用查詢條件查：查無資料時決定表格顯示哪一句提示
+		model.addAttribute("searching", searching);
 		return "admin/psi/shipping/listAllShipping"; //view
+	}
+
+	// 歷史出貨紀錄查詢條件的格式檢查，回傳所有錯誤訊息（沒有錯誤時是空的清單）；傳進來的值都已經去掉前後空白，沒填是空字串
+	// 訂單編號溢位（數字太大）不算格式錯誤，由 listAllShipping 當成查無資料
+	private List<String> validateHistorySearch(String ordersId, String ordersStatus, String receiverName,
+			String startDate, String endDate, List<Utils.OrderStatus> historyStatuses) {
+		List<String> errors = new ArrayList<>();
+
+		// 不檢查上限：數字太大時由 listAllShipping 當成查無資料
+		String ordersIdError = PsiUtils.positiveIdError(ordersId, "訂單編號", null);
+		if (ordersIdError != null) {
+			errors.add(ordersIdError);
+		}
+
+		if (!ordersStatus.isEmpty()) {
+			// 只能是下拉選單裡的狀態（歷史出貨紀錄會出現的狀態），待出貨與取消的狀態碼也算不正確
+			boolean validStatus = false;
+			for (Utils.OrderStatus status : historyStatuses) {
+				if (String.valueOf(status.getCode()).equals(ordersStatus)) {
+					validStatus = true;
+				}
+			}
+			if (!validStatus) {
+				errors.add("訂單狀態，值不正確");
+			}
+		}
+
+		if (receiverName.length() > RECEIVER_NAME_MAX_LENGTH) {
+			errors.add("收件人姓名，字數過多");
+		}
+
+		// 日期是 input type="date" 送來的 yyyy-MM-dd；起日、迄日都正確時才比較先後
+		LocalDate startDateValue = PsiUtils.parseDate(startDate);
+		LocalDate endDateValue = PsiUtils.parseDate(endDate);
+		if (!startDate.isEmpty() && startDateValue == null) {
+			errors.add("訂單日期（起日），格式不正確");
+		}
+		if (!endDate.isEmpty() && endDateValue == null) {
+			errors.add("訂單日期（迄日），格式不正確");
+		}
+		if (startDateValue != null && endDateValue != null && startDateValue.isAfter(endDateValue)) {
+			errors.add("訂單日期，起日不能晚於迄日");
+		}
+		return errors;
 	}
 
 	// 取消出貨：由出貨紀錄單筆頁（updateShipping）的「取消出貨」按鈕送過來
@@ -132,8 +246,8 @@ public class ShippingController {
 	// 目前登入後台的員工（EmployeeSessionController 登入時放進 session 的 loggedInEmployeeId）
 	// 沒登入、登入逾時或查無此員工時回傳 null
 	private Employee getLoggedInEmployee(HttpSession session) {
-		Object employeeId = session.getAttribute("loggedInEmployeeId");
-		return employeeId instanceof Number ? shippingSvc.getOneEmployee(((Number) employeeId).intValue()) : null;
+		Integer employeeId = PsiUtils.getLoggedInEmployeeId(session);
+		return employeeId == null ? null : shippingSvc.getOneEmployee(employeeId);
 	}
 
 	// 網址的參數型別不對（例如 page=abc）或少了必要的參數時，回首頁第 1 頁並顯示錯誤訊息
@@ -141,7 +255,9 @@ public class ShippingController {
 	public ModelAndView handleError(Exception e) {
 		ModelAndView mav = new ModelAndView("admin/psi/shipping/index");
 		mav.addObject("errorMessage", "網址的參數不正確，請從出貨系統管理重新操作");
-		mav.addObject("ordersPage", shippingSvc.getPendingOrders(1));
+		Page<Orders> ordersPage = shippingSvc.getPendingOrders(1);
+		mav.addObject("ordersPage", ordersPage);
+		mav.addObject("pageNumbers", PsiUtils.buildPageNumbers(ordersPage.getNumber() + 1, ordersPage.getTotalPages()));
 		return mav;
 	}
 

@@ -1,8 +1,11 @@
 package com.fruitude.po.model;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -47,14 +50,38 @@ public interface PoRepository  extends JpaRepository<PoVO, Integer>  {
 	@Query(value = "SELECT id FROM purchaseorder WHERE id = :poId AND po_status = 4 FOR UPDATE", nativeQuery = true)
 	List<Integer> lockClosedPo(@Param("poId") Integer poId);
 
-	// 以下三個給 PoNoController 的條件查詢使用
-	Optional<PoVO> findByPoNo(String poNo);
+	// 採購單首頁的複合條件查詢（PoNoController 的 searchPos）：採購單編號、採購單狀態、供應商編號、採購員工編號可以同時使用，條件之間是「而且」
+	// 條件沒填就用「不篩選」的值讓那一項條件恆成立，寫法和 OrdersRepository 的 search 相同：
+	// poNo 空字串、statusFilter 0（有選狀態時是 1，poStatus 才有作用）、vendorId 0、poEmployeeId 0
+	// 採購單編號完全相同才算符合；新的採購單排在前面
+	@Query("select p from PoVO p where (:poNo = '' or p.poNo = :poNo) "
+			+ "and (:statusFilter = 0 or p.poStatus = :poStatus) "
+			+ "and (:vendorId = 0 or p.vendor.vendorId = :vendorId) "
+			+ "and (:poEmployeeId = 0 or p.poEmployeeId.employeeId = :poEmployeeId) "
+			+ "order by p.poId desc")
+	List<PoVO> searchPos(@Param("poNo") String poNo,
+			@Param("statusFilter") int statusFilter,
+			@Param("poStatus") Byte poStatus,
+			@Param("vendorId") int vendorId,
+			@Param("poEmployeeId") int poEmployeeId);
 
-	// 查詢條件是 PoVO.vendor（VendorVO 物件）的 vendorId
-	List<PoVO> findByVendor_VendorIdOrderByPoIdDesc(Integer vendorId);
-
-	// 查詢條件是 PoVO.poEmployeeId（Employee 物件）的 employeeId
-	List<PoVO> findByPoEmployeeId_EmployeeIdOrderByPoIdDesc(Integer employeeId);
+	// 歷史驗收紀錄的複合條件查詢（ReceivingService 的 searchClosedPos）：只查已結案（po_status = 4，驗收過）的採購單
+	// 採購單編號、供應商編號、驗收狀態、驗收日期區間可以同時使用，條件之間是「而且」；只查 pageable 指定的那一頁，排序也由 pageable 帶入
+	// 條件沒填就用「不篩選」的值讓那一項條件恆成立：poNo 空字串、vendorId 0、inboundStatusFilter 0、dateFilter 0
+	// 日期區間由 ReceivingService 換算好：startDateTime 含當下，endDateTime 不含（迄日隔天 0 點）；沒查日期時驗收日期是空的單也會列出
+	@Query("select p from PoVO p where p.poStatus = 4 "
+			+ "and (:poNo = '' or p.poNo = :poNo) "
+			+ "and (:vendorId = 0 or p.vendor.vendorId = :vendorId) "
+			+ "and (:inboundStatusFilter = 0 or p.inboundStatus = :inboundStatus) "
+			+ "and (:dateFilter = 0 or (p.inboundDate >= :startDateTime and p.inboundDate < :endDateTime))")
+	Page<PoVO> searchClosedPos(@Param("poNo") String poNo,
+			@Param("vendorId") int vendorId,
+			@Param("inboundStatusFilter") int inboundStatusFilter,
+			@Param("inboundStatus") Byte inboundStatus,
+			@Param("dateFilter") int dateFilter,
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endDateTime") LocalDateTime endDateTime,
+			Pageable pageable);
 
 	// 取採購單編號開頭相同（同一天）且編號最大的一筆，用來產生下一個流水號
 	Optional<PoVO> findTopByPoNoStartingWithOrderByPoNoDesc(String poNoPrefix);

@@ -24,7 +24,6 @@ public class AdminIndexController {
 	
 	@GetMapping("/psi")
 	public String psi(Model model) {
-		System.out.println("執行psi導向");
 		
 		return "admin/psi/index"; //view
 	}
@@ -50,7 +49,6 @@ public class AdminIndexController {
 
     @GetMapping("/account")
 	public String account(Model model) {
-		System.out.println("執行account導向");
 		
 		return "admin/account/index"; //view
 	}

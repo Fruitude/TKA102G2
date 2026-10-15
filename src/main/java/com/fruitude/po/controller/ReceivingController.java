@@ -1,5 +1,6 @@
 package com.fruitude.po.controller;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -30,6 +32,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.fruitude.employee.model.Employee;
 import com.fruitude.po.model.PoVO;
 import com.fruitude.po.model.ReceivingService;
+import com.fruitude.utils.PsiUtils;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -51,6 +54,9 @@ public class ReceivingController {
 	// 明細的到貨數量、不良品數量欄位名：poDetails[索引].arrivedPcs、poDetails[索引].defectPcs
 	private static final Pattern DETAIL_QUANTITY_FIELD = Pattern.compile("poDetails\\[(\\d+)\\]\\.(arrivedPcs|defectPcs)");
 
+	// 歷史驗收紀錄查詢的供應商編號上限，和採購系統的查詢（PoNoController）相同
+	private static final int VENDOR_ID_MAX = 99999;
+
 	// 單筆頁、驗收頁查不到採購單時的訊息；ReceivingService 的 getOneApprovedPo 對「不存在」和「狀態不符」都回傳 null，分不出是哪一種
 	private static final String PO_NOT_FOUND_MESSAGE = "查無此採購單，或這張採購單不是申請通過、已結案的狀態";
 
@@ -61,11 +67,93 @@ public class ReceivingController {
 		return "admin/psi/receiving/index"; //view
 	}
 
-	// 驗收紀錄：由首頁的「查詢驗收紀錄」連過來，列出所有已結案（驗收過）的採購單
+	// 歷史驗收紀錄：由首頁的「查詢驗收紀錄」連過來，列出已結案（驗收過）的採購單，每頁 10 筆；page 是頁碼，從 1 開始
+	// 查詢條件都是選填，由頁面上方的查詢表單送過來；翻頁時頁碼連結會帶著同樣的條件
+	// 查詢條件用 String 接，在 validateReceivingSearch 檢查格式，網址被改成 abc 之類的值也能顯示原因
+	// 輸入不正確：所有錯誤一行一個顯示在紅框，列表改列出全部紀錄的第 1 頁
+	// 條件正確但查無資料：紅框顯示「查無資料」，表格顯示查無符合條件的驗收紀錄
 	@GetMapping("/listAllReceiving")
-	public String listAllReceiving(Model model) {
-		model.addAttribute("poListData", receivingSvc.getClosedPos());
+	public String listAllReceiving(@RequestParam(value = "page", defaultValue = "1") int page,
+			@RequestParam(value = "poNo", required = false) String poNo,
+			@RequestParam(value = "vendorId", required = false) String vendorId,
+			@RequestParam(value = "inboundStatus", required = false) String inboundStatus,
+			@RequestParam(value = "startDate", required = false) String startDate,
+			@RequestParam(value = "endDate", required = false) String endDate,
+			Model model) {
+		// 採購單編號不分大小寫，一律轉成大寫再檢查與查詢
+		String poNoText = poNo == null ? "" : poNo.trim().toUpperCase();
+		String vendorIdText = vendorId == null ? "" : vendorId.trim();
+		String inboundStatusText = inboundStatus == null ? "" : inboundStatus.trim();
+		String startDateText = startDate == null ? "" : startDate.trim();
+		String endDateText = endDate == null ? "" : endDate.trim();
+		boolean searching = !poNoText.isEmpty() || !vendorIdText.isEmpty() || !inboundStatusText.isEmpty()
+				|| !startDateText.isEmpty() || !endDateText.isEmpty();
+
+		List<String> errors = validateReceivingSearch(poNoText, vendorIdText, inboundStatusText, startDateText,
+				endDateText);
+		Page<PoVO> poPage;
+		if (!errors.isEmpty()) {
+			// 條件不正確：列出全部紀錄的第 1 頁，翻頁連結不帶條件；表單由 param 回填使用者原本輸入的內容
+			model.addAttribute("errorMessage", String.join("\n", errors));
+			poPage = receivingSvc.searchClosedPos(1, null, null, null, null, null);
+			searching = false;
+		} else {
+			poPage = receivingSvc.searchClosedPos(page, poNoText.isEmpty() ? null : poNoText,
+					vendorIdText.isEmpty() ? null : Integer.valueOf(vendorIdText),
+					inboundStatusText.isEmpty() ? null : Byte.valueOf(inboundStatusText),
+					PsiUtils.parseDate(startDateText), PsiUtils.parseDate(endDateText));
+			if (searching && poPage.getTotalElements() == 0) {
+				model.addAttribute("errorMessage", "查無資料");
+			}
+			// 查詢條件：組翻頁連結用（條件不正確時不放，翻頁連結就不帶條件）
+			model.addAttribute("poNo", poNoText.isEmpty() ? null : poNoText);
+			model.addAttribute("vendorId", vendorIdText.isEmpty() ? null : vendorIdText);
+			model.addAttribute("inboundStatus", inboundStatusText.isEmpty() ? null : inboundStatusText);
+			model.addAttribute("startDate", startDateText.isEmpty() ? null : startDateText);
+			model.addAttribute("endDate", endDateText.isEmpty() ? null : endDateText);
+		}
+
+		model.addAttribute("poPage", poPage);
+		// 頁碼清單，0 代表「…」；poPage.number 從 0 開始，buildPageNumbers 從 1 開始
+		model.addAttribute("pageNumbers", PsiUtils.buildPageNumbers(poPage.getNumber() + 1, poPage.getTotalPages()));
+		// 有沒有用查詢條件查：查無資料時決定表格顯示哪一句提示
+		model.addAttribute("searching", searching);
 		return "admin/psi/receiving/listAllReceiving"; //view
+	}
+
+	// 歷史驗收紀錄查詢條件的格式檢查，回傳所有錯誤訊息（沒有錯誤時是空的清單）；傳進來的值都已經去掉前後空白，沒填是空字串
+	private List<String> validateReceivingSearch(String poNo, String vendorId, String inboundStatus, String startDate,
+			String endDate) {
+		List<String> errors = new ArrayList<>();
+
+		// PoService 的 generatePoNo 產生的格式：PO + 日期 8 碼 + 流水號 4 碼；訊息和採購系統的查詢（PoNoController）相同
+		if (!poNo.isEmpty() && !poNo.matches("^PO\\d{12}$")) {
+			errors.add("採購單編號: 格式為 PO 加上 12 位數字，例如 PO202610090001");
+		}
+
+		String vendorIdError = PsiUtils.positiveIdError(vendorId, "供應商編號", VENDOR_ID_MAX);
+		if (vendorIdError != null) {
+			errors.add(vendorIdError);
+		}
+
+		// 已結案的單都驗收過：1 驗收成功、2 驗收失敗、3 已取消；下拉選單的「全部」是空字串，不檢查
+		if (!inboundStatus.isEmpty() && !inboundStatus.matches("^[1-3]$")) {
+			errors.add("驗收狀態，值不正確");
+		}
+
+		// 日期是 input type="date" 送來的 yyyy-MM-dd；起日、迄日都正確時才比較先後
+		LocalDate startDateValue = PsiUtils.parseDate(startDate);
+		LocalDate endDateValue = PsiUtils.parseDate(endDate);
+		if (!startDate.isEmpty() && startDateValue == null) {
+			errors.add("驗收日期（起日），格式不正確");
+		}
+		if (!endDate.isEmpty() && endDateValue == null) {
+			errors.add("驗收日期（迄日），格式不正確");
+		}
+		if (startDateValue != null && endDateValue != null && startDateValue.isAfter(endDateValue)) {
+			errors.add("驗收日期，起日不能晚於迄日");
+		}
+		return errors;
 	}
 
 	// 單筆資料：由首頁列表、驗收紀錄的「詳細」連過來，依 poId 顯示採購單與明細
@@ -203,8 +291,8 @@ public class ReceivingController {
 	// 目前登入後台的員工（EmployeeSessionController 登入時放進 session 的 loggedInEmployeeId）
 	// 沒登入、登入逾時或查無此員工時回傳 null
 	private Employee getLoggedInEmployee(HttpSession session) {
-		Object employeeId = session.getAttribute("loggedInEmployeeId");
-		return employeeId instanceof Number ? receivingSvc.getOneEmployee(((Number) employeeId).intValue()) : null;
+		Integer employeeId = PsiUtils.getLoggedInEmployeeId(session);
+		return employeeId == null ? null : receivingSvc.getOneEmployee(employeeId);
 	}
 
 	// 帶著錯誤訊息回單筆頁；連採購單編號都沒有時回首頁

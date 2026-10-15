@@ -362,25 +362,16 @@ public class PoService {
 		return optional.orElse(null); // public T orElse(T other) : 如果值存在就回傳其值，否則回傳other的值
 	}
 
-	public List<PoVO> getAll() {
-		return repository.findAll();
-	}
-	
-	public List<PoVO> getByPoStatus(Byte poStatus){
-		return repository.getByPoStatus(poStatus);
-	}
-
-	// 以下三個給 PoNoController 的條件查詢使用
-	public PoVO getOneByPoNo(String poNo) {
-		return repository.findByPoNo(poNo).orElse(null);
-	}
-
-	public List<PoVO> getByVendorId(Integer vendorId) {
-		return repository.findByVendor_VendorIdOrderByPoIdDesc(vendorId);
-	}
-
-	public List<PoVO> getByPoEmployeeId(Integer employeeId) {
-		return repository.findByPoEmployeeId_EmployeeIdOrderByPoIdDesc(employeeId);
+	// 採購單首頁的複合條件查詢（PoNoController 的 searchPos），條件之間是「而且」，新的採購單排在前面
+	// 條件都可以不填（null 或空字串），都沒填就是全部採購單；poNo 要是完整的採購單編號
+	public List<PoVO> searchPos(String poNo, Byte poStatus, Integer vendorId, Integer poEmployeeId) {
+		// 沒填的條件換成「不篩選」的值，對應 PoRepository 的 searchPos
+		String poNoFilter = poNo == null ? "" : poNo;
+		int statusFilter = poStatus == null ? 0 : 1;
+		Byte poStatusValue = poStatus == null ? Byte.valueOf((byte) 0) : poStatus; // 不篩選時不會用到，給個值避免傳 null
+		int vendorIdFilter = vendorId == null ? 0 : vendorId;
+		int poEmployeeIdFilter = poEmployeeId == null ? 0 : poEmployeeId;
+		return repository.searchPos(poNoFilter, statusFilter, poStatusValue, vendorIdFilter, poEmployeeIdFilter);
 	}
 
 	// 某供應商可採購的規格：status 7（永久停產）不列入，其餘都列入；採購單的規格下拉選單使用
@@ -452,17 +443,36 @@ public class PoService {
 		return suggestedQuantityBySkuId;
 	}
 
+	// 採購單首頁（purchase/index.html）「待採購商品」區塊要用的三份資料；key 就是頁面上用的屬性名稱
+	// 只在要顯示首頁的地方呼叫：PoController 的 purchase、handleError，PoNoController 的 searchPos 回首頁的分支
+	// 之後新增其他回 index.html 的地方也要呼叫，否則待採購商品區塊會顯示「沒有待採購商品」
+	// getBelowSafetyStockByVendor 只算一次，pendingPoIdByVendorId 直接用算好的結果
+	public Map<String, Object> getIndexData() {
+		Map<Integer, List<ProductSku>> belowSafetyStockByVendor = getBelowSafetyStockByVendor();
+		Map<String, Object> indexData = new HashMap<>();
+		indexData.put("belowSafetyStockByVendor", belowSafetyStockByVendor);
+		indexData.put("pendingQuantityBySkuId", getPendingQuantityBySkuId());
+		indexData.put("pendingPoIdByVendorId", getPendingPoIdByVendorId(belowSafetyStockByVendor));
+		return indexData;
+	}
+
 	// 待採購商品的各供應商區塊要更新的待審核採購單：key 為供應商編號、value 為採購單系統編號
 	// 區塊裡只要有一個規格已經在待審核的採購單裡，這個供應商就會出現在裡面（首頁改顯示「更新採購單」）；
 	// 區塊裡的規格分別在不同的待審核採購單時，取系統編號最大（最新）的那一張
+	// 無參數版保留給 PoController 的 addPo 使用，自己算好待採購商品再交給下面的版本
 	public Map<Integer, Integer> getPendingPoIdByVendorId() {
+		return getPendingPoIdByVendorId(getBelowSafetyStockByVendor());
+	}
+
+	// 內容同上，待採購商品（getBelowSafetyStockByVendor 的結果）由呼叫端傳進來，不在這裡再查一次
+	public Map<Integer, Integer> getPendingPoIdByVendorId(Map<Integer, List<ProductSku>> belowSafetyStockByVendor) {
 		Map<Integer, Integer> pendingPoIdBySkuId = new HashMap<>();
 		for (Object[] row : poDetailRepository.findLatestPendingPoIdBySkuId()) {
 			pendingPoIdBySkuId.put((Integer) row[0], (Integer) row[1]);
 		}
 
 		Map<Integer, Integer> pendingPoIdByVendorId = new HashMap<>();
-		for (Map.Entry<Integer, List<ProductSku>> vendorEntry : getBelowSafetyStockByVendor().entrySet()) {
+		for (Map.Entry<Integer, List<ProductSku>> vendorEntry : belowSafetyStockByVendor.entrySet()) {
 			if (vendorEntry.getKey() == null) {
 				continue;
 			}
