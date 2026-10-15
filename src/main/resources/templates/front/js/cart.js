@@ -411,6 +411,12 @@
     subtotalWrapper.appendChild(subtotalValue);
 
     descWrapper.appendChild(name);
+    if (item.skuName) {
+      var skuLabel = document.createElement("div");
+      skuLabel.className = "cart-item-sku";
+      skuLabel.textContent = item.skuName;
+      descWrapper.appendChild(skuLabel);
+    }
     descWrapper.appendChild(qtyWrapper);
     descWrapper.appendChild(subtotalWrapper);
 

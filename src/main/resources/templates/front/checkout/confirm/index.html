@@ -167,6 +167,12 @@
       qty.className = "confirm-item-qty paragraph-18";
       qty.textContent = "數量：" + item.qty;
       left.appendChild(name);
+      if (item.skuName) {
+        var skuLabel = document.createElement("div");
+        skuLabel.className = "cart-item-sku";
+        skuLabel.textContent = item.skuName;
+        left.appendChild(skuLabel);
+      }
       left.appendChild(qty);
 
       var right = document.createElement("div");
