@@ -1,6 +1,8 @@
 package com.fruitude.employee.controller;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -50,6 +52,21 @@ public class EmployeeSessionController {
 			if (session != null) session.invalidate();
 			return unauthenticated();
 		}
+	}
+
+	/** 公開申請頁使用的職位選項，只提供啟用職位與畫面必要欄位。 */
+	@GetMapping("/application-positions")
+	public List<Map<String, Object>> applicationPositions() {
+		List<Map<String, Object>> result = new ArrayList<>();
+		for (EmployeePosition position : employeeAdminService.findPositions()) {
+			if (position.getPositionStatus() == null || position.getPositionStatus().intValue() != 1) continue;
+			Map<String, Object> item = new LinkedHashMap<>();
+			item.put("positionId", position.getPositionId());
+			item.put("positionCode", position.getPositionCode());
+			item.put("positionName", position.getPositionName());
+			result.add(item);
+		}
+		return result;
 	}
 
 	/** 驗證帳號密碼並建立後台員工 Session。 */

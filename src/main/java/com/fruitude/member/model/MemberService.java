@@ -202,41 +202,50 @@ public class MemberService {
 	}
 
 	/**
-	 * 後台調整會員購物金，並在同一個交易內保存異動前後餘額。
-	 * 只有餘額真的改變時才新增流水，避免產生沒有意義的零元紀錄。
+	 * 購物金調整申請核准後入帳。員工不能直接呼叫此方法改餘額。
+	 * 增加寫入正數、扣除寫入負數，與既有流水顯示規則一致。
 	 */
 	@Transactional
-	public Optional<MemberVO> updateShoppingCredit(Integer memberId, Integer shoppingCredit,
-			String reason, Integer employeeId) {
-		if (shoppingCredit == null || shoppingCredit < 0) {
-			throw new IllegalArgumentException("購物金不可小於 0");
-		}
-		String cleanReason = reason == null ? "" : reason.trim();
-		if (cleanReason.isEmpty()) throw new IllegalArgumentException("請填寫購物金調整原因");
-		if (cleanReason.length() > 255) throw new IllegalArgumentException("購物金調整原因最多 255 個字");
-		Optional<MemberVO> optional = memberRepository.findById(memberId);
-		if (!optional.isPresent()) {
-			return Optional.empty();
-		}
+	public MemberCreditTransaction applyApprovedCreditAdjustment(Integer memberId, Byte adjustmentType,
+			Integer amount, String reasonCategory, String reasonDetail, Integer employeeId) {
+		if (memberId == null) throw new IllegalArgumentException("會員編號不可空白");
+		if (amount == null || amount <= 0) throw new IllegalArgumentException("調整金額必須大於 0");
+		boolean add = Byte.valueOf(MemberCreditAdjustmentRequest.TYPE_ADD).equals(adjustmentType);
+		boolean deduct = Byte.valueOf(MemberCreditAdjustmentRequest.TYPE_DEDUCT).equals(adjustmentType);
+		if (!add && !deduct) throw new IllegalArgumentException("調整類型只能是增加或扣除");
 
-		MemberVO member = optional.get();
+		String category = reasonCategory == null ? "" : reasonCategory.trim();
+		String detail = reasonDetail == null ? "" : reasonDetail.trim();
+		String reason = category.isEmpty() ? detail : (detail.isEmpty() ? category : category + "：" + detail);
+		if (reason.isEmpty()) throw new IllegalArgumentException("請填寫購物金調整原因");
+		if (reason.length() > 255) reason = reason.substring(0, 255);
+
+		MemberVO member = memberRepository.findByIdForUpdate(memberId)
+				.orElseThrow(() -> new java.util.NoSuchElementException("找不到會員"));
 		int balanceBefore = member.getShoppingCredit() == null ? 0 : member.getShoppingCredit();
-		if (balanceBefore == shoppingCredit.intValue()) return Optional.of(member);
+		int signedAmount;
+		int balanceAfter;
+		try {
+			signedAmount = add ? amount : Math.negateExact(amount);
+			balanceAfter = Math.addExact(balanceBefore, signedAmount);
+		} catch (ArithmeticException e) {
+			throw new IllegalArgumentException("調整後購物金金額超出可保存範圍");
+		}
+		if (balanceAfter < 0) throw new IllegalArgumentException("扣除金額不可大於會員目前購物金");
 
-		member.setShoppingCredit(shoppingCredit);
-		MemberVO savedMember = memberRepository.save(member);
+		member.setShoppingCredit(balanceAfter);
+		memberRepository.save(member);
 
 		MemberCreditTransaction transaction = new MemberCreditTransaction();
 		transaction.setMemberId(memberId);
-		transaction.setTransactionType(shoppingCredit > balanceBefore
+		transaction.setTransactionType(add
 				? MemberCreditTransaction.TYPE_ADMIN_ADD : MemberCreditTransaction.TYPE_ADMIN_DEDUCT);
-		transaction.setAmount(shoppingCredit - balanceBefore);
+		transaction.setAmount(signedAmount);
 		transaction.setBalanceBefore(balanceBefore);
-		transaction.setBalanceAfter(shoppingCredit);
+		transaction.setBalanceAfter(balanceAfter);
 		transaction.setEmployeeId(employeeId);
-		transaction.setReason(cleanReason);
-		creditTransactionRepository.save(transaction);
-		return Optional.of(savedMember);
+		transaction.setReason(reason);
+		return creditTransactionRepository.save(transaction);
 	}
 
 	/**

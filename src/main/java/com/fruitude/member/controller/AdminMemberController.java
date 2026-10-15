@@ -1,30 +1,32 @@
 package com.fruitude.member.controller;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.time.LocalDate;
 import java.util.Optional;
-import org.springframework.format.annotation.DateTimeFormat;
-import com.fruitude.member.model.MemberCreditTransactionDTO;
 
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.transaction.annotation.Transactional;
 
+import com.fruitude.member.model.AdminMemberMutationService;
+import com.fruitude.member.model.MemberCreditAdjustmentRequestDTO;
+import com.fruitude.member.model.MemberCreditAdjustmentService;
+import com.fruitude.member.model.MemberCreditTransaction;
+import com.fruitude.member.model.MemberCreditTransactionDTO;
 import com.fruitude.member.model.MemberService;
 import com.fruitude.member.model.OnlineMemberTracker;
-import com.fruitude.member.model.MemberCreditTransaction;
 import com.fruitude.member.model.MemberVO;
-import com.fruitude.employee.model.OperationAuditService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -36,13 +38,17 @@ import jakarta.servlet.http.HttpServletRequest;
 public class AdminMemberController {
 
 	private final MemberService memberService;
-	private final OperationAuditService auditService;
+	private final MemberCreditAdjustmentService creditAdjustmentService;
+	private final AdminMemberMutationService mutationService;
 	private final OnlineMemberTracker onlineMemberTracker;
 
-	public AdminMemberController(MemberService memberService, OperationAuditService auditService,
+	public AdminMemberController(MemberService memberService,
+			MemberCreditAdjustmentService creditAdjustmentService,
+			AdminMemberMutationService mutationService,
 			OnlineMemberTracker onlineMemberTracker) {
 		this.memberService = memberService;
-		this.auditService = auditService;
+		this.creditAdjustmentService = creditAdjustmentService;
+		this.mutationService = mutationService;
 		this.onlineMemberTracker = onlineMemberTracker;
 	}
 
@@ -74,7 +80,7 @@ public class AdminMemberController {
 
 	/** 依會員編號查看後台會員明細。 */
 	@GetMapping("/{memberId}")
-	public ResponseEntity<?> getMember(@PathVariable Integer memberId) {
+	public ResponseEntity<?> getMember(@PathVariable("memberId") Integer memberId) {
 		Optional<MemberVO> member = memberService.findById(memberId);
 		return member.isPresent()
 				? ResponseEntity.ok(member.get())
@@ -82,31 +88,88 @@ public class AdminMemberController {
 	}
 
 	/** 將會員設為啟用（1）或停權（0）。 */
-	@Transactional
 	@PatchMapping("/{memberId}/status")
-	public ResponseEntity<?> updateStatus(@PathVariable Integer memberId,
+	public ResponseEntity<?> updateStatus(@PathVariable("memberId") Integer memberId,
 			@RequestBody StatusRequest form, HttpServletRequest request) {
 		try {
-			Optional<MemberVO> member = memberService.updateStatus(memberId, form.getMemberStatus());
-			return member.isPresent()
-					? ResponseEntity.ok(member.get())
-					: ResponseEntity.status(HttpStatus.NOT_FOUND).body(message("找不到會員"));
+			Optional<MemberVO> member = mutationService.updateStatus(memberId, form.getMemberStatus(), request);
+			if (!member.isPresent()) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message("找不到會員"));
+			}
+			return ResponseEntity.ok(member.get());
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest().body(message(e.getMessage()));
 		}
 	}
 
-	/** 設定會員目前的購物金餘額。 */
-	@Transactional
-	@PatchMapping("/{memberId}/credit")
-	public ResponseEntity<?> updateShoppingCredit(@PathVariable Integer memberId,
-			@RequestBody CreditRequest form, HttpServletRequest request) {
+	/** 員工送出購物金調整申請，不會立刻改會員餘額。 */
+	@PostMapping("/{memberId}/credit-adjustment-requests")
+	public ResponseEntity<?> createCreditAdjustmentRequest(@PathVariable("memberId") Integer memberId,
+			@RequestBody CreditAdjustmentRequestForm form, HttpServletRequest request) {
 		try {
-			Optional<MemberVO> member = memberService.updateShoppingCredit(memberId, form.getShoppingCredit(),
-					form.getReason(), auditService.resolveEmployeeId(request));
-			return member.isPresent()
-					? ResponseEntity.ok(member.get())
-					: ResponseEntity.status(HttpStatus.NOT_FOUND).body(message("找不到會員"));
+			if (form == null) throw new IllegalArgumentException("購物金調整申請內容不可空白");
+			MemberCreditAdjustmentRequestDTO requestDto = mutationService.createCreditAdjustmentRequest(memberId,
+					form.getAdjustmentType(), form.getAmount(), form.getReasonCategory(),
+					form.getReasonDetail(), request);
+			return ResponseEntity.ok(requestDto);
+		} catch (NoSuchElementException e) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message(e.getMessage()));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(message(e.getMessage()));
+		}
+	}
+
+	/** 分頁查詢購物金調整申請。 */
+	@GetMapping("/credit-adjustment-requests")
+	public ResponseEntity<?> getCreditAdjustmentRequests(
+			@RequestParam(value = "keyword", required = false) String keyword,
+			@RequestParam(value = "status", required = false) Byte status,
+			@RequestParam(value = "page", defaultValue = "0") int page,
+			@RequestParam(value = "size", defaultValue = "20") int size) {
+		try {
+			Page<MemberCreditAdjustmentRequestDTO> requests = creditAdjustmentService.findRequests(
+					keyword, status, page, size);
+			Map<String, Object> body = new LinkedHashMap<>();
+			body.put("requests", requests.getContent());
+			body.put("page", requests.getNumber());
+			body.put("size", requests.getSize());
+			body.put("totalPages", requests.getTotalPages());
+			body.put("totalElements", requests.getTotalElements());
+			return ResponseEntity.ok(body);
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(message(e.getMessage()));
+		}
+	}
+
+	/** 主管核准或退回購物金調整申請。 */
+	@PatchMapping("/credit-adjustment-requests/{requestId}/review")
+	public ResponseEntity<?> reviewCreditAdjustmentRequest(@PathVariable("requestId") Integer requestId,
+			@RequestBody CreditAdjustmentReviewForm form, HttpServletRequest request) {
+		try {
+			if (form == null || form.getApproved() == null) {
+				throw new IllegalArgumentException("請選擇核准或退回");
+			}
+			boolean approve = form.getApproved().booleanValue();
+			MemberCreditAdjustmentRequestDTO requestDto = mutationService.reviewCreditAdjustmentRequest(requestId,
+					approve, form.getReviewNote(), request);
+			return ResponseEntity.ok(requestDto);
+		} catch (NoSuchElementException e) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message(e.getMessage()));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(message(e.getMessage()));
+		}
+	}
+
+	/** 申請人取消自己的待審核購物金調整單。 */
+	@PatchMapping("/credit-adjustment-requests/{requestId}/cancel")
+	public ResponseEntity<?> cancelCreditAdjustmentRequest(@PathVariable("requestId") Integer requestId,
+			HttpServletRequest request) {
+		try {
+			MemberCreditAdjustmentRequestDTO requestDto = mutationService.cancelCreditAdjustmentRequest(requestId,
+					request);
+			return ResponseEntity.ok(requestDto);
+		} catch (NoSuchElementException e) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message(e.getMessage()));
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest().body(message(e.getMessage()));
 		}
@@ -140,7 +203,7 @@ public class AdminMemberController {
 
 	/** 分頁取得指定會員的購物金異動紀錄。 */
 	@GetMapping("/{memberId}/credit-transactions")
-	public ResponseEntity<?> getCreditTransactions(@PathVariable Integer memberId,
+	public ResponseEntity<?> getCreditTransactions(@PathVariable("memberId") Integer memberId,
 			@RequestParam(value = "page", defaultValue = "0") int page,
 			@RequestParam(value = "size", defaultValue = "20") int size) {
 		try {
@@ -177,20 +240,31 @@ public class AdminMemberController {
 		}
 	}
 
-	/** 後台購物金修改請求，以新的購物金餘額覆蓋原值。 */
-	public static class CreditRequest {
-		private Integer shoppingCredit;
-		private String reason;
+	/** 後台購物金調整申請：增加或扣除指定金額，需另一人核准後才入帳。 */
+	public static class CreditAdjustmentRequestForm {
+		private Byte adjustmentType;
+		private Integer amount;
+		private String reasonCategory;
+		private String reasonDetail;
 
-		public Integer getShoppingCredit() {
-			return shoppingCredit;
-		}
+		public Byte getAdjustmentType() { return adjustmentType; }
+		public void setAdjustmentType(Byte adjustmentType) { this.adjustmentType = adjustmentType; }
+		public Integer getAmount() { return amount; }
+		public void setAmount(Integer amount) { this.amount = amount; }
+		public String getReasonCategory() { return reasonCategory; }
+		public void setReasonCategory(String reasonCategory) { this.reasonCategory = reasonCategory; }
+		public String getReasonDetail() { return reasonDetail; }
+		public void setReasonDetail(String reasonDetail) { this.reasonDetail = reasonDetail; }
+	}
 
-		public void setShoppingCredit(Integer shoppingCredit) {
-			this.shoppingCredit = shoppingCredit;
-		}
+	/** 主管審核購物金調整申請。approved=true 核准，false 退回。 */
+	public static class CreditAdjustmentReviewForm {
+		private Boolean approved;
+		private String reviewNote;
 
-		public String getReason() { return reason; }
-		public void setReason(String reason) { this.reason = reason; }
+		public Boolean getApproved() { return approved; }
+		public void setApproved(Boolean approved) { this.approved = approved; }
+		public String getReviewNote() { return reviewNote; }
+		public void setReviewNote(String reviewNote) { this.reviewNote = reviewNote; }
 	}
 }

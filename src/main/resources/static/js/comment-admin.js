@@ -256,6 +256,7 @@
             window.jQuery('#comment-detail-modal').modal('hide');
             showFeedback(action === 'HIDE' ? '評論已隱藏並保存處理紀錄' : '評論已保留並保存處理紀錄', 'success');
             await loadComments();
+			window.dispatchEvent(new Event('admin:review-queue-changed'));
         } catch (error) {
             byId('comment-modal-feedback').textContent = error.message;
         } finally {
@@ -296,5 +297,10 @@
         button.addEventListener('click', () => moderate(button.dataset.moderationAction, button));
     });
 
-    loadComments();
+	const requestedTab = new URLSearchParams(window.location.search).get('tab');
+	if (['all', 'reported', 'handled'].indexOf(requestedTab) !== -1) {
+		switchTab(requestedTab);
+	} else {
+		loadComments();
+	}
 })();

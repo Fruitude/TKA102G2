@@ -9,16 +9,26 @@
     const positionSelect = document.getElementById('application-position');
 
     // 申請頁只載入啟用職位，避免申請人選到已停用的職位。
-    fetch(contextPath + '/api/admin/employees/positions', { headers: { 'Accept': 'application/json' } })
-        .then((response) => response.json())
+    fetch(contextPath + '/api/admin/session/application-positions', { headers: { 'Accept': 'application/json' } })
+        .then((response) => {
+            if (!response.ok) throw new Error('無法載入職位');
+            return response.json();
+        })
         .then((positions) => {
+            if (!positions.length) {
+                positionSelect.replaceChildren(new Option('目前沒有可申請的職位', ''));
+                positionSelect.disabled = true;
+                return;
+            }
+            positionSelect.disabled = false;
             positionSelect.replaceChildren(new Option('請選擇申請職位', ''));
-            positions.filter((position) => Number(position.positionStatus) === 1).forEach((position) => {
+            positions.forEach((position) => {
                 positionSelect.appendChild(new Option(position.positionName + '（' + position.positionCode + '）', position.positionId));
             });
         })
         .catch(() => {
             positionSelect.replaceChildren(new Option('目前無法載入職位', ''));
+            positionSelect.disabled = true;
         });
 
     form.addEventListener('submit', async (event) => {

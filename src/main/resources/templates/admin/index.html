@@ -23,7 +23,7 @@
 	
 		    <!-- Custom styles for this template-->
 		    <link th:href="@{/css/sb-admin-2.min.css}" rel="stylesheet">
-		    <link th:href="@{/css/admin-topbar.css?v=4}" rel="stylesheet">
+		    <link th:href="@{/css/admin-topbar.css?v=5}" rel="stylesheet">
 	    <style>
 		.sidebar-dark .nav-item.active .nav-link { 
 			background: rgba(255, 255, 255, .15); }
@@ -188,6 +188,41 @@
 
                     <ul class="navbar-nav ml-auto">
 
+	                        <!-- 依登入員工權限顯示需要主管處理的待審核工作。 -->
+	                        <li class="nav-item dropdown no-arrow mx-1" id="admin-review-item" hidden>
+	                            <button class="nav-link admin-topbar-icon admin-review-toggle" id="admin-review-toggle" type="button"
+	                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+	                                    title="待審核工作" aria-label="待審核工作">
+	                                <i class="fas fa-clipboard-list fa-fw" aria-hidden="true"></i>
+	                                <span class="admin-review-badge" id="admin-review-badge" aria-live="polite" hidden>0</span>
+	                            </button>
+	                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in admin-review-menu"
+	                                 aria-labelledby="admin-review-toggle">
+	                                <div class="admin-review-heading">
+	                                    <strong>待審核工作</strong>
+	                                    <span id="admin-review-summary">正在整理...</span>
+	                                </div>
+	                                <div class="admin-review-list" id="admin-review-list">
+	                                    <a class="admin-review-row" id="admin-review-employee" th:href="@{/admin/employees/(tab='applications')}" hidden>
+	                                        <span class="admin-review-symbol is-employee"><i class="fas fa-user-clock" aria-hidden="true"></i></span>
+	                                        <span class="admin-review-copy"><strong>員工帳號申請</strong><span>等待系統管理員核准</span></span>
+	                                        <span class="admin-review-count" id="admin-review-employee-count">0</span>
+	                                    </a>
+	                                    <a class="admin-review-row" id="admin-review-credit" th:href="@{/admin/members/(tab='credit-requests')}" hidden>
+	                                        <span class="admin-review-symbol is-credit"><i class="fas fa-coins" aria-hidden="true"></i></span>
+	                                        <span class="admin-review-copy"><strong>購物金調整申請</strong><span>等待主管審核入帳</span></span>
+	                                        <span class="admin-review-count" id="admin-review-credit-count">0</span>
+	                                    </a>
+	                                    <a class="admin-review-row" id="admin-review-comment" th:href="@{/admin/comments/(tab='reported')}" hidden>
+	                                        <span class="admin-review-symbol is-comment"><i class="fas fa-flag" aria-hidden="true"></i></span>
+	                                        <span class="admin-review-copy"><strong>評論檢舉</strong><span>等待判定保留或隱藏</span></span>
+	                                        <span class="admin-review-count" id="admin-review-comment-count">0</span>
+	                                    </a>
+	                                    <div class="admin-topbar-empty" id="admin-review-empty">目前沒有待審核工作</div>
+	                                </div>
+	                            </div>
+	                        </li>
+
 	                        <!-- 員工模組最近異動通知 -->
 	                        <li class="nav-item dropdown no-arrow mx-1">
 	                            <button class="nav-link admin-topbar-icon" id="admin-notification-toggle" type="button"
@@ -336,7 +371,7 @@
 
         <!-- Custom scripts for all pages-->
 	        <script th:src="@{/js/sb-admin-2.min.js}"></script>
-	        <script th:src="@{/js/admin-topbar.js?v=3}"></script>
+	        <script th:src="@{/js/admin-topbar.js?v=4}"></script>
     </th:block>
 
     <!-- Dashboard 首頁專屬的圖表套件，保留在原本位置，不放進共用片段 -->

@@ -5,9 +5,12 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import jakarta.persistence.LockModeType;
 
 /**
  * 會員資料存取層。JpaRepository 已提供新增、修改、刪除、單筆及全部查詢等基本功能。
@@ -43,4 +46,9 @@ public interface MemberRepository extends JpaRepository<MemberVO, Integer> {
 			+ "OR LOWER(member.memberEmail) LIKE LOWER(CONCAT('%', :keyword, '%')))")
 	Page<MemberVO> findAdminPage(@Param("keyword") String keyword, @Param("status") Integer status,
 			Pageable pageable);
+
+	/** 核准入帳時鎖住會員列，避免同時審核造成餘額算錯。 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT member FROM MemberVO member WHERE member.memberId = :memberId")
+	Optional<MemberVO> findByIdForUpdate(@Param("memberId") Integer memberId);
 }

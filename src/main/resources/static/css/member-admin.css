@@ -611,3 +611,53 @@
     font-size: .85rem;
     font-variant-numeric: tabular-nums;
 }
+
+
+.member-tab-count {
+    min-width: 1.4rem;
+    padding: .05rem .4rem;
+    border-radius: 999px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: .72rem;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.member-credit-current,
+.member-credit-preview {
+    margin: .35rem 0 0;
+    color: var(--member-muted);
+    font-size: .9rem;
+}
+
+.member-credit-preview.is-invalid {
+    color: var(--member-red);
+}
+
+.member-credit-type-options {
+    display: flex;
+    gap: .75rem;
+}
+
+.member-credit-type {
+    margin: 0;
+    padding: .45rem .9rem;
+    border: 1px solid var(--member-line);
+    border-radius: .35rem;
+    cursor: pointer;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.member-badge.is-pending { background: #fef3c7; color: #b45309; }
+.member-badge.is-approved { background: #dcfce7; color: #15803d; }
+.member-badge.is-rejected { background: #fee2e2; color: #b91c1c; }
+.member-badge.is-cancelled { background: #e5e7eb; color: #4b5563; }
+
+.member-table tbody tr.is-highlighted {
+    background: #fff7ed;
+}

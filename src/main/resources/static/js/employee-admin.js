@@ -179,12 +179,12 @@
 
             const permissionCell = document.createElement('td');
             const permissionCount = createElement('button', 'employee-permission-count',
-                String(employee.permissionCount || 0) + ' 個功能');
+                String(employee.permissionCount || 0) + ' 個群組');
             permissionCount.type = 'button';
             permissionCount.dataset.action = 'view-permissions';
             permissionCount.dataset.employeeId = String(employee.employeeId);
-            permissionCount.title = '查看' + employee.employeeName + '擁有的功能';
-            permissionCount.setAttribute('aria-label', '查看' + employee.employeeName + '擁有的功能');
+            permissionCount.title = '查看' + employee.employeeName + '擁有的權限群組';
+            permissionCount.setAttribute('aria-label', '查看' + employee.employeeName + '擁有的權限群組');
             permissionCell.appendChild(permissionCount);
 
             const statusCell = document.createElement('td');
@@ -231,8 +231,18 @@
             contactCell.appendChild(createElement('div', 'employee-primary', application.employeeEmail));
             contactCell.appendChild(createElement('div', 'employee-secondary', application.employeePhone));
             const positionCell = document.createElement('td');
-            positionCell.appendChild(createElement('div', 'employee-primary', application.positionName));
-            positionCell.appendChild(createElement('div', 'employee-secondary', application.positionCode));
+            const positionSelect = createElement('select', 'form-control employee-application-position');
+            positionSelect.setAttribute('aria-label', application.employeeName + '的核准職位');
+            const activePositions = state.positions.filter((position) => Number(position.positionStatus) === 1);
+            positionSelect.appendChild(new Option('請選擇核准職位', ''));
+            activePositions.forEach((position) => {
+                const option = new Option(position.positionName + '（' + position.positionCode + '）', position.positionId);
+                option.selected = Number(position.positionId) === Number(application.positionId);
+                positionSelect.appendChild(option);
+            });
+            positionCell.appendChild(positionSelect);
+            positionCell.appendChild(createElement('div', 'employee-secondary employee-application-original-position',
+                '原申請：' + application.positionName + '（' + application.positionCode + '）'));
             const createdCell = createElement('td', '', formatDate(application.createdAt));
             const actionCell = createElement('td', 'text-right');
             const actions = createElement('div', 'employee-application-actions');
@@ -267,7 +277,7 @@
 			const descriptionCell = createElement('td', '', position.positionDescription || '—');
 			const permissionCell = document.createElement('td');
 			const permissionCount = createElement('button', 'employee-permission-count',
-				String(position.permissionCount || 0) + ' 個功能');
+				String(position.permissionCount || 0) + ' 個群組');
 			permissionCount.type = 'button';
 			permissionCount.dataset.positionAction = 'permissions';
 			permissionCount.dataset.positionId = String(position.positionId);
@@ -292,7 +302,35 @@
         byId('position-empty').hidden = filtered.length !== 0;
     }
 
-    // 顯示所有後台功能是否至少由一位正常員工負責，缺口可展開查看明細。
+    // 功能負責頁只呈現群組；底層權限代碼保留在群組明細，供搜尋與門禁使用。
+    function buildResponsibilityGroups(coverage) {
+        const groups = new Map();
+        ((coverage && coverage.functions) || []).forEach((permission) => {
+            const groupName = permission.permissionGroup || '其他';
+            if (!groups.has(groupName)) {
+                groups.set(groupName, {
+                    groupName: groupName,
+                    permissions: [],
+                    employees: new Map()
+                });
+            }
+            const group = groups.get(groupName);
+            group.permissions.push(permission);
+            (permission.responsibleEmployees || []).forEach((employee) => {
+                const key = employee.employeeId || employee.employeeAccount;
+                group.employees.set(String(key), employee);
+            });
+        });
+        return Array.from(sortedGroups(groups).values()).map((group) => ({
+            groupName: group.groupName,
+            permissions: group.permissions,
+            responsibleEmployees: Array.from(group.employees.values()),
+            responsibleCount: group.employees.size,
+            covered: group.employees.size > 0
+        }));
+    }
+
+    // 顯示所有後台權限群組是否至少由一位正常員工負責。
     function renderPermissionCoverage() {
         const coverage = state.permissionCoverage;
         const root = byId('permission-coverage');
@@ -301,49 +339,43 @@
             return;
         }
 
-        const complete = Boolean(coverage.complete);
+        const responsibilityGroups = buildResponsibilityGroups(coverage);
+        const uncoveredGroups = responsibilityGroups.filter((group) => !group.covered);
+        const coveredCount = responsibilityGroups.length - uncoveredGroups.length;
+        const complete = uncoveredGroups.length === 0;
         root.hidden = false;
         root.className = 'permission-coverage ' + (complete ? 'is-complete' : 'is-warning');
         byId('permission-coverage-icon').className = 'fas permission-coverage-icon '
             + (complete ? 'fa-check-circle' : 'fa-exclamation-triangle');
         byId('permission-coverage-title').textContent = complete
-            ? '所有功能皆有人負責'
-            : coverage.uncoveredCount + ' 項功能尚無負責人';
-        byId('permission-coverage-description').textContent = coverage.coveredCount + ' / '
-            + coverage.totalCount + ' 項功能已有正常員工承接';
+            ? '所有權限群組皆有人負責'
+            : uncoveredGroups.length + ' 個群組尚無負責人';
+        byId('permission-coverage-description').textContent = coveredCount + ' / '
+            + responsibilityGroups.length + ' 個群組已有正常員工承接';
 
         const toggle = byId('permission-coverage-toggle');
         toggle.hidden = complete;
         toggle.setAttribute('aria-expanded', 'false');
-        toggle.querySelector('span').textContent = '查看未指派功能';
+        toggle.querySelector('span').textContent = '查看未指派群組';
         toggle.querySelector('i').className = 'fas fa-chevron-down';
 
         const details = byId('permission-coverage-details');
         details.hidden = true;
         details.replaceChildren();
-        const groups = new Map();
-        (coverage.uncoveredPermissions || []).forEach((permission) => {
-            const groupName = permission.permissionGroup || '其他';
-            if (!groups.has(groupName)) groups.set(groupName, []);
-            groups.get(groupName).push(permission);
-        });
-        sortedGroups(groups).forEach((permissions, groupName) => {
+        uncoveredGroups.forEach((uncoveredGroup) => {
             const group = createElement('section', 'permission-coverage-group');
-            group.appendChild(createElement('h3', '', groupName));
+            group.appendChild(createElement('h3', '', uncoveredGroup.groupName));
             const list = createElement('div', 'permission-coverage-list');
-            permissions.forEach((permission) => {
-                const item = createElement('span', 'permission-coverage-item');
-                item.appendChild(createElement('code', '', permission.permissionCode));
-                item.appendChild(createElement('strong', '', permission.permissionName));
-                list.appendChild(item);
-            });
+            const item = createElement('span', 'permission-coverage-item');
+            item.appendChild(createElement('strong', '', uncoveredGroup.permissions.length + ' 項功能尚未指派'));
+            list.appendChild(item);
             group.appendChild(list);
             details.appendChild(group);
         });
         renderResponsibilityAssignments();
     }
 
-    // 完整列出每個功能與實際負責員工，不依賴固定職位或部門名稱。
+    // 依群組列出實際負責員工，不讓同群組的底層功能重複占用表格列。
     function renderResponsibilityGroupOptions() {
         const select = byId('responsibility-group-filter');
         const current = select.value;
@@ -365,59 +397,68 @@
     function renderResponsibilityAssignments() {
         const coverage = state.permissionCoverage;
         if (!coverage) return;
-        byId('responsibility-covered-count').textContent = String(coverage.coveredCount || 0);
-        byId('responsibility-uncovered-count').textContent = String(coverage.uncoveredCount || 0);
-        byId('responsibility-total-count').textContent = String(coverage.totalCount || 0);
-        byId('coverage-tab-count').textContent = String(coverage.uncoveredCount || 0);
+        const responsibilityGroups = buildResponsibilityGroups(coverage);
+        const coveredCount = responsibilityGroups.filter((item) => item.covered).length;
+        const uncoveredCount = responsibilityGroups.length - coveredCount;
+        byId('responsibility-covered-count').textContent = String(coveredCount);
+        byId('responsibility-uncovered-count').textContent = String(uncoveredCount);
+        byId('responsibility-total-count').textContent = String(responsibilityGroups.length);
+        byId('coverage-tab-count').textContent = String(uncoveredCount);
 
         const keyword = byId('responsibility-search').value.trim().toLowerCase();
         const status = byId('responsibility-status-filter').value;
         const group = byId('responsibility-group-filter').value;
-        const filtered = (coverage.functions || []).filter((permission) => {
-            const peopleText = (permission.responsibleEmployees || []).map((employee) =>
+        const filtered = responsibilityGroups.filter((permissionGroup) => {
+            const peopleText = permissionGroup.responsibleEmployees.map((employee) =>
                 [employee.employeeName, employee.employeeAccount, employee.positionName].join(' ')).join(' ');
-            const searchable = [permission.permissionCode, permission.permissionName,
-                permission.permissionDescription, permission.permissionGroup, peopleText]
+            const functionText = permissionGroup.permissions.map((permission) =>
+                [permission.permissionCode, permission.permissionName, permission.permissionDescription].join(' ')).join(' ');
+            const searchable = [permissionGroup.groupName, functionText, peopleText]
                 .filter(Boolean).join(' ').toLowerCase();
-            const covered = Number(permission.responsibleCount) > 0;
             return (!keyword || searchable.includes(keyword))
-                && (!group || (permission.permissionGroup || '其他') === group)
-                && (!status || (status === 'covered' ? covered : !covered));
+                && (!group || permissionGroup.groupName === group)
+                && (!status || (status === 'covered' ? permissionGroup.covered : !permissionGroup.covered));
         });
 
         const body = byId('responsibility-table-body');
         body.replaceChildren();
-        filtered.forEach((permission) => {
+        filtered.forEach((permissionGroup) => {
             const row = document.createElement('tr');
             const functionCell = createElement('td', 'responsibility-function');
-            functionCell.appendChild(createElement('code', 'permission-code', permission.permissionCode));
-            functionCell.appendChild(createElement('strong', '', permission.permissionName));
-            functionCell.appendChild(createElement('small', '', permission.permissionDescription || '—'));
-            const groupCell = createElement('td', '', permission.permissionGroup || '其他');
+            functionCell.appendChild(createElement('strong', '', permissionGroup.groupName));
+            functionCell.appendChild(createElement('small', '', permissionGroup.permissions.length + ' 項功能'));
+            const detailsCell = document.createElement('td');
+            const functionList = createElement('div', 'responsibility-function-list');
+            permissionGroup.permissions.forEach((permission) => {
+                const item = createElement('span', 'responsibility-function-item');
+                item.appendChild(createElement('code', 'permission-code', permission.permissionCode));
+                item.appendChild(createElement('span', '', permission.permissionName));
+                functionList.appendChild(item);
+            });
+            detailsCell.appendChild(functionList);
             const peopleCell = document.createElement('td');
             const people = createElement('div', 'responsibility-people');
-            (permission.responsibleEmployees || []).forEach((employee) => {
+            permissionGroup.responsibleEmployees.forEach((employee) => {
                 const person = createElement('span', 'responsibility-person');
                 person.appendChild(createElement('strong', '', employee.employeeName + '（' + employee.employeeAccount + '）'));
                 person.appendChild(createElement('small', '', employee.positionName));
                 people.appendChild(person);
             });
-            if (!permission.responsibleEmployees || permission.responsibleEmployees.length === 0) {
+            if (!permissionGroup.responsibleEmployees.length) {
                 people.appendChild(createElement('span', 'responsibility-unassigned', '尚未指派員工'));
             }
             peopleCell.appendChild(people);
             const statusCell = document.createElement('td');
-            const covered = Number(permission.responsibleCount) > 0;
-            statusCell.appendChild(createElement('span', 'employee-badge ' + (covered ? 'is-active' : 'is-uncovered'),
-                covered ? permission.responsibleCount + ' 人負責' : '尚未指派'));
-            [functionCell, groupCell, peopleCell, statusCell].forEach((cell) => row.appendChild(cell));
+            statusCell.appendChild(createElement('span', 'employee-badge ' + (permissionGroup.covered ? 'is-active' : 'is-uncovered'),
+                permissionGroup.covered ? permissionGroup.responsibleCount + ' 人負責' : '尚未指派'));
+            [functionCell, detailsCell, peopleCell, statusCell].forEach((cell) => row.appendChild(cell));
             body.appendChild(row);
         });
-        byId('responsibility-result-count').textContent = filtered.length + ' 項';
+        byId('responsibility-result-count').textContent = filtered.length + ' 個群組';
         const empty = byId('responsibility-empty');
         empty.textContent = status === 'uncovered' && !keyword
-            ? '目前沒有尚未指派負責人的功能。'
-            : '找不到符合條件的功能。';
+            ? '目前沒有尚未指派負責人的群組。'
+            : '找不到符合條件的權限群組。';
         empty.hidden = filtered.length !== 0;
     }
 
@@ -553,7 +594,7 @@
             const rowBottom = createElement('div', 'permission-employee-row-bottom');
             rowBottom.appendChild(createElement('span', 'permission-employee-account', employee.employeeAccount));
             const countText = (employee.permissionCount !== undefined && employee.permissionCount !== null)
-                ? (employee.permissionCount + ' 個功能') : '';
+                ? (employee.permissionCount + ' 個群組') : '';
             rowBottom.appendChild(createElement('span', 'permission-employee-perms', countText));
 
             button.appendChild(rowTop);
@@ -580,7 +621,7 @@
 
     function updatePermissionCount(containerId, countId) {
         const checked = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]:checked').length;
-        byId(countId).textContent = checked + ' 個功能已選';
+        byId(countId).textContent = checked + ' 個群組已選';
     }
 
     // 畫面只顯示功能群組；每個勾選框在儲存時會展開成該群組的全部底層權限編號。
@@ -963,7 +1004,10 @@
             if (!button) return;
             const application = state.applications.find((item) => item.employeeId === Number(button.dataset.employeeId));
             if (!application) return;
-            if (button.dataset.action === 'application-approve') approveApplication(application);
+            if (button.dataset.action === 'application-approve') {
+                const select = button.closest('tr').querySelector('.employee-application-position');
+                approveApplication(application, select ? Number(select.value) : null);
+            }
             if (button.dataset.action === 'application-reject') openRejectApplication(application);
         });
 
@@ -1057,10 +1101,17 @@
         byId('employee-application-reject-form').addEventListener('submit', rejectApplication);
     }
 
-    async function approveApplication(application) {
+    async function approveApplication(application, positionId) {
+        if (!positionId) {
+            setFeedback('請先選擇核准後的員工職位。', 'error');
+            return;
+        }
         try {
-            await request('/' + application.employeeId + '/application/approve', { method: 'PUT' });
+            await request('/' + application.employeeId + '/application/approve', {
+                method: 'PUT', body: JSON.stringify({ positionId: positionId })
+            });
             await Promise.all([loadApplications(), loadEmployees(true), loadPermissionCoverage()]);
+			window.dispatchEvent(new Event('admin:review-queue-changed'));
             setFeedback('員工申請已核准，帳號現在可以登入。', 'success');
         } catch (error) {
             setFeedback(error.message, 'error');
@@ -1087,6 +1138,7 @@
             });
             hideModal('employee-application-reject-modal');
             await loadApplications();
+			window.dispatchEvent(new Event('admin:review-queue-changed'));
             setFeedback('員工申請已退回。', 'success');
         } catch (error) {
             setModalFeedback('employee-application-reject-modal', error.message);

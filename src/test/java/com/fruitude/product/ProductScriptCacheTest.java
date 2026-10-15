@@ -20,7 +20,7 @@ public class ProductScriptCacheTest {
         @org.springframework.context.annotation.Bean
         com.fruitude.config.AdminAccessInterceptor adminAccessInterceptor() {
             return new com.fruitude.config.AdminAccessInterceptor(
-                new com.fruitude.employee.model.EmployeeAdminAccessService(null,null,null,null) {
+                new com.fruitude.employee.model.EmployeeAdminAccessService(null,null,null,null,null) {
                     @Override public java.util.Optional<AccessProfile> findAccessProfile(Integer id) {
                         return id == null ? java.util.Optional.empty() : java.util.Optional.of(
                             new AccessProfile(null,null,true,java.util.Set.of()));

@@ -11,9 +11,28 @@ import org.junit.Test;
 /** 後台網址與權限代碼對應測試，避免新增路由時誤放行敏感功能。 */
 public class AdminAccessInterceptorTest {
 
+	@Test
+	public void anonymousEmployeeApplicationCanReadPositionOptionsOnly() throws Exception {
+		var service = new com.fruitude.employee.model.EmployeeAdminAccessService(null, null, null, null, null) {
+			@Override public java.util.Optional<AccessProfile> findAccessProfile(Integer id) {
+				return java.util.Optional.empty();
+			}
+		};
+		var interceptor = new AdminAccessInterceptor(service);
+		var publicResponse = new org.springframework.mock.web.MockHttpServletResponse();
+		assertTrue(interceptor.preHandle(new org.springframework.mock.web.MockHttpServletRequest(
+				"GET", "/api/admin/session/application-positions"), publicResponse, new Object()));
+		assertEquals(200, publicResponse.getStatus());
+
+		var adminResponse = new org.springframework.mock.web.MockHttpServletResponse();
+		assertFalse(interceptor.preHandle(new org.springframework.mock.web.MockHttpServletRequest(
+				"GET", "/api/admin/employees/positions"), adminResponse, new Object()));
+		assertEquals(401, adminResponse.getStatus());
+	}
+
     @Test
     public void anonymousStorefrontCanReadImagesButCannotManageThem() throws Exception {
-        var service = new com.fruitude.employee.model.EmployeeAdminAccessService(null,null,null,null) {
+        var service = new com.fruitude.employee.model.EmployeeAdminAccessService(null,null,null,null,null) {
             @Override public java.util.Optional<AccessProfile> findAccessProfile(Integer id) {
                 return java.util.Optional.empty();
             }
@@ -37,7 +56,26 @@ public class AdminAccessInterceptorTest {
 	@Test
 	public void memberCreditWriteRequiresCreditPermission() {
 		assertEquals(Set.of("MEMBER_CREDIT"), AdminAccessInterceptor.requiredPermissions(
-				"/api/admin/members/7/credit", "PATCH"));
+				"/api/admin/members/7/credit-adjustment-requests", "POST"));
+		assertEquals(Set.of("MEMBER_CREDIT"), AdminAccessInterceptor.requiredPermissions(
+				"/api/admin/members/credit-adjustment-requests/9/cancel", "PATCH"));
+	}
+
+	@Test
+	public void memberCreditReviewRequiresReviewPermission() {
+		assertEquals(Set.of("MEMBER_CREDIT_REVIEW"), AdminAccessInterceptor.requiredPermissions(
+				"/api/admin/members/credit-adjustment-requests/9/review", "PATCH"));
+		assertEquals(Set.of("MEMBER_CREDIT_REVIEW"), AdminAccessInterceptor.requiredPermissions(
+				"/api/admin/members/credit-adjustment-requests/9/review;source=button", "PATCH"));
+		assertEquals(Set.of("MEMBER_CREDIT_REVIEW"), AdminAccessInterceptor.requiredPermissions(
+				"/api/admin/members/credit-adjustment-requests/9;source=list/review", "PATCH"));
+	}
+
+	@Test
+	public void memberCreditAdjustmentListAllowsRelatedMemberPermissions() {
+		assertEquals(Set.of("MEMBER_VIEW", "MEMBER_CREDIT", "MEMBER_CREDIT_REVIEW", "MEMBER_STATUS"),
+				AdminAccessInterceptor.requiredPermissions(
+				"/api/admin/members/credit-adjustment-requests", "GET"));
 	}
 
 	@Test
