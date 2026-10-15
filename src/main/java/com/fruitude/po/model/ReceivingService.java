@@ -1,5 +1,6 @@
 package com.fruitude.po.model;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,6 +9,9 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +25,17 @@ import jakarta.persistence.PersistenceContext;
 // 進貨系統的資料操作：repository 和 PoService 共用，只處理到貨、驗收、入庫相關的欄位
 @Service
 public class ReceivingService {
+
+	// 歷史驗收紀錄每頁顯示的筆數
+	private static final int CLOSED_PO_PAGE_SIZE = 10;
+
+	// 歷史驗收紀錄的排序：驗收日期由新到舊，同一時間的再依採購單系統編號由大到小
+	private static final Sort CLOSED_PO_SORT = Sort.by(Sort.Direction.DESC, "inboundDate", "poId");
+
+	// 歷史驗收紀錄只填一邊日期時，另一邊用的日期，等於那一邊不限
+	// 迄日用 12/30：查詢時會再加一天，12/31 加一天會超過 MySQL DATETIME 的上限
+	private static final LocalDate CLOSED_PO_MIN_DATE = LocalDate.of(1900, 1, 1);
+	private static final LocalDate CLOSED_PO_MAX_DATE = LocalDate.of(9999, 12, 30);
 
 	@Autowired
 	private PoRepository poRepository;
@@ -39,9 +54,33 @@ public class ReceivingService {
 		return poRepository.findByPoStatusAndInboundStatus((byte) 1, (byte) 0);
 	}
 
-	// 已結案（poStatus = 4，驗收過）的採購單，驗收紀錄頁列出這些單
-	public List<PoVO> getClosedPos() {
-		return poRepository.getByPoStatus((byte) 4);
+	// 歷史驗收紀錄的其中一頁：已結案（poStatus = 4，驗收過）的採購單，再依查詢條件篩選，驗收日期由新到舊
+	// page 是畫面上的頁碼，從 1 開始；小於 1 當作第 1 頁，超過最後一頁就回傳最後一頁
+	// 查詢條件都可以不填（null）：poNo、vendorId、inboundStatus 完全相同；startDate / endDate 是驗收日期的區間，兩天都包含在內，可以只填一邊
+	// 起日晚於迄日由 ReceivingController 的 validateReceivingSearch 擋下
+	public Page<PoVO> searchClosedPos(int page, String poNo, Integer vendorId, Byte inboundStatus,
+			LocalDate startDate, LocalDate endDate) {
+		// 沒填的條件換成「不篩選」的值，對應 PoRepository 的 searchClosedPos
+		String poNoFilter = poNo == null ? "" : poNo;
+		int vendorIdFilter = vendorId == null ? 0 : vendorId;
+		int inboundStatusFilter = inboundStatus == null ? 0 : 1;
+		Byte inboundStatusValue = inboundStatus == null ? Byte.valueOf((byte) 0) : inboundStatus; // 不篩選時不會用到，給個值避免傳 null
+		int dateFilter = startDate == null && endDate == null ? 0 : 1;
+		LocalDateTime startDateTime = (startDate == null ? CLOSED_PO_MIN_DATE : startDate).atStartOfDay();
+		// 迄日隔天 0 點（不含），迄日當天整天都算
+		LocalDateTime endDateTime = (endDate == null ? CLOSED_PO_MAX_DATE : endDate).plusDays(1).atStartOfDay();
+
+		int pageIndex = Math.max(page, 1) - 1; // PageRequest 的頁碼從 0 開始
+		Page<PoVO> poPage = poRepository.searchClosedPos(poNoFilter, vendorIdFilter, inboundStatusFilter,
+				inboundStatusValue, dateFilter, startDateTime, endDateTime,
+				PageRequest.of(pageIndex, CLOSED_PO_PAGE_SIZE, CLOSED_PO_SORT));
+		if (pageIndex > 0 && pageIndex >= poPage.getTotalPages()) {
+			int lastPageIndex = Math.max(poPage.getTotalPages() - 1, 0);
+			poPage = poRepository.searchClosedPos(poNoFilter, vendorIdFilter, inboundStatusFilter,
+					inboundStatusValue, dateFilter, startDateTime, endDateTime,
+					PageRequest.of(lastPageIndex, CLOSED_PO_PAGE_SIZE, CLOSED_PO_SORT));
+		}
+		return poPage;
 	}
 
 	// 進貨系統的單筆資料：取申請通過（1）或已結案（4，驗收完成）的採購單，查不到或是其他狀態時回傳 null

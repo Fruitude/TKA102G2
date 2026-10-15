@@ -44,19 +44,11 @@
 						<i class="fas fa-arrow-left"></i></span> 
 						<span class="text">回採購單管理</span>
 					</a>
-					<!-- 從 PoNoController 的條件查詢進來時顯示搜尋條件（searchTitle），否則顯示狀態篩選 -->
-					<h4 class="h4 mb-4 text-gray-800" th:if="${searchTitle != null}" th:text="${searchTitle}"></h4>
-					<h4 class="h4 mb-4 text-gray-800" th:unless="${searchTitle != null}" th:switch="${poStatus}">
-					    <span th:case="0">待審核</span>
-					    <span th:case="1">申請通過</span>
-					    <span th:case="2">申請未通過</span>
-					    <span th:case="3">已取消</span>
-					    <span th:case="4">已結案</span>
-					    <span th:case="*">顯示全部採購單</span>
-					</h4>
+					<!-- PoNoController 的 searchPos 有用查詢條件時顯示這次的條件（searchTitle），沒有條件時是全部採購單 -->
+					<h4 class="h4 mb-4 text-gray-800" th:text="${searchTitle != null ? searchTitle : '顯示全部採購單'}"></h4>
 
 
-					<!-- 採購單列表：poListData 由 PoController 的 listAllPo 或 PoNoController 的條件查詢放入 model -->
+					<!-- 採購單列表：poListData 由 PoNoController 的 searchPos 放入 model -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
 							<h6 class="m-0 font-weight-bold text-primary">採購單列表</h6>
@@ -73,10 +65,6 @@
 											<th>採購日期</th>
 											<th>採購單狀態</th>
 											<th>總金額</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收員工</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收日期</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收狀態</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收實付金額</th>
 										</tr>
 									</thead>
 									<tfoot>
@@ -88,10 +76,6 @@
 											<th>採購日期</th>
 											<th>採購單狀態</th>
 											<th>總金額</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收員工</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收日期</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收狀態</th>
-											<th th:if="${poStatus == 1 or poStatus == 4}">驗收實付金額</th>
 										</tr>
 									</tfoot>
 									<tbody>
@@ -112,24 +96,16 @@
 											<td th:text="${poVO.vendor.vendorId + ' - ' + poVO.vendor.vendorName}"></td>
 										 	<td th:text="${poVO.poEmployeeId.employeeId + ' - ' + poVO.poEmployeeId.employeeName}"></td>										
 											<td th:text="${{poVO.orderDate}}"></td>
-											<td th:switch="${poVO.poStatus}">
-												<span th:case="0">待審核</span>
-												<span th:case="1">申請通過</span>
-												<span th:case="2">申請未通過</span>
-												<span th:case="3">已取消</span>
-												<span th:case="4">已結案</span>
+											<!-- 採購單狀態用不同顏色的框顯示：待審核黃、申請通過藍、申請未通過紅、已取消灰、已結案綠 -->
+											<!-- data-order 讓 DataTables 依狀態碼排序（不是依文字） -->
+											<td th:switch="${poVO.poStatus}" th:attr="data-order=${poVO.poStatus}">
+												<span th:case="0" class="alert alert-warning d-inline-block py-1 px-3 mb-0">待審核</span>
+												<span th:case="1" class="alert alert-primary d-inline-block py-1 px-3 mb-0">申請通過</span>
+												<span th:case="2" class="alert alert-danger d-inline-block py-1 px-3 mb-0">申請未通過</span>
+												<span th:case="3" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">已取消</span>
+												<span th:case="4" class="alert alert-success d-inline-block py-1 px-3 mb-0">已結案</span>
 											</td>
 											<td th:text="${poVO.totalAmount}"></td>
-											<!-- 只有篩選「申請通過」或「已結案」時才顯示驗收相關的四欄（表頭、表尾同樣以 poStatus 判斷） -->
-											<td th:if="${poStatus == 1 or poStatus == 4}" th:text="${poVO.inboundEmployeeId != null ? poVO.inboundEmployeeId.employeeId + ' - ' + poVO.inboundEmployeeId.employeeName : ''}"></td>
-											<td th:if="${poStatus == 1 or poStatus == 4}" th:text="${{poVO.inboundDate}}"></td>
-											<td th:if="${poStatus == 1 or poStatus == 4}">
-												<span th:if="${poVO.inboundStatus == 0}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">尚未驗收</span>
-												<span th:if="${poVO.inboundStatus == 1}" class="alert alert-success d-inline-block py-1 px-3 mb-0">驗收成功</span>
-												<span th:if="${poVO.inboundStatus == 2}" class="alert alert-warning d-inline-block py-1 px-3 mb-0">驗收失敗</span>
-												<span th:if="${poVO.inboundStatus == 3}" class="alert alert-secondary d-inline-block py-1 px-3 mb-0">已取消</span>
-											</td>
-											<td th:if="${poStatus == 1 or poStatus == 4}" th:text="${poVO.inboundAmount}"></td>
 										</tr>
 									</tbody>
 								</table>

@@ -44,6 +44,7 @@ import com.fruitude.podetail.model.PoDetailVO;
 import com.fruitude.product.model.ProductSku;
 import com.fruitude.product.model.ProductSkuService;
 import com.fruitude.vendor.model.VendorService;
+import com.fruitude.utils.PsiUtils;
 import com.fruitude.vendor.model.VendorVO;
 
 import jakarta.servlet.http.HttpSession;
@@ -76,28 +77,10 @@ public class PoController {
 	// 同一筆明細的錯誤訊息依這個欄位順序排：商品規格、採購數量、進貨單價、小計；其他欄位排在後面
 	private static final List<String> DETAIL_FIELD_ORDER = List.of("skuId", "quantity", "unitPrice", "subtotal");
 
-	// 這支 controller 的每個請求都會先執行，把低於安全庫存的規格放進 model，回首頁時顯示待採購商品
-	// key 是供應商編號、value 是該供應商的規格清單
-	@ModelAttribute("belowSafetyStockByVendor")
-	public Map<Integer, List<ProductSku>> belowSafetyStockByVendor() {
-		return poSvc.getBelowSafetyStockByVendor();
-	}
-
-	// 待採購商品的「待審核數量」欄：key 是規格編號、value 是待審核採購單裡的採購數量加總
-	@ModelAttribute("pendingQuantityBySkuId")
-	public Map<Integer, Long> pendingQuantityBySkuId() {
-		return poSvc.getPendingQuantityBySkuId();
-	}
-
-	// 待採購商品的各供應商區塊要更新的待審核採購單：key 是供應商編號、value 是採購單系統編號；有值的區塊顯示「更新採購單」而不是「新增採購單」
-	@ModelAttribute("pendingPoIdByVendorId")
-	public Map<Integer, Integer> pendingPoIdByVendorId() {
-		return poSvc.getPendingPoIdByVendorId();
-	}
-
-	// 採購單首頁：待採購商品由上方的 belowSafetyStockByVendor 放入 model
+	// 採購單首頁：待採購商品區塊的資料由 PoService 的 getIndexData 準備
 	@GetMapping("")
-	public String purchase() {
+	public String purchase(Model model) {
+		model.addAllAttributes(poSvc.getIndexData());
 		return "admin/psi/purchase/index"; //view
 	}
 
@@ -333,8 +316,8 @@ public class PoController {
 	// 目前登入後台的員工（EmployeeSessionController 登入時放進 session 的 loggedInEmployeeId）
 	// 沒登入、登入逾時或查無此員工時回傳 null
 	private Employee getLoggedInEmployee(HttpSession session) {
-		Object employeeId = session.getAttribute("loggedInEmployeeId");
-		return employeeId instanceof Number ? poSvc.getOneEmployee(((Number) employeeId).intValue()) : null;
+		Integer employeeId = PsiUtils.getLoggedInEmployeeId(session);
+		return employeeId == null ? null : poSvc.getOneEmployee(employeeId);
 	}
 
 	// 修改頁需要的資料，getOne_For_Update 與 update 檢查失敗重新顯示時共用
@@ -362,23 +345,6 @@ public class PoController {
 			skuOptions.add(skuOption);
 		}
 		return skuOptions;
-	}
-
-	@RequestMapping("/listAllPo")
-	public String listAllPo(Model model,
-	        @RequestParam(value = "poStatus", required = false) Byte poStatus) {
-
-	    List<PoVO> pos = (poStatus == null)
-	            ? poSvc.getAll()
-	            : poSvc.getByPoStatus(poStatus);
-
-	    if (pos.isEmpty()) {
-	        model.addAttribute("errorMessage", "查無資料");
-	        return "admin/psi/purchase/index";
-	    }
-	    model.addAttribute("poStatus", poStatus);
-	    model.addAttribute("poListData", pos);
-	    return "admin/psi/purchase/listAllPo";
 	}
 
 	// 新增、修改成功後 redirect 過來，依 poId 顯示單筆資料
@@ -566,14 +532,12 @@ public class PoController {
 	}
 
 	// 網址參數的型別不符（例如 poId=abc）或缺少必要的參數時，回首頁顯示訊息，不出現預設的錯誤頁
-	// 只處理這支 controller 的方法丟出的例外；例外處理不會經過 @ModelAttribute，待採購商品的資料要自己再放一次
+	// 只處理這支 controller 的方法丟出的例外；回首頁，待採購商品的資料由 PoService 的 getIndexData 準備
 	@ExceptionHandler({ MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class })
 	public ModelAndView handleError(Exception e) {
 		ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
 		mav.addObject("errorMessage", "網址的參數不正確，請從採購單管理重新操作");
-		mav.addObject("belowSafetyStockByVendor", poSvc.getBelowSafetyStockByVendor());
-		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
-		mav.addObject("pendingPoIdByVendorId", poSvc.getPendingPoIdByVendorId());
+		mav.addAllObjects(poSvc.getIndexData());
 		return mav;
 	}
 

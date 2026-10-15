@@ -115,8 +115,8 @@
 
 								<div class="form-group">
 									<label for="phone" class="required">連絡電話</label>
-									<input type="text" th:field="*{phone}" class="form-control" maxlength="12"
-										placeholder="02-12345678或0987-654321" onclick="hideContent('phone.errors');" />
+									<input type="text" th:field="*{phone}" class="form-control" maxlength="14"
+										placeholder="02-2345-6789或0987-654-321" onclick="hideContent('phone.errors');" />
 									<span th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}"
 										class="text-danger d-block mt-1" id="phone.errors"></span>
 								</div>

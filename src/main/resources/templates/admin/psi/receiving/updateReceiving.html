@@ -209,6 +209,9 @@
 								</div>
 
 								<button type="submit" id="submit" class="btn btn-primary" th:text="${poVO.closed ? '送出修改' : '送出驗收'}">送出驗收</button>
+								<!-- 取消：不存檔，先確認再回這張採購單的單筆頁（ReceivingController 的 listOneReceiving）；用連結不會送出表單 -->
+								<a th:href="@{/admin/psi/receiving/listOneReceiving(poId=${poVO.poId})}" class="btn btn-secondary ml-2"
+									onclick="return confirm('確定要取消嗎？輸入的內容不會儲存')">取消</a>
 							</form>
 						</div>
 					</div>

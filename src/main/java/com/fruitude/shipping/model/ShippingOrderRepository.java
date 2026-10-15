@@ -1,5 +1,6 @@
 package com.fruitude.shipping.model;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Optional;
 
@@ -20,8 +21,23 @@ public interface ShippingOrderRepository extends JpaRepository<Orders,Integer>{
 	// 指定狀態的訂單，只查 pageable 指定的那一頁；排序也由 pageable 帶入
 	Page<Orders> findByOrdersStatus(Integer ordersStatus, Pageable pageable);
 
-	// 狀態不在指定清單裡的訂單（歷史出貨紀錄用來排除待出貨與取消），只查 pageable 指定的那一頁；排序也由 pageable 帶入
-	Page<Orders> findByOrdersStatusNotIn(Collection<Integer> ordersStatuses, Pageable pageable);
+	// 歷史出貨紀錄的查詢：狀態不在 excludedStatuses 裡（排除待出貨與取消），再依查詢條件篩選，只查 pageable 指定的那一頁；排序也由 pageable 帶入
+	// 條件沒填就用「不篩選」的值（ordersId 0、ordersStatus -1、receiverName 空字串、dateFilter 0）讓那一項條件恆成立，寫法和 OrdersRepository 的 search 相同
+	// 日期區間由 ShippingService 換算好：startDateTime 含當下，endDateTime 不含（迄日隔天 0 點）；沒查日期時訂單日期是空的訂單也會列出
+	// 收件人姓名用 locate 找部分文字
+	@Query("select o from Orders o where o.ordersStatus not in :excludedStatuses "
+			+ "and (:ordersId = 0 or o.ordersId = :ordersId) "
+			+ "and (:ordersStatus = -1 or o.ordersStatus = :ordersStatus) "
+			+ "and (:receiverName = '' or locate(:receiverName, o.receiverName) > 0) "
+			+ "and (:dateFilter = 0 or (o.ordersDate >= :startDateTime and o.ordersDate < :endDateTime))")
+	Page<Orders> searchHistoryOrders(@Param("excludedStatuses") Collection<Integer> excludedStatuses,
+			@Param("ordersId") int ordersId,
+			@Param("ordersStatus") int ordersStatus,
+			@Param("receiverName") String receiverName,
+			@Param("dateFilter") int dateFilter,
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endDateTime") LocalDateTime endDateTime,
+			Pageable pageable);
 
 	// 出貨前鎖住這張訂單的資料列（FOR UPDATE）並取出，一直到交易結束才放開
 	// 鎖住期間別人對同一張訂單出貨、改狀態都要等這個交易結束，所以鎖住之後讀到的狀態才是準的

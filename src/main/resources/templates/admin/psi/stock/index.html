@@ -28,7 +28,7 @@
                 <!-- 這裡放頁面自己的內容 -->
                 <div class="container-fluid">
 
-					<!-- 錯誤訊息：由 StockController 的 handleError 放入 model -->
+					<!-- 錯誤訊息：查詢條件不正確（一行一個）、查無資料由 StockController 的 stock 放入 model，網址參數型別錯誤由 handleError 放入 -->
 					<div class="alert alert-danger alert-dismissible fade show" role="alert"
 					     th:if="${errorMessage != null}">
 					    <span th:text="${errorMessage}" style="white-space: pre-line;"></span>
@@ -36,52 +36,52 @@
 					        <span aria-hidden="true">&times;</span>
 					    </button>
 					</div>
-					<!-- 條件查詢：四個表單各自獨立，都用 GET 送到 StockController 的 stock，結果顯示在下方的庫存列表 -->
+					<!-- 條件查詢：一個表單，四個條件可以同時填（條件之間是「而且」），沒填的條件不使用；用 GET 送到 StockController 的 stock，結果顯示在下方的庫存列表 -->
+					<!-- 不帶 page，查詢後從第 1 頁開始；欄位值用網址的參數（param）回填，查詢條件不正確時也保留使用者原本輸入的內容 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
 							<h6 class="m-0 font-weight-bold text-primary">條件查詢</h6>
 						</div>
 						<div class="card-body">
-
-							<!-- 狀態碼與文字和 ProductSku 的 getStatusLabel 相同；status 由 StockController 放入 model，標示目前選的狀態 -->
-							<form th:action="@{/admin/psi/stock}" method="get" class="form-inline mb-3">
-								<label for="statusSelect" class="mr-3" style="width: 120px;">規格狀態</label>
-								<select id="statusSelect" name="status" class="custom-select mr-2">
-									<option value="">查詢全部</option>
-									<option value="1" th:selected="${status == '1'}">上架</option>
-									<option value="0" th:selected="${status == '0'}">下架</option>
-									<option value="2" th:selected="${status == '2'}">缺貨</option>
-									<option value="3" th:selected="${status == '3'}">即將售完</option>
-									<option value="4" th:selected="${status == '4'}">售完</option>
-									<option value="5" th:selected="${status == '5'}">預備上架</option>
-									<option value="6" th:selected="${status == '6'}">即將停產</option>
-									<option value="7" th:selected="${status == '7'}">永久停產</option>
-								</select>
-								<button type="submit" class="btn btn-primary">查詢</button>
-							</form>
-
-							<form th:action="@{/admin/psi/stock}" method="get" class="form-inline mb-3">
-								<label for="skuIdInput" class="mr-3" style="width: 120px;">輸入規格編號</label>
-								<input type="text" id="skuIdInput" name="skuId"
-									class="form-control mr-2" placeholder="請輸入規格編號"
-									th:value="${param.skuId}">
-								<button type="submit" class="btn btn-primary">送出</button>
-							</form>
-
-							<form th:action="@{/admin/psi/stock}" method="get" class="form-inline mb-3">
-								<label for="productNameInput" class="mr-3" style="width: 120px;">輸入商品名稱</label>
-								<input type="text" id="productNameInput" name="productName"
-									class="form-control mr-2" placeholder="請輸入商品名稱關鍵字" maxlength="30"
-									th:value="${param.productName}">
-								<button type="submit" class="btn btn-primary">送出</button>
-							</form>
-
-							<form th:action="@{/admin/psi/stock}" method="get" class="form-inline">
-								<label for="skuNameInput" class="mr-3" style="width: 120px;">輸入規格名稱</label>
-								<input type="text" id="skuNameInput" name="skuName"
-									class="form-control mr-2" placeholder="請輸入規格名稱關鍵字" maxlength="30"
-									th:value="${param.skuName}">
-								<button type="submit" class="btn btn-primary">送出</button>
+							<form th:action="@{/admin/psi/stock}" method="get" class="form-row align-items-end">
+								<div class="col-auto mb-2">
+									<label class="small mb-1" for="skuIdInput">規格編號</label>
+									<input type="text" id="skuIdInput" name="skuId"
+										class="form-control form-control-sm" placeholder="請輸入規格編號"
+										th:value="${param.skuId}">
+								</div>
+								<div class="col-auto mb-2">
+									<label class="small mb-1" for="productNameInput">商品名稱</label>
+									<input type="text" id="productNameInput" name="productName"
+										class="form-control form-control-sm" placeholder="請輸入商品名稱關鍵字" maxlength="30"
+										th:value="${param.productName}">
+								</div>
+								<div class="col-auto mb-2">
+									<label class="small mb-1" for="skuNameInput">規格名稱</label>
+									<input type="text" id="skuNameInput" name="skuName"
+										class="form-control form-control-sm" placeholder="請輸入規格名稱關鍵字" maxlength="30"
+										th:value="${param.skuName}">
+								</div>
+								<div class="col-auto mb-2">
+									<!-- 狀態碼與文字和 ProductSku 的 getStatusLabel 相同；用 param.status 標示目前選的狀態 -->
+									<label class="small mb-1" for="statusSelect">規格狀態</label>
+									<select id="statusSelect" name="status" class="custom-select custom-select-sm"
+										th:with="selectedStatus=${param.status != null ? #strings.trim(param.status.toString()) : ''}">
+										<option value="">全部</option>
+										<option value="1" th:selected="${selectedStatus == '1'}">上架</option>
+										<option value="0" th:selected="${selectedStatus == '0'}">下架</option>
+										<option value="2" th:selected="${selectedStatus == '2'}">缺貨</option>
+										<option value="3" th:selected="${selectedStatus == '3'}">即將售完</option>
+										<option value="4" th:selected="${selectedStatus == '4'}">售完</option>
+										<option value="5" th:selected="${selectedStatus == '5'}">預備上架</option>
+										<option value="6" th:selected="${selectedStatus == '6'}">即將停產</option>
+										<option value="7" th:selected="${selectedStatus == '7'}">永久停產</option>
+									</select>
+								</div>
+								<div class="col-auto mb-2">
+									<button type="submit" class="btn btn-primary btn-sm">查詢</button>
+									<a th:href="@{/admin/psi/stock}" class="btn btn-secondary btn-sm">清除條件</a>
+								</div>
 							</form>
 						</div>
 					</div>
@@ -110,7 +110,7 @@
 									</thead>
 									<tbody>
 										<tr th:if="${skuListData.totalElements == 0}">
-											<td colspan="10" class="text-center">目前沒有規格資料</td>
+											<td colspan="10" class="text-center" th:text="${searching} ? '查無符合條件的規格' : '目前沒有規格資料'"></td>
 										</tr>
 										<tr th:each="productSku : ${skuListData.content}">
 											<!-- 操作按鈕上下排列並置中；align-middle 讓按鈕在列高較高時也維持在格子中間 -->

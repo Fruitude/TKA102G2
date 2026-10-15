@@ -46,8 +46,9 @@ public class VendorVO implements java.io.Serializable{
 	private String taxId;
 
 	@NotBlank(message = "聯絡電話，請勿空白")
-	@Pattern(regexp = "^(09\\d{2}-\\d{6}|0[2-8]\\d{0,2}-\\d{5,8})$",
-	message = "連絡電話必須以0開頭，格式為09xx-xxxxxx或0x-xxxxxxx")
+	// 手機：09xx-xxxxxx 或 09xx-xxx-xxx；市話：區碼-5 到 8 碼，或區碼-3 到 4 碼-4 碼（一個或兩個 -）
+	@Pattern(regexp = "^(09\\d{2}-(\\d{6}|\\d{3}-\\d{3})|0[2-8]\\d{0,2}-(\\d{5,8}|\\d{3,4}-\\d{4}))$",
+	message = "連絡電話必須以0開頭，格式為09xx-xxxxxx、09xx-xxx-xxx、0x-xxxxxxxx或0x-xxxx-xxxx")
 	@Column(name = "phone", nullable = false, length = 20)
 	private String phone;
 

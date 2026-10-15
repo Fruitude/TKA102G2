@@ -7,138 +7,103 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.method.annotation.HandlerMethodValidationException;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.fruitude.po.model.PoService;
 import com.fruitude.po.model.PoVO;
-import com.fruitude.product.model.ProductSku;
+import com.fruitude.utils.PsiUtils;
 
-import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
-
-// 採購單首頁（purchase/index.html）的條件查詢：負責檢查輸入的格式，不通過或查無資料時回首頁顯示訊息
+// 採購單首頁（purchase/index.html）的複合條件查詢：負責檢查輸入的格式，不通過或查無資料時回首頁顯示訊息
 @Controller
 @RequestMapping("/admin/psi/purchase")
 public class PoNoController {
 
+	// 供應商編號、採購員工編號的上限
+	private static final int ID_MAX = 99999;
+
+	// 採購單狀態碼對應的文字，和 index.html、listAllPo.html 的狀態文字相同；查詢結果的標題用
+	private static final Map<Integer, String> PO_STATUS_LABELS = Map.of(0, "待審核", 1, "申請通過", 2, "申請未通過",
+			3, "已取消", 4, "已結案");
+
 	@Autowired
 	PoService poSvc;
 
-	// 這支 controller 的每個請求都會先執行，把低於安全庫存的規格放進 model，回首頁時顯示待採購商品
-	// key 是供應商編號、value 是該供應商的規格清單；例外處理（handleError）不會經過這裡，要自己再放一次
-	@ModelAttribute("belowSafetyStockByVendor")
-	public Map<Integer, List<ProductSku>> belowSafetyStockByVendor() {
-		return poSvc.getBelowSafetyStockByVendor();
-	}
+	// 複合條件查詢：採購單編號、採購單狀態、供應商編號、採購員工編號可以同時填，條件之間是「而且」；沒填的條件不使用，都沒填就是全部採購單
+	// 輸入不正確：所有錯誤一行一個，回首頁顯示在紅框；查無資料：回首頁顯示「查無資料」；兩種情況表單都保留使用者輸入的內容（index.html 用 param 回填）
+	// 查到資料：以 listAllPo.html 顯示，標題列出這次用的條件（searchTitle）
+	@PostMapping("/searchPos")
+	public String searchPos(Model model, @RequestParam(value = "poNo", required = false) String poNo,
+			@RequestParam(value = "poStatus", required = false) String poStatus,
+			@RequestParam(value = "vendorId", required = false) String vendorId,
+			@RequestParam(value = "poEmployeeId", required = false) String poEmployeeId) {
 
-	// 待採購商品的「待審核數量」欄：key 是規格編號、value 是待審核採購單裡的採購數量加總；handleError 一樣要自己再放一次
-	@ModelAttribute("pendingQuantityBySkuId")
-	public Map<Integer, Long> pendingQuantityBySkuId() {
-		return poSvc.getPendingQuantityBySkuId();
-	}
+		// 採購單編號不分大小寫，一律轉成大寫再檢查與查詢
+		String poNoText = poNo == null ? "" : poNo.trim().toUpperCase();
+		String poStatusText = poStatus == null ? "" : poStatus.trim();
+		String vendorIdText = vendorId == null ? "" : vendorId.trim();
+		String poEmployeeIdText = poEmployeeId == null ? "" : poEmployeeId.trim();
 
-	// 待採購商品的各供應商區塊要更新的待審核採購單：key 是供應商編號、value 是採購單系統編號；有值的區塊顯示「更新採購單」而不是「新增採購單」
-	@ModelAttribute("pendingPoIdByVendorId")
-	public Map<Integer, Integer> pendingPoIdByVendorId() {
-		return poSvc.getPendingPoIdByVendorId();
-	}
-
-	// 依採購單編號查單筆，查到後交給 PoController 的 listOnePo 顯示
-	@PostMapping("/getOneForDisplay")
-	public String getOneForDisplay(Model model, @RequestParam(value = "poNo", required = false) String poNo,
-			RedirectAttributes redirectAttributes) {
-
-		String errorMessage = null;
-		PoVO poVO = null;
-
-		if (poNo == null || poNo.isBlank()) {
-			errorMessage = "採購單編號，請勿空白";
-		} else if (!poNo.trim().toUpperCase().matches("^PO\\d{12}$")) {
-			// PoService 的 generatePoNo 產生的格式：PO + 日期 8 碼 + 流水號 4 碼
-			errorMessage = "採購單編號: 格式為 PO 加上 12 位數字，例如 PO202610090001";
-		} else {
-			poVO = poSvc.getOneByPoNo(poNo.trim().toUpperCase());
-			if (poVO == null) {
-				errorMessage = "查無資料";
-			}
-		}
-
-		if (errorMessage != null) {
-			model.addAttribute("errorMessage", errorMessage);
+		List<String> errors = validatePoSearch(poNoText, poStatusText, vendorIdText, poEmployeeIdText);
+		if (!errors.isEmpty()) {
+			model.addAttribute("errorMessage", String.join("\n", errors));
+			model.addAllAttributes(poSvc.getIndexData());
 			return "admin/psi/purchase/index";
 		}
 
-		redirectAttributes.addAttribute("poId", poVO.getPoId());
-		return "redirect:/admin/psi/purchase/listOnePo";
-	}
-
-	// 依供應商編號查該供應商的採購單，結果以 listAllPo.html 顯示
-	@PostMapping("/listPosByVendorId")
-	public String listPosByVendorId(
-			@RequestParam(value = "vendorId", required = false) @NotNull(message = "供應商編號，請勿空白") @Min(value = 1, message = "供應商編號: 不能小於{value}") @Max(value = 99999, message = "供應商編號: 不能大於{value}") Integer vendorId,
-			Model model) {
-
-		return showSearchResult(model, poSvc.getByVendorId(vendorId), "供應商編號 " + vendorId + " 的採購單");
-	}
-
-	// 依採購員工編號查該員工建立的採購單，結果以 listAllPo.html 顯示
-	@PostMapping("/listPosByPoEmployeeId")
-	public String listPosByPoEmployeeId(
-			@RequestParam(value = "poEmployeeId", required = false) @NotNull(message = "採購員工編號，請勿空白") @Min(value = 1, message = "採購員工編號: 不能小於{value}") @Max(value = 99999, message = "採購員工編號: 不能大於{value}") Integer poEmployeeId,
-			Model model) {
-
-		return showSearchResult(model, poSvc.getByPoEmployeeId(poEmployeeId),
-				"採購員工編號 " + poEmployeeId + " 的採購單");
-	}
-
-	// 列表搜尋共用：查無資料時回首頁，否則以 listAllPo.html 顯示
-	private String showSearchResult(Model model, List<PoVO> pos, String searchTitle) {
+		List<PoVO> pos = poSvc.searchPos(poNoText.isEmpty() ? null : poNoText,
+				poStatusText.isEmpty() ? null : Byte.valueOf(poStatusText),
+				vendorIdText.isEmpty() ? null : Integer.valueOf(vendorIdText),
+				poEmployeeIdText.isEmpty() ? null : Integer.valueOf(poEmployeeIdText));
 		if (pos.isEmpty()) {
 			model.addAttribute("errorMessage", "查無資料");
+			model.addAllAttributes(poSvc.getIndexData());
 			return "admin/psi/purchase/index";
 		}
 
-		model.addAttribute("searchTitle", searchTitle);
+		// 標題：列出有填的條件，例如「採購單狀態：待審核、供應商編號：3」；都沒填時不放，listAllPo.html 顯示「顯示全部採購單」
+		List<String> conditions = new ArrayList<>();
+		if (!poNoText.isEmpty()) {
+			conditions.add("採購單編號：" + poNoText);
+		}
+		if (!poStatusText.isEmpty()) {
+			conditions.add("採購單狀態：" + PO_STATUS_LABELS.get(Integer.parseInt(poStatusText)));
+		}
+		if (!vendorIdText.isEmpty()) {
+			conditions.add("供應商編號：" + Integer.valueOf(vendorIdText));
+		}
+		if (!poEmployeeIdText.isEmpty()) {
+			conditions.add("採購員工編號：" + Integer.valueOf(poEmployeeIdText));
+		}
+		if (!conditions.isEmpty()) {
+			model.addAttribute("searchTitle", String.join("、", conditions));
+		}
 		model.addAttribute("poListData", pos);
 		return "admin/psi/purchase/listAllPo";
 	}
 
-	// 只處理這支 controller 的方法丟出的例外，回首頁顯示訊息
-	@ExceptionHandler({ HandlerMethodValidationException.class, ConstraintViolationException.class,
-			MethodArgumentTypeMismatchException.class })
-	public ModelAndView handleError(Exception e) {
-
-		List<String> messages = new ArrayList<>();
-
-		if (e instanceof HandlerMethodValidationException ex) {
-			// 方法參數驗證失敗（@NotNull、@Min、@Max）
-			ex.getParameterValidationResults().forEach(
-					result -> result.getResolvableErrors().forEach(error -> messages.add(error.getDefaultMessage())));
-		} else if (e instanceof ConstraintViolationException ex) {
-			// 類別上有加 @Validated 時會丟這個
-			ex.getConstraintViolations().forEach(violation -> messages.add(violation.getMessage()));
-		} else if (e instanceof MethodArgumentTypeMismatchException ex) {
-			// 轉型失敗（輸入英文字、超過 int 範圍）；依出錯的參數名稱顯示對應的欄位
-			String fieldLabel = "poEmployeeId".equals(ex.getName()) ? "採購員工編號" : "供應商編號";
-			messages.add(fieldLabel + "，只能輸入正整數");
+	// 複合條件查詢的格式檢查，回傳所有錯誤訊息（沒有錯誤時是空的清單）；傳進來的值都已經去掉前後空白，沒填是空字串
+	private List<String> validatePoSearch(String poNo, String poStatus, String vendorId, String poEmployeeId) {
+		List<String> errors = new ArrayList<>();
+		// PoService 的 generatePoNo 產生的格式：PO + 日期 8 碼 + 流水號 4 碼
+		if (!poNo.isEmpty() && !poNo.matches("^PO\\d{12}$")) {
+			errors.add("採購單編號: 格式為 PO 加上 12 位數字，例如 PO202610090001");
 		}
-
-		ModelAndView mav = new ModelAndView("admin/psi/purchase/index");
-		mav.addObject("errorMessage", String.join("\n", messages));
-		mav.addObject("belowSafetyStockByVendor", poSvc.getBelowSafetyStockByVendor());
-		mav.addObject("pendingQuantityBySkuId", poSvc.getPendingQuantityBySkuId());
-		mav.addObject("pendingPoIdByVendorId", poSvc.getPendingPoIdByVendorId());
-		return mav;
+		// 狀態碼 0 到 4，對應 PO_STATUS_LABELS；下拉選單的「查詢全部」是空字串，不檢查
+		if (!poStatus.isEmpty() && !poStatus.matches("^[0-4]$")) {
+			errors.add("採購單狀態，值不正確");
+		}
+		// 供應商編號、採購員工編號：有填才檢查，要是 1 到 ID_MAX 的正整數
+		String vendorIdError = PsiUtils.positiveIdError(vendorId, "供應商編號", ID_MAX);
+		if (vendorIdError != null) {
+			errors.add(vendorIdError);
+		}
+		String poEmployeeIdError = PsiUtils.positiveIdError(poEmployeeId, "採購員工編號", ID_MAX);
+		if (poEmployeeIdError != null) {
+			errors.add(poEmployeeIdError);
+		}
+		return errors;
 	}
 
 }

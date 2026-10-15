@@ -27,6 +27,15 @@
 				<!-- 這裡放頁面自己的內容 -->
 				<div class="container-fluid">
 
+					<!-- 錯誤訊息：查詢條件不正確（一行一個）或查無資料，由 ShippingController 的 listAllShipping 放入 model -->
+					<div class="alert alert-danger alert-dismissible fade show" role="alert"
+					     th:if="${errorMessage != null}">
+					    <span th:text="${errorMessage}" style="white-space: pre-line;"></span>
+					    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+					        <span aria-hidden="true">&times;</span>
+					    </button>
+					</div>
+
 					<a th:href="@{/admin/psi/shipping}" class="btn btn-secondary btn-icon-split mb-3">
 						<span class="icon text-white-50"><i class="fas fa-arrow-left"></i></span>
 						<span class="text">回出貨管理</span>
@@ -39,6 +48,43 @@
 							<h6 class="m-0 font-weight-bold text-primary">歷史出貨紀錄</h6>
 						</div>
 						<div class="card-body">
+							<!-- 查詢表單：條件都是選填，送到 ShippingController 的 listAllShipping；不帶 page，查詢後從第 1 頁開始 -->
+							<!-- 欄位值用網址的參數（param）回填，查詢條件不正確時也保留使用者原本輸入的內容 -->
+							<form class="form-row align-items-end mb-3" method="get" th:action="@{/admin/psi/shipping/listAllShipping}">
+								<div class="col-auto mb-2">
+									<label class="small mb-1" for="searchOrdersId">訂單編號</label>
+									<input type="number" min="1" class="form-control form-control-sm" id="searchOrdersId" name="ordersId" th:value="${param.ordersId}">
+								</div>
+								<div class="col-auto mb-2">
+									<!-- 狀態選項取自 ShippingService 的 getHistoryStatuses，文字和表格的訂單狀態欄相同 -->
+									<label class="small mb-1" for="searchOrdersStatus">訂單狀態</label>
+									<select class="form-control form-control-sm" id="searchOrdersStatus" name="ordersStatus">
+										<option value="">全部</option>
+										<option th:each="status : ${historyStatuses}" th:value="${status.code}"
+											th:text="${status.displayStatus + '(' + status.code + ')'}"
+											th:selected="${param.ordersStatus != null and #strings.trim(param.ordersStatus.toString()) == '' + status.code}"></option>
+									</select>
+								</div>
+								<div class="col-auto mb-2">
+									<label class="small mb-1" for="searchReceiverName">收件人姓名</label>
+									<!-- 最多 20 字，和 Orders 的 receiverName 欄位長度相同 -->
+									<input type="text" maxlength="20" class="form-control form-control-sm" id="searchReceiverName" name="receiverName" th:value="${param.receiverName}">
+								</div>
+								<div class="col-auto mb-2">
+									<!-- 訂單日期區間：起日、迄日都包含在內，可以只填一邊 -->
+									<label class="small mb-1" for="searchStartDate">訂單日期</label>
+									<div class="d-flex align-items-center">
+										<input type="date" class="form-control form-control-sm" id="searchStartDate" name="startDate" th:value="${param.startDate}">
+										<span class="mx-1">~</span>
+										<input type="date" class="form-control form-control-sm" name="endDate" th:value="${param.endDate}" aria-label="訂單日期迄日">
+									</div>
+								</div>
+								<div class="col-auto mb-2">
+									<button type="submit" class="btn btn-primary btn-sm">查詢</button>
+									<a th:href="@{/admin/psi/shipping/listAllShipping}" class="btn btn-secondary btn-sm">清除條件</a>
+								</div>
+							</form>
+
 							<div class="table-responsive">
 								<table class="table table-bordered" id="shipping_history_list" width="100%" cellspacing="0">
 									<thead>
@@ -53,7 +99,7 @@
 									</thead>
 									<tbody>
 										<tr th:if="${ordersPage.empty}">
-											<td colspan="6" class="text-center">目前沒有出貨紀錄</td>
+											<td colspan="6" class="text-center" th:text="${searching} ? '查無符合條件的出貨紀錄' : '目前沒有出貨紀錄'"></td>
 										</tr>
 										<tr th:each="orders : ${ordersPage.content}">
 											<td>
@@ -74,19 +120,26 @@
 							</div>
 
 							<!-- 分頁：ordersPage.number 是從 0 開始的頁碼，畫面與網址的 page 從 1 開始 -->
+							<!-- 頁碼取自 pageNumbers（PsiUtils 的 buildPageNumbers）：頭尾各 5 頁加上目前這頁前後各 2 頁，0 顯示成「…」 -->
+							<!-- 每個連結都帶著目前的查詢條件，翻頁時條件不會不見 -->
 							<div class="d-flex justify-content-between align-items-center mt-3">
 								<span th:text="${'共 ' + ordersPage.totalElements + ' 筆'}"></span>
 								<!-- 只有一頁時不顯示頁碼 -->
 								<ul class="pagination mb-0" th:if="${ordersPage.totalPages > 1}">
 									<li class="page-item" th:classappend="${ordersPage.first} ? 'disabled'">
-										<a class="page-link" th:href="@{/admin/psi/shipping/listAllShipping(page=${ordersPage.number})}">上一頁</a>
+										<a class="page-link" th:href="@{/admin/psi/shipping/listAllShipping(page=${ordersPage.number}, ordersId=${ordersId}, ordersStatus=${ordersStatus}, receiverName=${receiverName}, startDate=${startDate}, endDate=${endDate})}">上一頁</a>
 									</li>
-									<li class="page-item" th:each="pageNumber : ${#numbers.sequence(1, ordersPage.totalPages)}"
-										th:classappend="${pageNumber == ordersPage.number + 1} ? 'active'">
-										<a class="page-link" th:href="@{/admin/psi/shipping/listAllShipping(page=${pageNumber})}" th:text="${pageNumber}"></a>
-									</li>
+									<th:block th:each="pageNumber : ${pageNumbers}">
+										<li class="page-item disabled" th:if="${pageNumber == 0}">
+											<span class="page-link">…</span>
+										</li>
+										<li class="page-item" th:unless="${pageNumber == 0}"
+											th:classappend="${pageNumber == ordersPage.number + 1} ? 'active'">
+											<a class="page-link" th:href="@{/admin/psi/shipping/listAllShipping(page=${pageNumber}, ordersId=${ordersId}, ordersStatus=${ordersStatus}, receiverName=${receiverName}, startDate=${startDate}, endDate=${endDate})}" th:text="${pageNumber}"></a>
+										</li>
+									</th:block>
 									<li class="page-item" th:classappend="${ordersPage.last} ? 'disabled'">
-										<a class="page-link" th:href="@{/admin/psi/shipping/listAllShipping(page=${ordersPage.number + 2})}">下一頁</a>
+										<a class="page-link" th:href="@{/admin/psi/shipping/listAllShipping(page=${ordersPage.number + 2}, ordersId=${ordersId}, ordersStatus=${ordersStatus}, receiverName=${receiverName}, startDate=${startDate}, endDate=${endDate})}">下一頁</a>
 									</li>
 								</ul>
 							</div>
