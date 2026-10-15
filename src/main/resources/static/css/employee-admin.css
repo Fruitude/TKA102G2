@@ -294,6 +294,33 @@
     color: var(--employee-muted);
 }
 
+.responsibility-function-list {
+    max-width: 520px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+}
+
+.responsibility-function-item {
+    min-width: 165px;
+    padding: .35rem .5rem;
+    border-left: 3px solid #9aacd5;
+    background: #f4f6fb;
+    display: grid;
+    gap: .15rem;
+}
+
+.responsibility-function-item code,
+.responsibility-function-item span {
+    line-height: 1.2;
+}
+
+.responsibility-function-item span {
+    color: var(--employee-ink);
+    font-size: .72rem;
+    font-weight: 700;
+}
+
 .responsibility-people {
     max-width: 520px;
     gap: .4rem;
@@ -334,6 +361,17 @@
     display: inline-flex;
     justify-content: flex-end;
     gap: .4rem;
+}
+
+.employee-application-position {
+    min-width: 210px;
+    height: 38px;
+    font-size: .82rem;
+}
+
+.employee-application-original-position {
+    margin-top: .35rem;
+    white-space: nowrap;
 }
 
 .employee-tab:focus-visible,

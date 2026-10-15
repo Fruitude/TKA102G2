@@ -21,15 +21,18 @@ public class EmployeeAdminAccessService {
 	private final EmployeePositionRepository positionRepository;
 	private final EmployeePermissionRepository permissionRepository;
 	private final EmployeePositionPermissionRepository positionPermissionRepository;
+	private final EmployeePermissionGroupResolver permissionGroupResolver;
 
 	public EmployeeAdminAccessService(EmployeeRepository employeeRepository,
 			EmployeePositionRepository positionRepository,
 			EmployeePermissionRepository permissionRepository,
-			EmployeePositionPermissionRepository positionPermissionRepository) {
+			EmployeePositionPermissionRepository positionPermissionRepository,
+			EmployeePermissionGroupResolver permissionGroupResolver) {
 		this.employeeRepository = employeeRepository;
 		this.positionRepository = positionRepository;
 		this.permissionRepository = permissionRepository;
 		this.positionPermissionRepository = positionPermissionRepository;
+		this.permissionGroupResolver = permissionGroupResolver;
 	}
 
 	/**
@@ -51,10 +54,11 @@ public class EmployeeAdminAccessService {
 		}
 		EmployeePosition position = positionResult.get();
 		boolean administrator = "ADMIN".equalsIgnoreCase(position.getPositionCode());
-		Set<String> permissionCodes = new LinkedHashSet<>();
+		Set<String> storedPermissionCodes = new LinkedHashSet<>();
 		// 所有職位（包含 ADMIN）都使用相同規則，確保管理畫面的取消勾選與實際門禁一致。
-		permissionCodes.addAll(positionPermissionRepository.findPermissionCodesByPositionId(position.getPositionId()));
-		permissionCodes.addAll(permissionRepository.findPermissionCodesByEmployeeId(employeeId));
+		storedPermissionCodes.addAll(positionPermissionRepository.findPermissionCodesByPositionId(position.getPositionId()));
+		storedPermissionCodes.addAll(permissionRepository.findPermissionCodesByEmployeeId(employeeId));
+		Set<String> permissionCodes = permissionGroupResolver.expandStoredCodes(storedPermissionCodes);
 		return Optional.of(new AccessProfile(employee, position, administrator, permissionCodes));
 	}
 

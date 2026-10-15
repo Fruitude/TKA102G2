@@ -92,11 +92,18 @@ public class EmployeeAdminApiController {
 	@Transactional
 	@PutMapping("/{employeeId}/application/approve")
 	public Map<String, Object> approveApplication(@PathVariable("employeeId") Integer employeeId,
-			HttpServletRequest request) {
+			@RequestBody ApplicationApprovalForm form, HttpServletRequest request) {
 		Integer reviewerId = requireSystemAdministrator(request);
-		Employee employee = employeeAdminService.approveApplication(employeeId, reviewerId);
+		Employee pending = employeeAdminService.findEmployee(employeeId);
+		EmployeePosition originalPosition = employeeAdminService.findPosition(pending.getPositionId());
+		Employee employee = employeeAdminService.approveApplication(employeeId, reviewerId, form.getPositionId());
+		EmployeePosition approvedPosition = employeeAdminService.findPosition(employee.getPositionId());
+		String positionChange = originalPosition.getPositionId().equals(approvedPosition.getPositionId())
+				? "，核准職位：" + approvedPosition.getPositionName()
+				: "，申請職位：" + originalPosition.getPositionName()
+						+ "，核准職位：" + approvedPosition.getPositionName();
 		auditService.record(request, "EMPLOYEE", "APPROVE", employeeId, employee.getEmployeeName(),
-				"核准員工帳號申請 " + employee.getEmployeeAccount());
+				"核准員工帳號申請 " + employee.getEmployeeAccount() + positionChange);
 		return employeeResponse(employee);
 	}
 
@@ -465,6 +472,13 @@ public class EmployeeAdminApiController {
 		private Integer employeeStatus;
 		public Integer getEmployeeStatus() { return employeeStatus; }
 		public void setEmployeeStatus(Integer employeeStatus) { this.employeeStatus = employeeStatus; }
+	}
+
+	/** 核准申請時由管理員選定正式職位。 */
+	public static class ApplicationApprovalForm {
+		private Integer positionId;
+		public Integer getPositionId() { return positionId; }
+		public void setPositionId(Integer positionId) { this.positionId = positionId; }
 	}
 
 	/** 退回申請時使用的原因。 */

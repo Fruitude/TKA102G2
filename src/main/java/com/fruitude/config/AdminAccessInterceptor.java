@@ -111,6 +111,9 @@ public class AdminAccessInterceptor implements HandlerInterceptor {
 				|| path.equals("/admin/employees/reset-password")
 				|| path.equals("/admin/access-denied")) return true;
 		if (path.equals("/api/admin/session") && "GET".equalsIgnoreCase(method)) return true;
+		// 員工申請頁尚未登入，只公開啟用職位的基本選項，不開放後台職位管理 API。
+		if (path.equals("/api/admin/session/application-positions")
+				&& "GET".equalsIgnoreCase(method)) return true;
 		// 員工必須持有信件中的一次性 Token；驗證與送出新密碼不要求先登入。
 		if (path.equals("/api/admin/employees/password/reset/validate")
 				&& "GET".equalsIgnoreCase(method)) return true;
@@ -127,9 +130,18 @@ public class AdminAccessInterceptor implements HandlerInterceptor {
 		boolean write = !"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method);
 
 		if (path.startsWith("/api/admin/members")) {
+			if (path.contains("/credit-adjustment-requests") && write) {
+				// Servlet 的矩陣參數不應改變權限判斷，避免 /review;... 降級成一般調整權限。
+				String permissionPath = path.replaceAll(";[^/]*", "");
+				if (permissionPath.matches("/api/admin/members/credit-adjustment-requests/\\d+/review/?")) {
+					return permissions("MEMBER_CREDIT_REVIEW");
+				}
+				return permissions("MEMBER_CREDIT");
+			}
 			if (path.contains("/credit") && write) return permissions("MEMBER_CREDIT");
 			if (path.endsWith("/status") && write) return permissions("MEMBER_STATUS");
-			return permissions("MEMBER_VIEW");
+			// 具會員異動職責的人也必須能讀取會員與申請資料，否則無法完成自己的工作。
+			return permissions("MEMBER_VIEW", "MEMBER_CREDIT", "MEMBER_CREDIT_REVIEW", "MEMBER_STATUS");
 		}
 		if (path.startsWith("/api/admin/comments")) {
 			// 評論檢舉處理與客服聊天室是不同功能，分別使用評論查看及處理權限。
@@ -147,7 +159,9 @@ public class AdminAccessInterceptor implements HandlerInterceptor {
 		}
 
 		if (path.startsWith("/admin/employees")) return permissions("EMPLOYEE_VIEW", "PERMISSION_MANAGE");
-		if (path.startsWith("/admin/members")) return permissions("MEMBER_VIEW");
+		if (path.startsWith("/admin/members")) {
+			return permissions("MEMBER_VIEW", "MEMBER_CREDIT", "MEMBER_CREDIT_REVIEW", "MEMBER_STATUS");
+		}
 		if (path.startsWith("/admin/comments")) return permissions("COMMENT_VIEW");
 		if (path.startsWith("/admin/orders")) return write ? permissions("ORDER_EDIT") : permissions("ORDER_VIEW");
 		if (path.startsWith("/admin/promo")) {

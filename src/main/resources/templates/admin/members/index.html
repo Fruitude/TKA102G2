@@ -37,6 +37,11 @@
                         <button class="member-tab is-active" data-tab="members" type="button">
                             <i class="fas fa-users" aria-hidden="true"></i><span>會員名單</span>
                         </button>
+                        <button class="member-tab" data-tab="credit-requests" type="button">
+                            <i class="fas fa-clipboard-check" aria-hidden="true"></i>
+                            <span>購物金調整申請</span>
+                            <span class="member-tab-count" id="credit-request-pending-count" hidden>0</span>
+                        </button>
                         <button class="member-tab" data-tab="credit-records" type="button">
                             <i class="fas fa-coins" aria-hidden="true"></i><span>購物金異動紀錄</span>
                         </button>
@@ -161,6 +166,67 @@
                             </div>
                         </footer>
                     </div>
+
+                    <div class="member-panel" data-panel="credit-requests" hidden>
+                        <div class="member-toolbar credit-toolbar">
+                            <div class="credit-filter-row">
+                                <div class="member-search-control credit-search-control">
+                                    <i class="fas fa-search" aria-hidden="true"></i>
+                                    <label class="sr-only" for="credit-request-search">搜尋申請</label>
+                                    <input id="credit-request-search" type="search" placeholder="搜尋會員姓名、帳號、原因或申請人...">
+                                </div>
+                                <div class="credit-select-control">
+                                    <label class="sr-only" for="credit-request-status-filter">申請狀態</label>
+                                    <select id="credit-request-status-filter" title="申請狀態">
+                                        <option value="">全部狀態</option>
+                                        <option value="0">待審核</option>
+                                        <option value="1">已核准</option>
+                                        <option value="2">已退回</option>
+                                        <option value="3">已取消</option>
+                                    </select>
+                                </div>
+                                <div class="credit-actions">
+                                    <button class="btn btn-outline-secondary credit-btn" id="credit-request-reset-button" type="button" title="清除所有條件">
+                                        <i class="fas fa-undo-alt mr-1"></i><span>重設</span>
+                                    </button>
+                                    <button class="btn btn-primary credit-btn" id="credit-request-refresh-button" type="button" title="重新查詢">
+                                        <i class="fas fa-sync-alt mr-1"></i><span>查詢</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive member-table-wrap">
+                            <table class="table member-table credit-request-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>申請時間</th>
+                                        <th>會員</th>
+                                        <th>類型</th>
+                                        <th>調整金額</th>
+                                        <th>申請時餘額</th>
+                                        <th>原因</th>
+                                        <th>申請人</th>
+                                        <th>狀態</th>
+                                        <th class="text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="credit-request-table-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="member-empty" id="credit-request-empty" hidden>找不到符合條件的購物金調整申請。</div>
+                        <footer class="member-pagination" aria-label="購物金調整申請分頁">
+                            <span id="credit-request-page-summary">第 0 / 0 頁，共 0 筆</span>
+                            <div class="member-page-actions">
+                                <button id="credit-request-page-previous" type="button" title="上一頁" aria-label="上一頁">
+                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                </button>
+                                <button id="credit-request-page-next" type="button" title="下一頁" aria-label="下一頁">
+                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </footer>
+                    </div>
                 </section>
             </main>
         </div>
@@ -196,21 +262,45 @@
                 <div class="modal-body">
                     <input id="member-credit-id" type="hidden">
                     <p class="member-modal-subject" id="member-credit-subject"></p>
+                    <p class="member-credit-current" id="member-credit-current"></p>
                     <div class="form-group mb-0">
-                        <label for="member-credit-value">新的購物金餘額</label>
-                        <input class="form-control" id="member-credit-value" type="number" min="0" step="1" required>
+                        <span class="d-block mb-2">調整類型 *</span>
+                        <div class="member-credit-type-options">
+                            <label class="member-credit-type">
+                                <input type="radio" name="member-credit-type" value="1" checked>
+                                <span>增加</span>
+                            </label>
+                            <label class="member-credit-type">
+                                <input type="radio" name="member-credit-type" value="2">
+                                <span>扣除</span>
+                            </label>
+                        </div>
                     </div>
                     <div class="form-group mt-3 mb-0">
-                        <label for="member-credit-reason">調整原因 *</label>
+                        <label for="member-credit-amount">調整金額 *</label>
+                        <input class="form-control" id="member-credit-amount" type="number" min="1" step="1" required>
+                    </div>
+                    <p class="member-credit-preview" id="member-credit-preview"></p>
+                    <div class="form-group mt-3 mb-0">
+                        <label for="member-credit-reason-category">調整原因分類 *</label>
+                        <select class="form-control" id="member-credit-reason-category" required>
+                            <option value="">請選擇</option>
+							<option value="客服補償">客服補償</option>
+                            <option value="帳務更正">帳務更正</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="form-group mt-3 mb-0">
+                        <label for="member-credit-reason">詳細說明 *</label>
                         <textarea class="form-control" id="member-credit-reason" maxlength="255" rows="3"
-                                  placeholder="例如：退款轉入購物金、客服補償" required></textarea>
+								  placeholder="請說明這次調整的依據，例如補償或帳務更正原因" required></textarea>
                     </div>
                     <p class="member-modal-feedback" id="member-credit-feedback" aria-live="polite"></p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-dismiss="modal">取消</button>
                     <button class="btn btn-primary" id="member-credit-save" type="submit">
-                        <i class="fas fa-save mr-1" aria-hidden="true"></i>儲存餘額
+                        <i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>送出申請
                     </button>
                 </div>
             </form>
@@ -246,6 +336,33 @@
     </div>
 </div>
 
+
+<div class="modal fade" id="member-credit-review-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content member-modal">
+            <div class="modal-header">
+                <h2 class="modal-title">審核購物金調整</h2>
+                <button type="button" class="close" data-dismiss="modal" aria-label="關閉"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <input id="member-credit-review-id" type="hidden">
+                <p class="member-modal-subject" id="member-credit-review-subject"></p>
+                <dl class="member-detail-list" id="member-credit-review-summary"></dl>
+                <div class="form-group mb-0">
+                    <label for="member-credit-review-note">審核意見</label>
+                    <textarea class="form-control" id="member-credit-review-note" maxlength="255" rows="3"
+                              placeholder="核准可填備註；退回時必填原因"></textarea>
+                </div>
+                <p class="member-modal-feedback" id="member-credit-review-feedback" aria-live="polite"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-dismiss="modal">取消</button>
+                <button class="btn btn-outline-danger" id="member-credit-review-reject" type="button">退回</button>
+                <button class="btn btn-primary" id="member-credit-review-approve" type="button">核准入帳</button>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="modal fade" id="member-status-modal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content member-modal">

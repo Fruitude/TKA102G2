@@ -94,6 +94,116 @@
     width: min(380px, calc(100vw - 24px));
 }
 
+.admin-review-toggle {
+    position: relative;
+}
+
+.admin-review-badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border: 2px solid #fff;
+    border-radius: 9px;
+    background: #d94f5c;
+    color: #fff;
+    font-size: .65rem;
+    font-weight: 800;
+    line-height: 14px;
+    text-align: center;
+    position: absolute;
+    top: .45rem;
+    right: .15rem;
+}
+
+.admin-review-menu {
+    width: min(350px, calc(100vw - 24px));
+    padding: 0;
+    overflow: hidden;
+}
+
+.admin-review-heading {
+    padding: .78rem 1rem;
+    background: #4e73df;
+    color: #fff;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem;
+    display: flex;
+}
+
+.admin-review-heading strong {
+    font-size: .78rem;
+}
+
+.admin-review-heading span {
+    color: rgba(255, 255, 255, .82);
+    font-size: .7rem;
+}
+
+.admin-review-row {
+    min-height: 68px;
+    padding: .72rem .9rem;
+    border-bottom: 1px solid #edf0f5;
+    color: #3c4150;
+    align-items: center;
+    gap: .7rem;
+    display: flex;
+}
+
+.admin-review-row:hover,
+.admin-review-row:focus {
+    background: #f7f9fd;
+    color: #2e3340;
+    text-decoration: none;
+}
+
+.admin-review-row[hidden] {
+    display: none !important;
+}
+
+.admin-review-symbol {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    display: inline-flex;
+}
+
+.admin-review-symbol.is-employee { background: #eef2ff; color: #4e73df; }
+.admin-review-symbol.is-credit { background: #e8f6ef; color: #1f8a5b; }
+.admin-review-symbol.is-comment { background: #fff2e8; color: #c76a2b; }
+
+.admin-review-copy {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.admin-review-copy strong,
+.admin-review-copy span {
+    display: block;
+}
+
+.admin-review-copy strong {
+    color: #343846;
+    font-size: .82rem;
+}
+
+.admin-review-copy span {
+    margin-top: .15rem;
+    color: #858796;
+    font-size: .72rem;
+}
+
+.admin-review-count {
+    min-width: 28px;
+    color: #c34554;
+    font-size: .95rem;
+    font-weight: 800;
+    text-align: right;
+}
+
 .admin-message-menu {
     width: 260px;
 }
