@@ -10,7 +10,7 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>後台管理系統 - Dashboard</title>
+    <title>後台管理系統</title>
     
 	<!--     css資源區塊 -->
 	<th:block th:fragment="adminIndex-css">
@@ -330,9 +330,12 @@
 
                     <!-- Page Heading -->
                     <div class="d-sm-flex align-items-center justify-content-between mb-4">
-                        <h1 class="h3 mb-0 text-gray-800">首頁</h1>
+                        <!-- 由 /js/dashboard-weather-admin.js 換成現在天氣；取得失敗時維持「首頁」 -->
+                        <h2 class="h3 mb-0 text-gray-800" id="dashboard-heading"
+                            th:data-url="@{/api/admin/weather}">首頁</h2>
                     </div>
 
+                    <div th:replace="~{admin/dashboard/sales-charts :: sales-charts}"></div>
                 </div>
                 <!-- /.container-fluid -->
 
@@ -376,8 +379,8 @@
 
     <!-- Dashboard 首頁專屬的圖表套件，保留在原本位置，不放進共用片段 -->
     <script th:src="@{/vendor/chart.js/Chart.min.js}"></script>
-    <script th:src="@{/js/demo/chart-area-demo.js}"></script>
-    <script th:src="@{/js/demo/chart-pie-demo.js}"></script>
+    <script th:src="@{/js/dashboard-chart-admin.js}"></script>
+    <script th:src="@{/js/dashboard-weather-admin.js}"></script>
 
 </body>
 
