@@ -304,8 +304,8 @@
             </div>
             <!-- End of Main Content -->
 
-            <!-- Footer -->
-            <footer class="sticky-footer bg-white" th:fragment="adminIndex-footer">
+            <!-- Footer：th:remove="all" 讓首頁與所有 th:replace 引入此 fragment 的後台頁面都不輸出 footer -->
+            <footer class="sticky-footer bg-white" th:fragment="adminIndex-footer" th:remove="all">
                 <div class="container my-auto">
                     <div class="copyright text-center my-auto">
                         <span>Copyright &copy; Your Website 2021</span>
