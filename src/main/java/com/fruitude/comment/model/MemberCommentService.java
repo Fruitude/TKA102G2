@@ -80,6 +80,65 @@ public class MemberCommentService {
 		return result;
 	}
 
+	// 「我的評論」清單的一筆：評論內容連同所屬訂單與商品規格名稱
+	public record MyReview(Integer ordersDetailId, Integer ordersId, Integer skuId, String productName,
+			Integer commentStar, String commentText, LocalDateTime commentDate, Integer commentStatus) {
+	}
+
+	// 「我的評論」分頁結果：page 從 0 開始，與後台會員清單的分頁格式一致
+	public record MyReviewPage(List<MyReview> reviews, int page, int size, int totalPages, long totalElements) {
+	}
+
+	/** 該會員寫過的評論（評論時間新的在前），一次回傳一頁。只查本人的訂單，狀態含被檢舉與被隱藏的，由前端標示 */
+	@Transactional(readOnly = true)
+	public MyReviewPage findMyReviews(Integer memberId, int page, int size) {
+		int safeSize = Math.min(Math.max(size, 1), 100);
+		List<Integer> ordersIds = new ArrayList<>();
+		for (Orders o : ordersRepository.findByMemberIdOrderByOrdersIdDesc(memberId)) {
+			ordersIds.add(o.getOrdersId());
+		}
+		List<OrdersDetail> reviewed = new ArrayList<>();
+		if (!ordersIds.isEmpty()) {
+			for (OrdersDetail d : ordersDetailRepository.findByOrdersIdIn(ordersIds)) {
+				if (hasText(d.getCommentText())) {
+					reviewed.add(d);
+				}
+			}
+		}
+		reviewed.sort((a, b) -> {
+			if (a.getCommentDate() == null || b.getCommentDate() == null) {
+				return a.getCommentDate() == null ? (b.getCommentDate() == null ? 0 : 1) : -1;
+			}
+			return b.getCommentDate().compareTo(a.getCommentDate());
+		});
+
+		int total = reviewed.size();
+		int totalPages = (total + safeSize - 1) / safeSize;
+		int safePage = Math.min(Math.max(page, 0), Math.max(totalPages - 1, 0));
+		int from = Math.min(safePage * safeSize, total);
+		List<OrdersDetail> pageRows = reviewed.subList(from, Math.min(from + safeSize, total));
+
+		// 只替這一頁的商品查規格名稱
+		List<Integer> skuIds = new ArrayList<>();
+		for (OrdersDetail d : pageRows) {
+			skuIds.add(d.getSkuId());
+		}
+		Map<Integer, String> skuNames = new HashMap<>();
+		for (ProductSku sku : productSkuRepository.findAllById(skuIds)) {
+			skuNames.put(sku.getSkuId(), ProductSku.resolveDisplayName(sku.getSkuName(), sku.getAnotherName()));
+		}
+		List<MyReview> result = new ArrayList<>();
+		for (OrdersDetail d : pageRows) {
+			String itemName = skuNames.get(d.getSkuId());
+			if (!hasText(itemName)) {
+				itemName = d.getProductName();
+			}
+			result.add(new MyReview(d.getOrdersDetailId(), d.getOrdersId(), d.getSkuId(), itemName,
+					d.getCommentStar(), d.getCommentText(), d.getCommentDate(), d.getCommentStatus()));
+		}
+		return new MyReviewPage(result, safePage, safeSize, totalPages, total);
+	}
+
 	@Transactional
 	public void submit(Integer memberId, Integer ordersId, Integer ordersDetailId, Integer star, String text) {
 		Orders orders = findCommentableOrders(memberId, ordersId);
