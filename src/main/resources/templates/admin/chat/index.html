@@ -59,12 +59,22 @@
            泡泡上 padding 8px + 半行高 12px = 20px；按鈕 padding 4px + 圖示 20px × 9/24 = 11.5px；20 - 11.5 = 8.5px */
         .chat-bubble-line{display:flex;align-items:flex-start;max-width:100%}
         .chat-bubble-line>.chat-bubble,.chat-bubble-line>.chat-images{min-width:0}
-        .chat-row.member .chat-reply-button{position:relative;flex:0 0 auto;width:28px;height:28px;margin:8.5px 0 0 4px;padding:4px;border:0;border-radius:50%;background:transparent;color:#858796;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s,color .15s,background-color .15s}
-        .chat-row.member:hover .chat-reply-button,.chat-row.member:focus-within .chat-reply-button{opacity:1;pointer-events:auto}
-        .chat-reply-button:hover,.chat-reply-button:focus-visible{color:#4e73df;background:#eef1fc;outline:none}
-        .chat-reply-button svg{display:block;width:100%;height:100%}
-        .chat-reply-button::after{content:attr(data-tooltip);position:absolute;top:50%;left:calc(100% + 6px);transform:translateY(-50%);padding:3px 8px;border-radius:4px;background:#5a5c69;color:#fff;font-size:.72rem;line-height:1.4;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s}
+        /* 訊息旁的小按鈕（回覆箭頭 ↶、更多 ⋮）共用外觀：平常隱藏，滑鼠移到該則訊息或鍵盤聚焦才出現；⋮ 的選單開著時保持顯示 */
+        .chat-action-button{position:relative;flex:0 0 auto;width:28px;height:28px;padding:4px;border:0;border-radius:50%;background:transparent;color:#858796;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s,color .15s,background-color .15s}
+        .chat-row:hover .chat-action-button,.chat-row:focus-within .chat-action-button,.chat-action-button.is-open{opacity:1;pointer-events:auto}
+        .chat-action-button:hover,.chat-action-button:focus-visible,.chat-action-button.is-open{color:#4e73df;background:#eef1fc;outline:none}
+        .chat-action-button svg{display:block;width:100%;height:100%}
+        /* 回覆箭頭：會員訊息在泡泡右邊、客服訊息在泡泡左邊（鏡像排列） */
+        .chat-row.member .chat-reply-button{margin:8.5px 0 0 4px}
+        .chat-row.staff .chat-reply-button{margin:8.5px 4px 0 0}
+        /* ⋮ 和回覆箭頭同樣大小、同樣的 margin-top，兩個按鈕水平對齊；箭頭位置不變 */
+        .chat-row.member .chat-more-button{margin:8.5px 0 0 2px}
+        .chat-row.staff .chat-more-button{margin:8.5px 2px 0 0}
+        .chat-reply-button::after{content:attr(data-tooltip);position:absolute;z-index:1;top:50%;left:calc(100% + 6px);transform:translateY(-50%);padding:3px 8px;border-radius:4px;background:#5a5c69;color:#fff;font-size:.72rem;line-height:1.4;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s}
         .chat-reply-button:hover::after,.chat-reply-button:focus-visible::after{opacity:1}
+        /* 客服訊息的箭頭在泡泡左邊，提示氣泡改顯示在箭頭左邊，避免蓋住泡泡 */
+        .chat-row.staff .chat-reply-button::after{left:auto;right:calc(100% + 6px)}
+        .chat-copy-menu button:disabled{color:#1cc88a;cursor:default;background:white}
         /* 對話列預覽：眼睛按鈕、右鍵選單共用的預覽視窗；只看不標已讀 */
         .chat-row-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
         .chat-preview-button{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;color:#4e73df;cursor:pointer;line-height:28px}
@@ -453,10 +463,16 @@
 			if (message.imageIds && message.imageIds.length > 0) {
 				contentBoxes.push(createImageList(message.imageIds));
 			}
-            // 會員訊息的回覆箭頭：和第一個內容（文字泡泡，沒有文字時是圖片）放同一列，貼著它的右邊；只有能回覆（有輸入區）時才加
-            if(message.senderType===1&&sendForm&&contentBoxes.length>0){
+            // 訊息旁的小按鈕和第一個內容（文字泡泡，沒有文字時是圖片）放同一列，貼著它：
+            // 會員訊息：泡泡 → 回覆箭頭 → ⋮；客服訊息鏡像排列：⋮ → 回覆箭頭 → 泡泡
+            // 回覆箭頭要有輸入區（CHAT_REPLY）才有；⋮ 只有可以複製的文字訊息才有；系統訊息都不加
+            const fromPerson=message.senderType===1||message.senderType===2;
+            const canReply=fromPerson&&!!sendForm,canCopy=fromPerson&&!!message.messageContent;
+            if(contentBoxes.length>0&&(canReply||canCopy)){
                 const line=document.createElement('div');line.className='chat-bubble-line';
-                line.append(contentBoxes[0],createReplyButton(message.messageId));contentBoxes[0]=line;
+                const actions=[];if(canReply)actions.push(createReplyButton(message.messageId));if(canCopy)actions.push(createMoreButton(message.messageId));
+                if(message.senderType===2)line.append(...actions.reverse(),contentBoxes[0]);else line.append(contentBoxes[0],...actions);
+                contentBoxes[0]=line;
             }
 			contentBoxes.forEach(box => wrapper.appendChild(box));
 			const meta = document.createElement('div');
@@ -470,7 +486,7 @@
         // 回覆箭頭按鈕：線條 SVG（往上再往左轉的箭頭），顏色跟著按鈕文字色；點了跟右鍵「回覆該訊息」做一樣的事
         function createReplyButton(messageId){
             const svgNamespace='http://www.w3.org/2000/svg';
-            const button=document.createElement('button');button.type='button';button.className='chat-reply-button';
+            const button=document.createElement('button');button.type='button';button.className='chat-action-button chat-reply-button';
             button.dataset.tooltip='回覆';button.setAttribute('aria-label','回覆這則訊息');
             const icon=document.createElementNS(svgNamespace,'svg');
             icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('fill','none');icon.setAttribute('stroke','currentColor');
@@ -486,6 +502,52 @@
             });
             return button;
         }
+
+        // ⋮ 更多按鈕：線條 SVG 三個實心小圓點；點一下在按鈕下方打開共用的「複製」選單，再點一次或點外面、按 Esc 關閉
+        function createMoreButton(messageId){
+            const svgNamespace='http://www.w3.org/2000/svg';
+            const button=document.createElement('button');button.type='button';button.className='chat-action-button chat-more-button';
+            button.setAttribute('aria-label','更多操作');button.setAttribute('aria-haspopup','menu');button.setAttribute('aria-expanded','false');
+            const icon=document.createElementNS(svgNamespace,'svg');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('fill','currentColor');icon.setAttribute('aria-hidden','true');
+            [5,12,19].forEach(y=>{const dot=document.createElementNS(svgNamespace,'circle');dot.setAttribute('cx','12');dot.setAttribute('cy',String(y));dot.setAttribute('r','2');icon.append(dot);});
+            button.append(icon);
+            button.addEventListener('click',()=>{if(copyMenuButton===button)closeCopyMenu();else openCopyMenu(button,messageId);});
+            return button;
+        }
+        const copyMenu=document.createElement('div'),copyAction=document.createElement('button');
+        copyMenu.className='chat-reply-menu chat-copy-menu';copyMenu.hidden=true;copyMenu.setAttribute('role','menu');
+        copyAction.type='button';copyAction.setAttribute('role','menuitem');copyMenu.append(copyAction);document.body.append(copyMenu);
+        let copyMenuButton=null,copyMessageId=null,copyCloseTimer=null;
+        function openCopyMenu(button,messageId){
+            closeCopyMenu();closeReplyMenu();copyMenuButton=button;copyMessageId=messageId;
+            copyAction.textContent='複製';copyAction.disabled=false;copyMenu.hidden=false;
+            button.classList.add('is-open');button.setAttribute('aria-expanded','true');
+            // 放在 ⋮ 下方；客服訊息靠右，所以選單右緣對齊按鈕右緣，會員訊息左緣對齊；超出視窗時夾回來
+            const rect=button.getBoundingClientRect(),left=button.closest('.chat-row.staff')?rect.right-copyMenu.offsetWidth:rect.left;
+            copyMenu.style.left=Math.max(8,Math.min(left,innerWidth-copyMenu.offsetWidth-8))+'px';
+            copyMenu.style.top=Math.max(8,Math.min(rect.bottom+4,innerHeight-copyMenu.offsetHeight-8))+'px';
+            copyAction.focus({preventScroll:true});
+        }
+        function closeCopyMenu(returnFocus){
+            clearTimeout(copyCloseTimer);if(!copyMenuButton)return;
+            const button=copyMenuButton;copyMenuButton=null;copyMessageId=null;copyMenu.hidden=true;
+            button.classList.remove('is-open');button.setAttribute('aria-expanded','false');if(returnFocus)button.focus({preventScroll:true});
+        }
+        // 複製文字：有 Clipboard API（https 或 localhost）時用它；部署在一般 http 時瀏覽器不提供，改用隱藏 textarea + execCommand
+        async function copyText(text){
+            if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);return;}
+            const area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';
+            document.body.append(area);area.select();const copied=document.execCommand('copy');area.remove();if(!copied)throw new Error('copy failed');
+        }
+        copyAction.addEventListener('click',async()=>{
+            const message=messageData.get(copyMessageId);if(!message||!message.messageContent){closeCopyMenu(true);return;}
+            try{await copyText(message.messageContent);copyAction.textContent='已複製';}catch(error){copyAction.textContent='複製失敗';}
+            // 顯示結果一下子再自動關閉
+            copyAction.disabled=true;clearTimeout(copyCloseTimer);copyCloseTimer=setTimeout(()=>closeCopyMenu(true),900);
+        });
+        document.addEventListener('pointerdown',event=>{if(copyMenuButton&&!copyMenu.contains(event.target)&&!copyMenuButton.contains(event.target))closeCopyMenu();});
+        document.addEventListener('keydown',event=>{if(event.key==='Escape'&&copyMenuButton){event.preventDefault();closeCopyMenu(true);}});
+        window.addEventListener('resize',()=>closeCopyMenu());messageList.addEventListener('scroll',()=>closeCopyMenu(),{passive:true});
 
 		// 訊息裡的圖片：顯示縮圖，點了用懸浮視窗看原圖，可在同一則訊息的圖片之間左右切換
 		// 連結仍指向原圖：Ctrl + 點擊或滑鼠中鍵照樣可以開新分頁
@@ -588,7 +650,7 @@
 
 		// 開啟一位會員的對話；後端會把會員送來的未讀訊息改成已讀
 		async function openConversation(memberId) {
-            setReply(null);closeReplyMenu();
+            setReply(null);closeReplyMenu();closeCopyMenu();
 			currentMemberId = memberId;
 			hideError();
 			const conversation = conversations.find(item => item.memberId === memberId);
