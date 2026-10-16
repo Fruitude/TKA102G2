@@ -52,6 +52,25 @@
         .chat-reply-menu{position:fixed;z-index:2100;padding:4px;border:1px solid #d1d3e2;border-radius:7px;background:white;box-shadow:0 4px 18px #0002}.chat-reply-menu button{padding:8px 18px;background:white;border:0;border-radius:5px;color:#4e73df;cursor:pointer}.chat-reply-menu button:hover,.chat-reply-menu button:focus{background:#eef1fc}
         .chat-reply-draft{position:relative;margin-bottom:10px;padding:8px 30px 8px 12px;border-left:3px solid #4e73df;border-radius:5px;background:#edf1fc;font-size:.8rem}.chat-reply-draft p{margin:3px 0 0;max-height:40px;overflow:hidden;overflow-wrap:anywhere}.chat-reply-draft button{position:absolute;right:5px;top:3px;border:0;background:transparent;color:#858796;cursor:pointer}
         .chat-quoted{align-self:stretch;margin-bottom:5px;padding:6px 10px;border-left:3px solid #9bade8;border-radius:4px;background:#edf1fc;color:#58668b;font-size:.78rem;white-space:pre-wrap;overflow-wrap:anywhere}.chat-quoted p{margin:3px 0 0}.chat-reply-menu[hidden],.chat-reply-draft[hidden]{display:none!important}.chat-row:focus-visible{outline:2px solid #b4c1eb;outline-offset:3px;border-radius:5px}
+        /* 對話列預覽：眼睛按鈕、右鍵選單共用的預覽視窗；只看不標已讀 */
+        .chat-row-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+        .chat-preview-button{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;color:#4e73df;cursor:pointer;line-height:28px}
+        .chat-preview-button:hover,.chat-preview-button:focus{background:#eef1fc;outline:none}
+        .list-group-item.active .chat-preview-button{color:#fff}.list-group-item.active .chat-preview-button:hover,.list-group-item.active .chat-preview-button:focus{background:rgba(255,255,255,.2)}
+        .chat-preview-panel{position:fixed;z-index:2100;width:min(360px,calc(100vw - 16px));border:1px solid #d1d3e2;border-radius:7px;background:white;box-shadow:0 4px 18px #0002;overflow:hidden}
+        .chat-preview-panel[hidden]{display:none!important}
+        .chat-preview-heading{display:flex;align-items:center;gap:8px;padding:9px 10px 9px 14px;background:#4e73df;color:#fff}
+        .chat-preview-heading strong{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem}
+        .chat-preview-heading span{font-size:.75rem;color:rgba(255,255,255,.85);white-space:nowrap}
+        .chat-preview-heading button{border:0;background:transparent;color:#fff;font-size:1.2rem;line-height:1;cursor:pointer;padding:0 4px}
+        .chat-preview-body{max-height:50vh;overflow-y:auto;padding:6px 0;background:#f8f9fc}
+        .chat-preview-item{padding:8px 14px;border-bottom:1px solid #edf0f5}.chat-preview-item:last-child{border-bottom:0}
+        .chat-preview-item time{display:block;color:#858796;font-size:.72rem;margin-bottom:3px}
+        .chat-preview-item p{margin:0;color:#3a3b45;font-size:.85rem;white-space:pre-wrap;overflow-wrap:anywhere}
+        .chat-preview-item .chat-quoted{margin-bottom:5px}
+        .chat-preview-images{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.chat-preview-images img{width:64px;height:64px;object-fit:cover;border-radius:4px;background:#fff}
+        .chat-preview-status{padding:18px 14px;color:#858796;text-align:center;font-size:.85rem}
+        .chat-preview-footer{padding:8px 10px;border-top:1px solid #e3e6f0;text-align:right}
 	</style>
 </head>
 <body id="page-top">
@@ -272,6 +291,7 @@
 			for (const conversation of visible) {
 				const item = document.createElement('a');
 				item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                item.dataset.memberId=conversation.memberId;
 				if (conversation.memberId === currentMemberId) {
 					item.classList.add('active');
 				}
@@ -284,10 +304,18 @@
 				text.append(name, time);
 				item.appendChild(text);
 				if (conversation.unreadCount > 0) {
+                    // 有未讀才有預覽：眼睛按鈕放在未讀數字左邊，點了不會開啟對話
+                    item.title='右鍵或點 👁 可預覽未讀訊息';
+                    const actions=document.createElement('span');actions.className='chat-row-actions';
+                    const previewButton=document.createElement('button');previewButton.type='button';previewButton.className='chat-preview-button';
+                    previewButton.title='預覽未讀訊息（不會標為已讀）';previewButton.setAttribute('aria-label','預覽 '+memberLabel(conversation)+' 的未讀訊息');
+                    const eye=document.createElement('i');eye.className='fas fa-eye';eye.setAttribute('aria-hidden','true');previewButton.append(eye);
+                    previewButton.addEventListener('click',event=>{event.stopPropagation();openPreview(conversation.memberId,previewButton);});
 					const badge = document.createElement('span');
 					badge.className = 'badge badge-danger badge-pill';
 					badge.textContent = conversation.unreadCount;
-					item.appendChild(badge);
+					actions.append(previewButton,badge);
+					item.appendChild(actions);
 				}
 				item.addEventListener('click', () => openConversation(conversation.memberId));
 				conversationList.appendChild(item);
@@ -300,6 +328,93 @@
             conversationOrder.title=oldestFirst?'目前最舊優先，點擊改為最新優先':'目前最新優先，點擊改為最舊優先';
             conversationList.scrollTop=0;renderConversations();
         });
+
+        // 對話列預覽：眼睛按鈕或右鍵選單打開，呼叫 preview API（只看不標已讀），需要時再按「開啟對話」
+        const previewMenu=document.createElement('div'),previewAction=document.createElement('button');
+        previewMenu.className='chat-reply-menu';previewMenu.hidden=true;previewMenu.setAttribute('role','menu');
+        previewAction.type='button';previewAction.textContent='預覽未讀訊息';previewAction.setAttribute('role','menuitem');previewMenu.append(previewAction);document.body.append(previewMenu);
+        const previewPanel=document.createElement('div'),previewHeading=document.createElement('div'),previewTitle=document.createElement('strong'),previewCount=document.createElement('span'),previewClose=document.createElement('button');
+        const previewBody=document.createElement('div'),previewFooter=document.createElement('div'),previewOpen=document.createElement('button');
+        previewPanel.className='chat-preview-panel';previewPanel.hidden=true;previewPanel.setAttribute('role','dialog');previewPanel.setAttribute('aria-label','未讀訊息預覽');
+        previewHeading.className='chat-preview-heading';previewClose.type='button';previewClose.textContent='×';previewClose.setAttribute('aria-label','關閉預覽');
+        previewHeading.append(previewTitle,previewCount,previewClose);
+        previewBody.className='chat-preview-body';previewFooter.className='chat-preview-footer';
+        previewOpen.type='button';previewOpen.className='btn btn-sm btn-primary';previewOpen.textContent='開啟對話（標為已讀）';previewFooter.append(previewOpen);
+        previewPanel.append(previewHeading,previewBody,previewFooter);document.body.append(previewPanel);
+        let previewMemberId=null,previewRequest=0,previewMenuMemberId=null;
+        function closePreviewMenu(){previewMenu.hidden=true;previewMenuMemberId=null;}
+        function previewStatus(text){const status=document.createElement('div');status.className='chat-preview-status';status.textContent=text;previewBody.replaceChildren(status);}
+        // 關閉後焦點還給該列的眼睛按鈕（清單可能已重畫，所以用會員編號重新找）
+        function closePreview(returnFocus){
+            if(previewPanel.hidden)return;const id=previewMemberId;previewPanel.hidden=true;previewMemberId=null;previewRequest++;
+            if(returnFocus)conversationList.querySelector('[data-member-id="'+Number(id)+'"] .chat-preview-button')?.focus({preventScroll:true});
+        }
+        function placePreview(anchor){
+            const rect=anchor.getBoundingClientRect(),width=previewPanel.offsetWidth,height=previewPanel.offsetHeight;
+            let left=rect.right+8;if(left+width>innerWidth-8)left=rect.left-width-8;
+            previewPanel.style.left=Math.max(8,Math.min(left,innerWidth-width-8))+'px';
+            previewPanel.style.top=Math.max(8,Math.min(rect.top,innerHeight-height-8))+'px';
+        }
+        function previewItem(message){
+            const item=document.createElement('div'),time=document.createElement('time');item.className='chat-preview-item';
+            time.textContent=formatTime(message.createdAt);item.append(time);
+            if(message.replyMessageId){const quote=document.createElement('div'),label=document.createElement('strong'),text=document.createElement('p');quote.className='chat-quoted';
+                label.textContent='回覆 '+(message.reply?.senderType===1?'會員':message.reply?.senderType===2?'客服':message.reply?.senderType===0?'系統':'原訊息');
+                text.textContent=message.reply?.messageContent||'原訊息已無法顯示';quote.append(label,text);item.append(quote);}
+            if(message.messageContent){const text=document.createElement('p');text.textContent=message.messageContent;item.append(text);}
+            if(message.imageIds&&message.imageIds.length){
+                const images=document.createElement('div');images.className='chat-preview-images';
+                message.imageIds.forEach(imageId=>{
+                    const link=document.createElement('a'),thumbnail=document.createElement('img');link.href=imageUrl(imageId);link.target='_blank';link.rel='noopener';
+                    thumbnail.src=basePath+'api/admin/chat/images/'+imageId+'/thumbnail';thumbnail.alt='聊天圖片';thumbnail.loading='lazy';
+                    link.append(thumbnail);images.append(link);
+                });item.append(images);
+            }
+            return item;
+        }
+        async function loadPreview(){
+            const id=previewMemberId,request=++previewRequest;if(id===null)return;
+            try{
+                const rows=await callApi('api/admin/chat/'+id+'/preview');
+                if(request!==previewRequest||previewMemberId!==id)return;
+                previewCount.textContent='未讀 '+rows.length+' 則';
+                if(rows.length===0){previewStatus('目前沒有未讀訊息');return;}
+                previewBody.replaceChildren(...rows.map(previewItem));
+            }catch(error){if(request===previewRequest&&previewMemberId===id)previewStatus(error.message);}
+        }
+        function openPreview(memberId,anchor){
+            closePreviewMenu();const conversation=conversations.find(item=>item.memberId===memberId);
+            previewMemberId=memberId;previewTitle.textContent=conversation?memberLabel(conversation):'會員 #'+memberId;
+            previewCount.textContent=conversation?'未讀 '+conversation.unreadCount+' 則':'';previewStatus('載入中…');
+            previewPanel.hidden=false;placePreview(anchor);previewClose.focus({preventScroll:true});
+            loadPreview();
+        }
+        conversationList.addEventListener('contextmenu',event=>{
+            const item=event.target.closest('[data-member-id]');if(!item)return;
+            const memberId=Number(item.dataset.memberId),conversation=conversations.find(row=>row.memberId===memberId);
+            // 沒有未讀的列保留瀏覽器原本的右鍵選單
+            if(!conversation||!(conversation.unreadCount>0))return;
+            event.preventDefault();closeReplyMenu();previewMenuMemberId=memberId;previewMenu.hidden=false;
+            previewMenu.style.left=Math.max(8,Math.min(event.clientX,innerWidth-previewMenu.offsetWidth-8))+'px';
+            previewMenu.style.top=Math.max(8,Math.min(event.clientY,innerHeight-previewMenu.offsetHeight-8))+'px';
+            previewAction.focus({preventScroll:true});
+        });
+        previewAction.addEventListener('click',()=>{
+            const id=previewMenuMemberId;if(id===null)return;
+            const item=conversationList.querySelector('[data-member-id="'+Number(id)+'"]');if(item)openPreview(id,item);else closePreviewMenu();
+        });
+        previewClose.addEventListener('click',()=>closePreview(true));
+        previewOpen.addEventListener('click',()=>{const id=previewMemberId;closePreview(false);if(id!==null)openConversation(id);});
+        document.addEventListener('pointerdown',event=>{
+            if(!previewMenu.contains(event.target))closePreviewMenu();
+            if(!previewPanel.contains(event.target)&&!event.target.closest('.chat-preview-button'))closePreview(false);
+        });
+        document.addEventListener('keydown',event=>{
+            if(event.key!=='Escape')return;
+            if(!previewMenu.hidden){event.preventDefault();closePreviewMenu();}else if(!previewPanel.hidden){event.preventDefault();closePreview(true);}
+        });
+        window.addEventListener('resize',()=>{closePreviewMenu();closePreview(false);});
+        conversationList.addEventListener('scroll',closePreviewMenu,{passive:true});
 
 		// 一則訊息：senderType 1 是會員、2 是客服、0 是系統
 		function appendMessage(message) {
@@ -627,6 +742,8 @@
 			stompClient.subscribe('/topic/chat/staff', frame => {
 				const event = JSON.parse(frame.body);
                 if(event.type==='MESSAGE'||event.type==='READ')document.dispatchEvent(new CustomEvent('fruitude:admin-chat-update'));
+                // 預覽開著時，同一位會員有新訊息或被其他客服讀掉，就重新載入預覽
+                if((event.type==='MESSAGE'||event.type==='READ')&&event.memberId===previewMemberId)loadPreview();
                 if(event.type==='MEMBER_READ'&&event.memberId===currentMemberId){
                     for(const [id,message] of messageData)if(message.senderType===2&&id<=event.readThroughId){message.isRead=1;const row=messageList.querySelector('[data-message-id="'+id+'"]');if(row)updateMessageMeta(row,message);}
                 }

@@ -133,6 +133,15 @@ public class ChatService {
 				Message.STATUS_SHOWN);
         return views(messages);
     }
+
+	// 對話列預覽：只取會員送來、客服還沒讀的訊息，由舊到新；只讀資料，不標已讀、不推播
+	public List<ChatMessageView> getUnreadPreview(Integer memberId) {
+		return getConversation(memberId).stream()
+				.filter(message -> Integer.valueOf(Message.SENDER_MEMBER).equals(message.senderType())
+						&& Integer.valueOf(Message.UNREAD).equals(message.isRead()))
+				.toList();
+	}
+
     private List<ChatMessageView> views(List<Message> messages) {
 		List<Integer> messageIds = new ArrayList<>();
 		for (Message message : messages) {

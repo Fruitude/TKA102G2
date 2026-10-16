@@ -82,6 +82,16 @@ public class AdminChatController {
 		return ResponseEntity.ok(chatSvc.getStaffConversation(memberId));
 	}
 
+	// 對話列預覽：這位會員全部的未讀訊息；只看不標已讀，給對話列的眼睛按鈕和右鍵選單用
+	@GetMapping("/api/admin/chat/{memberId}/preview")
+	@ResponseBody
+	public ResponseEntity<?> preview(@PathVariable Integer memberId, HttpServletRequest request) {
+		if (!hasPermission(request, "CHAT_VIEW")) {
+			return forbidden();
+		}
+		return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(chatSvc.getUnreadPreview(memberId));
+	}
+
 	// 建議回覆：拿這位會員最新一則訊息比對罐頭訊息的關鍵字，最多 3 筆；只有能回覆的員工用得到
 	@GetMapping("/api/admin/chat/{memberId}/suggestions")
 	@ResponseBody
