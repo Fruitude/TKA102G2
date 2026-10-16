@@ -8,6 +8,8 @@
 	<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
 	<style>
 		.chat-list { max-height: 70vh; overflow-y: auto; }
+        /* lg 以上左右並排時，左邊清單和右邊對話內容的高度都由 fitChatPanels 填滿到視窗底部，不受 70vh / 60vh 限制 */
+        @media (min-width: 992px) { .chat-list { max-height: none; min-height: 240px; } }
         .chat-list-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;margin-top:12px}
         .chat-list-control{display:flex;align-items:center;gap:7px;font-size:.85rem}
         .chat-list-control label{margin:0;white-space:nowrap}
@@ -52,6 +54,17 @@
         .chat-reply-menu{position:fixed;z-index:2100;padding:4px;border:1px solid #d1d3e2;border-radius:7px;background:white;box-shadow:0 4px 18px #0002}.chat-reply-menu button{padding:8px 18px;background:white;border:0;border-radius:5px;color:#4e73df;cursor:pointer}.chat-reply-menu button:hover,.chat-reply-menu button:focus{background:#eef1fc}
         .chat-reply-draft{position:relative;margin-bottom:10px;padding:8px 30px 8px 12px;border-left:3px solid #4e73df;border-radius:5px;background:#edf1fc;font-size:.8rem}.chat-reply-draft p{margin:3px 0 0;max-height:40px;overflow:hidden;overflow-wrap:anywhere}.chat-reply-draft button{position:absolute;right:5px;top:3px;border:0;background:transparent;color:#858796;cursor:pointer}
         .chat-quoted{align-self:stretch;margin-bottom:5px;padding:6px 10px;border-left:3px solid #9bade8;border-radius:4px;background:#edf1fc;color:#58668b;font-size:.78rem;white-space:pre-wrap;overflow-wrap:anywhere}.chat-quoted p{margin:3px 0 0}.chat-reply-menu[hidden],.chat-reply-draft[hidden]{display:none!important}.chat-row:focus-visible{outline:2px solid #b4c1eb;outline-offset:3px;border-radius:5px}
+        /* 會員訊息右邊的回覆箭頭：平常隱藏，滑鼠移到該則訊息（或鍵盤聚焦）才出現；滑到箭頭上方顯示「回覆」提示氣泡 */
+        /* 箭頭和泡泡在同一列（chat-bubble-line），貼著泡泡右邊；靠上對齊，margin-top 讓箭頭尖端（圖示 9/24 高處）和泡泡第一行文字的中線切齊：
+           泡泡上 padding 8px + 半行高 12px = 20px；按鈕 padding 4px + 圖示 20px × 9/24 = 11.5px；20 - 11.5 = 8.5px */
+        .chat-bubble-line{display:flex;align-items:flex-start;max-width:100%}
+        .chat-bubble-line>.chat-bubble,.chat-bubble-line>.chat-images{min-width:0}
+        .chat-row.member .chat-reply-button{position:relative;flex:0 0 auto;width:28px;height:28px;margin:8.5px 0 0 4px;padding:4px;border:0;border-radius:50%;background:transparent;color:#858796;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s,color .15s,background-color .15s}
+        .chat-row.member:hover .chat-reply-button,.chat-row.member:focus-within .chat-reply-button{opacity:1;pointer-events:auto}
+        .chat-reply-button:hover,.chat-reply-button:focus-visible{color:#4e73df;background:#eef1fc;outline:none}
+        .chat-reply-button svg{display:block;width:100%;height:100%}
+        .chat-reply-button::after{content:attr(data-tooltip);position:absolute;top:50%;left:calc(100% + 6px);transform:translateY(-50%);padding:3px 8px;border-radius:4px;background:#5a5c69;color:#fff;font-size:.72rem;line-height:1.4;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s}
+        .chat-reply-button:hover::after,.chat-reply-button:focus-visible::after{opacity:1}
         /* 對話列預覽：眼睛按鈕、右鍵選單共用的預覽視窗；只看不標已讀 */
         .chat-row-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
         .chat-preview-button{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;color:#4e73df;cursor:pointer;line-height:28px}
@@ -115,7 +128,7 @@
 						<div class="col-lg-8 mb-4">
 							<div class="card shadow">
 								<div class="card-header py-3">
-									<h6 class="m-0 font-weight-bold text-primary" id="conversation-title">請從左邊選擇會員</h6>
+									<h6 class="m-0 font-weight-bold text-primary" id="conversation-title">請選擇會員開啟對話</h6>
 								</div>
 								<div class="card-body chat-messages" id="message-list"></div>
 								<!-- 沒有 CHAT_REPLY 權限時不顯示輸入框（canReply 由 AdminChatController 的 chat 放入） -->
@@ -207,7 +220,7 @@
         const replyDraft=document.createElement('div'),replyMenu=document.createElement('div'),replyAction=document.createElement('button');
         replyDraft.className='chat-reply-draft';replyDraft.hidden=true;if(sendForm)sendForm.before(replyDraft);
         replyMenu.className='chat-reply-menu';replyMenu.hidden=true;replyMenu.setAttribute('role','menu');
-        replyAction.type='button';replyAction.textContent='回覆該訊息';replyAction.setAttribute('role','menuitem');replyMenu.append(replyAction);document.body.append(replyMenu);
+        replyAction.type='button';replyAction.textContent='回覆';replyAction.setAttribute('role','menuitem');replyMenu.append(replyAction);document.body.append(replyMenu);
         function senderLabel(m){return m.senderType===2?(m.employeeName||(m.employeeId?'員工 #'+m.employeeId:'客服')):m.senderType===1?'會員':'系統';}
         function replyText(m){const text=m.messageContent?.trim()||'[圖片訊息]';return Array.from(text).slice(0,100).join('')+(Array.from(text).length>100?'…':'');}
         function closeReplyMenu(){replyMenu.hidden=true;menuTarget=null;}
@@ -430,15 +443,22 @@
                 label.textContent='回覆 '+(message.reply?.senderType===1?'會員':message.reply?.senderType===2?'客服':message.reply?.senderType===0?'系統':'原訊息');
                 text.textContent=message.reply?.messageContent||'原訊息已無法顯示';quote.append(label,text);wrapper.append(quote);}
 			// 圖片訊息可以沒有文字，沒有文字就不顯示泡泡
+			const contentBoxes = [];
 			if (message.messageContent) {
 				const bubble = document.createElement('div');
 				bubble.className = 'chat-bubble';
 				bubble.textContent = message.messageContent;
-				wrapper.appendChild(bubble);
+				contentBoxes.push(bubble);
 			}
 			if (message.imageIds && message.imageIds.length > 0) {
-				wrapper.appendChild(createImageList(message.imageIds));
+				contentBoxes.push(createImageList(message.imageIds));
 			}
+            // 會員訊息的回覆箭頭：和第一個內容（文字泡泡，沒有文字時是圖片）放同一列，貼著它的右邊；只有能回覆（有輸入區）時才加
+            if(message.senderType===1&&sendForm&&contentBoxes.length>0){
+                const line=document.createElement('div');line.className='chat-bubble-line';
+                line.append(contentBoxes[0],createReplyButton(message.messageId));contentBoxes[0]=line;
+            }
+			contentBoxes.forEach(box => wrapper.appendChild(box));
 			const meta = document.createElement('div');
 			meta.className = 'chat-meta';
 			meta.textContent = senderName + '・' + formatTime(message.createdAt);
@@ -446,6 +466,26 @@
 			row.appendChild(wrapper);
 			messageList.appendChild(row);updateMessageMeta(row,message);
 		}
+
+        // 回覆箭頭按鈕：線條 SVG（往上再往左轉的箭頭），顏色跟著按鈕文字色；點了跟右鍵「回覆該訊息」做一樣的事
+        function createReplyButton(messageId){
+            const svgNamespace='http://www.w3.org/2000/svg';
+            const button=document.createElement('button');button.type='button';button.className='chat-reply-button';
+            button.dataset.tooltip='回覆';button.setAttribute('aria-label','回覆這則訊息');
+            const icon=document.createElementNS(svgNamespace,'svg');
+            icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('fill','none');icon.setAttribute('stroke','currentColor');
+            icon.setAttribute('stroke-width','2');icon.setAttribute('stroke-linecap','round');icon.setAttribute('stroke-linejoin','round');icon.setAttribute('aria-hidden','true');
+            const head=document.createElementNS(svgNamespace,'polyline');head.setAttribute('points','9 14 4 9 9 4');
+            const curve=document.createElementNS(svgNamespace,'path');curve.setAttribute('d','M20 20v-7a4 4 0 0 0-4-4H4');
+            icon.append(head,curve);button.append(icon);
+            button.addEventListener('click',()=>{
+                const target=messageData.get(messageId);
+                // 訊息送出中不能切換回覆對象；只能回覆目前開著的對話
+                if(!target||sendButton.disabled||target.memberId!==currentMemberId)return;
+                closeReplyMenu();setReply(target);sendContent.focus({preventScroll:true});
+            });
+            return button;
+        }
 
 		// 訊息裡的圖片：顯示縮圖，點了用懸浮視窗看原圖，可在同一則訊息的圖片之間左右切換
 		// 連結仍指向原圖：Ctrl + 點擊或滑鼠中鍵照樣可以開新分頁
@@ -770,6 +810,29 @@
         document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentMemberId!==null)refreshCurrentConversation();});
 		stompClient.onStompError = frame => showError('即時連線錯誤：' + (frame.headers.message || ''));
 		stompClient.activate();
+
+        // 左邊會員對話清單、右邊對話內容都跟側邊欄一樣填滿到視窗底部，兩張卡片底部對齊
+        // 共同底線 = 視窗高 - 卡片下方間距（mb-4 24px + 邊框 1px）；任一邊低於最小高度 240px 時，底線一起往下移，兩邊仍對齊
+        // 右邊的高度要扣掉輸入區（card-footer），輸入區會因建議回覆、圖片縮圖、回覆草稿變高，所以也要監聽
+        // 只在左右並排（lg 以上）時生效；手機窄版上下排列時維持 CSS 的 70vh / 60vh，避免把對話內容推到很下面
+        const sideBySide=window.matchMedia('(min-width: 992px)');
+        const messageFooter=messageList.nextElementSibling?.classList.contains('card-footer')?messageList.nextElementSibling:null;
+        function fitChatPanels(){
+            if(!sideBySide.matches){conversationList.style.height='';messageList.style.height='';return;}
+            const listTop=conversationList.getBoundingClientRect().top+window.scrollY;
+            const messagesTop=messageList.getBoundingClientRect().top+window.scrollY,footerHeight=messageFooter?messageFooter.offsetHeight:0;
+            const bottom=Math.max(innerHeight-25,listTop+240,messagesTop+240+footerHeight);
+            const atBottom=messageList.scrollHeight-messageList.scrollTop-messageList.clientHeight<4;
+            conversationList.style.height=(bottom-listTop)+'px';
+            messageList.style.height=(bottom-messagesTop-footerHeight)+'px';
+            // 原本停在最新訊息的話，調整高度後繼續停在最下面
+            if(atBottom)scrollToBottom();
+        }
+        window.addEventListener('resize',fitChatPanels);
+        // 錯誤訊息、兩邊標題列、輸入區的高度改變都會影響位置，跟著重算
+        const panelObserver=new ResizeObserver(fitChatPanels);
+        [errorBox,conversationList.previousElementSibling,messageList.previousElementSibling,messageFooter].forEach(element=>{if(element)panelObserver.observe(element);});
+        fitChatPanels();
 
 		loadConversations();
 	})();
