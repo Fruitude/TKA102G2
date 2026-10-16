@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>後台帳號管理</title>
     <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
-    <link th:href="@{/css/employee-admin.css?v=19}" rel="stylesheet">
+    <link th:href="@{/css/employee-admin.css?v=24}" rel="stylesheet">
 </head>
 <body id="page-top">
 <div id="wrapper">
@@ -31,22 +31,22 @@
                 <section class="employee-console">
                     <nav class="employee-tabs" aria-label="後台帳號管理分類">
                         <button class="employee-tab is-active" data-tab="accounts" type="button">
-                            <i class="fas fa-users" aria-hidden="true"></i><span>員工帳號</span>
+                            <i class="fas fa-users" aria-hidden="true"></i><span class="employee-tab-label">員工帳號</span>
                         </button>
                         <button class="employee-tab" data-tab="applications" type="button">
-                            <i class="fas fa-user-clock" aria-hidden="true"></i><span>帳號申請</span><span class="employee-tab-count" id="employee-application-count">0</span>
+                            <i class="fas fa-user-clock" aria-hidden="true"></i><span class="employee-tab-label">帳號申請</span><span class="employee-tab-count" id="employee-application-count">0</span>
                         </button>
                         <button class="employee-tab" data-tab="assignments" type="button">
-                            <i class="fas fa-user-shield" aria-hidden="true"></i><span>權限配置</span>
+                            <i class="fas fa-user-shield" aria-hidden="true"></i><span class="employee-tab-label">權限配置</span>
                         </button>
                         <button class="employee-tab" data-tab="positions" type="button">
-                            <i class="fas fa-id-badge" aria-hidden="true"></i><span>職位管理</span>
+                            <i class="fas fa-id-badge" aria-hidden="true"></i><span class="employee-tab-label">職位管理</span>
                         </button>
                         <button class="employee-tab" data-tab="coverage" type="button">
-                            <i class="fas fa-clipboard-check" aria-hidden="true"></i><span>功能負責</span><span class="employee-tab-count is-warning" id="coverage-tab-count">0</span>
+                            <i class="fas fa-clipboard-check" aria-hidden="true"></i><span class="employee-tab-label">功能負責</span><span class="employee-tab-count is-warning" id="coverage-tab-count">0</span>
                         </button>
                         <button class="employee-tab" data-tab="audit" type="button">
-                            <i class="fas fa-history" aria-hidden="true"></i><span>更改紀錄</span>
+                            <i class="fas fa-history" aria-hidden="true"></i><span class="employee-tab-label">更改紀錄</span>
                         </button>
                     </nav>
 
@@ -491,6 +491,6 @@
 </div>
 
 <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
-<script th:src="@{/js/employee-admin.js?v=36}"></script>
+<script th:src="@{/js/employee-admin.js?v=38}"></script>
 </body>
 </html>
