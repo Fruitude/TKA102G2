@@ -24,6 +24,8 @@
 		    <!-- Custom styles for this template-->
 		    <link th:href="@{/css/sb-admin-2.min.css}" rel="stylesheet">
 		    <link th:href="@{/css/admin-topbar.css?v=5}" rel="stylesheet">
+		    <link th:href="@{/css/admin-chat-unread.css?v=2}" rel="stylesheet">
+		    <link th:href="@{/css/admin-sidebar.css?v=3}" rel="stylesheet">
 	    <style>
 		.sidebar-dark .nav-item.active .nav-link { 
 			background: rgba(255, 255, 255, .15); }
@@ -35,9 +37,6 @@
 				justify-content: center !important;
 			}
 		}
-.admin-chat-nav-label{position:relative;display:inline-block;margin-right:22px}
-        .sidebar .nav-link .admin-chat-unread-badge{position:absolute;left:calc(100% + 5px);top:-8px;min-width:19px;padding:2px 5px;border-radius:12px;background:#e74a3b;color:#fff;font-size:10px;font-weight:700;line-height:15px;text-align:center;white-space:nowrap;box-shadow:0 1px 4px #0002}
-        .admin-chat-unread-badge[hidden]{display:none!important}
 		</style>
 	</th:block>
 	
@@ -138,8 +137,7 @@
             <li class="nav-item" th:if="${adminPermissionCodes.contains('CHAT_VIEW')}">
                 <a th:href="@{/admin/chat}" class="nav-link">
                     <i class="fas fa-fw fa-headset"></i>
-                    <span class="admin-chat-nav-label">客服聊天室<span id="admin-chat-unread" class="admin-chat-unread-badge" role="status" aria-live="polite" th:data-api="@{/api/admin/chat/unread}" th:data-ws="@{/admin/chat/ws}" hidden></span></span></a>
-                <script th:src="@{/admin/js/chat-unread.js(v=20261016-unread)}" defer></script>
+                    <span>客服聊天室</span></a>
             </li>
 
             <!-- Nav Item - 進銷存系統 -->
@@ -244,17 +242,27 @@
 	                            </div>
 	                        </li>
 
-	                        <!-- 客服功能由其他模組負責，這裡不顯示假的未讀數字。 -->
-	                        <li class="nav-item dropdown no-arrow mx-1">
-	                            <button class="nav-link admin-topbar-icon" id="admin-message-toggle" type="button"
+	                        <!-- 客服未讀訊息：有 CHAT_VIEW 權限才顯示，數字與列表由 chat-unread.js 更新 -->
+	                        <li class="nav-item dropdown no-arrow mx-1" th:if="${adminPermissionCodes.contains('CHAT_VIEW')}">
+	                            <button class="nav-link admin-topbar-icon admin-chat-toggle" id="admin-message-toggle" type="button"
 	                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
 	                                    title="客服訊息" aria-label="客服訊息">
 	                                <i class="fas fa-envelope fa-fw" aria-hidden="true"></i>
+	                                <span class="admin-chat-badge" id="admin-chat-unread" aria-live="polite"
+	                                      th:data-api="@{/api/admin/chat/unread}" th:data-ws="@{/admin/chat/ws}"
+	                                      th:data-list-api="@{/api/admin/chat/conversations}" th:data-chat-url="@{/admin/chat}" hidden>0</span>
 	                            </button>
-	                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in admin-message-menu"
+	                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in admin-chat-menu"
 	                                 aria-labelledby="admin-message-toggle">
-	                                <div class="admin-topbar-empty"><i class="far fa-comment-dots" aria-hidden="true"></i><span>目前沒有新訊息</span></div>
+	                                <div class="admin-chat-heading">
+	                                    <strong>客服未讀訊息</strong>
+	                                    <span id="admin-chat-summary">0 則未讀</span>
+	                                </div>
+	                                <div class="admin-topbar-list" id="admin-chat-list"></div>
+	                                <div class="admin-topbar-empty" id="admin-chat-empty">目前沒有新訊息</div>
+	                                <a class="dropdown-item text-center small text-gray-600" th:href="@{/admin/chat}">前往客服聊天室</a>
 	                            </div>
+	                            <script th:src="@{/admin/js/chat-unread.js(v=20261016-topbar)}" defer></script>
 	                        </li>
 
                         <div class="topbar-divider d-none d-sm-block"></div>
