@@ -88,20 +88,24 @@
         .chat-preview-button{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;color:#4e73df;cursor:pointer;line-height:28px}
         .chat-preview-button:hover,.chat-preview-button:focus{background:#eef1fc;outline:none}
         .list-group-item.active .chat-preview-button{color:#fff}.list-group-item.active .chat-preview-button:hover,.list-group-item.active .chat-preview-button:focus{background:rgba(255,255,255,.2)}
-        .chat-preview-panel{position:fixed;z-index:2100;width:min(360px,calc(100vw - 16px));border:1px solid #d1d3e2;border-radius:7px;background:white;box-shadow:0 4px 18px #0002;overflow:hidden}
+        .chat-preview-panel{position:fixed;z-index:2100;width:min(360px,calc(100vw - 16px));border:1px solid #d1d3e2;border-radius:7px;background:white;box-shadow:0 4px 18px #0002;overflow:hidden;display:flex;flex-direction:column}
         .chat-preview-panel[hidden]{display:none!important}
-        .chat-preview-heading{display:flex;align-items:center;gap:8px;padding:9px 10px 9px 14px;background:#4e73df;color:#fff}
+        .chat-preview-heading{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:9px 10px 9px 14px;background:#4e73df;color:#fff}
         .chat-preview-heading strong{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem}
         .chat-preview-heading span{font-size:.75rem;color:rgba(255,255,255,.85);white-space:nowrap}
         .chat-preview-heading button{border:0;background:transparent;color:#fff;font-size:1.2rem;line-height:1;cursor:pointer;padding:0 4px}
-        .chat-preview-body{max-height:50vh;overflow-y:auto;padding:6px 0;background:#f8f9fc}
+        /* 按住標題列可拖動預覽視窗；拖動中不反白文字 */
+        .chat-preview-heading{cursor:move;user-select:none;touch-action:none}
+        .chat-preview-panel.is-dragging{user-select:none}
+        /* 預覽的高度上限由 placePreview 設定（底部不超過會員列表），超出時只有訊息區捲動，標題列和底部按鈕一直看得到 */
+        .chat-preview-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:6px 0;background:#f8f9fc}
         .chat-preview-item{padding:8px 14px;border-bottom:1px solid #edf0f5}.chat-preview-item:last-child{border-bottom:0}
         .chat-preview-item time{display:block;color:#858796;font-size:.72rem;margin-bottom:3px}
         .chat-preview-item p{margin:0;color:#3a3b45;font-size:.85rem;white-space:pre-wrap;overflow-wrap:anywhere}
         .chat-preview-item .chat-quoted{margin-bottom:5px}
         .chat-preview-images{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.chat-preview-images img{width:64px;height:64px;object-fit:cover;border-radius:4px;background:#fff}
         .chat-preview-status{padding:18px 14px;color:#858796;text-align:center;font-size:.85rem}
-        .chat-preview-footer{padding:8px 10px;border-top:1px solid #e3e6f0;text-align:right}
+        .chat-preview-footer{flex:0 0 auto;padding:8px 10px;border-top:1px solid #e3e6f0;text-align:right}
 	</style>
 </head>
 <body id="page-top">
@@ -380,14 +384,36 @@
         // 關閉後焦點還給該列的眼睛按鈕（清單可能已重畫，所以用會員編號重新找）
         function closePreview(returnFocus){
             if(previewPanel.hidden)return;const id=previewMemberId;previewPanel.hidden=true;previewMemberId=null;previewRequest++;
+            previewDrag=null;previewPanel.classList.remove('is-dragging');
             if(returnFocus)conversationList.querySelector('[data-member-id="'+Number(id)+'"] .chat-preview-button')?.focus({preventScroll:true});
         }
-        function placePreview(anchor){
-            const rect=anchor.getBoundingClientRect(),width=previewPanel.offsetWidth,height=previewPanel.offsetHeight;
+        // 預覽位置：標題列對齊打開它的按鈕（👁 或右鍵那一列），底部最多到左邊會員列表的底部
+        // 內容短就維持原高度；內容長就和列表底部切齊、訊息區捲動；按鈕離列表底部太近（放不下 200px）時整個往上移
+        // 按鈕在瀏覽器視窗中線以下時，標題列往上移 PREVIEW_RAISE，下方才有足夠空間顯示訊息；依畫面實際位置判斷，和列表捲動、篩選、排序無關
+        const PREVIEW_MIN_HEIGHT=200,PREVIEW_RAISE=10;
+        let previewAnchorTop=0,previewAnchorLeft=0;
+        // previewDragged：這次打開後有沒有被拖過，拖過就不再自動對齊（關閉再打開時重設）；previewDrag：拖動中的游標資訊
+        let previewDragged=false,previewDrag=null;
+        function anchorPreview(anchor){
+            const rect=anchor.getBoundingClientRect(),width=previewPanel.offsetWidth;
             let left=rect.right+8;if(left+width>innerWidth-8)left=rect.left-width-8;
-            previewPanel.style.left=Math.max(8,Math.min(left,innerWidth-width-8))+'px';
-            previewPanel.style.top=Math.max(8,Math.min(rect.top,innerHeight-height-8))+'px';
+            previewAnchorLeft=Math.max(8,Math.min(left,innerWidth-width-8));
+            previewAnchorTop=rect.top+rect.height/2>innerHeight/2?rect.top-PREVIEW_RAISE:rect.top;
         }
+        function setPreviewStyle(name,value){if(previewPanel.style[name]!==value)previewPanel.style[name]=value;}
+        // 上緣最高只到右邊對話卡片標題列的下緣（訊息區開頭），不蓋住會員名稱和「標為未讀」；標題列捲出畫面時以視窗頂端往下 8px 為準
+        function placePreview(){
+            // 拖過之後不再自動對齊，只確保內容變高時視窗仍完整在畫面內
+            if(previewDragged){movePreviewTo(parseFloat(previewPanel.style.left)||8,parseFloat(previewPanel.style.top)||8);return;}
+            const listBottom=Math.min(conversationList.getBoundingClientRect().bottom,innerHeight-8);
+            const topLimit=Math.max(8,conversationTitle.closest('.card-header').getBoundingClientRect().bottom);
+            let top=Math.max(topLimit,previewAnchorTop),maxHeight=listBottom-top;
+            if(maxHeight<PREVIEW_MIN_HEIGHT){top=Math.max(topLimit,listBottom-PREVIEW_MIN_HEIGHT);maxHeight=listBottom-top;}
+            // 只有數值改變才寫入，避免 ResizeObserver 反覆觸發
+            setPreviewStyle('left',previewAnchorLeft+'px');setPreviewStyle('top',top+'px');setPreviewStyle('maxHeight',maxHeight+'px');
+        }
+        // 內容載入完成、即時更新重新載入、縮圖載入造成高度改變時，重新套用上面的規則
+        new ResizeObserver(()=>{if(!previewPanel.hidden)placePreview();}).observe(previewPanel);
         function previewItem(message){
             const item=document.createElement('div'),time=document.createElement('time');item.className='chat-preview-item';
             time.textContent=formatTime(message.createdAt);item.append(time);
@@ -419,9 +445,32 @@
             closePreviewMenu();const conversation=conversations.find(item=>item.memberId===memberId);
             previewMemberId=memberId;previewTitle.textContent=conversation?memberLabel(conversation):'會員 #'+memberId;
             previewCount.textContent=conversation?'未讀 '+conversation.unreadCount+' 則':'';previewStatus('載入中…');
-            previewPanel.hidden=false;placePreview(anchor);previewClose.focus({preventScroll:true});
+            previewDragged=false;previewPanel.hidden=false;anchorPreview(anchor);placePreview();previewClose.focus({preventScroll:true});
             loadPreview();
         }
+
+        // 拖動預覽視窗：按住標題列（× 除外）移動，位置夾在視窗內，四邊各留 8px，不能拖出畫面
+        function movePreviewTo(left,top){
+            const width=previewPanel.offsetWidth,height=previewPanel.offsetHeight;
+            setPreviewStyle('left',Math.max(8,Math.min(left,innerWidth-width-8))+'px');
+            setPreviewStyle('top',Math.max(8,Math.min(top,innerHeight-height-8))+'px');
+        }
+        function endPreviewDrag(event){
+            if(!previewDrag||event.pointerId!==previewDrag.pointerId)return;
+            previewDrag=null;previewPanel.classList.remove('is-dragging');
+        }
+        previewHeading.addEventListener('pointerdown',event=>{
+            if(event.button!==0||previewClose.contains(event.target))return;
+            const rect=previewPanel.getBoundingClientRect();
+            previewDrag={pointerId:event.pointerId,offsetX:event.clientX-rect.left,offsetY:event.clientY-rect.top};
+            previewDragged=true;previewPanel.classList.add('is-dragging');
+            previewHeading.setPointerCapture(event.pointerId);event.preventDefault();
+        });
+        previewHeading.addEventListener('pointermove',event=>{
+            if(!previewDrag||event.pointerId!==previewDrag.pointerId)return;
+            movePreviewTo(event.clientX-previewDrag.offsetX,event.clientY-previewDrag.offsetY);
+        });
+        ['pointerup','pointercancel','lostpointercapture'].forEach(type=>previewHeading.addEventListener(type,endPreviewDrag));
         conversationList.addEventListener('contextmenu',event=>{
             const item=event.target.closest('[data-member-id]');if(!item)return;
             const memberId=Number(item.dataset.memberId),conversation=conversations.find(row=>row.memberId===memberId);
