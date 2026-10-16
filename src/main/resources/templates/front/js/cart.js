@@ -32,7 +32,148 @@
     } catch (e) {
       /* ignore quota / privacy-mode errors */
     }
+    scheduleServerPush();
   }
+
+  // ---- server sync (logged-in members) ----------------------------------
+  // localStorage 仍是畫面使用的快取；登入會員的購物車內容（規格、數量、勾選）另外同步到資料庫，
+  // 換瀏覽器或裝置登入後可以還原。訪客維持只存在 localStorage。
+  // OWNER_KEY 記錄這份快取屬於哪位會員，避免換帳號登入時把別人的購物車帶進來。
+  // DIRTY_KEY 表示本機有尚未成功同步的變更，下次載入時以本機為準。
+
+  var OWNER_KEY = "ssx-cart-owner-v1";
+  var DIRTY_KEY = "ssx-cart-dirty-v1";
+  var syncMemberId = null; // 已確認登入才有值；null 時不同步
+  var pushTimer = null;
+
+  function lsGet(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  function lsSet(key, value) {
+    try {
+      if (value === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, value);
+    } catch (e) { /* ignore */ }
+  }
+
+  function serverPayload(items) {
+    return items.map(function (item) {
+      return { skuId: Number(item.skuId), qty: item.qty, checked: item.checked !== false };
+    });
+  }
+
+  function scheduleServerPush() {
+    if (syncMemberId === null) return;
+    lsSet(DIRTY_KEY, "1");
+    if (pushTimer) window.clearTimeout(pushTimer);
+    pushTimer = window.setTimeout(function () { pushToServer(false); }, 400);
+  }
+
+  function pushToServer(keepalive) {
+    if (syncMemberId === null) return Promise.resolve();
+    if (pushTimer) { window.clearTimeout(pushTimer); pushTimer = null; }
+    return fetch(getContextPath() + "/front/api/cart", {
+      method: "PUT",
+      credentials: "same-origin",
+      keepalive: !!keepalive,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(serverPayload(readCart()))
+    }).then(function (response) {
+      if (response.ok) lsSet(DIRTY_KEY, null);
+    }).catch(function () { /* 保持 dirty，下次載入或下次異動再同步 */ });
+  }
+
+  // 把伺服器上的列轉成本機項目；同一規格已有本機資料時沿用其名稱、價格等快取，其餘等 verifyCart 補齊
+  function itemsFromServer(lines, localItems) {
+    var local = {};
+    localItems.forEach(function (item) { local[String(item.skuId)] = item; });
+    return lines.map(function (line) {
+      var key = String(line.skuId);
+      var item = local[key] || {
+        skuId: key, skuName: "", name: "", price: 0, stock: null, skuStatus: null,
+        image: line.imageId ? getContextPath() + "/product/image/" + line.imageId : ""
+      };
+      item.qty = line.qty;
+      item.checked = line.checked;
+      return item;
+    });
+  }
+
+  function mergeGuestIntoServer(lines, guestItems) {
+    var merged = lines.map(function (line) {
+      return { skuId: line.skuId, qty: line.qty, checked: line.checked, imageId: line.imageId };
+    });
+    guestItems.forEach(function (guest) {
+      for (var i = 0; i < merged.length; i++) {
+        if (String(merged[i].skuId) === String(guest.skuId)) {
+          merged[i].qty += guest.qty;
+          merged[i].checked = merged[i].checked || guest.checked !== false;
+          return;
+        }
+      }
+      merged.push({ skuId: guest.skuId, qty: guest.qty, checked: guest.checked !== false, imageId: null });
+    });
+    return merged;
+  }
+
+  function initServerCart() {
+    return fetch(getContextPath() + "/api/members/session", {
+      credentials: "same-origin",
+      headers: { "Accept": "application/json" }
+    }).then(function (response) {
+      if (!response.ok) throw new Error("session");
+      return response.json();
+    }).then(function (member) {
+      if (!member.loggedIn) {
+        // 登出後留下的快取屬於上一位會員，不能留給訪客
+        if (lsGet(OWNER_KEY) !== null) {
+          lsSet(OWNER_KEY, null);
+          lsSet(DIRTY_KEY, null);
+          try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+          renderAll();
+        }
+        return;
+      }
+      var memberKey = String(member.memberId);
+      return fetch(getContextPath() + "/front/api/cart", {
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+      }).then(function (response) {
+        if (!response.ok) throw new Error("cart");
+        return response.json();
+      }).then(function (lines) {
+        var owner = lsGet(OWNER_KEY);
+        var dirty = lsGet(DIRTY_KEY) === "1";
+        var local = readCart();
+        var next;
+        if (owner === memberKey) {
+          // 本機是這位會員的快取：有未同步的變更以本機為準，否則以伺服器為準
+          next = dirty ? local : itemsFromServer(lines, local);
+        } else if (owner === null) {
+          // 訪客時加入的商品併入會員購物車
+          next = itemsFromServer(mergeGuestIntoServer(lines, local), local);
+          dirty = true;
+        } else {
+          // 快取屬於別的會員：丟棄，只用這位會員在伺服器的內容
+          next = itemsFromServer(lines, []);
+          dirty = false;
+        }
+        lsSet(OWNER_KEY, memberKey);
+        syncMemberId = member.memberId;
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch (e) { /* ignore */ }
+        lsSet(DIRTY_KEY, dirty ? "1" : null);
+        renderAll();
+        if (dirty) pushToServer(false);
+        if (next.length) verifyCart().catch(function () { /* 結帳時伺服器會再次檢查 */ });
+      });
+    }).catch(function () { /* 查不到就維持本機購物車 */ });
+  }
+
+  window.addEventListener("pagehide", function () {
+    if (syncMemberId !== null && lsGet(DIRTY_KEY) === "1") pushToServer(true);
+  });
 
   function formatMoney(amount) {
     var n = Number(amount) || 0;
@@ -646,7 +787,17 @@
 
   function addVerifiedProduct(product, quantity, button, message, checkoutUrl) {
     button.disabled = true;
-    fetchLiveSkus([product.skuId]).then(function (skus) {
+    // 加入購物車前先確認已登入；未登入導到登入頁，登入後回到這一頁並自動加入商品、開啟購物車
+    isLoggedIn().then(function (loggedIn) {
+      if (!loggedIn) {
+        // 記下要加入的商品與數量，登入回到這一頁後自動加入（立即購買則接著前往結帳）
+        savePendingAdd({ skuId: String(product.skuId), image: product.image || "", qty: quantity, checkoutUrl: checkoutUrl || "" });
+        redirectToLogin(false);
+        return null;
+      }
+      return fetchLiveSkus([product.skuId]);
+    }).then(function (skus) {
+      if (skus === null) return;
       var sku = skus[0];
       if (!sku) throw new Error("此商品已下架或已無可訂購數量，請選擇其他商品。");
       var existing = readCart().find(function (item) { return String(item.skuId) === String(sku.skuId); });
@@ -676,11 +827,37 @@
     });
   }
 
-  // 購物車按鈕：要先登入會員才能開啟購物車。
-  // 已登入就直接開；沒登入就導到登入頁，並在 next 帶上目前頁面加 openCart=1，登入成功回到這一頁後再自動開啟購物車。
-  // 查詢登入狀態失敗（例如伺服器暫時連不上）不擋使用者，照常開啟購物車，結帳時伺服器仍會檢查登入
-  function openCartIfLoggedIn() {
-    fetch(getContextPath() + "/api/members/session", {
+  // ---- 登入前的加入購物車動作 -------------------------------------------
+  // 未登入按「加入購物車」「立即購買」時，先把商品與數量記下來，登入回到頁面後自動完成
+
+  var PENDING_KEY = "ssx-cart-pending-v1";
+  var PENDING_TTL_MS = 30 * 60 * 1000;
+
+  function savePendingAdd(pending) {
+    pending.ts = Date.now();
+    lsSet(PENDING_KEY, JSON.stringify(pending));
+  }
+
+  function resumePendingAdd() {
+    var pending = null;
+    try { pending = JSON.parse(lsGet(PENDING_KEY)); } catch (e) { pending = null; }
+    if (!pending) return;
+    if (!pending.skuId || !(pending.qty > 0) || Date.now() - pending.ts > PENDING_TTL_MS) {
+      lsSet(PENDING_KEY, null);
+      return;
+    }
+    // 仍未登入（例如正停在登入頁）就先保留，等登入回來再處理
+    isLoggedIn().then(function (loggedIn) {
+      if (!loggedIn) return;
+      lsSet(PENDING_KEY, null);
+      addVerifiedProduct({ skuId: pending.skuId, image: pending.image }, pending.qty,
+        document.createElement("button"), null, pending.checkoutUrl || undefined);
+    });
+  }
+
+  // 查詢登入狀態；查詢失敗（例如伺服器暫時連不上）視為已登入，不擋使用者，結帳時伺服器仍會檢查登入
+  function isLoggedIn() {
+    return fetch(getContextPath() + "/api/members/session", {
       method: "GET",
       credentials: "same-origin",
       headers: { "Accept": "application/json" }
@@ -689,21 +866,29 @@
         if (!response.ok) throw new Error("Unable to read member session");
         return response.json();
       })
-      .then(function (member) {
-        if (member.loggedIn) {
-          openCart();
-          return;
-        }
-        var url = new URL(window.location.href);
-        // 本來就在登入或註冊頁時，登入後回首頁開購物車，不要回到登入頁自己
-        if (url.pathname.indexOf("/front/about/login/") >= 0 || url.pathname.indexOf("/front/about/sign-up/") >= 0) {
-          url = new URL(getContextPath() + "/front/", window.location.origin);
-        }
-        url.searchParams.set("openCart", "1");
-        var next = url.pathname + url.search;
-        window.location.assign(getContextPath() + "/front/about/login/?next=" + encodeURIComponent(next));
-      })
-      .catch(function () { openCart(); });
+      .then(function (member) { return !!member.loggedIn; })
+      .catch(function () { return true; });
+  }
+
+  // 導到登入頁，next 帶回目前頁面；withOpenCart 為 true 時登入後自動開啟購物車
+  function redirectToLogin(withOpenCart) {
+    var url = new URL(window.location.href);
+    // 本來就在登入或註冊頁時，登入後回首頁，不要回到登入頁自己
+    if (url.pathname.indexOf("/front/about/login/") >= 0 || url.pathname.indexOf("/front/about/sign-up/") >= 0) {
+      url = new URL(getContextPath() + "/front/", window.location.origin);
+    }
+    if (withOpenCart) url.searchParams.set("openCart", "1");
+    var next = url.pathname + url.search;
+    window.location.assign(getContextPath() + "/front/about/login/?next=" + encodeURIComponent(next));
+  }
+
+  // 購物車按鈕：要先登入會員才能開啟購物車。
+  // 已登入就直接開；沒登入就導到登入頁，並在 next 帶上目前頁面加 openCart=1，登入成功回到這一頁後再自動開啟購物車
+  function openCartIfLoggedIn() {
+    isLoggedIn().then(function (loggedIn) {
+      if (loggedIn) openCart();
+      else redirectToLogin(true);
+    });
   }
 
   // 從登入頁回來（網址帶 openCart=1）：已登入就開啟購物車；不論有沒有開，都把這個參數從網址拿掉，
@@ -1247,12 +1432,20 @@
     button.disabled = true;
     button.querySelector("span").textContent = "登出中...";
 
-    fetch(getContextPath() + "/api/members/logout", {
-      method: "POST",
-      credentials: "same-origin"
+    // 先把尚未同步的購物車變更送出，session 失效後就無法再寫入
+    (lsGet(DIRTY_KEY) === "1" ? pushToServer(false) : Promise.resolve()).then(function () {
+      return fetch(getContextPath() + "/api/members/logout", {
+        method: "POST",
+        credentials: "same-origin"
+      });
     })
       .then(function (response) {
         if (!response.ok) throw new Error("Logout failed");
+        // 購物車已同步到資料庫；登出時清掉本機快取，下一位使用者不會看到
+        syncMemberId = null;
+        lsSet(OWNER_KEY, null);
+        lsSet(DIRTY_KEY, null);
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
         window.location.href = getContextPath() + "/front/";
       })
       .catch(function () {
@@ -1418,6 +1611,7 @@
   neutralizeWebflowCommerce();
   bindEvents();
   renderAll();
+  initServerCart().then(resumePendingAdd);
   initHomePurchaseCards();
   initProductImageCarousels();
   injectCardAddToCartButtons();
