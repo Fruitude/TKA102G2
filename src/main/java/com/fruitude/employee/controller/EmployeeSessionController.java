@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -31,6 +32,9 @@ public class EmployeeSessionController {
 	private final EmployeeAdminService employeeAdminService;
 	private final EmployeeAdminAccessService accessService;
 	private final OperationAuditService auditService;
+	/** 後台員工閒置多久未操作就失效；預設 30 分鐘，可由 application.properties 調整。 */
+	@Value("${app.admin-session.timeout-minutes:30}")
+	private int adminSessionTimeoutMinutes = 30;
 
 	public EmployeeSessionController(EmployeeAdminService employeeAdminService,
 			EmployeeAdminAccessService accessService,
@@ -78,6 +82,7 @@ public class EmployeeSessionController {
 			// 登入成功後更換 Session ID，避免登入前的識別碼被他人固定後沿用。
 			request.changeSessionId();
 			session.setAttribute("loggedInEmployeeId", employee.getEmployeeId());
+			session.setMaxInactiveInterval(Math.max(1, adminSessionTimeoutMinutes) * 60);
 			return ResponseEntity.ok(employeeResponse(employee));
 		} catch (IllegalArgumentException error) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(message(error.getMessage()));

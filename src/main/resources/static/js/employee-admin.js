@@ -425,7 +425,7 @@
         filtered.forEach((permissionGroup) => {
             const row = document.createElement('tr');
             const functionCell = createElement('td', 'responsibility-function');
-            functionCell.appendChild(createElement('strong', '', permissionGroup.groupName));
+            functionCell.appendChild(createElement('strong', 'responsibility-group-name', permissionGroup.groupName));
             functionCell.appendChild(createElement('small', '', permissionGroup.permissions.length + ' 項功能'));
             const detailsCell = document.createElement('td');
             const functionList = createElement('div', 'responsibility-function-list');
@@ -695,13 +695,13 @@
         state.auditLogs.forEach((log) => {
             const row = document.createElement('tr');
             const time = createElement('td', 'audit-time', formatDate(log.createdAt));
-            const actor = document.createElement('td');
+            const actor = createElement('td', 'audit-person');
             actor.appendChild(createElement('div', 'employee-primary', log.employeeName || '系統管理員'));
             actor.appendChild(createElement('div', 'employee-secondary', log.employeeId ? '員工 #' + log.employeeId : '尚未連結員工登入'));
             const type = document.createElement('td');
             type.appendChild(createElement('span', 'audit-module', auditModuleLabels[log.targetModule] || log.targetModule));
             type.appendChild(createElement('span', 'audit-action', auditActionLabels[log.actionType] || log.actionType));
-            const target = document.createElement('td');
+            const target = createElement('td', 'audit-person');
             target.appendChild(createElement('div', 'employee-primary', log.targetDisplay));
             target.appendChild(createElement('div', 'employee-secondary', '#' + log.targetId));
             const detail = createElement('td', 'audit-detail', log.detailContent || '—');

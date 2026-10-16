@@ -97,6 +97,11 @@
     display: flex;
 }
 
+/* 桌面寬度維持原本的單行頁籤標題。 */
+.employee-tab-label {
+    white-space: nowrap;
+}
+
 .employee-tab::after {
     content: "";
     height: 3px;
@@ -288,9 +293,18 @@
     color: var(--employee-ink);
 }
 
+.responsibility-group-name {
+    width: 2em;
+    max-width: 2em;
+    line-height: 1.35;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+}
+
 .responsibility-function small {
     margin-top: .15rem;
     max-width: 430px;
+    white-space: nowrap;
     color: var(--employee-muted);
 }
 
@@ -512,6 +526,11 @@
 
 .audit-time,
 .audit-ip {
+    white-space: nowrap;
+}
+
+/* 更改紀錄中的人員姓名不要被欄寬拆成多行。 */
+.audit-person {
     white-space: nowrap;
 }
 
@@ -1395,13 +1414,23 @@
     }
 
     .employee-tab {
-        min-width: 0;
-        min-width: 88px;
-        flex: 1 0 88px;
+        min-width: 96px;
+        flex: 0 0 96px;
         justify-content: center;
         flex-direction: column;
         gap: .2rem;
         font-size: .76rem;
+    }
+
+    .employee-tab-label {
+        width: 2em;
+        min-width: 2em;
+        line-height: 1.45;
+        text-align: center;
+        white-space: normal;
+        word-break: normal;
+        overflow-wrap: normal;
+        flex: 0 0 auto;
     }
 
     .employee-panel {
