@@ -53,7 +53,7 @@ public class EmployeeSessionController {
 			return employeeResponse(employeeAdminService.findEmployee(employeeId));
 		} catch (java.util.NoSuchElementException error) {
 			HttpSession session = request.getSession(false);
-			if (session != null) session.invalidate();
+			if (session != null) session.removeAttribute("loggedInEmployeeId");
 			return unauthenticated();
 		}
 	}
@@ -105,11 +105,11 @@ public class EmployeeSessionController {
 		}
 	}
 
-	/** 清除後台員工 Session；未登入時重複登出也視為成功。 */
+	/** 只移除後台員工的登入資料（不能 invalidate，否則前台會員也會被登出）；未登入時重複登出也視為成功。 */
 	@PostMapping("/logout")
 	public ResponseEntity<Void> logout(HttpServletRequest request) {
 		HttpSession session = request.getSession(false);
-		if (session != null) session.invalidate();
+		if (session != null) session.removeAttribute("loggedInEmployeeId");
 		return ResponseEntity.noContent().build();
 	}
 

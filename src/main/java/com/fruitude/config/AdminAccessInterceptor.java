@@ -41,7 +41,7 @@ public class AdminAccessInterceptor implements HandlerInterceptor {
 		Integer employeeId = sessionEmployeeId(session);
 		Optional<AccessProfile> profileResult = accessService.findAccessProfile(employeeId);
 		if (profileResult.isEmpty()) {
-			if (session != null) session.invalidate();
+			if (session != null) session.removeAttribute("loggedInEmployeeId");
 			return rejectUnauthenticated(request, response, path);
 		}
 

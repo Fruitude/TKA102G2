@@ -163,12 +163,13 @@ public class MemberController {
 		}
 	}
 
-	/** 登出時使整個會員 session 失效。 */
+	/** 登出時只移除會員的登入資料；前後台共用同一個 session，不能 invalidate，否則後台員工也會被登出。 */
 	@PostMapping("/logout")
 	public ResponseEntity<Void> logout(HttpServletRequest request) {
 		HttpSession session = request.getSession(false);
 		if (session != null) {
-			session.invalidate();
+			session.removeAttribute("loggedInMemberId");
+			session.removeAttribute("loggedInMemberName");
 		}
 		return ResponseEntity.noContent().build();
 	}
