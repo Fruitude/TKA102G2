@@ -205,6 +205,35 @@ public class ChatService {
 		publish(new ChatEvent(ChatEvent.READ, memberId, null,through));
 	}
 
+	// 客服把對話標回未讀：最後一則客服訊息之後的會員訊息改回未讀，左邊清單的未讀數字重新出現
+	// 最後一則是客服訊息、或沒有可改回的會員訊息（例如最後是系統訊息且前面都回覆過）時丟 IllegalArgumentException，什麼都不改
+	// 前端也會鎖按鈕，但畫面可能過期（其他客服剛好回覆、WebSocket 斷線）或被直接呼叫 API，所以以這裡查資料庫的結果為準
+	public void markUnreadByStaff(Integer memberId) {
+		transactionTemplate.executeWithoutResult(status -> {
+			Message last = messageRepository.findFirstByMemberIdAndStatusOrderByMessageIdDesc(memberId, Message.STATUS_SHOWN)
+					.orElseThrow(() -> new IllegalArgumentException("這個對話沒有訊息"));
+			if (Integer.valueOf(Message.SENDER_EMPLOYEE).equals(last.getSenderType())) {
+				throw new IllegalArgumentException("最後一則是客服訊息，不能標為未讀");
+			}
+			Integer lastStaff = messageRepository.lastStaffMessage(memberId);
+			if (messageRepository.markMemberMessagesUnreadAfter(memberId, lastStaff == null ? 0 : lastStaff) == 0) {
+				throw new IllegalArgumentException("沒有可以標為未讀的會員訊息");
+			}
+		});
+		try {
+			chatRedisService.clearUnread(memberId);
+		} catch (DataAccessException e) {
+			cacheUncertain.set(true);
+			System.out.println("聊天室更新 Redis 未讀數失敗：" + e.getMessage());
+		}
+		// 只通知員工頻道；會員端不需要知道客服的已讀狀態。推播失敗不影響已經提交的資料，員工頁重連後會補載
+		try {
+			messagingTemplate.convertAndSend(STAFF_TOPIC, new ChatEvent(ChatEvent.UNREAD, memberId, null, null));
+		} catch (RuntimeException error) {
+			org.slf4j.LoggerFactory.getLogger(getClass()).warn("聊天室推播中斷，重連後補載", error);
+		}
+	}
+
 	// 客服送出訊息：文字與圖片至少一個，圖片最多 MAX_IMAGES 張，每張依 ChatImageSupport 的規則檢查
 	// employeeId 是送出訊息的員工（session 的登入員工），只存進資料庫，不會出現在頁面或推播裡
 	// message_type：有圖片時是 1（圖片，文字可有可無）；沒有圖片、但文字是由建議回覆帶入（cannedId 有值）時是 2（罐頭訊息，

@@ -92,6 +92,17 @@ public class AdminChatController {
 		return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(chatSvc.getUnreadPreview(memberId));
 	}
 
+	// 標為未讀：把還沒回覆的會員訊息改回未讀；最後一則是客服訊息等不允許的情況由 ChatService 丟錯，badRequest 回 400 與原因
+	@PostMapping("/api/admin/chat/{memberId}/unread")
+	@ResponseBody
+	public ResponseEntity<?> markUnread(@PathVariable Integer memberId, HttpServletRequest request) {
+		if (!hasPermission(request, "CHAT_VIEW")) {
+			return forbidden();
+		}
+		chatSvc.markUnreadByStaff(memberId);
+		return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of());
+	}
+
 	// 建議回覆：拿這位會員最新一則訊息比對罐頭訊息的關鍵字，最多 3 筆；只有能回覆的員工用得到
 	@GetMapping("/api/admin/chat/{memberId}/suggestions")
 	@ResponseBody

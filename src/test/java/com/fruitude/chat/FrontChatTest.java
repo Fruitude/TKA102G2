@@ -55,6 +55,12 @@ public class FrontChatTest {
                         && (name.equals("markStaffMessagesRead")?m.getSenderType()!=1:m.getSenderType()==1)){
                         m.setIsRead(1);m.setReadAt((LocalDateTime)args[2]);changed++;}return changed;
                 }
+                case "findFirstByMemberIdAndStatusOrderByMessageIdDesc":return data.stream().filter(m->m.getMemberId()==member&&m.getStatus().equals(args[1])).max(Comparator.comparing(Message::getMessageId));
+                case "lastStaffMessage":return data.stream().filter(m->m.getMemberId()==member&&m.getSenderType()==2&&m.getStatus()==1).map(Message::getMessageId).max(Integer::compareTo).orElse(null);
+                case "markMemberMessagesUnreadAfter":{
+                    int changed=0;for(var m:data)if(m.getMemberId()==member&&m.getSenderType()==1&&m.getStatus()==1&&m.getIsRead()==1&&m.getMessageId()>(Integer)args[1]){
+                        m.setIsRead(0);m.setReadAt(null);changed++;}return changed;
+                }
                 case "findConversationRows":return List.of();
                 default:throw new UnsupportedOperationException(name);
                 }

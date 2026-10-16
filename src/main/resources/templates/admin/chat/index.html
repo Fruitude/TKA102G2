@@ -75,6 +75,9 @@
         /* 客服訊息的箭頭在泡泡左邊，提示氣泡改顯示在箭頭左邊，避免蓋住泡泡 */
         .chat-row.staff .chat-reply-button::after{left:auto;right:calc(100% + 6px)}
         .chat-copy-menu button:disabled{color:#1cc88a;cursor:default;background:white}
+        /* 標為未讀鎖住時：顏色變淺，pointer-events:none 讓滑鼠滑過去沒有 hover 效果、點了也沒反應（不顯示提示文字） */
+        .chat-mark-unread{flex:0 0 auto;margin-left:12px}
+        .chat-mark-unread:disabled{opacity:.35;pointer-events:none;cursor:default}
         /* 對話列預覽：眼睛按鈕、右鍵選單共用的預覽視窗；只看不標已讀 */
         .chat-row-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
         .chat-preview-button{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;color:#4e73df;cursor:pointer;line-height:28px}
@@ -137,8 +140,10 @@
 						<!-- 右邊：目前選取會員的對話；員工訊息顯示發送員工姓名 -->
 						<div class="col-lg-8 mb-4">
 							<div class="card shadow">
-								<div class="card-header py-3">
+								<div class="card-header py-3 d-flex justify-content-between align-items-center">
 									<h6 class="m-0 font-weight-bold text-primary" id="conversation-title">請選擇會員開啟對話</h6>
+									<!-- 標為未讀：把還沒回覆的會員訊息改回未讀並離開對話；最後一則是客服訊息時鎖住（顏色變淺、沒有反應），後端也會再檢查 -->
+									<button type="button" class="btn btn-sm btn-outline-secondary chat-mark-unread" id="mark-unread-button" hidden>標為未讀</button>
 								</div>
 								<div class="card-body chat-messages" id="message-list"></div>
 								<!-- 沒有 CHAT_REPLY 權限時不顯示輸入框（canReply 由 AdminChatController 的 chat 放入） -->
@@ -481,6 +486,8 @@
 			wrapper.appendChild(meta);
 			row.appendChild(wrapper);
 			messageList.appendChild(row);updateMessageMeta(row,message);
+            // 新訊息可能改變最後發送者（客服回覆後鎖住、會員再傳又解鎖）
+            updateMarkUnreadButton();
 		}
 
         // 回覆箭頭按鈕：線條 SVG（往上再往左轉的箭頭），顏色跟著按鈕文字色；點了跟右鍵「回覆該訊息」做一樣的事
@@ -653,6 +660,8 @@
             setReply(null);closeReplyMenu();closeCopyMenu();
 			currentMemberId = memberId;
 			hideError();
+            // 訊息載入完成前先鎖住標為未讀，避免用上一個對話的訊息判斷
+            markUnreadButton.hidden=false;markUnreadButton.disabled=true;
 			const conversation = conversations.find(item => item.memberId === memberId);
 			conversationTitle.textContent = conversation ? memberLabel(conversation) : '會員 #' + memberId;
 			let messages;
@@ -673,8 +682,52 @@
 				sendContent.focus();
 				loadSuggestions(memberId);
 			}
+            updateMarkUnreadButton();
 			loadConversations();
 		}
+
+        // 標為未讀按鈕：用畫面上已載入的訊息判斷能不能用，規則和後端 ChatService.markUnreadByStaff 相同
+        // 鎖住：最後一則是客服訊息、或最後一則客服訊息之後沒有會員訊息（例如最後是系統訊息）、正在送出訊息、正在標為未讀
+        const markUnreadButton=document.getElementById('mark-unread-button');
+        let markingUnread=false;
+        function updateMarkUnreadButton(){
+            if(currentMemberId===null){markUnreadButton.hidden=true;return;}
+            markUnreadButton.hidden=false;
+            let last=null,lastStaffId=0;
+            for(const message of messageData.values()){
+                if(message.memberId!==currentMemberId)continue;
+                if(!last||message.messageId>last.messageId)last=message;
+                if(message.senderType===2&&message.messageId>lastStaffId)lastStaffId=message.messageId;
+            }
+            let pendingMember=false;
+            for(const message of messageData.values())if(message.memberId===currentMemberId&&message.senderType===1&&message.messageId>lastStaffId)pendingMember=true;
+            markUnreadButton.disabled=!last||last.senderType===2||!pendingMember||markingUnread||(!!sendForm&&sendButton.disabled);
+        }
+        // 離開目前的對話：右邊清空、輸入區還原並停用，左邊清單取消選取
+        function leaveConversation(){
+            currentMemberId=null;setReply(null);closeReplyMenu();closeCopyMenu();
+            messageList.replaceChildren();messageData.clear();
+            conversationTitle.textContent='請選擇會員開啟對話';
+            if(sendForm){
+                sendContent.value='';selectedCannedId=null;selectedImages=[];renderPreviews();renderSuggestions([]);
+                sendContent.disabled=true;sendButton.disabled=true;pickImagesButton.disabled=true;
+            }
+            renderConversations();updateMarkUnreadButton();
+        }
+        markUnreadButton.addEventListener('click',async()=>{
+            const memberId=currentMemberId;if(memberId===null||markUnreadButton.disabled)return;
+            markingUnread=true;updateMarkUnreadButton();
+            try{
+                await callApi('api/admin/chat/'+memberId+'/unread',{method:'POST'});
+                hideError();
+                // 一定要離開對話：對話開著時收到會員新訊息會自動標回已讀
+                if(currentMemberId===memberId)leaveConversation();
+                loadConversations();document.dispatchEvent(new CustomEvent('fruitude:admin-chat-update'));
+            }catch(error){
+                // 後端拒絕（例如其他客服剛好回覆、畫面還沒更新）：顯示原因、留在對話並補載最新訊息
+                showError(error.message);if(currentMemberId===memberId)refreshCurrentConversation();
+            }finally{markingUnread=false;updateMarkUnreadButton();}
+        });
 
 		// 建議回覆：依會員最新一則訊息比對出來的罐頭訊息，按鈕顯示標題，滑鼠移上去顯示完整內容
 		async function loadSuggestions(memberId) {
@@ -787,6 +840,8 @@
 				formData.append('cannedId', selectedCannedId);
 			}
 			sendButton.disabled = true;
+			// 送出中先鎖住標為未讀，避免送出與標為未讀同時進行
+			updateMarkUnreadButton();
 			try {
 				await callApi('api/admin/chat/' + sendingTo + '/messages', {
 					method: 'POST',
@@ -805,6 +860,7 @@
 			} finally {
 				sendButton.disabled = false;
 				sendContent.focus();
+				updateMarkUnreadButton();
 			}
 		}
 
@@ -846,6 +902,8 @@
                 if(event.type==='MESSAGE'||event.type==='READ')document.dispatchEvent(new CustomEvent('fruitude:admin-chat-update'));
                 // 預覽開著時，同一位會員有新訊息或被其他客服讀掉，就重新載入預覽
                 if((event.type==='MESSAGE'||event.type==='READ')&&event.memberId===previewMemberId)loadPreview();
+                // 其他客服把對話標回未讀：通知 topbar 信封更新數字，預覽開著的話也重新載入（清單在下面統一重新載入）
+                if(event.type==='UNREAD'){document.dispatchEvent(new CustomEvent('fruitude:admin-chat-update'));if(event.memberId===previewMemberId)loadPreview();}
                 if(event.type==='MEMBER_READ'&&event.memberId===currentMemberId){
                     for(const [id,message] of messageData)if(message.senderType===2&&id<=event.readThroughId){message.isRead=1;const row=messageList.querySelector('[data-message-id="'+id+'"]');if(row)updateMessageMeta(row,message);}
                 }

@@ -25,6 +25,15 @@ public interface MessageRepository extends JpaRepository<Message, Integer> {
 
     @Query("select max(m.messageId) from Message m where m.memberId=:memberId and m.senderType=1 and m.status=1")
     Integer lastMemberMessage(@Param("memberId") Integer memberId);
+
+    // 標為未讀用：最新一則顯示中的訊息（判斷最後發送者）、最後一則客服訊息的編號
+    Optional<Message> findFirstByMemberIdAndStatusOrderByMessageIdDesc(Integer memberId, Integer status);
+    @Query("select max(m.messageId) from Message m where m.memberId=:memberId and m.senderType=2 and m.status=1")
+    Integer lastStaffMessage(@Param("memberId") Integer memberId);
+    // 把 afterId 之後（還沒被回覆）的會員訊息改回未讀
+    @Transactional @Modifying
+    @Query("update Message m set m.isRead=0,m.readAt=null where m.memberId=:memberId and m.senderType=1 and m.status=1 and m.isRead=1 and m.messageId>:afterId")
+    int markMemberMessagesUnreadAfter(@Param("memberId") Integer memberId,@Param("afterId") Integer afterId);
     @Transactional @Modifying
     @Query("update Message m set m.isRead=1,m.readAt=:at where m.memberId=:memberId and m.senderType=1 and m.status=1 and m.isRead=0 and m.messageId<=:throughId")
     int markMemberMessagesReadThrough(@Param("memberId") Integer memberId,@Param("throughId") Integer throughId,@Param("at") LocalDateTime at);

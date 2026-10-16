@@ -66,7 +66,7 @@
   try{await loadLibrary();if(client||stopped||!window.StompJs)return;
    client=new StompJs.Client({brokerURL:(location.protocol==='https:'?'wss://':'ws://')+location.host+badge.dataset.ws,reconnectDelay:5000});
    client.onConnect=()=>{client.subscribe('/topic/chat/staff',frame=>{
-    try{const type=JSON.parse(frame.body).type;if(type==='MESSAGE'||type==='READ')refresh();}catch(error){}
+    try{const type=JSON.parse(frame.body).type;if(type==='MESSAGE'||type==='READ'||type==='UNREAD')refresh();}catch(error){}
    });refresh();};client.activate();
   }catch(error){/* Initial count and focus refresh remain available if the library cannot load. */}
  }
