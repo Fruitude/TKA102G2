@@ -1,5 +1,5 @@
 <!doctype html><html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org"><body>
-<aside th:fragment="widget" class="ff-chat" id="ff-chat" aria-label="智慧鮮果客服">
+<aside th:fragment="widget" class="ff-chat" id="ff-chat" th:data-api="@{/api/front/chat}" th:data-ws="@{/front/chat/ws}" aria-label="智慧鮮果客服">
  <audio class="ff-chat-open-sound" th:src="@{/front/audio/chat-msn-open.mp3(v=20261016-first-070)}" preload="none" hidden></audio>
  <div class="ff-chat-invite" id="ff-chat-invite" hidden>
   <button type="button" class="ff-chat-invite-close" aria-label="關閉招呼提示">×</button>
@@ -9,22 +9,24 @@
  <section class="ff-chat-panel" id="ff-chat-panel" role="dialog" aria-modal="false" aria-labelledby="ff-chat-title" hidden>
   <header class="ff-chat-header">
    <div class="ff-chat-avatar"><img th:src="@{/front/img/chat-apple-person.svg}" alt="" width="54" height="54"></div>
-   <div class="ff-chat-heading"><span class="ff-chat-eyebrow">鮮果鋪的小小陪伴</span><h2 id="ff-chat-title">智慧鮮果</h2><p><span class="ff-chat-status-dot"></span>客服聊天室<span class="ff-chat-preview-tag">畫面預覽</span></p></div>
+   <div class="ff-chat-heading"><span class="ff-chat-eyebrow">鮮果鋪的小小陪伴</span><h2 id="ff-chat-title">智慧鮮果</h2><p><span class="ff-chat-status-dot"></span>客服聊天室<span class="ff-chat-preview-tag">尚未連線</span></p></div>
    <button class="ff-chat-close" type="button" aria-label="收起客服聊天室"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
   </header>
   <div class="ff-chat-messages" role="log" aria-label="聊天訊息" aria-live="polite" aria-relevant="additions text">
-   <p class="ff-chat-day">一段鮮甜的對話，從這裡開始</p>
+   <button class="ff-chat-older" type="button" hidden>載入較早訊息</button><p class="ff-chat-day">一段鮮甜的對話，從這裡開始</p>
    <div class="ff-chat-message ff-chat-message--helper"><span class="ff-chat-message-avatar" aria-hidden="true">🍎</span><div><span class="ff-chat-sender">智慧鮮果</span><div class="ff-chat-bubble"><p>嗨，歡迎來到鮮果鋪！</p><p>挑選水果、配送或訂單有疑問，都可以在這裡告訴我們。🍃</p></div></div></div>
    <div class="ff-chat-topics" aria-label="常見詢問主題"><button type="button" data-chat-topic="想請你推薦適合的水果。">🍎 挑選水果</button><button type="button" data-chat-topic="想詢問訂單相關問題。">📦 訂單查詢</button><button type="button" data-chat-topic="想了解配送與水果保存方式。">🚚 配送與保存</button></div>
   </div>
   <footer class="ff-chat-footer">
-   <p class="ff-chat-demo-notice" role="status">目前為畫面預覽，訊息尚未傳送給客服。</p>
-   <form class="ff-chat-compose"><label class="ff-chat-sr-only" for="ff-chat-input">客服訊息</label><textarea id="ff-chat-input" rows="1" maxlength="500" placeholder="輸入訊息，讓我們幫幫你…"></textarea><button class="ff-chat-send" type="submit" aria-label="預覽傳送訊息" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14"/></svg></button></form>
+   <p class="ff-chat-demo-notice" role="status">正在確認登入狀態…</p>
+   <a class="ff-chat-login" th:href="@{/front/about/login/}" hidden>登入會員，開始與客服對話</a>
+   <div class="ff-chat-attachments" hidden></div>
+   <form class="ff-chat-compose"><label class="ff-chat-pick" title="附加圖片"><span aria-hidden="true">＋</span><span class="ff-chat-sr-only">選取聊天圖片</span><input class="ff-chat-files" type="file" accept="image/png,image/jpeg,image/gif" multiple></label><label class="ff-chat-sr-only" for="ff-chat-input">客服訊息</label><textarea id="ff-chat-input" rows="1" maxlength="1000" placeholder="輸入訊息，讓我們幫幫你…"></textarea><button class="ff-chat-send" type="submit" aria-label="傳送訊息" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14"/></svg></button></form>
    <p class="ff-chat-footnote">每一個小問題，都值得被好好回答。</p>
   </footer>
  </section>
  <button type="button" class="ff-chat-launcher" aria-label="開啟智慧鮮果客服聊天室" aria-expanded="false" aria-controls="ff-chat-panel">
-  <span class="ff-chat-launcher-glow" aria-hidden="true"></span><img class="ff-chat-mascot" th:src="@{/front/img/chat-apple-person.svg}" alt="" width="104" height="104"><span class="ff-chat-launcher-label">智慧鮮果<span aria-hidden="true">✦</span></span>
+  <span class="ff-chat-unread" aria-label="客服未讀訊息" hidden></span><span class="ff-chat-launcher-glow" aria-hidden="true"></span><img class="ff-chat-mascot" th:src="@{/front/img/chat-apple-person.svg}" alt="" width="104" height="104"><span class="ff-chat-launcher-label">智慧鮮果<span aria-hidden="true">✦</span></span>
  </button>
 </aside>
 </body></html>

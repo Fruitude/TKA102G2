@@ -6,6 +6,11 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MessageImageRepository extends JpaRepository<MessageImage, Integer> {
+    @org.springframework.data.jpa.repository.Query("select count(i) from MessageImage i, Message m "
+        + "where i.messageId=m.messageId and i.imageId=:imageId and m.memberId=:memberId and m.status=1")
+    long owned(@org.springframework.data.repository.query.Param("imageId") Integer imageId,
+        @org.springframework.data.repository.query.Param("memberId") Integer memberId);
+
 
 	// 圖片的編號與所屬訊息，不含圖片內容；顯示對話時只需要知道有哪些圖片，圖片本身由頁面另外讀
 	interface ImageRef {

@@ -127,10 +127,15 @@ public class ProductService {
         updateBasicFields(product);
     }
 
+    @Transactional
     public void deleteProduct(Integer productId) {
-        if (repository.existsById(productId)) {
-            repository.deleteById(productId);
-        }
+        if (productId == null || productId <= 0) throw new IllegalArgumentException("商品不存在");
+        var product = repository.findById(productId)
+            .orElseThrow(() -> new IllegalArgumentException("商品不存在，可能已被刪除"));
+        // Keep cascading image/SKU removal and its flush in one transaction. A failed
+        // constraint must roll back the whole deletion before the controller redirects.
+        repository.delete(product);
+        repository.flush();
     }
 
     public Product getOneProduct(Integer productId) {

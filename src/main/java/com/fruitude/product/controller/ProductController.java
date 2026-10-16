@@ -411,22 +411,54 @@ public class ProductController {
     @PostMapping("/product/delete")
     public String delete(
             @RequestParam("productId") Integer productId,
+            @RequestParam(defaultValue = "") String returnQuery,
             org.springframework.web.servlet.mvc.support.RedirectAttributes model) {
 
+        String destination = productOverviewReturn(returnQuery);
         try {
-            if (productSvc.getOneProduct(productId) == null) {
-                model.addFlashAttribute("errorMessage", "商品不存在");
-                return "redirect:/product/listAllProduct";
-            }
             productSvc.deleteProduct(productId);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            model.addFlashAttribute("errorMessage", "商品規格已被訂單、購物車或其他資料引用，請改為下架");
-            return "redirect:/product/listAllProduct";
+            org.slf4j.LoggerFactory.getLogger(ProductController.class)
+                .warn("商品 {} 刪除受關聯資料限制", productId, e);
+            model.addFlashAttribute("errorMessage", "商品規格已被訂單、購物車、收藏、活動或採購資料引用，請改為下架");
+            return destination;
+        } catch (IllegalArgumentException e) {
+            model.addFlashAttribute("errorMessage", e.getMessage());
+            return destination;
+        } catch (RuntimeException e) {
+            org.slf4j.LoggerFactory.getLogger(ProductController.class)
+                .error("商品 {} 刪除失敗", productId, e);
+            model.addFlashAttribute("errorMessage", "商品刪除未完成，請重新整理後再試；若持續失敗，請提供商品 ID 給管理人員查詢。");
+            return destination;
         }
 
         model.addFlashAttribute("success", "刪除成功");
 
-        return "redirect:/product/listAllProduct";
+        return destination;
+    }
+
+    // Only restore known overview filters; the destination always stays on this page.
+    static String productOverviewReturn(String query) {
+        var target = org.springframework.web.util.UriComponentsBuilder.fromPath("/product/listAllProduct");
+        var allowed = java.util.Set.of("page", "size", "keyword", "searchProductName", "searchSkuName",
+            "statusFilter", "stockFilter", "parentCategoryId", "categoryId", "vendorId", "origin",
+            "minComments", "maxComments", "ratingFilter", "sortBy", "sortDirection");
+        if (query != null && query.length() <= 8192) {
+            try {
+                var source = org.springframework.web.util.UriComponentsBuilder
+                    .fromUriString("/product/listAllProduct?" + query).build().getQueryParams();
+                source.forEach((key, values) -> {
+                    if (allowed.contains(key) && !values.isEmpty()) {
+                        String value = values.get(0);
+                        target.queryParam(key, java.net.URLDecoder.decode(value == null ? "" : value,
+                            java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                });
+            } catch (IllegalArgumentException ignored) {
+                return "redirect:/product/listAllProduct";
+            }
+        }
+        return "redirect:" + target.build().encode().toUriString();
     }
 
     /*
@@ -549,6 +581,7 @@ public class ProductController {
         model.addAttribute("overviewStockStatuses", productSvc.getOverviewStockStatuses(overviewProductIds));
         model.addAttribute("overviewLightweight", true);
         model.addAttribute("currentPage", result.getTotalPages() == 0 ? 1 : result.getNumber() + 1);
+        model.addAttribute("productReturnQuery", request.getQueryString() == null ? "" : request.getQueryString());
         model.addAttribute("pageSize", result.getSize());
         model.addAttribute("totalPages", result.getTotalPages());
         model.addAttribute("totalProducts", result.getTotalElements());

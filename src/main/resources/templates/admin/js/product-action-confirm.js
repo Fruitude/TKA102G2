@@ -17,6 +17,7 @@
         .product-action-confirm .confirm-warning-icon { width: 24px; height: 24px; flex-shrink: 0; }
         .product-action-confirm p { margin: 0 0 18px; line-height: 1.6; white-space: pre-line; }
         .product-action-confirm label { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+        .product-action-confirm label[hidden] { display: none; }
         .product-action-confirm footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
         .product-action-confirm button { border: 1px solid #666; background: #fff; color: #000; font: inherit; padding: 5px 14px; border-radius: 4px; cursor: pointer; }
         .product-action-confirm button:hover { background: #f3f4f6; }
@@ -69,16 +70,19 @@
 
     window.confirmProductAction = (action, text) => {
         if (pending) return Promise.resolve(false);
-        if (skippedToday(action)) return Promise.resolve(true);
+        // Product deletion always needs explicit confirmation, even if an older
+        // version saved a "skip today" preference for deletion.
+        if (action !== 'delete' && skippedToday(action)) return Promise.resolve(true);
         pending = true;
         const focused = document.activeElement;
         message.textContent = text;
         skip.checked = false;
+        skip.closest('label').hidden = action === 'delete';
         dialog.returnValue = '';
         return new Promise(resolve => {
             dialog.addEventListener('close', () => {
                 const confirmed = dialog.returnValue === 'accept';
-                if (confirmed && skip.checked) {
+                if (confirmed && action !== 'delete' && skip.checked) {
                     try { localStorage.setItem(storagePrefix + action, today()); }
                     catch (_) { /* Confirmation remains usable when storage is blocked. */ }
                 }
@@ -102,6 +106,9 @@
             const confirmed = await window.confirmProductAction('delete',
                 '刪除有可能造成客戶歷史訂單顯示錯誤，或客戶未完成訂單顯示錯誤，您確定要刪除這筆商品嗎？\n【建議使用下架功能】');
             if (!confirmed) return;
+            // AJAX pagination replaces the URL without reloading this script.
+            const returnQuery = form.querySelector('input[name="returnQuery"]');
+            if (returnQuery) returnQuery.value = window.location.search.slice(1);
             approvedForms.add(form);
             form.requestSubmit(submitter || undefined);
     });

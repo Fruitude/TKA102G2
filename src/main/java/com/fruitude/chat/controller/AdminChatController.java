@@ -52,6 +52,15 @@ public class AdminChatController {
 		return "admin/chat/index"; //view
 	}
 
+    // Shared sidebar badge: expose only the total and require the same CHAT_VIEW permission.
+    @GetMapping("/api/admin/chat/unread")
+    @ResponseBody
+    public ResponseEntity<?> unread(HttpServletRequest request) {
+        if(!hasPermission(request,"CHAT_VIEW"))return forbidden();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+            .body(Map.of("unreadCount",chatSvc.staffUnreadCount()));
+    }
+
 	// 對話清單：每位會員一列，最後訊息時間由新到舊
 	@GetMapping("/api/admin/chat/conversations")
 	@ResponseBody
@@ -70,7 +79,7 @@ public class AdminChatController {
 			return forbidden();
 		}
 		chatSvc.markReadByStaff(memberId);
-		return ResponseEntity.ok(chatSvc.getConversation(memberId));
+		return ResponseEntity.ok(chatSvc.getStaffConversation(memberId));
 	}
 
 	// 建議回覆：拿這位會員最新一則訊息比對罐頭訊息的關鍵字，最多 3 筆；只有能回覆的員工用得到
@@ -91,14 +100,14 @@ public class AdminChatController {
 	public ResponseEntity<?> send(@PathVariable Integer memberId,
 			@RequestParam(value = "content", required = false) String content,
 			@RequestParam(value = "images", required = false) List<MultipartFile> images,
-			@RequestParam(value = "cannedId", required = false) Integer cannedId, HttpServletRequest request,
+			@RequestParam(value = "cannedId", required = false) Integer cannedId, @RequestParam(value="replyMessageId",required=false) Integer replyMessageId, HttpServletRequest request,
 			HttpSession session) throws IOException {
 		if (!hasPermission(request, "CHAT_REPLY")) {
 			return forbidden();
 		}
 		Object employeeId = session.getAttribute("loggedInEmployeeId");
 		return ResponseEntity.ok(chatSvc.sendStaffMessage(memberId,
-				employeeId instanceof Number ? ((Number) employeeId).intValue() : null, content, images, cannedId));
+				employeeId instanceof Number ? ((Number) employeeId).intValue() : null, content, images, cannedId,replyMessageId));
 	}
 
 	// 聊天圖片原圖；頁面點縮圖時在新分頁開這個網址

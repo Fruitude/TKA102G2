@@ -8,6 +8,11 @@
 	<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
 	<style>
 		.chat-list { max-height: 70vh; overflow-y: auto; }
+        .chat-list-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;margin-top:12px}
+        .chat-list-control{display:flex;align-items:center;gap:7px;font-size:.85rem}
+        .chat-list-control label{margin:0;white-space:nowrap}
+        .chat-list-control select{width:auto;min-width:94px}
+        .chat-list-control button{min-width:62px}
 		.chat-list .list-group-item { cursor: pointer; }
 		.chat-messages { height: 60vh; overflow-y: auto; background: #f8f9fc; }
 		.chat-row { display: flex; margin-bottom: .75rem; }
@@ -44,6 +49,9 @@
 		#image-viewer .viewer-prev { left: .5rem; }
 		#image-viewer .viewer-next { right: .5rem; }
 		#image-viewer .viewer-counter { color: #fff; text-align: center; margin-top: .5rem; }
+        .chat-reply-menu{position:fixed;z-index:2100;padding:4px;border:1px solid #d1d3e2;border-radius:7px;background:white;box-shadow:0 4px 18px #0002}.chat-reply-menu button{padding:8px 18px;background:white;border:0;border-radius:5px;color:#4e73df;cursor:pointer}.chat-reply-menu button:hover,.chat-reply-menu button:focus{background:#eef1fc}
+        .chat-reply-draft{position:relative;margin-bottom:10px;padding:8px 30px 8px 12px;border-left:3px solid #4e73df;border-radius:5px;background:#edf1fc;font-size:.8rem}.chat-reply-draft p{margin:3px 0 0;max-height:40px;overflow:hidden;overflow-wrap:anywhere}.chat-reply-draft button{position:absolute;right:5px;top:3px;border:0;background:transparent;color:#858796;cursor:pointer}
+        .chat-quoted{align-self:stretch;margin-bottom:5px;padding:6px 10px;border-left:3px solid #9bade8;border-radius:4px;background:#edf1fc;color:#58668b;font-size:.78rem;white-space:pre-wrap;overflow-wrap:anywhere}.chat-quoted p{margin:3px 0 0}.chat-reply-menu[hidden],.chat-reply-draft[hidden]{display:none!important}.chat-row:focus-visible{outline:2px solid #b4c1eb;outline-offset:3px;border-radius:5px}
 	</style>
 </head>
 <body id="page-top">
@@ -73,6 +81,10 @@
 							<div class="card shadow">
 								<div class="card-header py-3">
 									<h6 class="m-0 font-weight-bold text-primary">會員對話</h6>
+                                    <div class="chat-list-controls">
+                                        <div class="chat-list-control"><label for="conversation-filter">顯示</label><select class="form-control form-control-sm" id="conversation-filter"><option value="all">全部</option><option value="unread">僅未讀</option></select></div>
+                                        <div class="chat-list-control"><span id="conversation-order-label">順序</span><button type="button" class="btn btn-sm btn-outline-primary" id="conversation-order" aria-labelledby="conversation-order-label conversation-order" title="目前最新優先，點擊改為最舊優先">最新</button></div>
+                                    </div>
 								</div>
 								<div class="list-group list-group-flush chat-list" id="conversation-list">
 									<div class="list-group-item text-muted">載入中…</div>
@@ -80,7 +92,7 @@
 							</div>
 						</div>
 
-						<!-- 右邊：目前選取會員的對話；員工送的訊息一律顯示「客服」，不顯示是哪位員工 -->
+						<!-- 右邊：目前選取會員的對話；員工訊息顯示發送員工姓名 -->
 						<div class="col-lg-8 mb-4">
 							<div class="card shadow">
 								<div class="card-header py-3">
@@ -145,6 +157,8 @@
 		// 網站根路徑（有設定 context path 時也正確）
 		const basePath = /*[[@{/}]]*/ '/';
 		const conversationList = document.getElementById('conversation-list');
+        const conversationFilter=document.getElementById('conversation-filter'),conversationOrder=document.getElementById('conversation-order');
+        let oldestFirst=false,conversationRequest=0;
 		const messageList = document.getElementById('message-list');
 		const conversationTitle = document.getElementById('conversation-title');
 		const errorBox = document.getElementById('chat-error');
@@ -170,6 +184,37 @@
 		let selectedCannedId = null;
 		// 目前畫面上的對話清單，切換對話時用來顯示會員姓名
 		let conversations = [];
+        const messageData=new Map();let replyTarget=null,menuTarget=null;
+        const replyDraft=document.createElement('div'),replyMenu=document.createElement('div'),replyAction=document.createElement('button');
+        replyDraft.className='chat-reply-draft';replyDraft.hidden=true;if(sendForm)sendForm.before(replyDraft);
+        replyMenu.className='chat-reply-menu';replyMenu.hidden=true;replyMenu.setAttribute('role','menu');
+        replyAction.type='button';replyAction.textContent='回覆該訊息';replyAction.setAttribute('role','menuitem');replyMenu.append(replyAction);document.body.append(replyMenu);
+        function senderLabel(m){return m.senderType===2?(m.employeeName||(m.employeeId?'員工 #'+m.employeeId:'客服')):m.senderType===1?'會員':'系統';}
+        function replyText(m){const text=m.messageContent?.trim()||'[圖片訊息]';return Array.from(text).slice(0,100).join('')+(Array.from(text).length>100?'…':'');}
+        function closeReplyMenu(){replyMenu.hidden=true;menuTarget=null;}
+        function setReply(target){
+            replyTarget=target;replyDraft.replaceChildren();replyDraft.hidden=!target;if(!target)return;
+            const label=document.createElement('strong'),text=document.createElement('p'),cancel=document.createElement('button');
+            label.textContent='回覆 '+senderLabel(target);text.textContent=replyText(target);cancel.type='button';cancel.textContent='×';cancel.setAttribute('aria-label','取消回覆');
+            cancel.addEventListener('click',()=>setReply(null));replyDraft.append(label,text,cancel);
+        }
+        function showReplyMenu(event){
+            const row=event.target.closest('.chat-row[data-message-id]');if(!row||!sendForm||sendButton.disabled)return;
+            event.preventDefault();const target=messageData.get(Number(row.dataset.messageId));if(!target||target.memberId!==currentMemberId)return;
+            menuTarget=target;replyMenu.hidden=false;const rect=row.getBoundingClientRect(),x=event.clientX||rect.left+15,y=event.clientY||rect.top+15;
+            replyMenu.style.left=Math.max(8,Math.min(x,innerWidth-replyMenu.offsetWidth-8))+'px';replyMenu.style.top=Math.max(8,Math.min(y,innerHeight-replyMenu.offsetHeight-8))+'px';replyAction.focus({preventScroll:true});
+        }
+        messageList.addEventListener('contextmenu',showReplyMenu);
+        messageList.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10'))showReplyMenu(event);});
+        replyAction.addEventListener('click',()=>{if(menuTarget&&menuTarget.memberId===currentMemberId){setReply(menuTarget);sendContent.focus({preventScroll:true});}closeReplyMenu();});
+        document.addEventListener('pointerdown',event=>{if(!replyMenu.contains(event.target))closeReplyMenu();});
+        document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!replyMenu.hidden){event.preventDefault();closeReplyMenu();}});
+        window.addEventListener('resize',closeReplyMenu);messageList.addEventListener('scroll',closeReplyMenu,{passive:true});
+        function updateMessageMeta(row,message){
+            if(message.senderType===2&&message.isRead===1)row.dataset.read='1';
+            row.querySelector('.chat-meta').textContent=senderLabel(message)+'・'+formatTime(message.createdAt)+(message.senderType===2&&row.dataset.read==='1'?' · 客戶已讀':'');
+        }
+
 
 		function showError(message) {
 			errorBox.textContent = message;
@@ -200,21 +245,31 @@
 
 		// 對話清單：每位會員一列，有未讀時顯示紅色數字
 		async function loadConversations() {
+            const request=++conversationRequest;
 			try {
-				conversations = await callApi('api/admin/chat/conversations');
+                const result=await callApi('api/admin/chat/conversations');
+                if(request!==conversationRequest)return;conversations=result;
 			} catch (error) {
 				showError(error.message);
 				return;
 			}
+            renderConversations();
+        }
+        function renderConversations(){
+            const scrollTop=conversationList.scrollTop;
+            const visible=conversations.filter(item=>conversationFilter.value!=='unread'||Number(item.unreadCount)>0).slice().sort((a,b)=>{
+                const timeA=Date.parse(a.lastMessageAt)||0,timeB=Date.parse(b.lastMessageAt)||0;
+                return (oldestFirst?1:-1)*((timeA-timeB)||(a.memberId-b.memberId));
+            });
 			conversationList.replaceChildren();
-			if (conversations.length === 0) {
+			if (visible.length === 0) {
 				const empty = document.createElement('div');
 				empty.className = 'list-group-item text-muted';
-				empty.textContent = '目前沒有對話';
+				empty.textContent = conversationFilter.value==='unread'?'目前沒有未讀對話':'目前沒有對話';
 				conversationList.appendChild(empty);
 				return;
 			}
-			for (const conversation of conversations) {
+			for (const conversation of visible) {
 				const item = document.createElement('a');
 				item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
 				if (conversation.memberId === currentMemberId) {
@@ -237,15 +292,28 @@
 				item.addEventListener('click', () => openConversation(conversation.memberId));
 				conversationList.appendChild(item);
 			}
+            conversationList.scrollTop=scrollTop;
 		}
+        conversationFilter.addEventListener('change',()=>{conversationList.scrollTop=0;renderConversations();});
+        conversationOrder.addEventListener('click',()=>{
+            oldestFirst=!oldestFirst;conversationOrder.textContent=oldestFirst?'最舊':'最新';
+            conversationOrder.title=oldestFirst?'目前最舊優先，點擊改為最新優先':'目前最新優先，點擊改為最舊優先';
+            conversationList.scrollTop=0;renderConversations();
+        });
 
 		// 一則訊息：senderType 1 是會員、2 是客服、0 是系統
 		function appendMessage(message) {
+            messageData.set(message.messageId,message);
+            const existing=messageList.querySelector('[data-message-id="'+Number(message.messageId)+'"]');if(existing){updateMessageMeta(existing,message);return;}
 			const senderClass = message.senderType === 2 ? 'staff' : message.senderType === 1 ? 'member' : 'system';
-			const senderName = message.senderType === 2 ? '客服' : message.senderType === 1 ? '會員' : '系統';
+			const senderName = message.senderType === 2 ? (message.employeeName || (message.employeeId ? '員工 #' + message.employeeId : '客服')) : message.senderType === 1 ? '會員' : '系統';
 			const row = document.createElement('div');
 			row.className = 'chat-row ' + senderClass;
+            row.dataset.messageId=message.messageId;row.dataset.sender=message.senderType;row.tabIndex=0;
 			const wrapper = document.createElement('div');
+            if(message.replyMessageId){const quote=document.createElement('div'),label=document.createElement('strong'),text=document.createElement('p');quote.className='chat-quoted';
+                label.textContent='回覆 '+(message.reply?.senderType===1?'會員':message.reply?.senderType===2?'客服':message.reply?.senderType===0?'系統':'原訊息');
+                text.textContent=message.reply?.messageContent||'原訊息已無法顯示';quote.append(label,text);wrapper.append(quote);}
 			// 圖片訊息可以沒有文字，沒有文字就不顯示泡泡
 			if (message.messageContent) {
 				const bubble = document.createElement('div');
@@ -261,7 +329,7 @@
 			meta.textContent = senderName + '・' + formatTime(message.createdAt);
 			wrapper.appendChild(meta);
 			row.appendChild(wrapper);
-			messageList.appendChild(row);
+			messageList.appendChild(row);updateMessageMeta(row,message);
 		}
 
 		// 訊息裡的圖片：顯示縮圖，點了用懸浮視窗看原圖，可在同一則訊息的圖片之間左右切換
@@ -365,6 +433,7 @@
 
 		// 開啟一位會員的對話；後端會把會員送來的未讀訊息改成已讀
 		async function openConversation(memberId) {
+            setReply(null);closeReplyMenu();
 			currentMemberId = memberId;
 			hideError();
 			const conversation = conversations.find(item => item.memberId === memberId);
@@ -376,7 +445,8 @@
 				showError(error.message);
 				return;
 			}
-			messageList.replaceChildren();
+            if(currentMemberId!==memberId)return;
+			messageList.replaceChildren();messageData.clear();
 			messages.forEach(appendMessage);
 			scrollToBottom();
 			if (sendForm) {
@@ -490,7 +560,8 @@
 				showError('圖片合計不可超過 30 MB');
 				return;
 			}
-			const formData = new FormData();
+			const sendingTo=currentMemberId;const formData = new FormData();
+            if(replyTarget)formData.append('replyMessageId',replyTarget.messageId);
 			formData.append('content', content);
 			for (const file of selectedImages) {
 				formData.append('images', file);
@@ -500,10 +571,11 @@
 			}
 			sendButton.disabled = true;
 			try {
-				await callApi('api/admin/chat/' + currentMemberId + '/messages', {
+				await callApi('api/admin/chat/' + sendingTo + '/messages', {
 					method: 'POST',
 					body: formData
 				});
+                if(currentMemberId!==sendingTo)return;setReply(null);
 				sendContent.value = '';
 				selectedCannedId = null;
 				selectedImages = [];
@@ -551,17 +623,34 @@
 			reconnectDelay: 5000
 		});
 		stompClient.onConnect = () => {
+            document.dispatchEvent(new CustomEvent('fruitude:admin-chat-update'));
 			stompClient.subscribe('/topic/chat/staff', frame => {
 				const event = JSON.parse(frame.body);
+                if(event.type==='MESSAGE'||event.type==='READ')document.dispatchEvent(new CustomEvent('fruitude:admin-chat-update'));
+                if(event.type==='MEMBER_READ'&&event.memberId===currentMemberId){
+                    for(const [id,message] of messageData)if(message.senderType===2&&id<=event.readThroughId){message.isRead=1;const row=messageList.querySelector('[data-message-id="'+id+'"]');if(row)updateMessageMeta(row,message);}
+                }
 				if (event.type === 'MESSAGE' && event.memberId === currentMemberId && event.message) {
 					appendMessage(event.message);
 					scrollToBottom();
+                    if(event.message.senderType===1 && !document.hidden){
+                        callApi('api/admin/chat/'+currentMemberId+'/messages').catch(error=>showError(error.message));
+                        if(sendForm)loadSuggestions(currentMemberId);
+                    }
 				}
 				loadConversations();
 			});
-			// 斷線重連期間可能漏掉訊息，連上時重新整理一次
+			// 斷線重連期間可能漏掉訊息，清單和目前對話都補載。
+            if(currentMemberId!==null)refreshCurrentConversation();
 			loadConversations();
 		};
+        async function refreshCurrentConversation(){
+            const id=currentMemberId;if(id===null)return;
+            try{const rows=await callApi('api/admin/chat/'+id+'/messages');
+                if(currentMemberId!==id)return;rows.forEach(appendMessage);scrollToBottom();
+            }catch(error){showError(error.message);}
+        }
+        document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentMemberId!==null)refreshCurrentConversation();});
 		stompClient.onStompError = frame => showError('即時連線錯誤：' + (frame.headers.message || ''));
 		stompClient.activate();
 

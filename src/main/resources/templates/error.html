@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org" th:fragment="busyPage">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>系統忙碌中｜鮮果鋪</title>
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; min-height: 100vh; min-height: 100svh;
+            display: grid; place-items: center; padding: 32px 20px;
+            background: #fffaf1; color: #64402b;
+            font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+        }
+        main { width: min(100%, 680px); text-align: center; }
+        .fruits {
+            display: flex; align-items: center; justify-content: center;
+            gap: clamp(8px, 2.5vw, 24px); padding: 40px 0 24px;
+        }
+        .fruit {
+            position: relative; display: grid; place-items: center;
+            width: clamp(34px, 9vw, 68px); height: 96px;
+        }
+        .fruit span {
+            display: block; font-size: clamp(32px, 7.5vw, 58px); line-height: 1.25;
+            transform-origin: center bottom;
+            animation: fruit-hop 1.6s ease-in-out infinite;
+            animation-delay: var(--delay);
+        }
+        .fruit::after {
+            content: ""; position: absolute; bottom: 5px;
+            width: 62%; height: 7px; border-radius: 50%; background: #e9d4b8;
+            animation: fruit-shadow 1.6s ease-in-out infinite;
+            animation-delay: var(--delay);
+        }
+        h1 { margin: 0; font-size: clamp(19px, 3.5vw, 27px); font-weight: 600; line-height: 1.9; letter-spacing: .05em; text-wrap: balance; }
+        @keyframes fruit-hop {
+            0%, 55%, 100% { transform: translateY(0) rotate(0); }
+            20% { transform: translateY(-25px) rotate(-9deg); }
+            38% { transform: translateY(-8px) rotate(7deg); }
+        }
+        @keyframes fruit-shadow {
+            0%, 55%, 100% { transform: scaleX(1); opacity: .65; }
+            20% { transform: scaleX(.65); opacity: .3; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .fruit span, .fruit::after { animation: none; }
+        }
+    </style>
+</head>
+<body>
+    <main aria-labelledby="busy-message">
+        <div class="fruits" aria-hidden="true">
+            <div class="fruit" style="--delay: 0s"><span>🍎</span></div>
+            <div class="fruit" style="--delay: .15s"><span>🍊</span></div>
+            <div class="fruit" style="--delay: .3s"><span>🍋</span></div>
+            <div class="fruit" style="--delay: .45s"><span>🍇</span></div>
+            <div class="fruit" style="--delay: .6s"><span>🍐</span></div>
+            <div class="fruit" style="--delay: .75s"><span>🍓</span></div>
+        </div>
+        <h1 id="busy-message">系統忙碌中，請稍後再嘗試。</h1>
+    </main>
+</body>
+</html>
