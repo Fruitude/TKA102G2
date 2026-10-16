@@ -94,6 +94,8 @@
         skuId: key, skuName: "", name: "", price: 0, stock: null, skuStatus: null,
         image: line.imageId ? getContextPath() + "/product/image/" + line.imageId : ""
       };
+      // 本機快取沒有縮圖時，改用伺服器回傳的圖片編號補上
+      if (!item.image && line.imageId) item.image = getContextPath() + "/product/image/" + line.imageId;
       item.qty = line.qty;
       item.checked = line.checked;
       return item;
@@ -374,7 +376,7 @@
     var img = document.createElement("img");
     img.className = "w-commerce-commercecartitemimage";
     img.alt = "";
-    img.src = item.image || "";
+    img.src = item.image || (getContextPath() + "/front/img/image-placeholder.svg");
 
     var info = document.createElement("div");
     info.className = "w-commerce-commercecartiteminfo";
@@ -513,7 +515,7 @@
     var img = document.createElement("img");
     img.className = "w-commerce-commercecartitemimage";
     img.alt = "";
-    img.src = item.image || "";
+    img.src = item.image || (getContextPath() + "/front/img/image-placeholder.svg");
 
     var descWrapper = document.createElement("div");
     descWrapper.className = "w-commerce-commercecheckoutorderitemdescriptionwrapper";
