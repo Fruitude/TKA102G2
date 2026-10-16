@@ -30,6 +30,7 @@
 		.chat-images { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .25rem; }
 		/* 圖片多到換行時，客服訊息的最後一排也靠右 */
 		.chat-row.staff .chat-images { justify-content: flex-end; }
+		/* 縮圖短邊 240px（後端 ChatImageSupport.thumbnail），100px 方格在 2 倍螢幕上也只需要縮小、不會放大變糊；點了看原圖 */
 		.chat-images img { width: 100px; height: 100px; object-fit: cover; border-radius: .25rem; background: #fff; cursor: zoom-in; }
 		.chat-image-broken { font-size: .75rem; padding: .25rem .5rem; border: 1px dashed #d1d3e2; border-radius: .25rem; color: #858796; background: #fff; }
 		.send-previews { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .5rem; }
@@ -51,6 +52,10 @@
 		#image-viewer .viewer-prev { left: .5rem; }
 		#image-viewer .viewer-next { right: .5rem; }
 		#image-viewer .viewer-counter { color: #fff; text-align: center; margin-top: .5rem; }
+		/* 圖片旁的空白處點了會關閉，游標顯示縮小鏡；圖片本身一般游標，箭頭與 × 是按鈕 */
+		#image-viewer .modal-content { cursor: zoom-out; }
+		#image-viewer .viewer-image { cursor: default; }
+		#image-viewer .viewer-nav, #image-viewer .viewer-close { cursor: pointer; }
         .chat-reply-menu{position:fixed;z-index:2100;padding:4px;border:1px solid #d1d3e2;border-radius:7px;background:white;box-shadow:0 4px 18px #0002}.chat-reply-menu button{padding:8px 18px;background:white;border:0;border-radius:5px;color:#4e73df;cursor:pointer}.chat-reply-menu button:hover,.chat-reply-menu button:focus{background:#eef1fc}
         .chat-reply-draft{position:relative;margin-bottom:10px;padding:8px 30px 8px 12px;border-left:3px solid #4e73df;border-radius:5px;background:#edf1fc;font-size:.8rem}.chat-reply-draft p{margin:3px 0 0;max-height:40px;overflow:hidden;overflow-wrap:anywhere}.chat-reply-draft button{position:absolute;right:5px;top:3px;border:0;background:transparent;color:#858796;cursor:pointer}
         .chat-quoted{align-self:stretch;margin-bottom:5px;padding:6px 10px;border-left:3px solid #9bade8;border-radius:4px;background:#edf1fc;color:#58668b;font-size:.78rem;white-space:pre-wrap;overflow-wrap:anywhere}.chat-quoted p{margin:3px 0 0}.chat-reply-menu[hidden],.chat-reply-draft[hidden]{display:none!important}.chat-row:focus-visible{outline:2px solid #b4c1eb;outline-offset:3px;border-radius:5px}
@@ -634,6 +639,14 @@
 
 		viewerPrev.addEventListener('click', () => showViewerImage(viewerIndex - 1));
 		viewerNext.addEventListener('click', () => showViewerImage(viewerIndex + 1));
+		// 點圖片旁的空白處也關閉：Bootstrap 只在點到 .modal-dialog 外面時關閉，但這裡的透明內容區撐滿 90vw，
+		// 圖片周圍的空白其實在內容區裡；除了圖片、左右箭頭、× 之外點到哪裡都關閉
+		document.getElementById('image-viewer').addEventListener('click', event => {
+			if (event.target.closest('#viewer-image, .viewer-nav, .viewer-close')) {
+				return;
+			}
+			viewer.modal('hide');
+		});
 		// 視窗開著時，鍵盤 ← → 切換（Esc 關閉由 Bootstrap 處理）
 		document.addEventListener('keydown', event => {
 			if (!viewer.hasClass('show') || viewerImageIds.length < 2) {

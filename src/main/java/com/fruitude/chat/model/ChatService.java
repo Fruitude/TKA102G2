@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.fruitude.product.model.ProductImageService.ProductThumbnailSupport;
 
 // 後台客服聊天室：對話清單、對話內容、已讀、客服送訊（文字與圖片）
 // 訊息本體存 MySQL（message 表）；清單排序與未讀數放 Redis（ChatRedisService），Redis 連不上時改查 MySQL，聊天室照常可用
@@ -172,18 +171,42 @@ public class ChatService {
 		return messageViews;
 	}
 
-	// 讀一張聊天圖片；thumbnail 為 true 時縮成最長邊 100px 的 JPEG（沿用商品的 ProductThumbnailSupport）
+	// 縮圖快取：同一張圖縮過一次就留在記憶體，不用每次從資料庫撈原圖重算
+	// 最多 500 張（每張約 15～40KB），滿了淘汰最久沒用的；聊天圖片送出後不能修改，所以用 imageId 當 key 不會過期；重啟後清空
+	private static final int THUMBNAIL_CACHE_SIZE = 500;
+	private final Map<Integer, ChatImage> thumbnailCache = java.util.Collections.synchronizedMap(
+			new java.util.LinkedHashMap<Integer, ChatImage>(16, 0.75f, true) {
+				@Override
+				protected boolean removeEldestEntry(Map.Entry<Integer, ChatImage> eldest) {
+					return size() > THUMBNAIL_CACHE_SIZE;
+				}
+			});
+
+	// 讀一張聊天圖片；thumbnail 為 true 時回傳 ChatImageSupport.thumbnail 產生的 JPEG（短邊 240px、依 EXIF 轉正），先查縮圖快取
 	// 查不到、沒有圖片內容（例如測試資料）、或縮圖失敗時回傳 null
 	// Content-Type 由檔頭判斷，不信任資料庫存的 image_type；不是 PNG / JPEG / GIF 時用 application/octet-stream
+	// 權限與擁有者檢查在呼叫端（AdminChatController、getMemberImage）先做，快取不會跳過檢查
 	public ChatImage getImage(Integer imageId, boolean thumbnail) throws IOException {
+		if (thumbnail) {
+			ChatImage cached = thumbnailCache.get(imageId);
+			if (cached != null) {
+				return cached;
+			}
+		}
 		MessageImage messageImage = messageImageRepository.findById(imageId).orElse(null);
 		if (messageImage == null || messageImage.getImageData() == null || messageImage.getImageData().length == 0) {
 			return null;
 		}
 		byte[] data = messageImage.getImageData();
 		if (thumbnail) {
-			byte[] resized = ProductThumbnailSupport.resize(data);
-			return resized == null ? null : new ChatImage(resized, "image/jpeg", ChatImageSupport.etag(data, true));
+			// 在鎖外縮圖，同時兩個請求最多重算一次，不會互相卡住
+			byte[] resized = ChatImageSupport.thumbnail(data);
+			if (resized == null) {
+				return null;
+			}
+			ChatImage image = new ChatImage(resized, "image/jpeg", ChatImageSupport.etag(data, true));
+			thumbnailCache.put(imageId, image);
+			return image;
 		}
 		String type = ChatImageSupport.detectType(data);
 		return new ChatImage(data, type == null ? "application/octet-stream" : type, ChatImageSupport.etag(data, false));
