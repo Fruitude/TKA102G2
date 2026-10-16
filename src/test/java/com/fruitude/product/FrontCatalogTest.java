@@ -455,6 +455,7 @@ public class FrontCatalogTest {
         for(int id=1;id<=5;id++)reviews.add(new FrontCatalogService.HomeReview(id,100+id,"m***"+id,5,"芒果","盒裝",
             id==1?"<script>x</script>":"鮮甜好吃".repeat(20),java.time.LocalDateTime.of(2026,10,14,0,0)));
         var catalog=new FrontCatalogService(){
+            @Override public List<ProductView> getAllProducts(Integer memberId,Collection<Integer> favorites){return List.of();}
             @Override public List<ProductView> getBestSellers(){return List.of();}
             @Override public List<ProductView> getTopRatedProducts(){return List.of();}
             @Override public HomeFeedback getHomeFeedback(){return new HomeFeedback(reviews,299,10,43,3,2);}

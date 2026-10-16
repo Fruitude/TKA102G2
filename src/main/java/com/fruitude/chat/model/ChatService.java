@@ -23,8 +23,60 @@ import com.fruitude.product.model.ProductImageService.ProductThumbnailSupport;
 @Service
 public class ChatService {
 
-	// 後台聊天室頁面訂閱的推播目的地（ChatWebSocketConfig 只允許訂閱這一個）
+	// 員工頻道；會員使用 memberTopic，訂閱權限由 ChatWebSocketConfig 檢查。
 	public static final String STAFF_TOPIC = "/topic/chat/staff";
+    public static String memberTopic(Integer id) { return "/topic/chat/member/" + id; }
+    public record MessagePage(List<ChatMessageView> messages, boolean hasMore, long unreadCount) {}
+    // These two records are exclusively for CHAT_VIEW-authorized staff. Member payloads remain ChatMessageView.
+    public record StaffMessageView(Integer messageId,Integer memberId,Integer senderType,Integer messageType,
+        String messageContent,Integer isRead,LocalDateTime createdAt,List<Integer> imageIds,Integer employeeId,String employeeName,Integer replyMessageId,ChatMessageView.ReplyView reply) {
+        public ChatMessageView publicView(){return new ChatMessageView(messageId,memberId,senderType,messageType,messageContent,isRead,createdAt,imageIds,replyMessageId,reply);}
+        static StaffMessageView of(ChatMessageView m,Integer id,String name){return new StaffMessageView(m.messageId(),m.memberId(),m.senderType(),m.messageType(),m.messageContent(),m.isRead(),m.createdAt(),m.imageIds(),id,name,m.replyMessageId(),m.reply());}
+    }
+    public record StaffEvent(String type,Integer memberId,StaffMessageView message,Integer readThroughId) {}
+    private Map<Integer,String> employeeNames(List<Integer> ids){
+        Map<Integer,String> names=new HashMap<>();
+        if(!ids.isEmpty())for(Object[] row:messageRepository.findEmployeeNames(ids))names.put(((Number)row[0]).intValue(),(String)row[1]);
+        return names;
+    }
+    public List<StaffMessageView> getStaffConversation(Integer memberId){
+        var messages=messageRepository.findByMemberIdAndStatusOrderByCreatedAtAscMessageIdAsc(memberId,Message.STATUS_SHOWN);
+        var names=employeeNames(messages.stream().filter(m->m.getSenderType()==Message.SENDER_EMPLOYEE).map(Message::getEmployeeId).filter(java.util.Objects::nonNull).distinct().toList());
+        var base=views(messages);var result=new ArrayList<StaffMessageView>();
+        for(int i=0;i<messages.size();i++){var m=messages.get(i);Integer id=m.getSenderType()==Message.SENDER_EMPLOYEE?m.getEmployeeId():null;result.add(StaffMessageView.of(base.get(i),id,names.get(id)));}
+        return result;
+    }
+
+
+    public MessagePage getMemberConversation(Integer id,Integer before,Integer after) {
+        if((before!=null && before<1)||(after!=null && after<0)||(before!=null && after!=null))
+            throw new IllegalArgumentException("無效的訊息分頁");
+        var limit=org.springframework.data.domain.PageRequest.of(0,51);
+        var rows=after==null?messageRepository.page(id,before,null,limit):messageRepository.after(id,after,limit);
+        boolean more=rows.size()>50;
+        var selected=new ArrayList<>(rows.subList(0,Math.min(50,rows.size())));
+        selected.sort(java.util.Comparator.comparing(Message::getMessageId));
+        return new MessagePage(views(selected),more,messageRepository.unreadByMember(id));
+    }
+    public long memberUnread(Integer id) { return messageRepository.unreadByMember(id); }
+    /** Only visible unread member messages count, across all conversations. Redis failures use MySQL. */
+    public long staffUnreadCount() {
+        if(!cacheUncertain.get())try {
+            var cached=chatRedisService.readConversations();
+            if(cached!=null)return cached.stream().mapToLong(ChatRedisService.ConversationEntry::unreadCount).sum();
+        }catch(DataAccessException unavailable){}
+        return getConversationList().stream().mapToLong(ChatConversationView::unreadCount).sum();
+    }
+
+    public void markReadByMember(Integer id,Integer through) {
+        if(through==null || through<1)throw new IllegalArgumentException("無效的已讀訊息");
+        if(messageRepository.markStaffMessagesRead(id,through,LocalDateTime.now())>0)
+            publish(new ChatEvent(ChatEvent.MEMBER_READ,id,null,through));
+    }
+    public ChatImage getMemberImage(Integer id,Integer imageId,boolean thumbnail)throws IOException {
+        if(messageImageRepository.owned(imageId,id)==0)return null;
+        return getImage(imageId,thumbnail);
+    }
 
 	// 一則訊息最多幾個字
 	private static final int MAX_CONTENT_LENGTH = 1000;
@@ -53,17 +105,20 @@ public class ChatService {
 
 	@Autowired
 	private SimpMessagingTemplate messagingTemplate;
+    private final java.util.concurrent.atomic.AtomicBoolean cacheUncertain=new java.util.concurrent.atomic.AtomicBoolean();
 
 	// 後台對話清單，最後訊息時間由新到舊
 	// 先讀 Redis；Redis 沒有清單時由 MySQL 算出來並寫回 Redis；Redis 連不上時直接用 MySQL 算的結果
 	public List<ChatConversationView> getConversationList() {
 		try {
-			List<ChatRedisService.ConversationEntry> entries = chatRedisService.readConversations();
+			if(cacheUncertain.getAndSet(false))try{chatRedisService.clearUnread(null);}catch(DataAccessException error){cacheUncertain.set(true);throw error;}
+            List<ChatRedisService.ConversationEntry> entries = chatRedisService.readConversations();
 			if (entries != null) {
 				return withMemberNames(entries);
 			}
+			String generation=chatRedisService.generation();
 			List<ChatConversationView> conversations = loadConversationsFromDatabase();
-			chatRedisService.rebuild(conversations);
+			chatRedisService.rebuild(conversations,generation);
 			return conversations;
 		} catch (DataAccessException e) {
 			System.out.println("聊天室讀取 Redis 失敗，改用 MySQL：" + e.getMessage());
@@ -76,6 +131,9 @@ public class ChatService {
 	public List<ChatMessageView> getConversation(Integer memberId) {
 		List<Message> messages = messageRepository.findByMemberIdAndStatusOrderByCreatedAtAscMessageIdAsc(memberId,
 				Message.STATUS_SHOWN);
+        return views(messages);
+    }
+    private List<ChatMessageView> views(List<Message> messages) {
 		List<Integer> messageIds = new ArrayList<>();
 		for (Message message : messages) {
 			messageIds.add(message.getMessageId());
@@ -89,9 +147,18 @@ public class ChatService {
 			}
 		}
 
+        var replyIds=messages.stream().map(Message::getReplyMessageId).filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Integer,Message> originals=new HashMap<>();
+        if(!replyIds.isEmpty())for(var original:messageRepository.findAllById(replyIds))originals.put(original.getMessageId(),original);
 		List<ChatMessageView> messageViews = new ArrayList<>();
 		for (Message message : messages) {
-			messageViews.add(ChatMessageView.from(message, imageIdsByMessageId.get(message.getMessageId())));
+			var view=ChatMessageView.from(message,imageIdsByMessageId.get(message.getMessageId()));
+            if(message.getReplyMessageId()!=null){
+                var target=originals.get(message.getReplyMessageId());
+                view=view.withReply(target!=null && target.getMemberId().equals(message.getMemberId()) && Integer.valueOf(Message.STATUS_SHOWN).equals(target.getStatus())
+                    ?ChatMessageView.preview(target):new ChatMessageView.ReplyView(message.getReplyMessageId(),null,"原訊息已無法顯示"));
+            }
+            messageViews.add(view);
 		}
 		return messageViews;
 	}
@@ -116,15 +183,17 @@ public class ChatService {
 	// 客服開啟對話：這位會員送來的未讀訊息改成已讀，Redis 未讀數歸零，通知其他員工的清單更新
 	// 不記錄是哪位員工讀的；沒有未讀訊息時什麼都不做
 	public void markReadByStaff(Integer memberId) {
-		if (messageRepository.markMemberMessagesRead(memberId, LocalDateTime.now()) == 0) {
+		Integer through=messageRepository.lastMemberMessage(memberId);
+        if (through==null || messageRepository.markMemberMessagesReadThrough(memberId,through,LocalDateTime.now()) == 0) {
 			return;
 		}
 		try {
 			chatRedisService.clearUnread(memberId);
 		} catch (DataAccessException e) {
-			System.out.println("聊天室更新 Redis 未讀數失敗：" + e.getMessage());
+			cacheUncertain.set(true);
+            System.out.println("聊天室更新 Redis 未讀數失敗：" + e.getMessage());
 		}
-		messagingTemplate.convertAndSend(STAFF_TOPIC, new ChatEvent(ChatEvent.READ, memberId, null));
+		publish(new ChatEvent(ChatEvent.READ, memberId, null,through));
 	}
 
 	// 客服送出訊息：文字與圖片至少一個，圖片最多 MAX_IMAGES 張，每張依 ChatImageSupport 的規則檢查
@@ -134,12 +203,25 @@ public class ChatService {
 	// 任何一項檢查沒過丟 IllegalArgumentException（圖片讀取失敗丟 IOException），不會新增任何資料
 	public ChatMessageView sendStaffMessage(Integer memberId, Integer employeeId, String content,
 			List<MultipartFile> images, Integer cannedId) throws IOException {
+        return sendStaffMessage(memberId,employeeId,content,images,cannedId,null);
+    }
+    public ChatMessageView sendStaffMessage(Integer memberId,Integer employeeId,String content,List<MultipartFile> images,Integer cannedId,Integer replyMessageId)throws IOException {
 		if (employeeId == null) {
 			throw new IllegalArgumentException("登入逾時，請重新登入");
 		}
 		if (cannedId != null && !cannedReplyService.exists(cannedId)) {
 			throw new IllegalArgumentException("查無此罐頭訊息，請重新選擇");
 		}
+        return send(memberId,employeeId,Message.SENDER_EMPLOYEE,content,images,cannedId,replyMessageId);
+    }
+    public ChatMessageView sendMemberMessage(Integer memberId,String content,List<MultipartFile> images)throws IOException {
+        return sendMemberMessage(memberId,content,images,null);
+    }
+    public ChatMessageView sendMemberMessage(Integer memberId,String content,List<MultipartFile> images,Integer replyMessageId)throws IOException {
+        return send(memberId,null,Message.SENDER_MEMBER,content,images,null,replyMessageId);
+    }
+    private ChatMessageView send(Integer memberId,Integer employeeId,int sender,String content,
+            List<MultipartFile> images,Integer cannedId,Integer replyMessageId)throws IOException {
 		String trimmedContent = content == null ? "" : content.strip();
 		if (trimmedContent.length() > MAX_CONTENT_LENGTH) {
 			throw new IllegalArgumentException("訊息內容最多 " + MAX_CONTENT_LENGTH + " 字");
@@ -174,7 +256,7 @@ public class ChatService {
 
 		LocalDateTime now = LocalDateTime.now();
 		Message message = new Message();
-		message.setSenderType(Message.SENDER_EMPLOYEE);
+		message.setSenderType(sender);
 		message.setMemberId(memberId);
 		message.setEmployeeId(employeeId);
 		if (!uploadedImages.isEmpty()) {
@@ -191,7 +273,15 @@ public class ChatService {
 
 		// 訊息與圖片在同一個交易裡存，任何一筆失敗全部還原；execute 回來時已經 commit，之後推播出去別人再查也查得到
 		List<Integer> imageIds = new ArrayList<>();
+        Message[] replyTarget={null};
 		Message savedMessage = transactionTemplate.execute(status -> {
+            if(replyMessageId!=null){
+                if(replyMessageId<1)throw new IllegalArgumentException("無效的回覆訊息");
+                var target=messageRepository.findById(replyMessageId).orElseThrow(()->new IllegalArgumentException("原訊息已無法回覆"));
+                if(!memberId.equals(target.getMemberId()) || !Integer.valueOf(Message.STATUS_SHOWN).equals(target.getStatus()))
+                    throw new IllegalArgumentException("原訊息已無法回覆");
+                replyTarget[0]=target;message.setReplyMessageId(replyMessageId);
+            }
 			Message saved = messageRepository.save(message);
 			for (int i = 0; i < uploadedImages.size(); i++) {
 				ChatImageSupport.UploadedImage uploadedImage = uploadedImages.get(i);
@@ -211,12 +301,29 @@ public class ChatService {
 		try {
 			chatRedisService.touchConversation(memberId, savedMessage.getCreatedAt());
 		} catch (DataAccessException e) {
-			System.out.println("聊天室更新 Redis 清單失敗：" + e.getMessage());
+			cacheUncertain.set(true);
+            System.out.println("聊天室更新 Redis 清單失敗：" + e.getMessage());
 		}
 		ChatMessageView messageView = ChatMessageView.from(savedMessage, imageIds);
-		messagingTemplate.convertAndSend(STAFF_TOPIC, new ChatEvent(ChatEvent.MESSAGE, memberId, messageView));
+        if(replyTarget[0]!=null)messageView=messageView.withReply(ChatMessageView.preview(replyTarget[0]));
+		publish(new ChatEvent(ChatEvent.MESSAGE, memberId, messageView),employeeId);
 		return messageView;
 	}
+
+    private void publish(ChatEvent event) {publish(event,null);}
+    private void publish(ChatEvent event,Integer employeeId) {
+        Object staffPayload=event;
+        if(event.message()!=null){
+            String name=null;
+            if(employeeId!=null)try{name=employeeNames(List.of(employeeId)).get(employeeId);}
+            catch(RuntimeException unavailable){org.slf4j.LoggerFactory.getLogger(getClass()).warn("客服員工姓名讀取失敗，保留員工編號",unavailable);}
+            staffPayload=new StaffEvent(event.type(),event.memberId(),StaffMessageView.of(event.message(),employeeId,name),event.readThroughId());
+        }
+        // Member messages deliberately contain no employee ID/name. A delivery failure cannot undo a commit.
+        for(String topic:List.of(STAFF_TOPIC,memberTopic(event.memberId())))try {
+            messagingTemplate.convertAndSend(topic,topic.equals(STAFF_TOPIC)?staffPayload:event);
+        }catch(RuntimeException error){org.slf4j.LoggerFactory.getLogger(getClass()).warn("聊天室推播中斷，重連後補載",error);}
+    }
 
 	// 由 MySQL 算出整份對話清單（MessageRepository 的 findConversationRows）
 	private List<ChatConversationView> loadConversationsFromDatabase() {
@@ -230,6 +337,7 @@ public class ChatService {
 
 	// Redis 的清單只有會員編號，姓名一次從 MySQL 查出來補上
 	private List<ChatConversationView> withMemberNames(List<ChatRedisService.ConversationEntry> entries) {
+        if(entries.isEmpty())return List.of();
 		List<Integer> memberIds = new ArrayList<>();
 		for (ChatRedisService.ConversationEntry entry : entries) {
 			memberIds.add(entry.memberId());

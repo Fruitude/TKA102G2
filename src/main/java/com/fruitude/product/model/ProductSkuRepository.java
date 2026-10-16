@@ -10,22 +10,6 @@ public interface ProductSkuRepository extends JpaRepository<ProductSku, Integer>
     @Query("select s from ProductSku s join fetch s.product p where s.status in (1,2,3,4) and p.status<>2 and p.autoRestockEnabled=true order by s.skuId")
     List<ProductSku> findSupplyMonitoringCandidates();
 
-    @Query(value="SELECT DISTINCT s.product_id FROM product_sku s JOIN product p ON p.product_id=s.product_id "
-        + "WHERE (p.status<>2 AND s.status IN (1,2,3,6)) OR (p.status=2 AND s.status=6) ORDER BY s.product_id", nativeQuery=true)
-    List<Integer> findAvailabilityProductIds();
-
-    @Query(value="SELECT DISTINCT s.product_id FROM product_sku s JOIN product p ON p.product_id=s.product_id "
-        + "JOIN promotion promotion ON promotion.sku_id=s.sku_id JOIN promo_project activity ON activity.promo_project_id=promotion.promo_project_id "
-        + "WHERE s.status=5 AND p.status<>2 AND activity.status=1 AND activity.promo_type='SKU' "
-        + "AND activity.promo_project_start<=:now AND (activity.promo_project_end IS NULL OR activity.promo_project_end>:now) ORDER BY s.product_id LIMIT 200",nativeQuery=true)
-    List<Integer> findDueProductIds(@org.springframework.data.repository.query.Param("now") java.time.LocalDateTime now);
-
-    @Query(value="SELECT DISTINCT s.sku_id FROM product_sku s JOIN promotion promotion ON promotion.sku_id=s.sku_id "
-        + "JOIN promo_project activity ON activity.promo_project_id=promotion.promo_project_id "
-        + "WHERE s.product_id=:productId AND s.status=5 AND activity.status=1 AND activity.promo_type='SKU' "
-        + "AND activity.promo_project_start<=:now AND (activity.promo_project_end IS NULL OR activity.promo_project_end>:now)",nativeQuery=true)
-    List<Integer> findDueSkuIds(@org.springframework.data.repository.query.Param("productId") Integer productId,
-        @org.springframework.data.repository.query.Param("now") java.time.LocalDateTime now);
 
 	// 同一個商品底下，規格名稱是否已存在
     boolean existsByProduct_ProductIdAndSkuName(

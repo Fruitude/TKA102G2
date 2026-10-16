@@ -248,6 +248,7 @@
 
 <form th:action="@{/product/delete}" method="post" data-product-delete>
 <input type="hidden" name="productId" th:value="${product.productId}">
+<input type="hidden" name="returnQuery" th:value="${productReturnQuery}">
 <button class="delete" type="submit" title="刪除" aria-label="刪除"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
 </form>
                 </div>
@@ -391,7 +392,7 @@ async function changePageProductStatus(status) {
 }
 
 </script>
-<script th:src="@{/admin/js/product-action-confirm.js(v=20261014-search-stable)}" defer></script>
+<script th:src="@{/admin/js/product-action-confirm.js(v=20261016-delete-return)}" defer></script>
 <script th:src="@{/admin/js/product-pagination.js(v=20261015-sort-stock-width)}" defer></script>
 <script th:src="@{/admin/js/product-detail-modal.js(v=20261015-preview-animation)}" defer></script>
 <script th:src="@{/admin/js/product-sku-switcher.js(v=20261014-search-stable)}" defer></script>

@@ -729,7 +729,7 @@
     if (Number(status) === 1 && quantity >= 10) return "若數量需求超過10箱，請電話聯繫。";
     if (Number(status) === 2) return "目前缺貨，需等待補貨";
     if (Number(status) === 3) return "此商品規格即將售完，僅限剩餘可供應量，每次最多購買5箱。";
-    if (Number(status) === 6) return "此商品規格即將停產，供應商已停止供貨，僅限剩餘庫存。";
+    if (Number(status) === 6) return "此商品規格即將停產，僅限剩餘庫存。";
     return "";
   }
 
@@ -1105,6 +1105,7 @@
         updateTotalPrice();
         showQuantityNotice();
       }
+      trigger.disabled = select.options.length === 0;
       select.addEventListener("change", update);
       qty.addEventListener("input", function () { showQuantityNotice(); updateQuantityButtons(); updateTotalPrice(); });
       qty.addEventListener("change", function () { changeQuantity(0); });

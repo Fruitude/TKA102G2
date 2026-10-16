@@ -81,6 +81,12 @@ public class ProductSku implements java.io.Serializable {
 	@Column(name = "all_comment_star")
 	private Integer allCommentStar = 0;
 
+    // 預設上架時間；未設定時為 null，供預備上架時間設定使用。
+    @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
+    @Column(name = "default_listing_time", columnDefinition = "datetime", nullable = true)
+    private LocalDateTime defaultListingTime;
+
+
 	@OneToMany(mappedBy = "productSku",
 			 cascade = CascadeType.ALL,
 			 orphanRemoval = true)
@@ -224,6 +230,14 @@ public class ProductSku implements java.io.Serializable {
 		this.status = status;
 	}
 	
+    public LocalDateTime getDefaultListingTime() {
+        return defaultListingTime;
+    }
+
+    public void setDefaultListingTime(LocalDateTime defaultListingTime) {
+        this.defaultListingTime = defaultListingTime;
+    }
+
 	public LocalDateTime getCreatedAt() {
 		return createdAt;
 	}

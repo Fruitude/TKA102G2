@@ -102,4 +102,10 @@
 #product-edit-preview iframe { width:100%; min-height:0; flex:1; border:0; }
 
 .product-edit-mode .edit-sku-status-choice { display:inline-block; width:8em; max-width:100%; }
+.product-edit-mode .edit-sku-status-choice .edit-choice-item:disabled { background:#e5e7eb;color:#6b7280;opacity:1;cursor:not-allowed;outline:none; }
 .product-edit-mode .edit-sku-status-choice .edit-choice-trigger:disabled { opacity:.55; cursor:default; }
+
+.product-edit-mode .edit-listing-time-row { grid-column:1 / -1; }
+.product-edit-mode .edit-listing-time-row[hidden] { display:none !important; }
+.product-edit-mode .edit-listing-time-row .value { min-width:0; flex:1; }
+.product-edit-mode .edit-listing-time-help { display:block; color:#777; font-size:11px; margin-top:3px; }

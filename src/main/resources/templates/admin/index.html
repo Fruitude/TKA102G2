@@ -35,6 +35,9 @@
 				justify-content: center !important;
 			}
 		}
+.admin-chat-nav-label{position:relative;display:inline-block;margin-right:22px}
+        .sidebar .nav-link .admin-chat-unread-badge{position:absolute;left:calc(100% + 5px);top:-8px;min-width:19px;padding:2px 5px;border-radius:12px;background:#e74a3b;color:#fff;font-size:10px;font-weight:700;line-height:15px;text-align:center;white-space:nowrap;box-shadow:0 1px 4px #0002}
+        .admin-chat-unread-badge[hidden]{display:none!important}
 		</style>
 	</th:block>
 	
@@ -135,7 +138,8 @@
             <li class="nav-item" th:if="${adminPermissionCodes.contains('CHAT_VIEW')}">
                 <a th:href="@{/admin/chat}" class="nav-link">
                     <i class="fas fa-fw fa-headset"></i>
-                    <span>客服聊天室</span></a>
+                    <span class="admin-chat-nav-label">客服聊天室<span id="admin-chat-unread" class="admin-chat-unread-badge" role="status" aria-live="polite" th:data-api="@{/api/admin/chat/unread}" th:data-ws="@{/admin/chat/ws}" hidden></span></span></a>
+                <script th:src="@{/admin/js/chat-unread.js(v=20261016-unread)}" defer></script>
             </li>
 
             <!-- Nav Item - 進銷存系統 -->

@@ -30,7 +30,11 @@ public class ProductOverviewFiltersTest {
             @Override public boolean isNameUsed(Integer id,String name,Integer excluded){return duplicate;}
             @Override public void addProduct(Product product,boolean activate){saves.incrementAndGet();product.setProductId(99);captured.set(product);}
         });
-        return MockMvcBuilders.standaloneSetup(controller).build();
+        var resolver=new org.thymeleaf.templateresolver.ClassLoaderTemplateResolver();
+        resolver.setPrefix("templates/");resolver.setSuffix(".html");resolver.setTemplateMode("HTML");resolver.setCharacterEncoding("UTF-8");
+        var engine=new org.thymeleaf.spring6.SpringTemplateEngine();engine.setTemplateResolver(resolver);
+        var view=new org.thymeleaf.spring6.view.ThymeleafViewResolver();view.setTemplateEngine(engine);view.setCharacterEncoding("UTF-8");
+        return MockMvcBuilders.standaloneSetup(controller).setViewResolvers(view).build();
     }
 
     private org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder nextProductRequest(boolean next,String... fields) {
@@ -258,4 +262,53 @@ public class ProductOverviewFiltersTest {
         category.setParentCategory(parent);
         return category;
     }
+
+    @Test public void sharedSkuTemplateRendersInitialValuesAndPreservesMultipleSkusAfterValidationFailure() throws Exception {
+        var saves=new java.util.concurrent.atomic.AtomicInteger();var mvc=nextProductMvc(saves,false);
+        String html=mvc.perform(get("/product/addProduct")).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(html.contains("id=\"create-sku-template\""));
+        assertTrue(html.contains("content.firstElementChild.cloneNode(true)"));assertFalse(html.contains("card.innerHTML"));
+        var request=nextProductRequest(false).param("productSkus[1].skuName","第二個測試規格")
+            .param("productSkus[1].anotherName","大盒").param("productSkus[1].price","0")
+            .param("productSkus[1].stock","27").param("productSkus[1].safetyStock","6").param("productSkus[1].status","0");
+        var response=mvc.perform(request).andReturn().getResponse();assertEquals(200,response.getStatus());
+        html=response.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        String cards=html.substring(html.indexOf("id=\"skuContainer\""),html.indexOf("id=\"create-sku-template\""));
+        for(String value:List.of("商品規格 1","商品規格 2","六顆裝","第二個測試規格","大盒","productSkus[1].stock","value=\"27\"","value=\"6\""))assertTrue(value,cards.contains(value));
+        assertEquals(0,saves.get());
+        String output=System.getProperty("product.cleanup.render-output");
+        if(output!=null)java.nio.file.Files.writeString(java.nio.file.Path.of(output),html);
+    }
+
+
+    @Test public void preparedCreationBindsTomorrowAndRejectsMissingPastOrMalformedTimes() throws Exception {
+        var saves=new java.util.concurrent.atomic.AtomicInteger();var captured=new java.util.concurrent.atomic.AtomicReference<Product>();
+        var mvc=nextProductMvc(saves,false,captured);
+        var tomorrow=ProductService.earliestListingTime();
+        // Build a prepared request explicitly so each field has exactly one value.
+        var prepared=org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/product/insert")
+            .param("productName","預備上架測試").param("vendor.vendorId","9").param("productCategory.productCategoryId","2").param("status","1")
+            .param("productSkus[0].skuName","測試盒裝").param("productSkus[0].price","123").param("productSkus[0].status","5")
+            .param("productSkus[0].defaultListingTime",tomorrow.toString());
+        var response=mvc.perform(prepared).andReturn().getResponse();assertEquals(302,response.getStatus());
+        assertEquals(1,saves.get());assertEquals(tomorrow,captured.get().getProductSkus().get(0).getDefaultListingTime());
+        for(String invalid:List.of("",tomorrow.minusMinutes(1).toString(),ProductService.latestListingTime().plusMinutes(1).toString(),"not-a-date")) {
+            var bad=org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/product/insert")
+                .param("productName","預備上架測試").param("vendor.vendorId","9").param("productCategory.productCategoryId","2").param("status","0")
+                .param("productSkus[0].skuName","測試盒裝").param("productSkus[0].price","123").param("productSkus[0].status","5")
+                .param("productSkus[0].defaultListingTime",invalid);
+            var failed=mvc.perform(bad).andReturn();assertEquals(200,failed.getResponse().getStatus());
+            assertTrue(((org.springframework.validation.BindingResult)failed.getModelAndView().getModel().get("org.springframework.validation.BindingResult.product")).hasFieldErrors("productSkus[0].defaultListingTime"));
+        }
+        assertEquals(1,saves.get());
+    }
+    @Test public void creationPageExposesEnabledPreparedStateAndListingTimeMinimum() throws Exception {
+        var mvc=nextProductMvc(new java.util.concurrent.atomic.AtomicInteger(),false);
+        var html=mvc.perform(get("/product/addProduct")).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(html.contains("type=\"datetime-local\""));assertTrue(html.contains("name=\"productSkus[0].defaultListingTime\""));
+        assertTrue(html.contains("min=\""+ProductService.earliestListingTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))+"\""));
+        assertTrue(html.contains("max=\""+ProductService.latestListingTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))+"\""));
+        assertFalse(java.util.regex.Pattern.compile("<option[^>]*value=\"5\"[^>]*disabled").matcher(html).find());
+    }
+
 }

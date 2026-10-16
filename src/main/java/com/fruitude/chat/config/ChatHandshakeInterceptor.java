@@ -31,6 +31,15 @@ public class ChatHandshakeInterceptor implements HandshakeInterceptor {
 	@Override
 	public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler,
 			Map<String, Object> attributes) {
+        if(!(request instanceof ServletServerHttpRequest servlet))return false;
+        HttpSession session=servlet.getServletRequest().getSession(false);
+        if(request.getURI().getPath().endsWith("/front/chat/ws")) {
+            Object id=session==null?null:session.getAttribute("loggedInMemberId");
+            if(!(id instanceof Number)){response.setStatusCode(HttpStatus.UNAUTHORIZED);return false;}
+            attributes.put("memberId",((Number)id).intValue());
+            attributes.put("chatSession",session);
+            return true;
+        }
 		Integer employeeId = sessionEmployeeId(request);
 		Optional<AccessProfile> profileResult = accessService.findAccessProfile(employeeId);
 		if (profileResult.isEmpty() || !profileResult.get().getPermissionCodes().contains("CHAT_VIEW")) {
@@ -38,6 +47,7 @@ public class ChatHandshakeInterceptor implements HandshakeInterceptor {
 			return false;
 		}
 		attributes.put(EMPLOYEE_ID_ATTRIBUTE, employeeId);
+        attributes.put("chatSession",session);
 		return true;
 	}
 
@@ -45,6 +55,16 @@ public class ChatHandshakeInterceptor implements HandshakeInterceptor {
 	public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler,
 			Exception exception) {
 	}
+
+    public static boolean active(Map<String,Object> attributes) {
+        if(attributes==null || !(attributes.get("chatSession") instanceof HttpSession session))return false;
+        try {
+            String key=attributes.containsKey("memberId")?"memberId":EMPLOYEE_ID_ATTRIBUTE;
+            String login=key.equals("memberId")?"loggedInMemberId":"loggedInEmployeeId";
+            Object value=session.getAttribute(login);
+            return value instanceof Number && java.util.Objects.equals(attributes.get(key),((Number)value).intValue());
+        }catch(IllegalStateException expired){return false;}
+    }
 
 	// 連線請求帶著的 HttpSession 裡的登入員工（EmployeeSessionController 登入時放的 loggedInEmployeeId）；沒登入時是 null
 	private Integer sessionEmployeeId(ServerHttpRequest request) {

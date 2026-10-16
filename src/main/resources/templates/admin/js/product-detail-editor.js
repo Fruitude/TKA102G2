@@ -4,6 +4,7 @@
     const changed = new Map();
     const numericFields = new Map();
     const nameFields = new Map();
+    const listingFields = new Map();
     const MAX_PRICE = 10000000;
     const productId = new URLSearchParams(location.search).get('productId');
     const base = location.pathname.replace(/getOne_For_Display$/, '');
@@ -94,6 +95,37 @@
         button.title = '選取規格後，可直接修改規格名稱與別名';
         begin();
     }
+    function listingTimeEditor(entry,panel,isNew) {
+        const row=node('div','item edit-listing-time-row'),caption=node('span','name','預計上架時間'),value=node('span','value');
+        const control=node('input','edit-input');control.type='datetime-local';control.step='60';control.value=entry.defaultListingTime?.slice(0,16) || '';control.setAttribute('aria-label','預計上架時間');
+        const help=node('small','edit-listing-time-help','可設定隔天 00:00 起至一年後同日 23:59（臺灣時間）。');
+        const error=node('small','edit-price-error');error.id='listing-time-error-'+entry.key;error.setAttribute('role','alert');control.setAttribute('aria-describedby',error.id);
+        value.append(control,help,error);row.append(caption,value);valueRow(panel,'規格狀態').closest('.item').after(row);
+        function validate(){
+            const prepared=entry.status===5;
+            row.hidden=!prepared || (!isNew && !entry.defaultListingTime);control.disabled=!isNew || !prepared;control.required=isNew && prepared;
+            const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+            const part=type=>Number(parts.find(value=>value.type===type).value),year=part('year'),month=part('month'),day=part('day');
+            control.min=new Date(Date.UTC(year,month-1,day+1)).toISOString().slice(0,10)+'T00:00';
+            const lastDay=new Date(Date.UTC(year+1,month,0)).getUTCDate();
+            control.max=new Date(Date.UTC(year+1,month-1,Math.min(day,lastDay))).toISOString().slice(0,10)+'T23:59';
+            if(isNew && prepared && !control.value && !control.dataset.touched)control.value=control.min;
+            let message='';
+            if(isNew && prepared){
+                if(!control.value)message='請選擇預計上架時間';
+                else if(control.value<control.min)message='預計上架時間最早為隔天 00:00（臺灣時間）';
+                else if(control.value>control.max)message='預計上架時間不可超過一年後同日 23:59（臺灣時間）';
+                else if(control.validity.badInput || control.validity.stepMismatch)message='請選擇有效的日期與時間（精確至分鐘）';
+            }
+            if(isNew)entry.defaultListingTime=prepared?control.value:null;
+            error.textContent=message;error.hidden=!message;control.setCustomValidity(message);control.setAttribute('aria-invalid',String(!!message));
+            return message;
+        }
+        control.addEventListener('input',()=>{control.dataset.touched='true';validate();mark(entry);});
+        control.addEventListener('focus',validate);control.addEventListener('blur',validate);
+        panel.addEventListener('sku-status-change',validate);
+        if(isNew)listingFields.set(entry.key,{control,validate,panel});validate();
+    }
     function prepareSku(entry, panel, button, isNew = false) {
         numeric(entry, panel, '規格價格', 'price');
         for (const [label, field] of [['庫存量','stock'],['安全庫存量','safetyStock'],['待進貨','inboundQty'],['待出貨','outboundQty'],['允許超賣量','maxBackorderQty']]) {
@@ -105,7 +137,7 @@
         const select = node('select','edit-input edit-sku-status');select.setAttribute('aria-label','規格狀態');
         for (const status of [0,1,5,6,2,3,4,7]) {
             const option = node('option','',labels[status]); option.value=String(status);
-            option.disabled=[2,3,4,7].includes(status) || (status===5 && (isNew || entry.status!==5));
+            option.disabled=[2,3,4,7].includes(status) || (status===5 && !isNew && entry.status!==5);
             select.appendChild(option);
         }
         select.value=String(entry.status);
@@ -117,7 +149,7 @@
                 entry.restockConfirmed=true;
             }
             for(const status of [0,1,2,3,4,5,6,7])panel.classList.remove('status-'+status);
-            panel.classList.add('status-'+next);entry.status=next;mark(entry);
+            panel.classList.add('status-'+next);entry.status=next;panel.dispatchEvent(new Event('sku-status-change'));mark(entry);
         });
         const holder=node('span','edit-sku-status-choice');
         select.hidden=true;select.tabIndex=-1;select.setAttribute('aria-hidden','true');
@@ -129,6 +161,7 @@
         });
         statusChoice.trigger.disabled=select.disabled;statusChoice.trigger.setAttribute('aria-label','規格狀態');
         statusChoice.trigger.title=statusHelp;
+        listingTimeEditor(entry,panel,isNew);
         nameEditor(button, entry, isNew);
         const notice = valueRow(panel, '異常狀態');
         if (notice) notice.title = '儲存後將依最新庫存重新計算';
@@ -147,7 +180,7 @@
             panel.appendChild(row);
         }
         const remove = node('button','edit-remove-sku','移除此新增規格'); remove.type='button';
-        remove.addEventListener('click',()=>{ changed.delete(key); for (const fieldKey of numericFields.keys()) if(fieldKey.startsWith(key + ':')) numericFields.delete(fieldKey); nameFields.delete(key); imageEditor?.removeSku(key); button.remove(); panel.remove(); dirty=true; const first=document.querySelector('.sku-option'); if(first)showSkuInfo(first); });
+        remove.addEventListener('click',()=>{ changed.delete(key); for (const fieldKey of numericFields.keys()) if(fieldKey.startsWith(key + ':')) numericFields.delete(fieldKey); nameFields.delete(key); listingFields.delete(key); imageEditor?.removeSku(key); button.remove(); panel.remove(); dirty=true; const first=document.querySelector('.sku-option'); if(first)showSkuInfo(first); });
         panel.appendChild(remove); document.querySelector('.sku-section').appendChild(panel);
         const button = node('button','sku-option'); button.type='button'; button.dataset.panelId=panel.id;button.dataset.skuId=key;button.appendChild(node('span','new-sku-name',''));
         button.onclick=()=>showSkuInfo(button); document.querySelector('.sku-add').before(button);
@@ -194,7 +227,7 @@
         preview(returnFocus) {
             const existing=data.skus.map(sku=>({...sku,key:String(sku.skuId),...(changed.get(String(sku.skuId)) || {})}));
             const skus=[...existing,...[...changed.values()].filter(sku=>sku.skuId==null)]
-                .map(sku=>({...sku,images:imageEditor.preview(sku.key)}));
+                .map(sku=>({...sku,skuStatus:sku.status,images:imageEditor.preview(sku.key)}));
             const vendor=data.vendors.find(value=>value.id===data.product.vendorId);
             window.ProductEditPreview.open({product:{...data.product},vendor:vendor?{...vendor}:null,skus,
                 selected:document.querySelector('.sku-option.active')?.dataset.skuId,
@@ -216,6 +249,11 @@
                     field.control.focus();
                     throw new Error(message);
                 }
+            }
+            for(const field of listingFields.values()) {
+                const message=field.validate();if(!message)continue;
+                const button=[...document.querySelectorAll('.sku-option')].find(item=>item.dataset.panelId===field.panel.id);
+                if(button)showSkuInfo(button);field.control.focus();throw new Error(message);
             }
             if (!data.product.productName?.trim()) throw new Error('請填寫商品名稱');
             if (!data.product.categoryId || !data.product.vendorId) throw new Error('請從分類與廠商的下拉選項中選取有效項目');

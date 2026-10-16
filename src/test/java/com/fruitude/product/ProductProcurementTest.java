@@ -39,4 +39,33 @@ public class ProductProcurementTest {
   assertEquals(Integer.valueOf(25),service.getSuggestedQuantityBySkuId(7,9).get(1));
   assertEquals(Integer.valueOf(7),d.getQuantity());
  }
+
+ @Test public void newShortageDetailsReadCandidatesYieldAndPendingOnlyOnce(){
+  var reads=new int[4];var first=sku();var covered=sku();covered.setSkuId(2);
+  var product=new Product();var vendor=new VendorVO();vendor.setVendorId(7);product.setVendor(vendor);
+  first.setProduct(product);covered.setProduct(product);
+  var service=new ProductSkuService(fake(ProductSkuRepository.class,(name,args)->{reads[0]++;return List.of(first,covered);}),
+   new SkuSupplyService(null){@Override public Map<Integer,BigDecimal> yields(Collection<Integer> ids){reads[1]++;return Map.of(1,new BigDecimal(".5"),2,new BigDecimal(".5"));}},
+   new PoService(){@Override public Map<Integer,Long> getPendingQuantityBySkuId(){reads[2]++;return Map.of(2,100L);}},null,null);
+  var details=service.getShortageDetailsByVendorId(7);
+  assertEquals(List.of(first),details.stream().map(PoDetailVO::getSkuId).toList());
+  assertArrayEquals(new int[]{1,1,1,0},reads);
+ }
+ @Test public void editedOrderReusesLoadedOrderAndShortageSnapshotWithoutChangingSavedDetails(){
+  var reads=new int[4];var existing=sku();var additional=sku();additional.setSkuId(2);
+  var product=new Product();var vendor=new VendorVO();vendor.setVendorId(7);product.setVendor(vendor);
+  existing.setProduct(product);additional.setProduct(product);
+  var detail=new PoDetailVO();detail.setSkuId(existing);detail.setQuantity(7);
+  var po=new PoVO();po.setPoId(9);po.setVendor(vendor);po.setPoStatus((byte)0);po.setPoDetails(List.of(detail));
+  var service=new ProductSkuService(fake(ProductSkuRepository.class,(name,args)->{reads[0]++;return List.of(existing,additional);}),
+   new SkuSupplyService(null){@Override public Map<Integer,BigDecimal> yields(Collection<Integer> ids){reads[1]++;return Map.of(1,new BigDecimal(".5"),2,new BigDecimal(".5"));}},
+   new PoService(){@Override public Map<Integer,Long> getPendingQuantityBySkuId(){reads[2]++;return Map.of(1,12L,2,4L);}},
+   fake(PoRepository.class,(name,args)->{reads[3]++;return Optional.of(po);}),null);
+  var form=service.getPoWithShortageDetails(9);
+  assertArrayEquals(new int[]{1,1,1,1},reads);
+  assertEquals(List.of(existing,additional),form.getPoDetails().stream().map(PoDetailVO::getSkuId).toList());
+  assertEquals(Integer.valueOf(7),form.getPoDetails().get(0).getQuantity());
+  assertEquals(1,po.getPoDetails().size());assertSame(detail,po.getPoDetails().get(0));
+ }
+
 }

@@ -10,6 +10,41 @@
         panel.appendChild(previewFrame);document.body.appendChild(panel);panel.querySelector('button').focus();
         return close;
     }
+    function showCreatePreview(previewFrame,focus) {
+        let owner=document;
+        try { if(window.parent!==window && !window.parent.document.querySelector('dialog[open]'))owner=window.parent.document; } catch(_) {}
+        const panel=owner.createElement('dialog');panel.id='product-create-preview';panel.setAttribute('aria-labelledby','product-create-preview-title');
+        panel.innerHTML='<header><h2 id="product-create-preview-title">前台外觀預覽 · 尚未新增</h2><button type="button" aria-label="關閉預覽">×</button></header><footer><button type="button">關閉預覽</button></footer>';
+        const style=owner.createElement('style');style.textContent=`
+            #product-create-preview{width:min(900px,95vw);max-width:95vw;height:min(614px,92vh);max-height:92vh;box-sizing:border-box;padding:0;border:0;border-radius:8px;background:#fff;color:#333;overflow:hidden;box-shadow:0 12px 40px #0003}
+            #product-create-preview[open]{display:flex;flex-direction:column}#product-create-preview::backdrop{background:rgb(0 0 0 / 45%)}
+            #product-create-preview header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-sizing:border-box;min-height:64px;padding:10px 16px;background:#4e73df;color:#fff}
+            #product-create-preview h2{margin:0;font:18px Arial,'Microsoft JhengHei',sans-serif;color:inherit}#product-create-preview button{margin:0;font:inherit;cursor:pointer}
+            #product-create-preview header button{width:32px;height:32px;padding:0;border:0;background:transparent;color:white;font-size:28px;line-height:32px}
+            #product-create-preview iframe{display:block;flex:1;min-height:0;width:100%;border:0;background:#fff}#product-create-preview footer{display:flex;justify-content:flex-end;flex-shrink:0;box-sizing:border-box;padding:8px 16px;border-top:1px solid #e3e6f0}
+            #product-create-preview footer button{padding:6px 12px;border:1px solid #ddd;border-radius:4px;background:#f8f9fc;color:#333}
+        `;owner.head.appendChild(style);
+        const overflow=owner.body.style.overflow;owner.body.style.overflow='hidden';let closing=false;
+        const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        async function close(){
+            if(closing)return;closing=true;
+            if(!reduced){const animation=panel.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-8px)'}],{duration:160,easing:'ease-in'});try{await animation.finished;}catch(_) {}}
+            panel.close();panel.remove();style.remove();frame=null;owner.body.style.overflow=overflow;focus?.focus({preventScroll:true});
+        }
+        panel.querySelectorAll('button').forEach(button=>button.addEventListener('click',close));
+        panel.addEventListener('cancel',event=>{event.preventDefault();close();});
+        let backdropPress=false;
+        function isBackdrop(event){
+            const rect=panel.getBoundingClientRect();
+            return event.target===panel && (event.clientX<rect.left || event.clientX>rect.right || event.clientY<rect.top || event.clientY>rect.bottom);
+        }
+        panel.addEventListener('pointerdown',event=>{backdropPress=event.button===0 && isBackdrop(event);});
+        panel.addEventListener('pointercancel',()=>{backdropPress=false;});
+        panel.addEventListener('click',event=>{const outside=backdropPress && isBackdrop(event);backdropPress=false;if(outside)close();});
+        panel.insertBefore(previewFrame,panel.querySelector('footer'));owner.body.appendChild(panel);panel.showModal();
+        if(!reduced)panel.animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],{duration:240,easing:'ease-out'});
+        panel.querySelector('button').focus();return close;
+    }
     function render(doc,snapshot) {
         doc.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();closePreview?.();}});
         const context=snapshot.context || '';
@@ -37,13 +72,19 @@
         for(const sku of snapshot.skus){const option=node('option',null,sku.anotherName?.trim() || sku.skuName || '未填寫規格名稱');option.value=sku.key;select.appendChild(option);}
         if(snapshot.skus.some(sku=>sku.key===snapshot.selected))select.value=snapshot.selected;
         const stepper=node('div','pv-qty-stepper'),minus=node('button',null,'−'),quantity=node('input'),plus=node('button',null,'+');quantity.id='pv-qty';quantity.type='number';quantity.value='1';quantity.min='1';quantity.max='10';quantity.readOnly=true;quantity.setAttribute('aria-label','預覽購買數量');minus.type=plus.type='button';minus.setAttribute('aria-label','減少數量');plus.setAttribute('aria-label','增加數量');stepper.append(minus,quantity,plus);controls.append(select,stepper);details.appendChild(controls);
+        const listingNotice=node('p','preview-listing-notice');listingNotice.setAttribute('role','status');listingNotice.style.cssText='font-size:13px;color:#a65b00;margin:12px 0 0';details.appendChild(listingNotice);
+        function updateListingNotice(){
+            const sku=selected(),prepared=Number(sku?.skuStatus)===5;listingNotice.hidden=!prepared;
+            const time=String(sku?.defaultListingTime || '').slice(0,16).replaceAll('-','/').replace('T',' ');
+            listingNotice.textContent=prepared?(time?'預計於 '+time+'（臺灣時間）上架。':'預備上架，請先設定預計上架時間。'):'';
+        }
         const purchase=node('div','preview-purchase');for(const text of ['加入購物車','立即購買']){const button=node('button',null,text);button.type='button';button.disabled=true;purchase.appendChild(button);}details.appendChild(purchase);
         details.appendChild(node('p','preview-note','購物按鈕僅供外觀預覽。'));
         const images=snapshot.skus.flatMap(sku=>(sku.images || []).map(url=>({url,skuKey:sku.key})));
         let imageIndex=-1;
         function selectFirstImage(){imageIndex=images.findIndex(image=>image.skuKey===select.value);}
         function selected(){return snapshot.skus.find(sku=>sku.key===select.value) || snapshot.skus[0];}
-        function updatePrice(){const value=selected()?.price;price.textContent=value!=null && Number.isFinite(Number(value))?'NT$ '+(Number(value)*Number(quantity.value)).toLocaleString('en-US'):'NT$ —';minus.disabled=Number(quantity.value)<=1;plus.disabled=Number(quantity.value)>=10;}
+        function updatePrice(){updateListingNotice();const value=selected()?.price;price.textContent=value!=null && Number.isFinite(Number(value))?'NT$ '+(Number(value)*Number(quantity.value)).toLocaleString('en-US'):'NT$ —';minus.disabled=Number(quantity.value)<=1;plus.disabled=Number(quantity.value)>=10;}
         function updateImages(){
             image.src=images[imageIndex]?.url || context+'/front/img/image-placeholder.svg';thumbs.replaceChildren();
             const first=Math.max(0,Math.min(images.length-3,imageIndex-1));
@@ -54,6 +95,7 @@
         select.addEventListener('change',()=>{selectFirstImage();quantity.value='1';updatePrice();updateImages();});
         minus.addEventListener('click',()=>{quantity.value=String(Math.max(1,Number(quantity.value)-1));updatePrice();});plus.addEventListener('click',()=>{quantity.value=String(Math.min(10,Number(quantity.value)+1));updatePrice();});
         selectFirstImage();updatePrice();updateImages();
+        if(!snapshot.product.productId){rating.setAttribute('aria-label','尚無評價');rating.appendChild(node('span','pv-rating-empty','★★★★★'));return;}
         fetch(context+'/front/api/product-reviews?productId='+encodeURIComponent(snapshot.product.productId)+'&size=1',{cache:'no-store',credentials:'same-origin'})
             .then(response=>response.ok?response.json():null).then(value=>{if(!value||!rating.isConnected)return;rating.setAttribute('aria-label','評分 '+Number(value.average).toFixed(1)+'／5');const empty=node('span','pv-rating-empty','★★★★★'),filled=node('span','pv-rating-filled','★★★★★');filled.style.width=Math.max(0,Math.min(5,Number(value.average)))*20+'%';rating.append(empty,filled);}).catch(()=>{});
     }
@@ -67,6 +109,6 @@
         </style></head><body class="front-theme"><main id="pv-main"></main></body></html>`;
         let host;
         try { if(window.parent!==window)host=window.parent.ProductDetailPreviewHost; } catch(_) {}
-        closePreview=host?.open(window,frame,focus,()=>{frame=null;}) || showStandalone(frame,focus);
+        closePreview=host?.open(window,frame,focus,()=>{frame=null;}) || (snapshot.mode==='create'?showCreatePreview(frame,focus):showStandalone(frame,focus));
     }};
 })();

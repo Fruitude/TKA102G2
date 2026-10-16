@@ -17,12 +17,13 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 
 import com.fruitude.chat.model.ChatService;
 
-// 後台聊天室的 WebSocket（STOMP）設定
+// 前後台聊天室的 WebSocket（STOMP）設定
 // 頁面連到 /admin/chat/ws，連線前由 ChatHandshakeInterceptor 檢查員工登入與 CHAT_VIEW 權限
 // WebSocket 只用來推播（伺服器 → 頁面）；送訊息一律走 AdminChatController 的 API，才會經過權限檢查並存進資料庫
 @Configuration
 @EnableWebSocketMessageBroker
 public class ChatWebSocketConfig implements WebSocketMessageBrokerConfigurer {
+    private final java.util.concurrent.ConcurrentMap<String,java.util.Map<String,Object>> sessions=new java.util.concurrent.ConcurrentHashMap<>();
 
 	@Autowired
 	private ChatHandshakeInterceptor chatHandshakeInterceptor;
@@ -30,6 +31,7 @@ public class ChatWebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
 		registry.addEndpoint("/admin/chat/ws").addInterceptors(chatHandshakeInterceptor);
+        registry.addEndpoint("/front/chat/ws").addInterceptors(chatHandshakeInterceptor);
 	}
 
 	@Override
@@ -38,7 +40,7 @@ public class ChatWebSocketConfig implements WebSocketMessageBrokerConfigurer {
 		registry.enableSimpleBroker("/topic");
 	}
 
-	// 頁面送進來的 STOMP 指令：只能訂閱 ChatService.STAFF_TOPIC；不能用 SEND 直接往 /topic 送（否則可以假造訊息推給其他員工）
+	// 員工只能訂閱後台頻道，會員只能訂閱自己的頻道；所有用戶端都禁止 SEND。
 	@Override
 	public void configureClientInboundChannel(ChannelRegistration registration) {
 		registration.interceptors(new ChannelInterceptor() {
@@ -48,16 +50,37 @@ public class ChatWebSocketConfig implements WebSocketMessageBrokerConfigurer {
 				if (accessor == null) {
 					return message;
 				}
+                if(accessor.getCommand()==StompCommand.CONNECT && ChatHandshakeInterceptor.active(accessor.getSessionAttributes()))
+                    sessions.put(accessor.getSessionId(),accessor.getSessionAttributes());
+                if(accessor.getCommand()==StompCommand.DISCONNECT)sessions.remove(accessor.getSessionId());
+                if(accessor.getCommand()!=null && accessor.getCommand()!=StompCommand.DISCONNECT
+                    && !ChatHandshakeInterceptor.active(accessor.getSessionAttributes()))throw new MessagingException("登入已失效");
 				if (StompCommand.SEND.equals(accessor.getCommand())) {
 					throw new MessagingException("聊天室不接受由 WebSocket 送出的訊息");
 				}
-				if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())
-						&& !ChatService.STAFF_TOPIC.equals(accessor.getDestination())) {
-					throw new MessagingException("不能訂閱這個頻道");
-				}
+                if(StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+                    var attributes=accessor.getSessionAttributes();
+                    Object member=attributes.get("memberId");
+                    String allowed=member instanceof Integer?ChatService.memberTopic((Integer)member):ChatService.STAFF_TOPIC;
+                    if(!allowed.equals(accessor.getDestination()))throw new MessagingException("不能訂閱這個頻道");
+                }
 				return message;
 			}
 		});
 	}
 
+    @org.springframework.context.event.EventListener
+    public void disconnected(org.springframework.web.socket.messaging.SessionDisconnectEvent event){sessions.remove(event.getSessionId());}
+    @Override public void configureClientOutboundChannel(ChannelRegistration registration) {
+        registration.interceptors(new ChannelInterceptor(){
+            @Override public Message<?> preSend(Message<?> message,MessageChannel channel){
+                var headers=message.getHeaders();
+                if(org.springframework.messaging.simp.SimpMessageHeaderAccessor.getMessageType(headers)==org.springframework.messaging.simp.SimpMessageType.MESSAGE) {
+                    String sessionId=org.springframework.messaging.simp.SimpMessageHeaderAccessor.getSessionId(headers);
+                    if(sessionId==null || !ChatHandshakeInterceptor.active(sessions.get(sessionId)))return null;
+                }
+                return message;
+            }
+        });
+    }
 }

@@ -32,7 +32,11 @@ public class ProductModalEditTest {
         service=new ProductService(products,categories,vendors,new ProductLifecycleService(access),access);
     }
     private ProductService.SkuForm sku(Integer id, byte status, int originalStock) {
-        return new ProductService.SkuForm(id,id==null?"New SKU":"Canonical","Alias",199,20,10,0,0,status,null,originalStock,0,0,10);
+        var form=new ProductService.SkuForm(id,id==null?"New SKU":"Canonical","Alias",199,20,10,0,0,status,null,originalStock,0,0,10);
+        return id==null && status==5?dated(form):form;
+    }
+    private ProductService.SkuForm dated(ProductService.SkuForm form) {
+        return new ProductService.SkuForm(form.skuId(),form.skuName(),form.anotherName(),form.price(),form.stock(),form.safetyStock(),form.inboundQty(),form.outboundQty(),form.status(),form.revision(),form.originalStock(),form.originalInbound(),form.originalOutbound(),form.restockConfirmed(),form.maxBackorderQty(),ProductService.earliestListingTime());
     }
     private void save(ProductService.SkuForm form) {
         service.save(new ProductService.SaveRequest(new ProductService.ProductForm(10,"Changed","Description",2,3,(byte)0,null),List.of(form),false,false));
@@ -101,13 +105,13 @@ public class ProductModalEditTest {
     }
     @Test public void newModalSkuUsesInventoryDefaultsAndAcceptsMissingReadOnlyFields() {
         s.setStatus((byte)0);
-        save(new ProductService.SkuForm(null,"New SKU",null,199,null,null,null,null,(byte)5,null,null,null,null,(Integer)null));
+        save(dated(new ProductService.SkuForm(null,"New SKU",null,199,null,null,null,null,(byte)5,null,null,null,null,(Integer)null)));
         var added=p.getProductSkus().get(1);
         assertEquals(Integer.valueOf(0),added.getStock());assertEquals(Integer.valueOf(0),added.getSafetyStock());
         assertEquals(Integer.valueOf(0),added.getInboundQty());assertEquals(Integer.valueOf(0),added.getOutboundQty());assertEquals(Integer.valueOf(10),added.getMaxBackorderQty());
     }
     @Test public void newSkuAcceptsInitialQuantities() {
-        save(new ProductService.SkuForm(null,"New SKU",null,199,12,3,8,2,(byte)5,null,null,null,null,6));
+        save(dated(new ProductService.SkuForm(null,"New SKU",null,199,12,3,8,2,(byte)5,null,null,null,null,6)));
         var added=p.getProductSkus().get(1);
         assertEquals(Integer.valueOf(12),added.getStock());assertEquals(Integer.valueOf(3),added.getSafetyStock());
         assertEquals(Integer.valueOf(8),added.getInboundQty());assertEquals(Integer.valueOf(2),added.getOutboundQty());assertEquals(Integer.valueOf(6),added.getMaxBackorderQty());
@@ -116,7 +120,7 @@ public class ProductModalEditTest {
     @Test public void newSkuRejectsNegativeQuantities() {
         for(int field=0;field<5;field++) {
             int[] q={0,0,0,0,0};q[field]=-1;
-            try {save(new ProductService.SkuForm(null,"New SKU",null,199,q[0],q[1],q[2],q[3],(byte)5,null,null,null,null,q[4]));fail();}
+            try {save(dated(new ProductService.SkuForm(null,"New SKU",null,199,q[0],q[1],q[2],q[3],(byte)5,null,null,null,null,q[4])));fail();}
             catch(IllegalArgumentException expected) {}
         }
         assertEquals(1,p.getProductSkus().size());
@@ -199,7 +203,7 @@ public class ProductModalEditTest {
         save(new ProductService.SkuForm(1,"Canonical","Alias",199,null,null,null,null,null,null,20,0,0,(Integer)null));
         assertEquals(Byte.valueOf((byte)1),s.getStatus());
         p.setUpdatedAt(null);s.setUpdatedAt(null);s.setStatus((byte)0);
-        save(new ProductService.SkuForm(null,"New SKU",null,199,null,null,null,null,null,null,null,null,null,(Integer)null));assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(1).getStatus());
+        save(dated(new ProductService.SkuForm(null,"New SKU",null,199,null,null,null,null,null,null,null,null,null,(Integer)null)));assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(1).getStatus());
     }
     @Test public void combinedProductSkuAndImageEditDoesNotReloadAndDiscardEdits() {
         var old=image(7);var upload=new ProductImage();upload.setImageData(new byte[]{3,4});upload.setFileSize(2);
@@ -227,4 +231,37 @@ public class ProductModalEditTest {
         var added=p.getProductSkus().get(1);assertSame(added,added.getProductImages().get(0).getProductSku());
         assertArrayEquals(new byte[]{5},added.getProductImages().get(0).getImageData());
     }
+
+    private ProductService.SkuForm timedJson(java.time.LocalDateTime time) {
+        return tools.jackson.databind.json.JsonMapper.builder().build().readValue(
+            "{\"skuName\":\"Timed SKU\",\"price\":199,\"status\":5,\"defaultListingTime\":"+(time==null?"null":"\""+time+"\"")+"}",ProductService.SkuForm.class);
+    }
+    @Test public void newModalPreparedSkuPersistsListingTimeAndLoadReturnsIt() {
+        s.setStatus((byte)0);var time=ProductService.latestListingTime();save(timedJson(time));
+        var added=p.getProductSkus().get(1);added.setSkuId(2);
+        assertEquals(time,added.getDefaultListingTime());assertEquals(Byte.valueOf((byte)5),added.getStatus());assertEquals(Byte.valueOf((byte)0),p.getStatus());
+        assertEquals(time,service.load(10).skus().get(1).defaultListingTime());
+        var json=tools.jackson.databind.json.JsonMapper.builder().build().valueToTree(service.load(10));
+        assertTrue(json.get("skus").get(1).get("defaultListingTime").isString());
+    }
+    @Test public void newModalPreparedSkuRejectsMissingTooEarlyAndTooLateTimeBeforeAddingIt() {
+        for(var time:Arrays.asList(null,ProductService.earliestListingTime().minusMinutes(1),ProductService.latestListingTime().plusMinutes(1))) {
+            try{save(timedJson(time));fail();}catch(IllegalArgumentException expected){assertTrue(expected.getMessage().contains("上架時間"));}
+            assertEquals(1,p.getProductSkus().size());
+        }
+    }
+    @Test public void listingParentAlongsideNewScheduledSkuDoesNotActivateItEarly() {
+        s.setStatus((byte)0);var form=timedJson(ProductService.earliestListingTime());
+        service.save(new ProductService.SaveRequest(new ProductService.ProductForm(10,"Changed","Description",2,3,(byte)1,null),List.of(form),true,true));
+        assertEquals(Byte.valueOf((byte)1),s.getStatus());assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(1).getStatus());
+    }
+    @Test public void existingPreparedTimeIsPreservedDespiteForgedTimeAndClearedWhenLeavingPrepared() {
+        var original=ProductService.earliestListingTime();s.setStatus((byte)5);s.setDefaultListingTime(original);
+        var forged=new ProductService.SkuForm(1,"Canonical",null,199,null,null,null,null,null,null,20,0,0,false,null,ProductService.latestListingTime());
+        save(forged);assertEquals(original,s.getDefaultListingTime());
+        var latest=service.load(10);var current=latest.skus().get(0);
+        var offline=new ProductService.SkuForm(current.skuId(),current.skuName(),current.anotherName(),current.price(),null,null,null,null,(byte)0,current.revision(),current.originalStock(),current.originalInbound(),current.originalOutbound(),false,null);
+        service.save(new ProductService.SaveRequest(latest.product(),List.of(offline),false,false));assertNull(s.getDefaultListingTime());
+    }
+
 }

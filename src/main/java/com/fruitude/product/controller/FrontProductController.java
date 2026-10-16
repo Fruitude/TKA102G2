@@ -72,10 +72,11 @@ public class FrontProductController {
     public String homePage(Model model, HttpSession session, jakarta.servlet.http.HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-store");
         model.addAttribute("homeFeedback", catalog.getHomeFeedback());
-        model.addAttribute("bestSellerProducts", catalog.getBestSellers());
-        model.addAttribute("topRatedProducts", catalog.getTopRatedProducts());
+        model.addAttribute("bestSellerProducts", catalog.getBestSellers().stream().limit(20).toList());
+        model.addAttribute("topRatedProducts", catalog.getTopRatedProducts().stream().limit(20).toList());
         // 首頁活動區塊：限時活動與會員專屬福利。會員身分只信任 session，用來標示目前符合資格的福利（壽星月、新會員首購）
         Integer memberId = session.getAttribute("loggedInMemberId") instanceof Integer id ? id : null;
+        model.addAttribute("homeAllProducts", catalog.getAllProducts(memberId, List.of()).stream().limit(20).toList());
         var promos = promoService.findHomePromos(memberId == null
                 ? com.fruitude.promo.model.MemberPromoState.ANONYMOUS : ordersService.memberPromoState(memberId));
         model.addAttribute("limitedPromos", promos.limited());

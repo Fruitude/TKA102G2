@@ -12,6 +12,32 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface MessageRepository extends JpaRepository<Message, Integer> {
+    @Query(value="select employee_id,employee_name from employee where employee_id in (:ids)",nativeQuery=true)
+    List<Object[]> findEmployeeNames(@Param("ids") Collection<Integer> ids);
+
+    @Query("select m from Message m where m.memberId=:memberId and m.status=1 "
+        + "and (:beforeId is null or m.messageId<:beforeId) and (:afterId is null or m.messageId>:afterId) order by m.messageId desc")
+    List<Message> page(@Param("memberId") Integer memberId, @Param("beforeId") Integer beforeId,
+        @Param("afterId") Integer afterId, org.springframework.data.domain.Pageable pageable);
+
+    @Query("select m from Message m where m.memberId=:memberId and m.status=1 and m.messageId>:afterId order by m.messageId asc")
+    List<Message> after(@Param("memberId") Integer memberId,@Param("afterId") Integer afterId,org.springframework.data.domain.Pageable pageable);
+
+    @Query("select max(m.messageId) from Message m where m.memberId=:memberId and m.senderType=1 and m.status=1")
+    Integer lastMemberMessage(@Param("memberId") Integer memberId);
+    @Transactional @Modifying
+    @Query("update Message m set m.isRead=1,m.readAt=:at where m.memberId=:memberId and m.senderType=1 and m.status=1 and m.isRead=0 and m.messageId<=:throughId")
+    int markMemberMessagesReadThrough(@Param("memberId") Integer memberId,@Param("throughId") Integer throughId,@Param("at") LocalDateTime at);
+
+    @Query("select count(m) from Message m where m.memberId=:memberId and m.status=1 and m.senderType<>1 and m.isRead=0")
+    long unreadByMember(@Param("memberId") Integer memberId);
+
+    @Transactional
+    @Modifying
+    @Query("update Message m set m.isRead=1,m.readAt=:at where m.memberId=:memberId and m.status=1 "
+        + "and m.senderType<>1 and m.isRead=0 and m.messageId<=:throughId")
+    int markStaffMessagesRead(@Param("memberId") Integer memberId,@Param("throughId") Integer throughId,@Param("at") LocalDateTime at);
+
 
 	// 一位會員的對話：指定狀態的訊息，依發送時間由舊到新，同一時間的再依訊息編號
 	List<Message> findByMemberIdAndStatusOrderByCreatedAtAscMessageIdAsc(Integer memberId, Integer status);

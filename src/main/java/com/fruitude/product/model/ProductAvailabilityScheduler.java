@@ -192,6 +192,9 @@ public class ProductAvailabilityScheduler {
         var now=LocalDateTime.now(ZoneId.of("Asia/Taipei"));
         String sql="""
             SELECT MIN(boundary) FROM (
+              SELECT s.default_listing_time AS boundary FROM product_sku s JOIN product p ON p.product_id=s.product_id
+                WHERE s.product_id=:id AND s.status=5 AND p.status<>2 AND s.default_listing_time IS NOT NULL
+              UNION ALL
               SELECT a.promo_project_start AS boundary FROM promo_project a JOIN promotion pr ON pr.promo_project_id=a.promo_project_id
                 JOIN product_sku s ON s.sku_id=pr.sku_id WHERE s.product_id=:id AND a.status=1
               UNION ALL
