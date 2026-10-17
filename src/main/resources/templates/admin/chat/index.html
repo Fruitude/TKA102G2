@@ -18,18 +18,18 @@
 		.chat-list .list-group-item { cursor: pointer; }
 		.chat-messages { height: 60vh; overflow-y: auto; background: #f8f9fc; }
 		.chat-row { display: flex; margin-bottom: .75rem; }
-		.chat-row.staff { justify-content: flex-end; }
-		/* 每則訊息的外層：寬度最多整列的 70%；裡面的泡泡、圖片、時間在會員/系統訊息靠左，客服訊息靠右 */
+		.chat-row.staff, .chat-row.system { justify-content: flex-end; }
+		/* 每則訊息的外層：寬度最多整列的 70%；裡面的泡泡、圖片、時間在會員訊息靠左，客服與系統訊息靠右 */
 		.chat-row > div { max-width: 70%; display: flex; flex-direction: column; align-items: flex-start; }
-		.chat-row.staff > div { align-items: flex-end; }
+		.chat-row.staff > div, .chat-row.system > div { align-items: flex-end; }
 		.chat-bubble { padding: .5rem .75rem; border-radius: .5rem; white-space: pre-wrap; word-break: break-word; }
 		.chat-row.member .chat-bubble { background: #fff; border: 1px solid #e3e6f0; }
 		.chat-row.staff .chat-bubble { background: #4e73df; color: #fff; }
-		.chat-row.system .chat-bubble { background: #eaecf4; color: #5a5c69; }
+		.chat-row.system .chat-bubble { background: #e2efda; color: #36552c; border: 1px solid #c7dcb9; }
 		.chat-meta { font-size: .75rem; color: #858796; margin-top: .25rem; }
 		.chat-images { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .25rem; }
 		/* 圖片多到換行時，客服訊息的最後一排也靠右 */
-		.chat-row.staff .chat-images { justify-content: flex-end; }
+		.chat-row.staff .chat-images, .chat-row.system .chat-images { justify-content: flex-end; }
 		/* 縮圖短邊 240px（後端 ChatImageSupport.thumbnail），100px 方格在 2 倍螢幕上也只需要縮小、不會放大變糊；點了看原圖 */
 		.chat-images img { width: 100px; height: 100px; object-fit: cover; border-radius: .25rem; background: #fff; cursor: zoom-in; }
 		.chat-image-broken { font-size: .75rem; padding: .25rem .5rem; border: 1px dashed #d1d3e2; border-radius: .25rem; color: #858796; background: #fff; }
@@ -106,6 +106,9 @@
         .chat-preview-images{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.chat-preview-images img{width:64px;height:64px;object-fit:cover;border-radius:4px;background:#fff}
         .chat-preview-status{padding:18px 14px;color:#858796;text-align:center;font-size:.85rem}
         .chat-preview-footer{flex:0 0 auto;padding:8px 10px;border-top:1px solid #e3e6f0;text-align:right}
+        .chat-row.system.inquiry-source{justify-content:flex-start}.chat-row.system.inquiry-source>div{align-items:flex-start}.chat-row.system.inquiry-source .chat-bubble{background:#fffdf5;color:#43523a;border-color:#dce4ce}
+        .chat-inquiry-card{display:flex;align-items:center;gap:10px}.chat-inquiry-card img{flex:0 0 64px;width:64px;height:64px;object-fit:cover;border-radius:6px;background:white}.chat-inquiry-card span{min-width:0}
+        .chat-quoted[role=button]{cursor:pointer}.chat-quoted[role=button]:hover{background:#e1e8fa}.chat-quoted[role=button]:focus-visible{outline:2px solid #9bade8;outline-offset:2px}.chat-row.chat-reply-located>div{outline:2px solid #d9a343;outline-offset:4px;border-radius:6px;background:#fff2c24d}
 	</style>
 </head>
 <body id="page-top">
@@ -414,12 +417,31 @@
         }
         // 內容載入完成、即時更新重新載入、縮圖載入造成高度改變時，重新套用上面的規則
         new ResizeObserver(()=>{if(!previewPanel.hidden)placePreview();}).observe(previewPanel);
+        let replyLocationTimer;
+        function bindQuoteJump(quote,message,fromPreview){
+            if(message.reply?.senderType==null){quote.setAttribute('aria-disabled','true');return;}
+            quote.tabIndex=0;quote.setAttribute('role','button');quote.setAttribute('aria-label','跳到原訊息');
+            const jump=async event=>{
+                if(event.type==='keydown'&&!['Enter',' '].includes(event.key))return;
+                event.preventDefault();event.stopPropagation();const id=message.memberId;
+                if(fromPreview){closePreview(false);if(currentMemberId!==id)await openConversation(id);}
+                if(currentMemberId!==id)return;
+                let row=messageList.querySelector('[data-message-id="'+Number(message.replyMessageId)+'"]');
+                if(!row)try{const messages=await callApi('api/admin/chat/'+id+'/messages');if(currentMemberId!==id)return;messages.forEach(appendMessage);row=messageList.querySelector('[data-message-id="'+Number(message.replyMessageId)+'"]');}catch(error){showError(error.message);return;}
+                if(!row){showError('原訊息已無法顯示。');return;}
+                clearTimeout(replyLocationTimer);messageList.querySelectorAll('.chat-reply-located').forEach(node=>node.classList.remove('chat-reply-located'));
+                const bounds=messageList.getBoundingClientRect(),target=row.getBoundingClientRect();
+                messageList.scrollTo({top:messageList.scrollTop+target.top-bounds.top-Math.max(0,(messageList.clientHeight-row.offsetHeight)/2),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+                row.classList.add('chat-reply-located');row.focus({preventScroll:true});replyLocationTimer=setTimeout(()=>row.classList.remove('chat-reply-located'),2200);
+            };
+            quote.addEventListener('click',jump);quote.addEventListener('keydown',jump);
+        }
         function previewItem(message){
             const item=document.createElement('div'),time=document.createElement('time');item.className='chat-preview-item';
             time.textContent=formatTime(message.createdAt);item.append(time);
             if(message.replyMessageId){const quote=document.createElement('div'),label=document.createElement('strong'),text=document.createElement('p');quote.className='chat-quoted';
                 label.textContent='回覆 '+(message.reply?.senderType===1?'會員':message.reply?.senderType===2?'客服':message.reply?.senderType===0?'系統':'原訊息');
-                text.textContent=message.reply?.messageContent||'原訊息已無法顯示';quote.append(label,text);item.append(quote);}
+                text.textContent=message.reply?.messageContent||'原訊息已無法顯示';quote.append(label,text);bindQuoteJump(quote,message,true);item.append(quote);}
             if(message.messageContent){const text=document.createElement('p');text.textContent=message.messageContent;item.append(text);}
             if(message.imageIds&&message.imageIds.length){
                 const images=document.createElement('div');images.className='chat-preview-images';
@@ -505,18 +527,23 @@
 			const senderClass = message.senderType === 2 ? 'staff' : message.senderType === 1 ? 'member' : 'system';
 			const senderName = message.senderType === 2 ? (message.employeeName || (message.employeeId ? '員工 #' + message.employeeId : '客服')) : message.senderType === 1 ? '會員' : '系統';
 			const row = document.createElement('div');
-			row.className = 'chat-row ' + senderClass;
+			row.className = 'chat-row ' + senderClass+(message.inquiryProduct?' inquiry-source':'');
             row.dataset.messageId=message.messageId;row.dataset.sender=message.senderType;row.tabIndex=0;
 			const wrapper = document.createElement('div');
             if(message.replyMessageId){const quote=document.createElement('div'),label=document.createElement('strong'),text=document.createElement('p');quote.className='chat-quoted';
                 label.textContent='回覆 '+(message.reply?.senderType===1?'會員':message.reply?.senderType===2?'客服':message.reply?.senderType===0?'系統':'原訊息');
-                text.textContent=message.reply?.messageContent||'原訊息已無法顯示';quote.append(label,text);wrapper.append(quote);}
+                text.textContent=message.reply?.messageContent||'原訊息已無法顯示';quote.append(label,text);bindQuoteJump(quote,message,false);wrapper.append(quote);}
 			// 圖片訊息可以沒有文字，沒有文字就不顯示泡泡
 			const contentBoxes = [];
 			if (message.messageContent) {
 				const bubble = document.createElement('div');
 				bubble.className = 'chat-bubble';
-				bubble.textContent = message.messageContent;
+                if(message.inquiryProduct){
+                    const image=document.createElement('img'),text=document.createElement('span');
+                    image.src=basePath+'front/api/product-image/'+Number(message.inquiryProduct.productId);image.alt=message.inquiryProduct.name;image.width=64;image.height=64;image.loading='lazy';
+                    image.onerror=()=>{image.onerror=null;image.src=basePath+'front/img/image-placeholder.svg';};
+                    text.textContent=message.messageContent;bubble.classList.add('chat-inquiry-card');bubble.append(image,text);
+                }else bubble.textContent = message.messageContent;
 				contentBoxes.push(bubble);
 			}
 			if (message.imageIds && message.imageIds.length > 0) {

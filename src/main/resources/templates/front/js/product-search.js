@@ -62,7 +62,12 @@
   opening=fetch(dialogUrl,{credentials:'same-origin',cache:'no-store'}).then(function(r){if(!r.ok)throw Error('搜尋暫時無法載入，請稍後再試。');return r.text();}).then(function(html){
    var document2=new DOMParser().parseFromString(html,'text/html'),dialog=document2.querySelector('#fruit-search-dialog');if(!dialog)throw Error('搜尋暫時無法載入。');dialog=document.importNode(dialog,true);document.body.appendChild(dialog);
    var form=dialog.querySelector('form');form.action=resultsUrl;restore(form,saved());['category','origin','vendor','promotion'].forEach(function(name){initCategories(form,name);});update(form);
-   dialog.querySelector('.fruit-search-close').addEventListener('click',function(){dialog.close();});dialog.addEventListener('click',function(e){if(e.target===dialog)dialog.close();});
+   dialog.querySelector('.fruit-search-close').addEventListener('click',function(){dialog.close();});
+   var backdropPress=false;
+   function isBackdrop(e){var rect=dialog.getBoundingClientRect();return e.target===dialog&&(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom);}
+   dialog.addEventListener('pointerdown',function(e){backdropPress=e.button===0&&isBackdrop(e);});
+   dialog.addEventListener('pointercancel',function(){backdropPress=false;});
+   dialog.addEventListener('click',function(e){var close=backdropPress&&isBackdrop(e);backdropPress=false;if(close)dialog.close();});
    dialog.addEventListener('close',function(){trigger.focus();});
    dialog.querySelectorAll('[data-search-tab]').forEach(function(b){b.addEventListener('click',function(){tab(dialog,b.dataset.searchTab);});b.addEventListener('keydown',function(e){if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();var tabs=Array.from(dialog.querySelectorAll('[data-search-tab]')),i=tabs.indexOf(b);i=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tab(dialog,tabs[i].dataset.searchTab);tabs[i].focus();});});
    form.addEventListener('input',function(){update(form);});form.addEventListener('change',function(){update(form);});form.addEventListener('submit',function(){save(form);});

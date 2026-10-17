@@ -1,5 +1,5 @@
 <!doctype html><html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org"><body>
-<aside th:fragment="widget" class="ff-chat" id="ff-chat" th:data-api="@{/api/front/chat}" th:data-ws="@{/front/chat/ws}" aria-label="智慧鮮果客服">
+<aside th:fragment="widget" class="ff-chat" id="ff-chat" th:data-api="@{/api/front/chat}" th:data-ws="@{/front/chat/ws}" th:data-search-url="@{/front/search/}" th:data-best-sellers-url="@{/front/best-sellers/}" aria-label="智慧鮮果客服">
  <audio class="ff-chat-open-sound" th:src="@{/front/audio/chat-msn-open.mp3(v=20261016-first-070)}" preload="none" hidden></audio>
  <div class="ff-chat-invite" id="ff-chat-invite" hidden>
   <button type="button" class="ff-chat-invite-close" aria-label="關閉招呼提示">×</button>
@@ -9,24 +9,47 @@
  <section class="ff-chat-panel" id="ff-chat-panel" role="dialog" aria-modal="false" aria-labelledby="ff-chat-title" hidden>
   <header class="ff-chat-header">
    <div class="ff-chat-avatar"><img th:src="@{/front/img/chat-apple-person.svg}" alt="" width="54" height="54"></div>
-   <div class="ff-chat-heading"><span class="ff-chat-eyebrow">鮮果鋪的小小陪伴</span><h2 id="ff-chat-title">智慧鮮果</h2><p><span class="ff-chat-status-dot"></span>客服聊天室<span class="ff-chat-preview-tag">尚未連線</span></p></div>
+   <div class="ff-chat-heading"><h2 id="ff-chat-title">智慧鮮果</h2><span class="ff-chat-preview-tag" role="status">尚未連線</span></div>
    <button class="ff-chat-close" type="button" aria-label="收起客服聊天室"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
   </header>
+  <section class="ff-chat-product-context" aria-label="目前詢問的商品" hidden><p>您是否想詢問商品相關問題？歡迎提問！</p><div class="ff-chat-product-card"><img class="ff-chat-product-image" th:src="@{/front/img/image-placeholder.svg}" alt="" width="52" height="52"/><div class="ff-chat-product-info"><span class="ff-chat-product-name"></span><span class="ff-chat-product-price"></span></div><button type="button" class="ff-chat-product-buy">立即購買</button></div></section>
   <div class="ff-chat-messages" role="log" aria-label="聊天訊息" aria-live="polite" aria-relevant="additions text">
-   <button class="ff-chat-older" type="button" hidden>載入較早訊息</button><p class="ff-chat-day">一段鮮甜的對話，從這裡開始</p>
-   <div class="ff-chat-message ff-chat-message--helper"><span class="ff-chat-message-avatar" aria-hidden="true">🍎</span><div><span class="ff-chat-sender">智慧鮮果</span><div class="ff-chat-bubble"><p>嗨，歡迎來到鮮果鋪！</p><p>挑選水果、配送或訂單有疑問，都可以在這裡告訴我們。🍃</p></div></div></div>
+   <button class="ff-chat-older" type="button" hidden>載入較早訊息</button>
+   <div class="ff-chat-message ff-chat-message--helper"><span class="ff-chat-message-avatar" aria-hidden="true"><img th:src="@{/front/img/chat-apple-person.svg}" alt="" width="27" height="27"/></span><div><span class="ff-chat-sender">智慧鮮果</span><div class="ff-chat-bubble"><p>嗨，歡迎來到鮮果鋪！</p><p>挑選水果、配送或訂單有疑問，都可以在這裡告訴我們。🍃</p></div></div></div>
    <div class="ff-chat-topics" aria-label="常見詢問主題"><button type="button" data-chat-topic="想請你推薦適合的水果。">🍎 挑選水果</button><button type="button" data-chat-topic="想詢問訂單相關問題。">📦 訂單查詢</button><button type="button" data-chat-topic="想了解配送與水果保存方式。">🚚 配送與保存</button></div>
   </div>
   <footer class="ff-chat-footer">
+
    <p class="ff-chat-demo-notice" role="status">正在確認登入狀態…</p>
    <a class="ff-chat-login" th:href="@{/front/about/login/}" hidden>登入會員，開始與客服對話</a>
    <div class="ff-chat-attachments" hidden></div>
    <form class="ff-chat-compose"><label class="ff-chat-pick" title="附加圖片"><span aria-hidden="true">＋</span><span class="ff-chat-sr-only">選取聊天圖片</span><input class="ff-chat-files" type="file" accept="image/png,image/jpeg,image/gif" multiple></label><label class="ff-chat-sr-only" for="ff-chat-input">客服訊息</label><textarea id="ff-chat-input" rows="1" maxlength="1000" placeholder="請輸入訊息"></textarea><button class="ff-chat-send" type="submit" aria-label="傳送訊息" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14"/></svg></button></form>
-   <p class="ff-chat-footnote">每一個小問題，都值得被好好回答。</p>
   </footer>
  </section>
  <button type="button" class="ff-chat-launcher" aria-label="開啟智慧鮮果客服聊天室" aria-expanded="false" aria-controls="ff-chat-panel">
   <span class="ff-chat-unread" aria-label="客服未讀訊息" hidden></span><span class="ff-chat-launcher-glow" aria-hidden="true"></span><img class="ff-chat-mascot" th:src="@{/front/img/chat-apple-person.svg}" alt="" width="104" height="104"><span class="ff-chat-launcher-label">智慧鮮果<span aria-hidden="true">✦</span></span>
  </button>
+ <dialog class="ff-chat-image-dialog" aria-label="聊天圖片預覽"><button type="button" class="ff-chat-image-close" aria-label="關閉圖片預覽">×</button><img class="ff-chat-image-full" alt="聊天圖片預覽"/></dialog>
+ <dialog class="ff-quiz-dialog" aria-labelledby="ff-quiz-title">
+  <audio class="ff-quiz-card-open-sound" th:src="@{/front/audio/quiz-card-return.mp3}" preload="none" hidden></audio>
+  <audio class="ff-quiz-card-return-sound" th:src="@{/front/audio/quiz-card-open.mp3}" preload="none" hidden></audio>
+  <audio class="ff-quiz-music" loop preload="none" th:data-track-one="@{/front/audio/quiz-mood-relax.mp3}" th:data-track-two="@{/front/audio/quiz-weekend-spa.mp3}" th:data-track-three="@{/front/audio/quiz-rhythm-relax.mp3}" hidden></audio>
+  <header class="ff-quiz-head"><span class="ff-quiz-seal" aria-hidden="true">F</span><span class="ff-quiz-brand">智慧鮮果 · 果物心情研究所</span><button type="button" class="ff-quiz-music-toggle" aria-label="播放背景音樂" aria-pressed="false" hidden>播放音樂</button><button type="button" class="ff-quiz-close" aria-label="關閉水果小測驗">×</button></header>
+  <div class="ff-quiz-content">
+   <p class="ff-quiz-error" role="alert" hidden></p><p class="ff-quiz-loading" role="status" hidden>正在準備你的果物靈感…</p>
+   <section class="ff-quiz-home"><p class="ff-quiz-kicker">FRUIT ORACLE · 果物心語</p><h2 id="ff-quiz-title" tabindex="-1">今天，哪種果物最懂你？</h2><p class="ff-quiz-intro">選一段此刻的心情，翻開 5 道直覺之選，遇見屬於你的果物靈感。</p><div class="ff-quiz-themes"></div></section>
+   <section class="ff-quiz-question" hidden><div class="ff-quiz-question-nav"><button type="button" class="ff-quiz-return">← 返回選題</button></div><p class="ff-quiz-subject"></p><span class="ff-quiz-current"></span><progress class="ff-quiz-progress" max="5" value="1" aria-label="作答進度"></progress><h2 class="ff-quiz-question-title" tabindex="-1"></h2><p class="ff-quiz-draw-hint">靜下心，選一張最貼近此刻的牌。</p><div class="ff-quiz-choices" role="group" aria-label="答案選項"></div><div class="ff-quiz-actions"><button type="button" class="ff-quiz-secondary ff-quiz-prev">← 上一題</button><button type="button" class="ff-quiz-primary ff-quiz-next" disabled>下一題 →</button></div></section>
+   <section class="ff-quiz-result" hidden><div class="ff-quiz-result-emblem" aria-hidden="true"></div><p class="ff-quiz-kicker">你的果物靈感出爐了</p><h2 class="ff-quiz-result-title" tabindex="-1"></h2><p class="ff-quiz-result-description ff-quiz-intro"></p><p class="ff-quiz-result-count"></p><div class="ff-quiz-recommendations"></div><div class="ff-quiz-actions"><button type="button" class="ff-quiz-secondary ff-quiz-home-button">換個主題</button><button type="button" class="ff-quiz-primary ff-quiz-again">再玩一次 →</button></div></section>
+   <p class="ff-quiz-footnote">趣味小測驗，為今天的你找點選果靈感。商品供應與價格以商品頁為準。</p>
+  </div>
+ </dialog>
 </aside>
+<th:block th:fragment="site-chat">
+ <link th:href="@{/front/css/customer-chat.css(v=20261017-quiz-history-7)}" rel="stylesheet" type="text/css"/>
+ <link th:href="@{/front/css/customer-quiz.css(v=20261017-quiz-lines-15)}" rel="stylesheet" type="text/css"/>
+ <div th:replace="~{front/fragments/customer-chat :: widget}"></div>
+ <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js" defer></script>
+ <script th:src="@{/front/js/customer-chat.js(v=20261017-quiz-history-7)}" defer></script>
+ <script th:src="@{/front/js/customer-quiz.js(v=20261017-quiz-lines-15)}" defer></script>
+</th:block>
 </body></html>

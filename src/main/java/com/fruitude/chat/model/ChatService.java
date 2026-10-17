@@ -28,9 +28,9 @@ public class ChatService {
     public record MessagePage(List<ChatMessageView> messages, boolean hasMore, long unreadCount) {}
     // These two records are exclusively for CHAT_VIEW-authorized staff. Member payloads remain ChatMessageView.
     public record StaffMessageView(Integer messageId,Integer memberId,Integer senderType,Integer messageType,
-        String messageContent,Integer isRead,LocalDateTime createdAt,List<Integer> imageIds,Integer employeeId,String employeeName,Integer replyMessageId,ChatMessageView.ReplyView reply) {
-        public ChatMessageView publicView(){return new ChatMessageView(messageId,memberId,senderType,messageType,messageContent,isRead,createdAt,imageIds,replyMessageId,reply);}
-        static StaffMessageView of(ChatMessageView m,Integer id,String name){return new StaffMessageView(m.messageId(),m.memberId(),m.senderType(),m.messageType(),m.messageContent(),m.isRead(),m.createdAt(),m.imageIds(),id,name,m.replyMessageId(),m.reply());}
+        String messageContent,Integer isRead,LocalDateTime createdAt,List<Integer> imageIds,Integer employeeId,String employeeName,Integer replyMessageId,ChatMessageView.ReplyView reply,ChatMessageView.InquiryProduct inquiryProduct) {
+        public ChatMessageView publicView(){return new ChatMessageView(messageId,memberId,senderType,messageType,messageContent,isRead,createdAt,imageIds,replyMessageId,reply,inquiryProduct);}
+        static StaffMessageView of(ChatMessageView m,Integer id,String name){return new StaffMessageView(m.messageId(),m.memberId(),m.senderType(),m.messageType(),m.messageContent(),m.isRead(),m.createdAt(),m.imageIds(),id,name,m.replyMessageId(),m.reply(),m.inquiryProduct());}
     }
     public record StaffEvent(String type,Integer memberId,StaffMessageView message,Integer readThroughId) {}
     private Map<Integer,String> employeeNames(List<Integer> ids){
@@ -55,7 +55,7 @@ public class ChatService {
         boolean more=rows.size()>50;
         var selected=new ArrayList<>(rows.subList(0,Math.min(50,rows.size())));
         selected.sort(java.util.Comparator.comparing(Message::getMessageId));
-        return new MessagePage(views(selected),more,messageRepository.unreadByMember(id));
+        return new MessagePage(views(selected).stream().filter(v->!v.staffOnly()).map(ChatMessageView::forMember).toList(),more,messageRepository.unreadByMember(id));
     }
     public long memberUnread(Integer id) { return messageRepository.unreadByMember(id); }
     /** Only visible unread member messages count, across all conversations. Redis failures use MySQL. */
@@ -273,16 +273,20 @@ public class ChatService {
 		if (cannedId != null && !cannedReplyService.exists(cannedId)) {
 			throw new IllegalArgumentException("查無此罐頭訊息，請重新選擇");
 		}
-        return send(memberId,employeeId,Message.SENDER_EMPLOYEE,content,images,cannedId,replyMessageId);
+        return send(memberId,employeeId,Message.SENDER_EMPLOYEE,content,images,cannedId,replyMessageId,null);
     }
     public ChatMessageView sendMemberMessage(Integer memberId,String content,List<MultipartFile> images)throws IOException {
         return sendMemberMessage(memberId,content,images,null);
     }
     public ChatMessageView sendMemberMessage(Integer memberId,String content,List<MultipartFile> images,Integer replyMessageId)throws IOException {
-        return send(memberId,null,Message.SENDER_MEMBER,content,images,null,replyMessageId);
+        return sendMemberMessage(memberId,content,images,replyMessageId,null);
+    }
+    public ChatMessageView sendMemberMessage(Integer memberId,String content,List<MultipartFile> images,Integer replyMessageId,Integer productSkuId)throws IOException {
+        if(productSkuId!=null && productSkuId<1)throw new IllegalArgumentException("無效的商品來源");
+        return send(memberId,null,Message.SENDER_MEMBER,content,images,null,replyMessageId,productSkuId);
     }
     private ChatMessageView send(Integer memberId,Integer employeeId,int sender,String content,
-            List<MultipartFile> images,Integer cannedId,Integer replyMessageId)throws IOException {
+            List<MultipartFile> images,Integer cannedId,Integer replyMessageId,Integer productSkuId)throws IOException {
 		String trimmedContent = content == null ? "" : content.strip();
 		if (trimmedContent.length() > MAX_CONTENT_LENGTH) {
 			throw new IllegalArgumentException("訊息內容最多 " + MAX_CONTENT_LENGTH + " 字");
@@ -315,6 +319,14 @@ public class ChatService {
 			throw new IllegalArgumentException("查無此會員");
 		}
 
+        String sourceNote=null;
+        if(sender==Message.SENDER_MEMBER && productSkuId!=null){
+            var sources=messageRepository.findInquirySku(productSkuId);
+            if(!sources.isEmpty()){var source=sources.get(0);
+                sourceNote="客戶詢問來源\n商品："+source[1]+"（商品編號 #"+source[0]+"）\n規格："+source[3]+"（規格編號 #"+source[2]+"）";
+            }
+        }
+        final String inquirySource=sourceNote;
 		LocalDateTime now = LocalDateTime.now();
 		Message message = new Message();
 		message.setSenderType(sender);
@@ -334,14 +346,24 @@ public class ChatService {
 
 		// 訊息與圖片在同一個交易裡存，任何一筆失敗全部還原；execute 回來時已經 commit，之後推播出去別人再查也查得到
 		List<Integer> imageIds = new ArrayList<>();
-        Message[] replyTarget={null};
+        Message[] replyTarget={null},automatic={null},sourceMessage={null};
+        String faqAnswer=null;
+        if(sender==Message.SENDER_MEMBER && !trimmedContent.isBlank() && !ChatQuizService.isQuizRequest(trimmedContent))try{faqAnswer=cannedReplyService.faqReply(trimmedContent);}
+        catch(RuntimeException unavailable){org.slf4j.LoggerFactory.getLogger(getClass()).warn("FAQ 自動回覆暫時無法使用，保留會員訊息供客服處理",unavailable);}
+        final String automaticAnswer=faqAnswer;
 		Message savedMessage = transactionTemplate.execute(status -> {
             if(replyMessageId!=null){
                 if(replyMessageId<1)throw new IllegalArgumentException("無效的回覆訊息");
                 var target=messageRepository.findById(replyMessageId).orElseThrow(()->new IllegalArgumentException("原訊息已無法回覆"));
                 if(!memberId.equals(target.getMemberId()) || !Integer.valueOf(Message.STATUS_SHOWN).equals(target.getStatus()))
                     throw new IllegalArgumentException("原訊息已無法回覆");
+                if(sender==Message.SENDER_MEMBER && ChatMessageView.from(target,List.of()).staffOnly())throw new IllegalArgumentException("原訊息已無法回覆");
                 replyTarget[0]=target;message.setReplyMessageId(replyMessageId);
+            }
+            if(inquirySource!=null){
+                var source=new Message();source.setSenderType(Message.SENDER_SYSTEM);source.setMemberId(memberId);
+                source.setMessageType(Message.TYPE_TEXT);source.setMessageContent(inquirySource);source.setIsRead(Message.READ);
+                source.setReadAt(now);source.setStatus(Message.STATUS_SHOWN);source.setCreatedAt(now);sourceMessage[0]=messageRepository.save(source);
             }
 			Message saved = messageRepository.save(message);
 			for (int i = 0; i < uploadedImages.size(); i++) {
@@ -356,18 +378,27 @@ public class ChatService {
 				messageImage.setCreatedAt(now);
 				imageIds.add(messageImageRepository.save(messageImage).getImageId());
 			}
+            if(automaticAnswer!=null){
+                var bot=new Message();bot.setSenderType(Message.SENDER_SYSTEM);bot.setMemberId(memberId);
+                bot.setMessageType(Message.TYPE_TEXT);bot.setMessageContent(automaticAnswer);bot.setIsRead(Message.UNREAD);
+                bot.setStatus(Message.STATUS_SHOWN);bot.setCreatedAt(now);bot.setReplyMessageId(saved.getMessageId());
+                automatic[0]=messageRepository.save(bot);
+            }
 			return saved;
 		});
 
 		try {
-			chatRedisService.touchConversation(memberId, savedMessage.getCreatedAt());
+			chatRedisService.touchConversation(memberId, automatic[0]==null?savedMessage.getCreatedAt():automatic[0].getCreatedAt());
 		} catch (DataAccessException e) {
 			cacheUncertain.set(true);
             System.out.println("聊天室更新 Redis 清單失敗：" + e.getMessage());
 		}
 		ChatMessageView messageView = ChatMessageView.from(savedMessage, imageIds);
         if(replyTarget[0]!=null)messageView=messageView.withReply(ChatMessageView.preview(replyTarget[0]));
+        if(sourceMessage[0]!=null)publish(new ChatEvent(ChatEvent.MESSAGE,memberId,ChatMessageView.from(sourceMessage[0],List.of())));
 		publish(new ChatEvent(ChatEvent.MESSAGE, memberId, messageView),employeeId);
+        if(automatic[0]!=null){var botView=ChatMessageView.from(automatic[0],List.of()).withReply(ChatMessageView.preview(savedMessage));
+            publish(new ChatEvent(ChatEvent.MESSAGE,memberId,botView));}
 		return messageView;
 	}
 
@@ -382,7 +413,9 @@ public class ChatService {
         }
         // Member messages deliberately contain no employee ID/name. A delivery failure cannot undo a commit.
         for(String topic:List.of(STAFF_TOPIC,memberTopic(event.memberId())))try {
-            messagingTemplate.convertAndSend(topic,topic.equals(STAFF_TOPIC)?staffPayload:event);
+            if(!topic.equals(STAFF_TOPIC) && event.message()!=null && event.message().staffOnly())continue;
+            var memberEvent=event.message()==null?event:new ChatEvent(event.type(),event.memberId(),event.message().forMember(),event.readThroughId());
+            messagingTemplate.convertAndSend(topic,topic.equals(STAFF_TOPIC)?staffPayload:memberEvent);
         }catch(RuntimeException error){org.slf4j.LoggerFactory.getLogger(getClass()).warn("聊天室推播中斷，重連後補載",error);}
     }
 

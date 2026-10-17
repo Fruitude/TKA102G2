@@ -339,8 +339,13 @@
     form.querySelector('[type="submit"]').disabled = stock === 0;
     form.querySelector('[type="submit"]').value = stock === 0 ? (soldOut ? "已售完" : "目前缺貨") : "加入購物車";
     var buy = form.querySelector('.w-commerce-commercebuynowbutton');
-    buy.hidden = stock === 0;
-    buy.style.display = stock === 0 ? "none" : "";
+    // Keep the second button's layout space while unavailable; it cannot receive clicks or focus.
+    buy.hidden = false;
+    buy.style.display = "";
+    buy.style.visibility = stock === 0 ? "hidden" : "";
+    buy.inert = stock === 0;
+    if (stock === 0) buy.setAttribute("aria-hidden", "true");
+    else buy.removeAttribute("aria-hidden");
   }
   function updateNotice() {
     var notice = document.getElementById("pv-quantity-notice");
@@ -398,5 +403,6 @@
 <script th:src="@{/front/js/product-detail-gallery.js(v=20261015-melon-arrows)}" defer></script>
 <script th:src="@{/front/js/product-reviews.js(v=20261014-report-fix)}" defer></script>
 <script th:src="@{/front/js/home-favorites.js}" defer></script>
+<div th:replace="~{front/fragments/customer-chat :: site-chat}"></div>
 </body>
 </html>
