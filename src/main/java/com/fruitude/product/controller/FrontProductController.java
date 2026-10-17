@@ -38,6 +38,19 @@ public class FrontProductController {
         this.ordersService = ordersService;
     }
 
+    // Favorites store product IDs, while numeric image IDs may change after an import.
+    // Resolve on each request and let the existing image endpoint handle bytes and caching.
+    @GetMapping("/front/api/product-image/{productId}")
+    public ResponseEntity<Void> productImage(@PathVariable int productId,
+            jakarta.servlet.http.HttpServletRequest request) {
+        if (productId <= 0) return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).build();
+        Integer imageId = imageCache == null ? null : imageCache.findProductImageId(productId);
+        if (imageId == null) return ResponseEntity.notFound().cacheControl(CacheControl.noStore()).build();
+        return ResponseEntity.status(HttpStatus.FOUND).cacheControl(CacheControl.noStore())
+            .location(java.net.URI.create(request.getContextPath() + "/product/image/" + imageId
+                + "?v=" + imageCache.imageVersion(imageId))).build();
+    }
+
     @GetMapping("/front/search-dialog/")
     public String searchDialog(HttpSession session,Model model,jakarta.servlet.http.HttpServletResponse response) {
         response.setHeader("Cache-Control","no-store");

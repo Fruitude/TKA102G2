@@ -155,4 +155,34 @@ public class ProductThumbnailTest {
         var stale=mvc.perform(get("/product/image/7").param("v",version).header("If-None-Match",first.getHeader("ETag"))).andReturn().getResponse();
         assertEquals(200,stale.getStatus());assertTrue(stale.getHeader("Cache-Control").contains("no-cache"));
     }
+    @Test public void favoriteImageResolvesCurrentIdEveryTimeAndKeepsContextPath() throws Exception {
+        var current=new java.util.concurrent.atomic.AtomicInteger(180);
+        var service=new ProductImageService(){
+            @Override public Integer findProductImageId(Integer productId){assertEquals(Integer.valueOf(70),productId);return current.get();}
+        };
+        var controller=new com.fruitude.product.controller.FrontProductController(null,null,null);
+        ReflectionTestUtils.setField(controller,"imageCache",service);
+        var mvc=MockMvcBuilders.standaloneSetup(controller).build();
+        var first=mvc.perform(get("/shop/front/api/product-image/70").contextPath("/shop")).andReturn().getResponse();
+        assertEquals(302,first.getStatus());assertEquals("no-store",first.getHeader("Cache-Control"));
+        assertEquals("/shop/product/image/180?v="+service.imageVersion(180),first.getHeader("Location"));
+        current.set(991);
+        var next=mvc.perform(get("/front/api/product-image/70")).andReturn().getResponse();
+        assertEquals("/product/image/991?v="+service.imageVersion(991),next.getHeader("Location"));
+    }
+    @Test public void favoriteImageHandlesInvalidAndMissingProducts() throws Exception {
+        var service=new ProductImageService(){@Override public Integer findProductImageId(Integer id){assertTrue(id>0);return null;}};
+        var controller=new com.fruitude.product.controller.FrontProductController(null,null,null);ReflectionTestUtils.setField(controller,"imageCache",service);
+        var mvc=MockMvcBuilders.standaloneSetup(controller).build();
+        assertEquals(400,mvc.perform(get("/front/api/product-image/0")).andReturn().getResponse().getStatus());
+        assertEquals(404,mvc.perform(get("/front/api/product-image/999999")).andReturn().getResponse().getStatus());
+    }
+    @Test public void favoriteImageLookupReadsOnlyTheProductBoundImageId() {
+        var repository=(com.fruitude.product.model.ProductImageRepository)java.lang.reflect.Proxy.newProxyInstance(
+            com.fruitude.product.model.ProductImageRepository.class.getClassLoader(),new Class[]{com.fruitude.product.model.ProductImageRepository.class},(o,m,a)->{
+                assertEquals("findFirstImageIdForProduct",m.getName());assertEquals(Integer.valueOf(70),a[0]);return java.util.Optional.of(180);
+            });
+        var service=new ProductImageService();ReflectionTestUtils.setField(service,"repository",repository);
+        assertNull(service.findProductImageId(null));assertNull(service.findProductImageId(-1));assertEquals(Integer.valueOf(180),service.findProductImageId(70));
+    }
 }

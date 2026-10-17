@@ -189,6 +189,11 @@ public class ProductImageService {
 
 
 
+    public Integer findProductImageId(Integer productId) {
+        if (productId == null || productId <= 0) return null;
+        return repository.findFirstImageIdForProduct(productId).orElse(null);
+    }
+
     public com.fruitude.product.model.ProductImageRepository.ProductImageSource getImageSource(Integer imageId) { return repository.findImageSource(imageId).orElse(null); }
     public com.fruitude.product.model.ProductImageRepository.ProductThumbnailSource getThumbnailSource(Integer imageId) {
         return repository.findThumbnailSource(imageId).orElse(null);
