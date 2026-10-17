@@ -21,7 +21,12 @@
     image.className = "favorite-card-image";
     image.alt = product.productName || "收藏商品";
     image.loading = "lazy";
-    image.src = product.imageUrl || contextPath + "/front/img/image-placeholder.svg";
+    // Stored image URLs can outlive database imports or image replacement.
+    // Product IDs remain the source of truth for the current display image.
+    image.addEventListener("error", function() {
+      image.src = contextPath + "/front/img/image-placeholder.svg";
+    }, { once: true });
+    image.src = contextPath + "/front/api/product-image/" + encodeURIComponent(product.productId);
     imageLink.appendChild(image);
 
     var body = document.createElement("div");
