@@ -80,10 +80,16 @@
 									<li class="page-item" th:classappend="${ordersPage.first} ? 'disabled'">
 										<a class="page-link" th:href="@{/admin/psi/shipping(page=${ordersPage.number})}">上一頁</a>
 									</li>
-									<li class="page-item" th:each="pageNumber : ${#numbers.sequence(1, ordersPage.totalPages)}"
-										th:classappend="${pageNumber == ordersPage.number + 1} ? 'active'">
-										<a class="page-link" th:href="@{/admin/psi/shipping(page=${pageNumber})}" th:text="${pageNumber}"></a>
-									</li>
+									<!-- 頁碼取自 pageNumbers（PsiUtils 的 buildPageNumbers）：頭尾各 5 頁加上目前這頁前後各 2 頁，0 顯示成「…」 -->
+									<th:block th:each="pageNumber : ${pageNumbers}">
+										<li class="page-item disabled" th:if="${pageNumber == 0}">
+											<span class="page-link">…</span>
+										</li>
+										<li class="page-item" th:unless="${pageNumber == 0}"
+											th:classappend="${pageNumber == ordersPage.number + 1} ? 'active'">
+											<a class="page-link" th:href="@{/admin/psi/shipping(page=${pageNumber})}" th:text="${pageNumber}"></a>
+										</li>
+									</th:block>
 									<li class="page-item" th:classappend="${ordersPage.last} ? 'disabled'">
 										<a class="page-link" th:href="@{/admin/psi/shipping(page=${ordersPage.number + 2})}">下一頁</a>
 									</li>

@@ -348,8 +348,15 @@ public class OrdersService {
 		}
 		Map<Integer, String> skuNames = new HashMap<>();
 		for (com.fruitude.product.model.ProductSku sku : productSkuRepository.findAllById(skuIds)) {
-			skuNames.put(sku.getSkuId(), com.fruitude.product.model.ProductSku.resolveDisplayName(
-					sku.getSkuName(), sku.getAnotherName()));
+			String skuName = com.fruitude.product.model.ProductSku.resolveDisplayName(
+					sku.getSkuName(), sku.getAnotherName());
+			// 前面補上商品名稱（例如「愛文芒果 6顆禮盒（約5斤）」）；規格名稱已含商品名稱就不重複
+			String productName = sku.getProduct() == null ? null : sku.getProduct().getProductName();
+			if (productName != null && !productName.isBlank() && skuName != null && !skuName.isBlank()
+					&& !skuName.contains(productName)) {
+				skuName = productName + " " + skuName;
+			}
+			skuNames.put(sku.getSkuId(), skuName);
 		}
 		Map<Integer, List<MemberOrderView.Item>> itemsByOrders = new HashMap<>();
 		for (OrdersDetail d : details) {

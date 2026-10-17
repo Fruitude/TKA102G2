@@ -2,7 +2,9 @@ package com.fruitude.stock.controller;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.fruitude.product.model.ProductSku;
 import com.fruitude.stock.model.StockService;
+import com.fruitude.utils.PsiUtils;
 
 @Controller
 @RequestMapping("/admin/psi/stock")
@@ -33,8 +36,9 @@ public class StockController {
 	StockService stockSvc;
 
 	// 庫存管理系統首頁：列出規格的庫存數字，每頁 20 筆；page 是頁碼，從 1 開始，網址沒帶就是第 1 頁
-	// 上方四個查詢表單各自獨立，一次只會帶 skuId、productName、skuName、status 其中一個；都沒帶就是列出全部規格
-	// 輸入不正確或查無資料時，顯示錯誤訊息並列出全部規格的第 1 頁
+	// 上方的查詢表單可以同時填 skuId、productName、skuName、status 多個條件，條件之間是「而且」；沒填的條件不使用，都沒填就是列出全部規格
+	// 輸入不正確：所有錯誤一行一個顯示在紅框，列表改列出全部規格的第 1 頁
+	// 條件正確但查無資料：紅框顯示「查無資料」，表格顯示查無符合條件的規格
 	@GetMapping("")
 	public String stock(@RequestParam(value = "page", defaultValue = "1") int page,
 			@RequestParam(value = "status", required = false) String status,
@@ -42,75 +46,84 @@ public class StockController {
 			@RequestParam(value = "productName", required = false) String productName,
 			@RequestParam(value = "skuName", required = false) String skuName, Model model) {
 
-		String errorMessage = null;
-		Page<ProductSku> skuPage = null;
-		// 頁碼連結要接在 page 後面的查詢條件（例如 &status=1），換頁時才會留在同一個查詢結果
-		String queryString = "";
-		boolean searching = true;
+		String skuIdText = skuId == null ? "" : skuId.trim();
+		String statusText = status == null ? "" : status.trim();
+		String productNameText = productName == null ? "" : productName.trim();
+		String skuNameText = skuName == null ? "" : skuName.trim();
+		boolean searching = !skuIdText.isEmpty() || !statusText.isEmpty() || !productNameText.isEmpty()
+				|| !skuNameText.isEmpty();
 
-		if (skuId != null) {
-			String skuIdText = skuId.trim();
-			if (skuIdText.isEmpty()) {
-				errorMessage = "規格編號，請勿空白";
-			} else if (!skuIdText.matches("^\\d+$") || skuIdText.matches("^0+$")) {
-				// 英文字、符號、負號、小數點都不是數字；0 不是正整數
-				errorMessage = "規格編號，只能輸入正整數";
-			} else {
+		Page<ProductSku> skuPage;
+		// 頁碼連結要接在 page 後面的查詢條件（例如 &status=1&productName=...），換頁時才會留在同一個查詢結果
+		String queryString = "";
+
+		List<String> errors = validateStockSearch(skuIdText, statusText, productNameText, skuNameText);
+		if (!errors.isEmpty()) {
+			// 條件不正確：列出全部規格的第 1 頁，翻頁連結不帶條件；表單由 param 回填使用者原本輸入的內容
+			model.addAttribute("errorMessage", String.join("\n", errors));
+			skuPage = stockSvc.getSkus(1);
+			searching = false;
+		} else if (!searching) {
+			skuPage = stockSvc.getSkus(page);
+		} else {
+			Integer skuIdValue = null;
+			boolean skuIdOverflow = false;
+			if (!skuIdText.isEmpty()) {
 				try {
-					skuPage = stockSvc.getSkusBySkuId(Integer.valueOf(skuIdText));
-					queryString = "&skuId=" + skuIdText;
+					skuIdValue = Integer.valueOf(skuIdText);
 				} catch (NumberFormatException e) {
-					// 數字太大，超過規格編號的範圍，一定查不到；skuPage 留著 null，下面會當成查無資料
+					// 數字太大，超過規格編號的範圍，一定查不到
+					skuIdOverflow = true;
 				}
 			}
-		} else if (productName != null) {
-			String keyword = productName.trim();
-			if (keyword.isEmpty()) {
-				errorMessage = "商品名稱，請勿空白";
-			} else if (keyword.length() > NAME_MAX_LENGTH) {
-				errorMessage = "商品名稱，字數過多";
-			} else {
-				skuPage = stockSvc.getSkusByProductName(keyword, page);
-				queryString = "&productName=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8);
+			skuPage = skuIdOverflow ? Page.empty()
+					: stockSvc.searchSkus(skuIdValue, statusText.isEmpty() ? null : Byte.valueOf(statusText),
+							productNameText, skuNameText, page);
+			if (skuPage.getTotalElements() == 0) {
+				model.addAttribute("errorMessage", "查無資料");
 			}
-		} else if (skuName != null) {
-			String keyword = skuName.trim();
-			if (keyword.isEmpty()) {
-				errorMessage = "規格名稱，請勿空白";
-			} else if (keyword.length() > NAME_MAX_LENGTH) {
-				errorMessage = "規格名稱，字數過多";
-			} else {
-				skuPage = stockSvc.getSkusBySkuName(keyword, page);
-				queryString = "&skuName=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8);
-			}
-		} else if (status != null && !status.isEmpty()) {
-			// 狀態碼 0 到 7，對應 ProductSku 的 getStatusLabel；下拉選單的「查詢全部」是空字串，不會進到這裡
-			if (!status.matches("^[0-7]$")) {
-				errorMessage = "規格狀態，值不正確";
-			} else {
-				skuPage = stockSvc.getSkusByStatus(Byte.valueOf(status), page);
-				queryString = "&status=" + status;
-				// 下拉選單用來標示目前選的狀態
-				model.addAttribute("status", status);
-			}
-		} else {
-			searching = false;
-			skuPage = stockSvc.getSkus(page);
-		}
 
-		if (searching && errorMessage == null && (skuPage == null || skuPage.getTotalElements() == 0)) {
-			errorMessage = "查無資料";
-		}
-		if (errorMessage != null) {
-			model.addAttribute("errorMessage", errorMessage);
-			model.addAttribute("status", null);
-			skuPage = stockSvc.getSkus(1);
-			queryString = "";
+			if (!skuIdText.isEmpty()) {
+				queryString += "&skuId=" + skuIdText;
+			}
+			if (!statusText.isEmpty()) {
+				queryString += "&status=" + statusText;
+			}
+			if (!productNameText.isEmpty()) {
+				queryString += "&productName=" + URLEncoder.encode(productNameText, StandardCharsets.UTF_8);
+			}
+			if (!skuNameText.isEmpty()) {
+				queryString += "&skuName=" + URLEncoder.encode(skuNameText, StandardCharsets.UTF_8);
+			}
 		}
 
 		model.addAttribute("skuListData", skuPage);
 		model.addAttribute("queryString", queryString);
+		// 有沒有用查詢條件查：查無資料時決定表格顯示哪一句提示
+		model.addAttribute("searching", searching);
 		return "admin/psi/stock/index"; //view
+	}
+
+	// 庫存查詢條件的格式檢查，回傳所有錯誤訊息（沒有錯誤時是空的清單）；傳進來的值都已經去掉前後空白，沒填是空字串
+	// 規格編號溢位（數字太大）不算格式錯誤，由 stock 當成查無資料
+	private List<String> validateStockSearch(String skuId, String status, String productName, String skuName) {
+		List<String> errors = new ArrayList<>();
+		// 不檢查上限：數字太大時由 stock 當成查無資料
+		String skuIdError = PsiUtils.positiveIdError(skuId, "規格編號", null);
+		if (skuIdError != null) {
+			errors.add(skuIdError);
+		}
+		if (productName.length() > NAME_MAX_LENGTH) {
+			errors.add("商品名稱，字數過多");
+		}
+		if (skuName.length() > NAME_MAX_LENGTH) {
+			errors.add("規格名稱，字數過多");
+		}
+		// 狀態碼 0 到 7，對應 ProductSku 的 getStatusLabel；下拉選單的「全部」是空字串，不檢查
+		if (!status.isEmpty() && !status.matches("^[0-7]$")) {
+			errors.add("規格狀態，值不正確");
+		}
+		return errors;
 	}
 
 	// 單筆資料：由首頁列表的「檢視」連過來，依 skuId 顯示這個規格的資料與庫存數量

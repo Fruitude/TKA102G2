@@ -48,7 +48,8 @@
 					    </button>
 					</div>
 
-					<!-- 條件查詢：依採購單狀態、供應商編號、採購員工編號查多筆，結果以 listAllPo.html 顯示；依採購單編號查單筆 -->
+					<!-- 條件查詢：一個表單，採購單編號、採購單狀態、供應商編號、採購員工編號可以同時填（條件之間是「而且」），沒填的條件不使用 -->
+					<!-- 送到 PoNoController 的 searchPos，結果以 listAllPo.html 顯示；格式不符或查無資料時回到本頁，以上方的錯誤訊息顯示原因 -->
 					<!-- 進頁面時固定展開，可以按標題列右側的按鈕收合 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3 d-flex justify-content-between align-items-center">
@@ -65,61 +66,55 @@
 						</div>
 						<div id="poSearchBody" class="collapse show">
 						<div class="card-body">
-						
-						 <div class="d-flex justify-content-between align-items-start mb-3">
-							<form th:action="@{/admin/psi/purchase/listAllPo}" method="post" class="form-inline">
-					            <!-- 預設選「待審核」；用這個選單查詢而查無資料回到本頁時，保留剛才選的項目（param.poStatus 是這次請求帶來的值） -->
-					            <label for="poStatus" class="mr-3" style="width: 120px;">採購單狀態</label>
-					            <select id="poStatus" name="poStatus" class="custom-select custom-select-sm mr-2"
-					            th:with="selected=${param.poStatus != null ? param.poStatus[0] : '0'}">
-					                <option value="" th:selected="${selected == ''}">查詢全部</option>
-					                <option value="0" th:selected="${selected == '0'}">待審核</option>
-					                <option value="1" th:selected="${selected == '1'}">申請通過</option>
-					                <option value="2" th:selected="${selected == '2'}">申請未通過</option>
-					                <option value="3" th:selected="${selected == '3'}">已取消</option>
-					                <option value="4" th:selected="${selected == '4'}">已結案</option>
-					            </select>
-					            <button type="submit" class="btn btn-primary btn-sm">查詢</button>
-					        </form>
-							 <a th:href="@{/admin/psi/purchase/addPo}"
-								class="btn btn-success btn-icon-split btn-sm"> <span
-								class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
-								class="text">新增採購單</span>
-							</a>
-						</div>
-
-							<!-- 以下三個查詢由 PoNoController 處理，格式不符或查無資料時回到本頁，以上方的錯誤訊息顯示原因 -->
-							<form method="post"
-								th:action="@{/admin/psi/purchase/getOneForDisplay}"
-								class="form-inline mb-3">
-								<label for="poNoInput" class="mr-3" style="width: 120px;">採購單編號</label>
-								<input type="text" id="poNoInput" name="poNo"
-									class="form-control form-control-sm mr-2" placeholder="PO202610090001" maxlength="15"
-									th:value="${param.poNo}">
-								<button type="submit" class="btn btn-primary btn-sm">送出</button>
-							</form>
-
-							<form method="post"
-								th:action="@{/admin/psi/purchase/listPosByVendorId}"
-								class="form-inline mb-3">
-								<label for="vendorIdInput" class="mr-3" style="width: 120px;">供應商編號</label>
-								<input type="text" id="vendorIdInput" name="vendorId"
-									class="form-control form-control-sm mr-2" placeholder="請輸入供應商編號"
-									th:value="${param.vendorId}">
-								<button type="submit" class="btn btn-primary btn-sm">送出</button>
-							</form>
-
-							<form method="post"
-								th:action="@{/admin/psi/purchase/listPosByPoEmployeeId}"
-								class="form-inline mb-3">
-								<label for="poEmployeeIdInput" class="mr-3" style="width: 120px;">採購員工編號</label>
-								<input type="text" id="poEmployeeIdInput" name="poEmployeeId"
-									class="form-control form-control-sm mr-2" placeholder="請輸入採購員工編號"
-									th:value="${param.poEmployeeId}">
-								<button type="submit" class="btn btn-primary btn-sm">送出</button>
+							<!-- 欄位值用這次請求帶來的參數（param）回填，格式不符或查無資料回到本頁時保留使用者輸入的內容 -->
+							<form th:action="@{/admin/psi/purchase/searchPos}" method="post" class="form-row align-items-end">
+								<div class="col-auto mb-2">
+									<label class="small mb-1" for="poNoInput">採購單編號</label>
+									<input type="text" id="poNoInput" name="poNo"
+										class="form-control form-control-sm" placeholder="PO202610090001" maxlength="15"
+										th:value="${param.poNo}">
+								</div>
+								<div class="col-auto mb-2">
+									<!-- 預設「查詢全部」，不限採購單狀態 -->
+									<label class="small mb-1" for="poStatus">採購單狀態</label>
+									<select id="poStatus" name="poStatus" class="custom-select custom-select-sm"
+										th:with="selected=${param.poStatus != null ? #strings.trim(param.poStatus[0]) : ''}">
+										<option value="" th:selected="${selected == ''}">查詢全部</option>
+										<option value="0" th:selected="${selected == '0'}">待審核</option>
+										<option value="1" th:selected="${selected == '1'}">申請通過</option>
+										<option value="2" th:selected="${selected == '2'}">申請未通過</option>
+										<option value="3" th:selected="${selected == '3'}">已取消</option>
+										<option value="4" th:selected="${selected == '4'}">已結案</option>
+									</select>
+								</div>
+								<div class="col-auto mb-2">
+									<label class="small mb-1" for="vendorIdInput">供應商編號</label>
+									<input type="text" id="vendorIdInput" name="vendorId"
+										class="form-control form-control-sm" placeholder="請輸入供應商編號"
+										th:value="${param.vendorId}">
+								</div>
+								<div class="col-auto mb-2">
+									<label class="small mb-1" for="poEmployeeIdInput">採購員工編號</label>
+									<input type="text" id="poEmployeeIdInput" name="poEmployeeId"
+										class="form-control form-control-sm" placeholder="請輸入採購員工編號"
+										th:value="${param.poEmployeeId}">
+								</div>
+								<div class="col-auto mb-2">
+									<button type="submit" class="btn btn-primary btn-sm">查詢</button>
+									<a th:href="@{/admin/psi/purchase}" class="btn btn-secondary btn-sm">清除條件</a>
+								</div>
 							</form>
 						</div>
 						</div>
+					</div>
+
+					<!-- 新增採購單：放在待採購商品區塊上方的右邊，不帶供應商，進新增頁後再選 -->
+					<div class="d-flex justify-content-end mb-2">
+						<a th:href="@{/admin/psi/purchase/addPo}"
+							class="btn btn-success btn-icon-split btn-sm"> <span
+							class="icon text-white-50"><i class="fas fa-plus"></i></span> <span
+							class="text">新增採購單</span>
+						</a>
 					</div>
 
 					<!-- 待採購商品：低於安全庫存的規格，belowSafetyStockByVendor 由 PoController、PoNoController 放入 model -->

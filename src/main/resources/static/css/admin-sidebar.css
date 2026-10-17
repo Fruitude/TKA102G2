@@ -1,0 +1,66 @@
+/* 後台共用側邊欄：視窗變矮時自動縮小間距，讓所有選單放進一個畫面；950px 以上維持 SB Admin 原本的數值
+   clamp 中間的算式由兩點算出：視窗高 950px 時等於 SB Admin 原值，650px 時縮到放得下 10 個選單
+   選擇器與 sb-admin-2.min.css 相同（權重一樣），這支檔案較晚載入所以會蓋過去；只改高度與垂直排列，寬度與字級不動 */
+
+/* 品牌區（首頁）：70px → 約 48px */
+.sidebar .sidebar-brand {
+    height: clamp(3rem, 7.4vh, 4.375rem);
+}
+
+/* 分隔線下方間距：16px → 8px（品牌下方那條有 mb-2 !important，不受影響） */
+.sidebar hr.sidebar-divider {
+    margin-bottom: clamp(.5rem, calc(2.67vh - 9.3px), 1rem);
+}
+
+/* 收合按鈕下方間距：16px → 8px */
+.sidebar #sidebarToggle {
+    margin-bottom: clamp(.5rem, calc(2.67vh - 9.3px), 1rem);
+}
+
+/* 選單高度：展開與收合用同一個固定高度，內容垂直置中，切換時整條側邊欄高度不變
+   56px（SB Admin 展開的原高度）→ 視窗 650px 時 48px */
+:root {
+    --admin-sidebar-item-height: clamp(3rem, calc(2.67vh + 30.7px), 3.5rem);
+}
+
+/* 手機窄版（小於 768px）與收合狀態：圖示在上、文字在下，兩行一起置中 */
+.sidebar .nav-item .nav-link {
+    height: var(--admin-sidebar-item-height);
+    padding-top: 0;
+    padding-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* 圖示與下方文字之間留一點空隙，避免黏在一起 */
+    row-gap: .25rem;
+}
+
+/* 收合文字行高 1.5 → 1.2，矮視窗時兩行仍放得進 48px */
+.sidebar .nav-item .nav-link span {
+    line-height: 1.2;
+}
+
+@media (min-width: 768px) {
+    /* 展開：圖示和文字同一行，靠左、垂直置中；gap 補回原本圖示與文字間的空白字元 */
+    .sidebar .nav-item .nav-link {
+        flex-direction: row;
+        justify-content: flex-start;
+        column-gap: .25rem;
+    }
+
+    .sidebar .nav-item .nav-link span {
+        line-height: 1.5;
+    }
+
+    /* 收合：回到上下兩行置中 */
+    .sidebar.toggled .nav-item .nav-link {
+        flex-direction: column;
+        justify-content: center;
+        column-gap: 0;
+    }
+
+    .sidebar.toggled .nav-item .nav-link span {
+        line-height: 1.2;
+    }
+}

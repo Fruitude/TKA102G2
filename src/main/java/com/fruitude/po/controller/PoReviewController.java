@@ -3,10 +3,13 @@ package com.fruitude.po.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.fruitude.po.model.PoReviewService;
@@ -92,6 +95,14 @@ public class PoReviewController {
 	// 回審核頁的網址
 	private String redirectToUpdatePurchaseReview(Integer poId) {
 		return "redirect:/admin/account/purchasereview/updatePurchaseReview?poId=" + poId;
+	}
+
+	// 網址的參數型別不對（例如 poId=abc）或少了必要的參數時，回審核首頁並顯示錯誤訊息，不出現預設的錯誤頁
+	// 只處理這支 controller 的方法丟出的例外；審核首頁 index.html 以紅框顯示 errorMessage
+	@ExceptionHandler({ MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class })
+	public String handleError(RedirectAttributes redirectAttributes) {
+		redirectAttributes.addFlashAttribute("errorMessage", "網址的參數不正確，請從採購單審核重新操作");
+		return "redirect:/admin/account/purchasereview";
 	}
 
 }

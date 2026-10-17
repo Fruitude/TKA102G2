@@ -30,9 +30,17 @@ public class StockService {
 		return getSkuPage(page, pageable -> skuRepository.findSkusWithProduct(pageable));
 	}
 
-	// 指定狀態的規格的其中一頁；page 的規則和 getSkus 相同
-	public Page<ProductSku> getSkusByStatus(Byte status, int page) {
-		return getSkuPage(page, pageable -> skuRepository.findByStatusWithProduct(status, pageable));
+	// 複合條件查詢的其中一頁，條件之間是「而且」；page 的規則和 getSkus 相同
+	// 條件都可以不填（null 或空字串）：skuId、status 完全相同，productName、skuName 找部分文字
+	public Page<ProductSku> searchSkus(Integer skuId, Byte status, String productName, String skuName, int page) {
+		// 沒填的條件換成「不篩選」的值，對應 StockSkuRepository 的 searchSkus
+		int skuIdFilter = skuId == null ? 0 : skuId;
+		int statusFilter = status == null ? 0 : 1;
+		Byte statusValue = status == null ? Byte.valueOf((byte) 0) : status; // 不篩選時不會用到，給個值避免傳 null
+		String productNamePattern = productName == null || productName.isEmpty() ? "" : toLikePattern(productName);
+		String skuNamePattern = skuName == null || skuName.isEmpty() ? "" : toLikePattern(skuName);
+		return getSkuPage(page, pageable -> skuRepository.searchSkus(skuIdFilter, statusFilter, statusValue,
+				productNamePattern, skuNamePattern, pageable));
 	}
 
 	// 單筆規格，查不到回傳 null
@@ -72,23 +80,6 @@ public class StockService {
 			throw new IllegalArgumentException("查無此規格");
 		}
 		return true;
-	}
-
-	// 指定編號的規格，最多一筆，查不到時回傳沒有內容的一頁
-	public Page<ProductSku> getSkusBySkuId(Integer skuId) {
-		return getSkuPage(1, pageable -> skuRepository.findBySkuIdWithProduct(skuId, pageable));
-	}
-
-	// 商品名稱包含 keyword 的規格的其中一頁；page 的規則和 getSkus 相同
-	public Page<ProductSku> getSkusByProductName(String keyword, int page) {
-		String pattern = toLikePattern(keyword);
-		return getSkuPage(page, pageable -> skuRepository.findByProductNameWithProduct(pattern, pageable));
-	}
-
-	// 規格名稱包含 keyword 的規格的其中一頁；page 的規則和 getSkus 相同
-	public Page<ProductSku> getSkusBySkuName(String keyword, int page) {
-		String pattern = toLikePattern(keyword);
-		return getSkuPage(page, pageable -> skuRepository.findBySkuNameWithProduct(pattern, pageable));
 	}
 
 	// 各種查詢共用的頁碼處理：query 是實際查資料庫的那一個 repository 方法

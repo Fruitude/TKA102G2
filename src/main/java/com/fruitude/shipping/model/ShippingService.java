@@ -1,5 +1,7 @@
 package com.fruitude.shipping.model;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,6 +20,7 @@ import com.fruitude.employee.model.EmployeeRepository;
 import com.fruitude.orders.model.Orders;
 import com.fruitude.orders.model.OrdersDetail;
 import com.fruitude.product.model.ProductSku;
+import com.fruitude.utils.Utils;
 
 @Service
 public class ShippingService {
@@ -33,6 +36,11 @@ public class ShippingService {
 
 	// 歷史出貨紀錄的排序：訂單日期由新到舊，同一時間的再依訂單編號由大到小
 	private static final Sort HISTORY_ORDERS_SORT = Sort.by(Sort.Direction.DESC, "ordersDate", "ordersId");
+
+	// 歷史出貨紀錄只填一邊日期時，另一邊用的日期，等於那一邊不限（兩邊都沒填時不篩選日期，用不到這兩個）
+	// 迄日用 12/30：查詢時會再加一天，12/31 加一天會超過 MySQL DATETIME 的上限
+	private static final LocalDate HISTORY_MIN_DATE = LocalDate.of(1900, 1, 1);
+	private static final LocalDate HISTORY_MAX_DATE = LocalDate.of(9999, 12, 30);
 
 	@Autowired
 	private ShippingOrderRepository ordersRepository;
@@ -58,18 +66,45 @@ public class ShippingService {
 		return ordersPage;
 	}
 
-	// 歷史出貨紀錄的其中一頁：狀態不是待出貨（0）、也不是取消（2、4）的訂單，訂單日期由新到舊
+	// 歷史出貨紀錄的其中一頁：狀態不是待出貨（0）、也不是取消（2、4）的訂單，再依查詢條件篩選，訂單日期由新到舊
 	// page 的規則和 getPendingOrders 相同
-	public Page<Orders> getHistoryOrders(int page) {
+	// 查詢條件都可以不填（null 或空白）：ordersId 完全相同、ordersStatus 完全相同、receiverName 找部分文字
+	// startDate / endDate 是訂單日期的區間，兩天都包含在內；起日晚於迄日由 ShippingController 的 validateHistorySearch 擋下
+	public Page<Orders> getHistoryOrders(int page, Integer ordersId, Integer ordersStatus, String receiverName,
+			LocalDate startDate, LocalDate endDate) {
+		// 沒填的條件換成「不篩選」的值，對應 ShippingOrderRepository 的 searchHistoryOrders
+		int ordersIdFilter = ordersId == null ? 0 : ordersId;
+		int ordersStatusFilter = ordersStatus == null ? -1 : ordersStatus;
+		String receiverNameFilter = receiverName == null ? "" : receiverName.strip();
+		// 起日、迄日都沒填時不篩選日期（訂單日期是空的訂單也會列出）；只填一邊時，另一邊用 HISTORY_MIN_DATE / HISTORY_MAX_DATE 補上
+		int dateFilter = startDate == null && endDate == null ? 0 : 1;
+		LocalDate fromDate = startDate == null ? HISTORY_MIN_DATE : startDate;
+		LocalDate toDate = endDate == null ? HISTORY_MAX_DATE : endDate;
+		LocalDateTime startDateTime = fromDate.atStartOfDay();
+		LocalDateTime endDateTime = toDate.plusDays(1).atStartOfDay(); // 迄日隔天 0 點（不含），迄日當天整天都算
+
 		int pageIndex = Math.max(page, 1) - 1; // PageRequest 的頁碼從 0 開始
-		Page<Orders> ordersPage = ordersRepository.findByOrdersStatusNotIn(HISTORY_EXCLUDED_STATUSES,
+		Page<Orders> ordersPage = ordersRepository.searchHistoryOrders(HISTORY_EXCLUDED_STATUSES, ordersIdFilter,
+				ordersStatusFilter, receiverNameFilter, dateFilter, startDateTime, endDateTime,
 				PageRequest.of(pageIndex, PAGE_SIZE, HISTORY_ORDERS_SORT));
 		if (pageIndex > 0 && pageIndex >= ordersPage.getTotalPages()) {
 			int lastPageIndex = Math.max(ordersPage.getTotalPages() - 1, 0);
-			ordersPage = ordersRepository.findByOrdersStatusNotIn(HISTORY_EXCLUDED_STATUSES,
+			ordersPage = ordersRepository.searchHistoryOrders(HISTORY_EXCLUDED_STATUSES, ordersIdFilter,
+					ordersStatusFilter, receiverNameFilter, dateFilter, startDateTime, endDateTime,
 					PageRequest.of(lastPageIndex, PAGE_SIZE, HISTORY_ORDERS_SORT));
 		}
 		return ordersPage;
+	}
+
+	// 歷史出貨紀錄會出現的訂單狀態（排除待出貨與取消），給查詢的狀態下拉選單用，依狀態碼由小到大
+	public List<Utils.OrderStatus> getHistoryStatuses() {
+		List<Utils.OrderStatus> statuses = new ArrayList<>();
+		for (Utils.OrderStatus status : Utils.OrderStatus.values()) {
+			if (!HISTORY_EXCLUDED_STATUSES.contains(status.getCode())) {
+				statuses.add(status);
+			}
+		}
+		return statuses;
 	}
 
 	// 這張訂單會不會出現在歷史出貨紀錄：條件和 getHistoryOrders 相同，歷史單筆頁用來擋下不該顯示的訂單
