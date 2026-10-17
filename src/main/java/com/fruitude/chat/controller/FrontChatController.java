@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequestMapping("/api/front/chat")
 public class FrontChatController {
     private final ChatService chats;
+    @org.springframework.beans.factory.annotation.Autowired private com.fruitude.chat.model.ChatQuizService quizzes;
     public FrontChatController(ChatService chats){this.chats=chats;}
     private int member(HttpServletRequest request){
         var session=request.getSession(false);
@@ -28,6 +29,32 @@ public class FrontChatController {
             || "cross-site".equals(request.getHeader("Sec-Fetch-Site")))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"請從商城聊天室操作");
     }
+    @SuppressWarnings("unchecked")
+    private java.util.LinkedHashMap<String,com.fruitude.chat.model.ChatQuizService.Run> quizRuns(jakarta.servlet.http.HttpSession session){
+        Object stored=session.getAttribute("chat.quiz.runs");
+        if(stored instanceof java.util.LinkedHashMap<?,?>)return (java.util.LinkedHashMap<String,com.fruitude.chat.model.ChatQuizService.Run>)stored;
+        var runs=new java.util.LinkedHashMap<String,com.fruitude.chat.model.ChatQuizService.Run>();session.setAttribute("chat.quiz.runs",runs);return runs;
+    }
+    @GetMapping("/quizzes")
+    public ResponseEntity<?> quizzes(HttpServletRequest request){member(request);return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(quizzes.themes());}
+    @GetMapping("/quizzes/results")
+    public ResponseEntity<?> quizHistory(@RequestParam(required=false) Integer beforeId,HttpServletRequest request){
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(quizzes.history(member(request),beforeId));
+    }
+    @PostMapping("/quizzes/{quizId}/start")
+    public ResponseEntity<?> startQuiz(@PathVariable Integer quizId,HttpServletRequest request){
+        int id=member(request);mutation(request);var session=request.getSession(false);
+        synchronized(session){var run=quizzes.start(id,quizId);var runs=quizRuns(session);while(runs.size()>=5)runs.remove(runs.keySet().iterator().next());runs.put(run.token,run);
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(run.view());}
+    }
+    @PostMapping("/quizzes/{quizId}/submit")
+    public ResponseEntity<?> finishQuiz(@PathVariable Integer quizId,@RequestBody com.fruitude.chat.model.ChatQuizService.Submission submission,HttpServletRequest request){
+        int id=member(request);mutation(request);var session=request.getSession(false);
+        synchronized(session){var run=submission==null?null:quizRuns(session).get(submission.token());
+            if(run==null||!run.belongsTo(id,quizId))throw new IllegalArgumentException("測驗已過期，請重新開始。");
+            if(run.completed==null)run.completed=quizzes.finish(id,quizId,run,submission.answers());
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(run.completed);}
+    }
     @GetMapping("/messages")
     public ResponseEntity<?> messages(@RequestParam(required=false) Integer beforeId,
         @RequestParam(required=false) Integer afterId,HttpServletRequest request){
@@ -35,13 +62,24 @@ public class FrontChatController {
     }
     @GetMapping("/unread") public ResponseEntity<?> unread(HttpServletRequest request){
         int id=member(request);
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("memberId",id,"unreadCount",chats.memberUnread(id)));
+        var session=request.getSession(false);String welcomeToken;
+        synchronized(session){
+            Object stored=session.getAttribute("chat.welcome.token");
+            if(!(stored instanceof String)){stored=java.util.UUID.randomUUID().toString();session.setAttribute("chat.welcome.token",stored);}
+            welcomeToken=(String)stored;
+        }
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("memberId",id,"unreadCount",chats.memberUnread(id),"welcomeToken",welcomeToken));
     }
     @PostMapping("/messages")
     public ResponseEntity<?> send(@RequestParam(required=false) String content,
-        @RequestParam(required=false) List<MultipartFile> images,@RequestParam(required=false) Integer replyMessageId,HttpServletRequest request)throws IOException {
+        @RequestParam(required=false) List<MultipartFile> images,@RequestParam(required=false) Integer replyMessageId,@RequestParam(required=false) Integer productSkuId,HttpServletRequest request)throws IOException {
         int id=member(request);mutation(request);
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(chats.sendMemberMessage(id,content,images,replyMessageId));
+        // Quiz commands are UI actions, not customer-service messages: no source, unread count, cache or push.
+        if(com.fruitude.chat.model.ChatQuizService.isQuizRequest(content)){
+            if(content.strip().length()>1000)throw new IllegalArgumentException("訊息內容最多 1000 字");
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("action","FRUIT_QUIZ"));
+        }
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(chats.sendMemberMessage(id,content,images,replyMessageId,productSkuId));
     }
     @PostMapping("/read") public ResponseEntity<?> read(@RequestParam Integer throughId,HttpServletRequest request){
         int id=member(request);mutation(request);chats.markReadByMember(id,throughId);

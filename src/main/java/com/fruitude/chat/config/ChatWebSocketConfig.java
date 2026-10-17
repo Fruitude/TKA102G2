@@ -69,6 +69,21 @@ public class ChatWebSocketConfig implements WebSocketMessageBrokerConfigurer {
 		});
 	}
 
+    /** Observe member login changes without changing the shared member/employee session. */
+    @org.springframework.context.annotation.Bean
+    public jakarta.servlet.http.HttpSessionAttributeListener chatLoginListener(){
+        return new jakarta.servlet.http.HttpSessionAttributeListener(){
+            private void changed(jakarta.servlet.http.HttpSessionBindingEvent event,boolean removed){
+                if(!"loggedInMemberId".equals(event.getName()))return;
+                if(removed)event.getSession().removeAttribute("chat.welcome.token");
+                else event.getSession().setAttribute("chat.welcome.token",java.util.UUID.randomUUID().toString());
+            }
+            @Override public void attributeAdded(jakarta.servlet.http.HttpSessionBindingEvent event){changed(event,false);}
+            @Override public void attributeReplaced(jakarta.servlet.http.HttpSessionBindingEvent event){changed(event,false);}
+            @Override public void attributeRemoved(jakarta.servlet.http.HttpSessionBindingEvent event){changed(event,true);}
+        };
+    }
+
     @org.springframework.context.event.EventListener
     public void disconnected(org.springframework.web.socket.messaging.SessionDisconnectEvent event){sessions.remove(event.getSessionId());}
     @Override public void configureClientOutboundChannel(ChannelRegistration registration) {

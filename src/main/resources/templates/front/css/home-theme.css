@@ -257,3 +257,30 @@ body.home-orange-theme {
 
 .home-feedback .home-review-link{display:grid;width:100%;color:inherit;text-decoration:none;border-radius:12px}
 .home-feedback .home-review-link:focus-visible{outline:3px solid #be6037;outline-offset:-3px}
+
+/* Preserve the home introduction's four lines by shrinking to its available width. */
+.home-orange-theme .homepage-hero-section .hero-text-wrapper {
+  container-type: inline-size;
+  min-width: 0;
+}
+.home-orange-theme .homepage-hero-section .hero-label {
+  white-space: nowrap;
+  font-size: min(2.2rem, 6cqw);
+}
+.home-orange-theme .homepage-hero-section .display-heading-1 {
+  white-space: nowrap;
+  max-width: 100%;
+  font-size: min(calc(3.5rem + 3vh), 7.5cqw);
+}
+.home-orange-theme .homepage-hero-section .max-width-50rem {
+  container-type: inline-size;
+  min-width: 0;
+}
+.home-orange-theme .homepage-hero-section .home-hero-description {
+  font-size: min(1.375rem, 2.4cqw);
+  line-height: 1.6;
+}
+.home-orange-theme .homepage-hero-section .home-hero-description > span {
+  display: block;
+  white-space: nowrap;
+}

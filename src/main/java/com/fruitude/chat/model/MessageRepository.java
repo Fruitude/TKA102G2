@@ -12,15 +12,21 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface MessageRepository extends JpaRepository<Message, Integer> {
+    String MEMBER_VISIBILITY = " and (m.senderType<>0 or m.messageContent is null or m.messageContent not like '客戶詢問來源\n商品：%') ";
+    // Resolve visible product context from the SKU ID; never trust a browser-supplied product name.
+    @Query(value="SELECT p.product_id,p.product_name,s.sku_id,s.sku_name FROM product_sku s "
+        +"JOIN product p ON p.product_id=s.product_id WHERE s.sku_id=:skuId AND p.status=1 AND s.status IN (1,2,3,4,6)",nativeQuery=true)
+    List<Object[]> findInquirySku(@Param("skuId") Integer skuId);
+
     @Query(value="select employee_id,employee_name from employee where employee_id in (:ids)",nativeQuery=true)
     List<Object[]> findEmployeeNames(@Param("ids") Collection<Integer> ids);
 
-    @Query("select m from Message m where m.memberId=:memberId and m.status=1 "
+    @Query("select m from Message m where m.memberId=:memberId and m.status=1 " + MEMBER_VISIBILITY
         + "and (:beforeId is null or m.messageId<:beforeId) and (:afterId is null or m.messageId>:afterId) order by m.messageId desc")
     List<Message> page(@Param("memberId") Integer memberId, @Param("beforeId") Integer beforeId,
         @Param("afterId") Integer afterId, org.springframework.data.domain.Pageable pageable);
 
-    @Query("select m from Message m where m.memberId=:memberId and m.status=1 and m.messageId>:afterId order by m.messageId asc")
+    @Query("select m from Message m where m.memberId=:memberId and m.status=1 " + MEMBER_VISIBILITY + " and m.messageId>:afterId order by m.messageId asc")
     List<Message> after(@Param("memberId") Integer memberId,@Param("afterId") Integer afterId,org.springframework.data.domain.Pageable pageable);
 
     @Query("select max(m.messageId) from Message m where m.memberId=:memberId and m.senderType=1 and m.status=1")
@@ -38,13 +44,13 @@ public interface MessageRepository extends JpaRepository<Message, Integer> {
     @Query("update Message m set m.isRead=1,m.readAt=:at where m.memberId=:memberId and m.senderType=1 and m.status=1 and m.isRead=0 and m.messageId<=:throughId")
     int markMemberMessagesReadThrough(@Param("memberId") Integer memberId,@Param("throughId") Integer throughId,@Param("at") LocalDateTime at);
 
-    @Query("select count(m) from Message m where m.memberId=:memberId and m.status=1 and m.senderType<>1 and m.isRead=0")
+    @Query("select count(m) from Message m where m.memberId=:memberId and m.status=1 and m.senderType<>1 and m.isRead=0 " + MEMBER_VISIBILITY)
     long unreadByMember(@Param("memberId") Integer memberId);
 
     @Transactional
     @Modifying
     @Query("update Message m set m.isRead=1,m.readAt=:at where m.memberId=:memberId and m.status=1 "
-        + "and m.senderType<>1 and m.isRead=0 and m.messageId<=:throughId")
+        + "and m.senderType<>1 and m.isRead=0 and m.messageId<=:throughId " + MEMBER_VISIBILITY)
     int markStaffMessagesRead(@Param("memberId") Integer memberId,@Param("throughId") Integer throughId,@Param("at") LocalDateTime at);
 
 
