@@ -10,10 +10,12 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>後台管理系統</title>
+    <title>農情蜜意後台管理系統</title>
     
 	<!--     css資源區塊 -->
 	<th:block th:fragment="adminIndex-css">
+	    <!-- 分頁 favicon：與側邊欄「首頁」相同的 fa-store 圖示，放在共用 fragment 讓所有後台頁面一起套用 -->
+	    <link rel="icon" type="image/svg+xml" th:href="@{/img/admin-favicon.svg}">
 	    <!-- Custom fonts for this template-->
 	     <!-- <link th:href="@{/css/sb-admin-2.min.css}" rel="stylesheet"> -->
 	    <link th:href="@{/vendor/fontawesome-free/css/all.min.css}" rel="stylesheet" type="text/css">
@@ -190,7 +192,7 @@
 	                    <ul class="navbar-nav">
 	                        <li class="nav-item">
 	                            <a class="nav-link" th:href="@{/front/}" target="_blank" rel="noopener"
-	                               title="前往前台" aria-label="前往前台">
+	                               title="前往商城" aria-label="前往商城">
 	                                <!-- 橘子圖示：Font Awesome Free 沒有橘子，改用 inline SVG；大小跟著文字 1.25em -->
 	                                <svg viewBox="0 0 24 24" width="1.25em" height="1.25em" aria-hidden="true" style="vertical-align: -0.25em;">
 	                                    <circle cx="12" cy="14" r="8.5" fill="#f7931e"/>
@@ -198,7 +200,7 @@
 	                                    <path d="M12 5.5 L12 3" stroke="#7a4b1e" stroke-width="1.5" stroke-linecap="round"/>
 	                                    <path d="M12 4.5 C13.5 1.8 17 1.6 19 2.8 C17.8 5.2 14.5 6 12 4.5 Z" fill="#3fa34d"/>
 	                                </svg>
-	                                <span class="d-none d-sm-inline ml-1">前往前台</span>
+	                                <span class="d-none d-sm-inline ml-1">前往商城</span>
 	                            </a>
 	                        </li>
 	                    </ul>
