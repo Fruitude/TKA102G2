@@ -36,9 +36,14 @@
         }
     }
 
-    // 頁面開著時每 10 分鐘重抓一次（後端也快取 10 分鐘，不會多打氣象署）；之後抓不到時保留目前顯示的天氣
-    const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+    // 頁面開著時每 5 分鐘重抓一次（後端也快取 5 分鐘，不會多打氣象署）；之後抓不到時保留目前顯示的天氣
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
     loadWeather();
     setInterval(loadWeather, REFRESH_INTERVAL_MS);
+
+    // 瀏覽器會延後背景分頁的計時器，切回這個分頁時立刻重抓一次
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') loadWeather();
+    });
 })();

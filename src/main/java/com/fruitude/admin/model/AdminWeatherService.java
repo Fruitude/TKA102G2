@@ -23,7 +23,8 @@ public class AdminWeatherService {
 	private static final Logger LOG = LoggerFactory.getLogger(AdminWeatherService.class);
 	private static final String BASE_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore";
 	private static final Duration TIMEOUT = Duration.ofSeconds(3);
-	private static final Duration CACHE_TTL = Duration.ofMinutes(10);
+	// 氣象署每 10 分鐘一筆觀測，快取 5 分鐘讓新資料發布後最慢 5 分鐘就拿得到（每小時最多呼叫 12 次）
+	private static final Duration CACHE_TTL = Duration.ofMinutes(5);
 	private static final Duration RETRY_AFTER_FAILURE = Duration.ofMinutes(1);
 	private static final String MISSING_VALUE = "-99"; // 氣象署以 -99 表示該欄位沒有資料
 	private static final ZoneId TAIPEI = ZoneId.of("Asia/Taipei");
