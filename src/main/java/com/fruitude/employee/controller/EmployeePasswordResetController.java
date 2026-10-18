@@ -58,6 +58,25 @@ public class EmployeePasswordResetController {
 		}
 	}
 
+	/** 員工未登入時可用帳號或 Email 申請重設；無論是否存在都回傳相同訊息。 */
+	@PostMapping("/password/forgot")
+	public ResponseEntity<?> forgot(@RequestBody ForgotPasswordForm form) {
+		if (!mailService.isConfigured()) {
+			return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+					.body(message("寄信功能尚未設定，請先設定 Gmail 寄件帳號"));
+		}
+		try {
+			resetService.requestResetByIdentifier(form == null ? null : form.getIdentifier());
+			return ResponseEntity.ok(message("如果帳號或信箱資料正確，我們會寄出密碼設定連結"));
+		} catch (MailException error) {
+			return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+					.body(message("驗證信目前無法寄出，請稍後再試"));
+		} catch (IllegalArgumentException error) {
+			// 避免透過錯誤訊息判斷帳號是否存在或近期是否寄過信。
+			return ResponseEntity.ok(message("如果帳號或信箱資料正確，我們會寄出密碼設定連結"));
+		}
+	}
+
 	/** 員工開啟信件連結時，先檢查 Token 是否仍可使用。 */
 	@GetMapping("/password/reset/validate")
 	public ResponseEntity<?> validate(@RequestParam("token") String token) {
@@ -90,6 +109,13 @@ public class EmployeePasswordResetController {
 		Map<String, String> body = new LinkedHashMap<>();
 		body.put("message", text);
 		return body;
+	}
+
+	/** 設定新密碼表單包含一次性 Token 與兩次密碼輸入。 */
+	public static class ForgotPasswordForm {
+		private String identifier;
+		public String getIdentifier() { return identifier; }
+		public void setIdentifier(String identifier) { this.identifier = identifier; }
 	}
 
 	/** 設定新密碼表單包含一次性 Token 與兩次密碼輸入。 */

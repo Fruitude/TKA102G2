@@ -119,6 +119,8 @@ public class AdminAccessInterceptor implements HandlerInterceptor {
 				&& "GET".equalsIgnoreCase(method)) return true;
 		if (path.equals("/api/admin/employees/password/reset")
 				&& "POST".equalsIgnoreCase(method)) return true;
+		if (path.equals("/api/admin/employees/password/forgot")
+				&& "POST".equalsIgnoreCase(method)) return true;
 		return path.equals("/api/admin/session/login")
 				|| path.equals("/api/admin/session/applications") && "POST".equalsIgnoreCase(method);
 	}
