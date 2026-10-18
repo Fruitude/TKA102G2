@@ -49,6 +49,7 @@ public class FrontChatTest {
                         .sorted(name.equals("page")?Comparator.comparing(Message::getMessageId).reversed():Comparator.comparing(Message::getMessageId)).limit(51).toList();return result;
                 }
                 case "findByMemberIdAndStatusOrderByCreatedAtAscMessageIdAsc":return data.stream().filter(m->m.getMemberId()==member&&m.getStatus()==1).toList();
+                case "findByMemberIdOrderByCreatedAtAscMessageIdAsc":return data.stream().filter(m->m.getMemberId()==member).toList();
                 case "unreadByMember":return data.stream().filter(m->m.getMemberId()==member&&m.getStatus()==1&&m.getSenderType()!=1&&m.getIsRead()==0&&!ChatMessageView.from(m,List.of()).staffOnly()).count();
                 case "lastMemberMessage":return data.stream().filter(m->m.getMemberId()==member&&m.getSenderType()==1&&m.getStatus()==1).map(Message::getMessageId).max(Integer::compareTo).orElse(null);
                 case "markStaffMessagesRead":case "markMemberMessagesReadThrough":{

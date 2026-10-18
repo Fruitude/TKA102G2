@@ -57,6 +57,9 @@ public interface MessageRepository extends JpaRepository<Message, Integer> {
 	// 一位會員的對話：指定狀態的訊息，依發送時間由舊到新，同一時間的再依訊息編號
 	List<Message> findByMemberIdAndStatusOrderByCreatedAtAscMessageIdAsc(Integer memberId, Integer status);
 
+	// 後台用：一位會員的全部訊息（含對會員隱藏的），排序同上；不可用在會員端
+	List<Message> findByMemberIdOrderByCreatedAtAscMessageIdAsc(Integer memberId);
+
 	// 一位會員最新一則指定發送者、指定狀態、有文字內容的訊息；建議回覆用（CannedReplyService 的 getSuggestions）
 	Optional<Message> findFirstByMemberIdAndSenderTypeAndStatusAndMessageContentIsNotNullOrderByCreatedAtDescMessageIdDesc(
 			Integer memberId, Integer senderType, Integer status);

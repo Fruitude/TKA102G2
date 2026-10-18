@@ -29,7 +29,8 @@ public class Message {
 	public static final int UNREAD = 0;
 	public static final int READ = 1;
 
-	// status：0 隱藏、1 顯示
+	// status：0 隱藏（只對會員隱藏，後台仍看得到）、1 顯示
+	public static final int STATUS_HIDDEN = 0;
 	public static final int STATUS_SHOWN = 1;
 
 	@Id

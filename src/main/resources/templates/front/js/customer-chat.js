@@ -136,6 +136,10 @@
       if(open&&!document.hidden)checkVisible();}
 
      if(event.type==='MEMBER_READ')refreshUnread();
+     // 客服把訊息對會員隱藏：從畫面移除；取消隱藏：依時間插回原位置。兩者都由 /unread 重算未讀數，不自己加減
+     if(event.type==='HIDDEN'){const id=event.readThroughId,row=rows.get(id);if(row){row.remove();rows.delete(id);}messageData.delete(id);
+      if(replyTarget&&replyTarget.messageId===id)setReply(null);refreshUnread();}
+     if(event.type==='SHOWN'&&event.message){append(event.message);refreshUnread();}
     }catch(error){setNotice('訊息更新失敗，請重新開啟聊天室。');}
    });
    if(open){if(latest)catchUp();else loadInitial();}else refreshUnread();

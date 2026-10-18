@@ -28,9 +28,10 @@ public class ChatService {
     public record MessagePage(List<ChatMessageView> messages, boolean hasMore, long unreadCount) {}
     // These two records are exclusively for CHAT_VIEW-authorized staff. Member payloads remain ChatMessageView.
     public record StaffMessageView(Integer messageId,Integer memberId,Integer senderType,Integer messageType,
-        String messageContent,Integer isRead,LocalDateTime createdAt,List<Integer> imageIds,Integer employeeId,String employeeName,Integer replyMessageId,ChatMessageView.ReplyView reply,ChatMessageView.InquiryProduct inquiryProduct) {
+        String messageContent,Integer isRead,LocalDateTime createdAt,List<Integer> imageIds,Integer employeeId,String employeeName,Integer replyMessageId,ChatMessageView.ReplyView reply,ChatMessageView.InquiryProduct inquiryProduct,Integer status) {
         public ChatMessageView publicView(){return new ChatMessageView(messageId,memberId,senderType,messageType,messageContent,isRead,createdAt,imageIds,replyMessageId,reply,inquiryProduct);}
-        static StaffMessageView of(ChatMessageView m,Integer id,String name){return new StaffMessageView(m.messageId(),m.memberId(),m.senderType(),m.messageType(),m.messageContent(),m.isRead(),m.createdAt(),m.imageIds(),id,name,m.replyMessageId(),m.reply(),m.inquiryProduct());}
+        // status：Message.STATUS_SHOWN / STATUS_HIDDEN，後台用來把對會員隱藏的訊息顯示成淺色
+        static StaffMessageView of(ChatMessageView m,Integer id,String name,Integer status){return new StaffMessageView(m.messageId(),m.memberId(),m.senderType(),m.messageType(),m.messageContent(),m.isRead(),m.createdAt(),m.imageIds(),id,name,m.replyMessageId(),m.reply(),m.inquiryProduct(),status);}
     }
     public record StaffEvent(String type,Integer memberId,StaffMessageView message,Integer readThroughId) {}
     private Map<Integer,String> employeeNames(List<Integer> ids){
@@ -38,12 +39,34 @@ public class ChatService {
         if(!ids.isEmpty())for(Object[] row:messageRepository.findEmployeeNames(ids))names.put(((Number)row[0]).intValue(),(String)row[1]);
         return names;
     }
+    // 後台對話內容：包含對會員隱藏的訊息（status 0），回覆預覽也照常顯示被隱藏的原訊息
     public List<StaffMessageView> getStaffConversation(Integer memberId){
-        var messages=messageRepository.findByMemberIdAndStatusOrderByCreatedAtAscMessageIdAsc(memberId,Message.STATUS_SHOWN);
+        var messages=messageRepository.findByMemberIdOrderByCreatedAtAscMessageIdAsc(memberId);
         var names=employeeNames(messages.stream().filter(m->m.getSenderType()==Message.SENDER_EMPLOYEE).map(Message::getEmployeeId).filter(java.util.Objects::nonNull).distinct().toList());
-        var base=views(messages);var result=new ArrayList<StaffMessageView>();
-        for(int i=0;i<messages.size();i++){var m=messages.get(i);Integer id=m.getSenderType()==Message.SENDER_EMPLOYEE?m.getEmployeeId():null;result.add(StaffMessageView.of(base.get(i),id,names.get(id)));}
+        var base=views(messages,true);var result=new ArrayList<StaffMessageView>();
+        for(int i=0;i<messages.size();i++){var m=messages.get(i);Integer id=m.getSenderType()==Message.SENDER_EMPLOYEE?m.getEmployeeId():null;result.add(StaffMessageView.of(base.get(i),id,names.get(id),m.getStatus()));}
         return result;
+    }
+
+    // 客服訊息對會員隱藏／取消隱藏：只改 status，後台照常看得到
+    // 只能切換這位會員對話裡的客服訊息（sender_type 2），其他情況丟 IllegalArgumentException；狀態沒變時什麼都不做
+    // 隱藏：員工與會員頻道都送 HIDDEN，會員畫面即時移除；取消隱藏：兩個頻道都送 SHOWN，會員頻道多帶訊息內容讓畫面補回
+    // 不用 MESSAGE 補回，因為會員端收到 MESSAGE 會把未讀數 +1，舊訊息恢復顯示要改由 /unread 重算
+    public void setStaffMessageHidden(Integer memberId,Integer messageId,boolean hidden){
+        Message message=messageRepository.findById(messageId).orElseThrow(()->new IllegalArgumentException("查無此訊息"));
+        if(!memberId.equals(message.getMemberId()) || !Integer.valueOf(Message.SENDER_EMPLOYEE).equals(message.getSenderType()))
+            throw new IllegalArgumentException("只能隱藏客服發出的訊息");
+        int status=hidden?Message.STATUS_HIDDEN:Message.STATUS_SHOWN;
+        if(Integer.valueOf(status).equals(message.getStatus()))return;
+        message.setStatus(status);
+        messageRepository.save(message);
+        for(String topic:List.of(STAFF_TOPIC,memberTopic(memberId)))try {
+            Object payload;
+            if(hidden)payload=new ChatEvent(ChatEvent.HIDDEN,memberId,null,messageId);
+            else if(topic.equals(STAFF_TOPIC))payload=new ChatEvent(ChatEvent.SHOWN,memberId,null,messageId);
+            else payload=new ChatEvent(ChatEvent.SHOWN,memberId,views(List.of(message)).get(0).forMember(),messageId);
+            messagingTemplate.convertAndSend(topic,payload);
+        }catch(RuntimeException error){org.slf4j.LoggerFactory.getLogger(getClass()).warn("聊天室推播中斷，重連後補載",error);}
     }
 
 
@@ -142,6 +165,11 @@ public class ChatService {
 	}
 
     private List<ChatMessageView> views(List<Message> messages) {
+        return views(messages,false);
+    }
+
+    // forStaff 為 true 時（後台），回覆的原訊息被隱藏也照常顯示預覽；會員端維持「原訊息已無法顯示」
+    private List<ChatMessageView> views(List<Message> messages,boolean forStaff) {
 		List<Integer> messageIds = new ArrayList<>();
 		for (Message message : messages) {
 			messageIds.add(message.getMessageId());
@@ -163,7 +191,7 @@ public class ChatService {
 			var view=ChatMessageView.from(message,imageIdsByMessageId.get(message.getMessageId()));
             if(message.getReplyMessageId()!=null){
                 var target=originals.get(message.getReplyMessageId());
-                view=view.withReply(target!=null && target.getMemberId().equals(message.getMemberId()) && Integer.valueOf(Message.STATUS_SHOWN).equals(target.getStatus())
+                view=view.withReply(target!=null && target.getMemberId().equals(message.getMemberId()) && (forStaff || Integer.valueOf(Message.STATUS_SHOWN).equals(target.getStatus()))
                     ?ChatMessageView.preview(target):new ChatMessageView.ReplyView(message.getReplyMessageId(),null,"原訊息已無法顯示"));
             }
             messageViews.add(view);
@@ -409,7 +437,7 @@ public class ChatService {
             String name=null;
             if(employeeId!=null)try{name=employeeNames(List.of(employeeId)).get(employeeId);}
             catch(RuntimeException unavailable){org.slf4j.LoggerFactory.getLogger(getClass()).warn("客服員工姓名讀取失敗，保留員工編號",unavailable);}
-            staffPayload=new StaffEvent(event.type(),event.memberId(),StaffMessageView.of(event.message(),employeeId,name),event.readThroughId());
+            staffPayload=new StaffEvent(event.type(),event.memberId(),StaffMessageView.of(event.message(),employeeId,name,Message.STATUS_SHOWN),event.readThroughId());
         }
         // Member messages deliberately contain no employee ID/name. A delivery failure cannot undo a commit.
         for(String topic:List.of(STAFF_TOPIC,memberTopic(event.memberId())))try {
