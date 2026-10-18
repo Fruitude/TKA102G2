@@ -36,7 +36,7 @@
 					        <span aria-hidden="true">&times;</span>
 					    </button>
 					</div>
-					<!-- 條件查詢：一個表單，四個條件可以同時填（條件之間是「而且」），沒填的條件不使用；用 GET 送到 StockController 的 stock，結果顯示在下方的庫存列表 -->
+					<!-- 條件查詢：一個表單，五個條件可以同時填（條件之間是「而且」），沒填的條件不使用；用 GET 送到 StockController 的 stock，結果顯示在下方的庫存列表 -->
 					<!-- 不帶 page，查詢後從第 1 頁開始；欄位值用網址的參數（param）回填，查詢條件不正確時也保留使用者原本輸入的內容 -->
 					<div class="card shadow mb-4">
 						<div class="card-header py-3">
@@ -57,9 +57,9 @@
 										th:value="${param.productName}">
 								</div>
 								<div class="col-auto mb-2">
-									<label class="small mb-1" for="skuNameInput">規格名稱</label>
+									<label class="small mb-1" for="skuNameInput">規格</label>
 									<input type="text" id="skuNameInput" name="skuName"
-										class="form-control form-control-sm" placeholder="請輸入規格名稱關鍵字" maxlength="30"
+										class="form-control form-control-sm" placeholder="請輸入規格關鍵字" maxlength="30"
 										th:value="${param.skuName}">
 								</div>
 								<div class="col-auto mb-2">
@@ -77,6 +77,14 @@
 										<option value="6" th:selected="${selectedStatus == '6'}">即將停產</option>
 										<option value="7" th:selected="${selectedStatus == '7'}">永久停產</option>
 									</select>
+								</div>
+								<div class="col-auto mb-2">
+									<!-- 打勾時只查預期庫存（庫存 + 待進貨 - 待出貨）低於安全庫存的規格，條件和 ProductSku 的 isBelowSafetyStock 相同；沒打勾時不會送出這個參數 -->
+									<div class="custom-control custom-checkbox mb-1">
+										<input type="checkbox" class="custom-control-input" id="belowSafetyStockCheck"
+											name="belowSafetyStock" value="true" th:checked="${param.belowSafetyStock != null}">
+										<label class="custom-control-label small" for="belowSafetyStockCheck">低於安全庫存</label>
+									</div>
 								</div>
 								<div class="col-auto mb-2">
 									<button type="submit" class="btn btn-primary btn-sm">查詢</button>
@@ -97,20 +105,22 @@
 									<thead>
 										<tr>
 											<th>操作</th>
-											<th>規格編號</th>
+											<!-- 規格編號、狀態：width 1% 讓欄寬縮到內容的寬度，text-nowrap 讓標題不換行 -->
+											<th class="text-nowrap" style="width: 1%;">規格編號</th>
 											<th>商品名稱</th>
 											<th>規格名稱</th>
 											<th>供應商</th>
 											<th>庫存</th>
+											<th>預期庫存</th>
 											<th>安全庫存</th>
 											<th>待進貨</th>
 											<th>待出貨</th>
-											<th>狀態</th>
+											<th class="text-nowrap" style="width: 1%;">狀態</th>
 										</tr>
 									</thead>
 									<tbody>
 										<tr th:if="${skuListData.totalElements == 0}">
-											<td colspan="10" class="text-center" th:text="${searching} ? '查無符合條件的規格' : '目前沒有規格資料'"></td>
+											<td colspan="11" class="text-center" th:text="${searching} ? '查無符合條件的規格' : '目前沒有規格資料'"></td>
 										</tr>
 										<tr th:each="productSku : ${skuListData.content}">
 											<!-- 操作按鈕上下排列並置中；align-middle 讓按鈕在列高較高時也維持在格子中間 -->
@@ -130,14 +140,16 @@
 											<td th:text="${productSku.skuName}" class="align-middle"></td>
 											<!-- 商品所屬的供應商；商品或供應商沒有資料時留空白 -->
 											<td th:text="${productSku.product != null and productSku.product.vendor != null ? productSku.product.vendor.vendorName : ''}" class="align-middle"></td>
-											<!-- 低於安全庫存（庫存 + 待進貨 - 待出貨 < 安全庫存，ProductSku 的 isBelowSafetyStock）時庫存數字標紅 -->
-											<td th:text="${productSku.stock}" class="align-middle"
+											<td th:text="${productSku.stock}" class="align-middle"></td>
+											<!-- 預期庫存 = 庫存 + 待進貨 - 待出貨（ProductSku 的 getExpectedStock） -->
+											<!-- 低於安全庫存（ProductSku 的 isBelowSafetyStock）時預期庫存標紅加粗 -->
+											<td th:text="${productSku.expectedStock}" class="align-middle"
 												th:classappend="${productSku.belowSafetyStock} ? 'text-danger font-weight-bold'"></td>
 											<td th:text="${productSku.safetyStock}" class="align-middle"></td>
 											<td th:text="${productSku.inboundQty}" class="align-middle"></td>
 											<td th:text="${productSku.outboundQty}" class="align-middle"></td>
 											<!-- 狀態的中文取自 ProductSku 的 getStatusLabel，和上方規格狀態下拉選單的文字相同 -->
-											<td th:text="${productSku.statusLabel}" class="align-middle"></td>
+											<td th:text="${productSku.statusLabel}" class="align-middle text-nowrap"></td>
 										</tr>
 									</tbody>
 								</table>

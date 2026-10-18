@@ -282,7 +282,9 @@
 			skuSelect.innerHTML = "";
 			skuSelect.appendChild(new Option(skuPlaceholder, ""));
 			skuOptions.forEach(function(skuOption) {
-				skuSelect.appendChild(new Option(skuOption.skuId + " - " + skuOption.displayName, skuOption.skuId));
+				//選項文字：規格編號 - 商品名稱-規格名稱；沒有商品名稱時只顯示規格名稱
+				var skuLabel = (skuOption.productName ? skuOption.productName + "-" : "") + skuOption.displayName;
+				skuSelect.appendChild(new Option(skuOption.skuId + " - " + skuLabel, skuOption.skuId));
 			});
 			skuSelect.value = selectedSkuId;
 			if (skuSelect.selectedIndex < 0) {

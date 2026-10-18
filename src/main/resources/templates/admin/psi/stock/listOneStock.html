@@ -6,6 +6,16 @@
 
 <!-- 引入css資源 -->
 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+<style>
+/* 七個數字欄位等寬，不隨數字的長短變動 */
+.stock_table {
+	table-layout: fixed;
+}
+
+.stock_table th {
+	width: calc(100% / 7);
+}
+</style>
 </head>
 <body id="page-top">
 
@@ -76,28 +86,31 @@
 
 							<!-- 庫存數量：和規格資料放在同一張卡片，只顯示，要調整時按卡片標題右邊的更新 -->
 							<div class="table-responsive">
-								<table class="table table-bordered mb-0" width="100%" cellspacing="0">
-									<!-- 六個數字橫向排成一列 -->
+								<table class="table table-bordered mb-0 stock_table" width="100%" cellspacing="0">
+									<!-- 七個數字橫向排成一列 -->
 									<thead>
 										<tr>
 											<th class="bg-light">庫存數量</th>
+											<th class="bg-light">預期庫存</th>
 											<th class="bg-light">安全庫存</th>
-											<th class="bg-light">待進貨</th>
-											<th class="bg-light">待出貨</th>
 											<th class="bg-light">允許超賣量</th>
 											<th class="bg-light">採購溢額量</th>
+											<th class="bg-light">待進貨</th>
+											<th class="bg-light">待出貨</th>
 										</tr>
 									</thead>
 									<tbody>
 										<tr>
-											<!-- 低於安全庫存（庫存 + 待進貨 - 待出貨 < 安全庫存，ProductSku 的 isBelowSafetyStock）時庫存數字標紅，和首頁列表相同 -->
-											<td th:text="${productSku.stock}"
+											<td th:text="${productSku.stock}"></td>
+											<!-- 預期庫存 = 庫存 + 待進貨 - 待出貨（ProductSku 的 getExpectedStock） -->
+											<!-- 低於安全庫存（ProductSku 的 isBelowSafetyStock）時預期庫存標紅加粗，和首頁列表相同 -->
+											<td th:text="${productSku.expectedStock}"
 												th:classappend="${productSku.belowSafetyStock} ? 'text-danger font-weight-bold'"></td>
 											<td th:text="${productSku.safetyStock}"></td>
-											<td th:text="${productSku.inboundQty}"></td>
-											<td th:text="${productSku.outboundQty}"></td>
 											<td th:text="${productSku.maxBackorderQty}"></td>
 											<td th:text="${productSku.purchaseAddOnQty}"></td>
+											<td th:text="${productSku.inboundQty}"></td>
+											<td th:text="${productSku.outboundQty}"></td>
 										</tr>
 									</tbody>
 								</table>

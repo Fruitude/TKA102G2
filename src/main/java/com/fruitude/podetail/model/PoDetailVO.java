@@ -77,11 +77,13 @@ public class PoDetailVO implements java.io.Serializable {
     @Column(name = "inbound_subtotal", nullable = false)
     private Integer inboundSubtotal = 0;         // 驗收小計
 
-    // 對應資料庫的 CHECK (arrived_pcs <= quantity)
     @AssertTrue(message = "到貨數量不可大於採購數量")
     public boolean isArrivedPcsValid() {
         if (arrivedPcs == null || quantity == null) {
             return true;  // 空值交給 @NotNull 處理
+        }
+        if (arrivedPcs == 0) {
+            return true;  // 還沒有到貨，不用比
         }
         return arrivedPcs <= quantity;
     }
