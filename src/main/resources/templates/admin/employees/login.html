@@ -27,10 +27,28 @@
             <button class="btn btn-primary btn-block" id="employee-login-submit" type="submit">
                 <i class="fas fa-sign-in-alt mr-1" aria-hidden="true"></i>登入
             </button>
+            <button class="btn btn-link btn-block mt-2" id="employee-forgot-link" type="button">
+                <i class="fas fa-question-circle mr-1" aria-hidden="true"></i>忘記密碼？
+            </button>
             <a class="btn btn-link btn-block mt-3" th:href="@{/admin/employees/apply}">
                 <i class="fas fa-user-plus mr-1" aria-hidden="true"></i>申請員工帳號
             </a>
         </form>
+        <section class="admin-login-form mt-3" id="employee-forgot-panel" hidden aria-labelledby="employee-forgot-title">
+            <h2 class="h5 text-gray-800 mb-2" id="employee-forgot-title">忘記員工密碼</h2>
+            <p class="small text-muted">輸入員工帳號或登記 Email，我們會寄送一次性密碼設定連結。</p>
+            <form id="employee-forgot-form">
+                <div class="form-group">
+                    <label for="employee-forgot-identifier">員工帳號／Email</label>
+                    <input class="form-control" id="employee-forgot-identifier" type="text" maxlength="100" autocomplete="username" required>
+                </div>
+                <p class="admin-login-feedback" id="employee-forgot-feedback" aria-live="polite"></p>
+                <button class="btn btn-primary btn-block" id="employee-forgot-submit" type="submit">
+                    <i class="fas fa-envelope mr-1" aria-hidden="true"></i>寄送設定信
+                </button>
+                <button class="btn btn-link btn-block" id="employee-forgot-back" type="button">返回登入</button>
+            </form>
+        </section>
     </main>
     <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
     <script th:src="@{/js/employee-login.js?v=2}"></script>

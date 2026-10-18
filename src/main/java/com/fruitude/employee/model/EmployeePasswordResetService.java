@@ -63,6 +63,12 @@ public class EmployeePasswordResetService {
 		return employee;
 	}
 
+	/** 員工未登入時用帳號或 Email 申請重設；找不到資料時由 Controller 回傳相同訊息。 */
+	@Transactional
+	public void requestResetByIdentifier(String identifier) {
+		employeeAdminService.findActiveApprovedEmployee(identifier).ifPresent(employee -> requestReset(employee.getEmployeeId()));
+	}
+
 	/** 員工開啟信件連結時，確認 Token 存在、尚未使用且仍在期限內。 */
 	@Transactional(readOnly = true)
 	public boolean isValid(String rawToken) {

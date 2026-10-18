@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
 
 	Optional<Employee> findByEmployeeAccountIgnoreCase(String employeeAccount);
+	Optional<Employee> findByEmployeeEmailIgnoreCase(String employeeEmail);
 	boolean existsByEmployeeAccountIgnoreCase(String employeeAccount);
 	boolean existsByEmployeeEmailIgnoreCase(String employeeEmail);
 	boolean existsByEmployeePhone(String employeePhone);
