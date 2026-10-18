@@ -77,6 +77,15 @@
         charts[name] = new Chart(document.getElementById(canvasId), config);
     }
 
+    // 由期間第一個月開始逐月累加，回傳每個月的累計值
+    function runningTotal(items, field) {
+        let sum = 0;
+        return items.map(function (item) {
+            sum += item[field] || 0;
+            return sum;
+        });
+    }
+
     function renderMonthly(items) {
         const hasSales = items.some(function (item) { return item.totalQuantity > 0; });
         showMessage('monthly', hasSales ? '' : '此期間尚無銷售資料');
@@ -85,7 +94,7 @@
             data: {
                 labels: items.map(function (item) { return item.month; }),
                 datasets: [{
-                    label: '銷售金額',
+                    label: '累計銷售金額',
                     yAxisID: 'amount',
                     lineTension: 0.3,
                     backgroundColor: 'rgba(78, 115, 223, 0.05)',
@@ -94,9 +103,9 @@
                     pointBackgroundColor: 'rgba(78, 115, 223, 1)',
                     pointBorderColor: 'rgba(78, 115, 223, 1)',
                     pointHoverRadius: 4,
-                    data: items.map(function (item) { return item.totalAmount; })
+                    data: runningTotal(items, 'totalAmount')
                 }, {
-                    label: '銷售數量',
+                    label: '累計銷售數量',
                     yAxisID: 'quantity',
                     lineTension: 0.3,
                     fill: false,
@@ -105,7 +114,7 @@
                     pointBackgroundColor: 'rgba(28, 200, 138, 1)',
                     pointBorderColor: 'rgba(28, 200, 138, 1)',
                     pointHoverRadius: 4,
-                    data: items.map(function (item) { return item.totalQuantity; })
+                    data: runningTotal(items, 'totalQuantity')
                 }]
             },
             options: {
@@ -144,10 +153,11 @@
 
     function renderSku(items) {
         showMessage('sku', items.length ? '' : '此期間尚無銷售資料');
-        // X 軸只顯示商品名稱；提示框標題保留「商品 / SKU」，同商品的不同規格才分得出來
+        // X 軸標籤用陣列，Chart.js 2.x 會分兩行顯示：第一行商品名稱、第二行規格（無規格留空）
         const productLabels = items.map(function (item) {
-            return item.productName || '--';
+            return [item.productName || '--', item.skuName || ''];
         });
+        // 提示框標題保留完整「商品 / SKU」，不受 X 軸截斷影響
         const fullLabels = items.map(function (item) {
             return (item.productName || '--') + (item.skuName ? ' / ' + item.skuName : '');
         });
@@ -169,12 +179,16 @@
                 scales: {
                     xAxes: [{
                         gridLines: { display: false, drawBorder: false },
-                        maxBarThickness: 60,
+                        maxBarThickness: 80,
+                        barPercentage: 0.7,
                         ticks: {
                             autoSkip: false,
                             minRotation: 0,
                             maxRotation: 0,
-                            callback: function (label) { return shorten(label, 12); }
+                            fontSize: 10,
+                            callback: function (label) {
+                                return label.map(function (line) { return shorten(line, 10); });
+                            }
                         }
                     }],
                     yAxes: [{
@@ -247,10 +261,9 @@
         const requestId = ++latestRequestId;
         const months = Number(periodSelect.value) || 3;
 
-        // Top 10 表格（dashboard-admin.js）自己監聽同一個期間選單
         return Promise.all([
             loadPart(requestId, 'monthly', function () { return fetchJson(root.dataset.monthlyUrl, { months: months }); }, renderMonthly),
-            loadPart(requestId, 'sku', function () { return fetchJson(root.dataset.skuUrl, { months: months, limit: 10 }); }, renderSku),
+            loadPart(requestId, 'sku', function () { return fetchJson(root.dataset.skuUrl, { months: months, limit: 3 }); }, renderSku),
             loadPart(requestId, 'vendor', function () { return fetchJson(root.dataset.vendorUrl, { months: months, limit: 3 }); }, renderVendor)
         ]);
     }

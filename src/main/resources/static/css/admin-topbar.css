@@ -1,3 +1,10 @@
+/* topbar 高度跟側邊欄品牌區（首頁）一致，變數定義在 admin-sidebar.css；
+   沒載入 admin-sidebar.css 的頁面（例如員工申請頁）退回 SB Admin 原值 70px */
+.topbar,
+.topbar .nav-item .nav-link {
+    height: var(--admin-brand-height, 4.375rem);
+}
+
 .topbar .admin-topbar-icon,
 .topbar .admin-user-toggle {
     border: 0;
