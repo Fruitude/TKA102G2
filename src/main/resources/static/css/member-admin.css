@@ -160,6 +160,13 @@
     background: #fbfcfe;
 }
 
+.member-id {
+    width: 88px;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 .member-person {
     min-width: 180px;
     align-items: center;
