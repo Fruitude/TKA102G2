@@ -2,9 +2,13 @@
    clamp 中間的算式由兩點算出：視窗高 950px 時等於 SB Admin 原值，650px 時縮到放得下 10 個選單
    選擇器與 sb-admin-2.min.css 相同（權重一樣），這支檔案較晚載入所以會蓋過去；只改高度與垂直排列，寬度與字級不動 */
 
-/* 品牌區（首頁）：70px → 約 48px */
+/* 品牌區（首頁）：70px → 約 48px；admin-topbar.css 的 topbar 也用同一個變數，兩邊底部才會對齊 */
+:root {
+    --admin-brand-height: clamp(3rem, 7.4vh, 4.375rem);
+}
+
 .sidebar .sidebar-brand {
-    height: clamp(3rem, 7.4vh, 4.375rem);
+    height: var(--admin-brand-height);
 }
 
 /* 分隔線下方間距：16px → 8px（品牌下方那條有 mb-2 !important，不受影響） */
