@@ -36,11 +36,12 @@ public interface MemberRepository extends JpaRepository<MemberVO, Integer> {
 
 	/**
 	 * 後台會員查詢同時支援關鍵字、狀態及分頁，避免會員數量增加後一次載入全部資料。
-	 * keyword 傳空字串代表不限制姓名、帳號與 Email；status 傳 null 代表全部狀態。
+	 * keyword 傳空字串代表不限制會員編號、姓名、帳號與 Email；status 傳 null 代表全部狀態。
 	 */
 	@Query("SELECT member FROM MemberVO member "
 			+ "WHERE (:status IS NULL OR member.memberStatus = :status) "
 			+ "AND (:keyword = '' "
+			+ "OR STR(member.memberId) LIKE CONCAT('%', :keyword, '%') "
 			+ "OR LOWER(member.memberName) LIKE LOWER(CONCAT('%', :keyword, '%')) "
 			+ "OR LOWER(member.memberAccount) LIKE LOWER(CONCAT('%', :keyword, '%')) "
 			+ "OR LOWER(member.memberEmail) LIKE LOWER(CONCAT('%', :keyword, '%')))")
