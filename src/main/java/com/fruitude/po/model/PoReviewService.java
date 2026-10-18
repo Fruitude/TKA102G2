@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fruitude.podetail.model.PoDetailVO;
 import com.fruitude.product.model.ProductSku;
+import com.fruitude.utils.PsiUtils;
 import com.fruitude.vendor.model.VendorVO;
 
 // 採購單審核的資料操作：repository 和 PoService 共用，處理待審核採購單的審核
@@ -74,7 +75,7 @@ public class PoReviewService {
 			ProductSku productSku = poDetailVO.getSkuId();
 			if (ProductSku.STATUS_DISCONTINUED.equals(productSku.getStatus())) {
 				throw new IllegalArgumentException(
-						"商品規格「" + productSku.getDisplayName() + "」已永久停產，無法通過，請改為不通過或取消採購");
+						"商品規格「" + PsiUtils.skuLabel(productSku) + "」已永久停產，無法通過，請改為不通過或取消採購");
 			}
 			quantityBySkuId.merge(productSku.getSkuId(), poDetailVO.getQuantity(), Integer::sum);
 		}

@@ -224,11 +224,12 @@ public class PoController {
 				fieldOrder = DETAIL_FIELD_ORDER.size();
 			}
 
-			String displayName = null;
-			if (index < poVO.getPoDetails().size() && poVO.getPoDetails().get(index).getSkuId() != null) {
-				displayName = poVO.getPoDetails().get(index).getSkuId().getDisplayName();
+			// 「商品名稱-規格名稱」；還沒選規格或查不到規格時是 null，只寫「第幾筆：」
+			String skuLabel = null;
+			if (index < poVO.getPoDetails().size()) {
+				skuLabel = PsiUtils.skuLabel(poVO.getPoDetails().get(index).getSkuId());
 			}
-			String rowLabel = "第 " + (index + 1) + " 筆" + (displayName == null ? "" : "（" + displayName + "）") + "：";
+			String rowLabel = "第 " + (index + 1) + " 筆" + (skuLabel == null ? "" : "（" + skuLabel + "）") + "：";
 			rowErrorsBySortKey.computeIfAbsent(index * 10 + fieldOrder, key -> new ArrayList<>()).add(rowLabel + message);
 		}
 
@@ -330,7 +331,8 @@ public class PoController {
 	}
 
 	// 新增採購單頁面選了供應商後以 fetch 呼叫，回傳該供應商可採購的商品規格（JSON）
-	// 只回傳下拉選單需要的 skuId、displayName，不直接回傳 ProductSku（有 LAZY 關聯，不適合直接轉 JSON）
+	// 只回傳下拉選單需要的 skuId、productName、displayName，不直接回傳 ProductSku（有 LAZY 關聯，不適合直接轉 JSON）
+	// productName 是商品名稱，頁面顯示成「規格編號 - 商品名稱-規格名稱」；沒有商品時是 null
 	// suggestedQuantity 是建議採購量，頁面顯示在採購數量左邊供參考；不需要採購的規格是 null
 	@GetMapping("/skuOptions")
 	@ResponseBody
@@ -340,6 +342,7 @@ public class PoController {
 		for (ProductSku productSku : poSvc.getPurchasableByVendorId(vendorId)) {
 			Map<String, Object> skuOption = new LinkedHashMap<>();
 			skuOption.put("skuId", productSku.getSkuId());
+			skuOption.put("productName", productSku.getProduct() == null ? null : productSku.getProduct().getProductName());
 			skuOption.put("displayName", productSku.getDisplayName());
 			skuOption.put("suggestedQuantity", suggestedQuantityBySkuId.get(productSku.getSkuId()));
 			skuOptions.add(skuOption);
@@ -471,13 +474,11 @@ public class PoController {
 				continue;
 			}
 
-			// 規格原本就在這張單裡：即使已停產也照原樣保留，只檢查數量不可小於已到貨數量
+			// 規格原本就在這張單裡：即使已停產也照原樣保留，不再做規格的檢查
+			// 不檢查採購數量是否小於已到貨數量：只有待審核的單能修改，驗收前到貨數量一定是 0，數量填錯由 PoDetailVO 的 @Min 回報
 			PoDetailVO dbDetail = dbDetailsBySkuId.get(formSkuId);
 			if (dbDetail != null) {
 				formDetail.setSkuId(dbDetail.getSkuId());
-				if (formDetail.getQuantity() != null && formDetail.getQuantity() < dbDetail.getArrivedPcs()) {
-					result.rejectValue("poDetails[" + index + "].quantity", "belowArrived", "採購數量不可小於已到貨數量");
-				}
 				continue;
 			}
 
@@ -506,7 +507,7 @@ public class PoController {
 		for (PoDetailVO dbDetail : dbDetails) {
 			if (!skuIds.contains(dbDetail.getSkuId().getSkuId()) && poSvc.hasInboundRecord(dbDetail)) {
 				result.rejectValue("poDetails", "hasInboundRecord",
-						"「" + dbDetail.getSkuId().getDisplayName() + "」已有到貨或入庫數量，不可刪除或更換規格");
+						"「" + PsiUtils.skuLabel(dbDetail.getSkuId()) + "」已有到貨或入庫數量，不可刪除或更換規格");
 			}
 		}
 	}

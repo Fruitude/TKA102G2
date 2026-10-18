@@ -20,25 +20,29 @@
 	vertical-align: middle; /* 內容上下置中 */
 }
 
-/* 欄寬固定，不隨輸入的內容或錯誤訊息變動；商品規格沒有設定寬度，使用剩下的空間 */
+/* 欄寬固定，不隨輸入的內容或錯誤訊息變動；商品名稱-規格沒有設定寬度，使用剩下的空間 */
 #po_detail_table {
 	table-layout: fixed;
-	min-width: 860px; /* 畫面太窄時在卡片內橫向捲動，商品規格才不會被擠到看不見 */
+	min-width: 1040px; /* 畫面太窄時在卡片內橫向捲動，商品名稱-規格才不會被擠到看不見 */
 }
 
-#po_detail_table thead th:nth-child(2), #po_detail_table thead th:nth-child(3) {
-	width: 100px; /* 採購數量、進貨單價：只顯示 */
+#po_detail_table thead th:nth-child(1), #po_detail_table thead th:nth-child(2) {
+	width: 90px; /* 明細編號、規格編號 */
 }
 
 #po_detail_table thead th:nth-child(4), #po_detail_table thead th:nth-child(5) {
+	width: 100px; /* 採購數量、進貨單價：只顯示 */
+}
+
+#po_detail_table thead th:nth-child(6), #po_detail_table thead th:nth-child(7) {
 	width: 140px; /* 到貨數量、不良品數量：輸入框 */
 }
 
-#po_detail_table thead th:nth-child(6) {
+#po_detail_table thead th:nth-child(8) {
 	width: 100px; /* 入庫數量 */
 }
 
-#po_detail_table thead th:nth-child(7) {
+#po_detail_table thead th:nth-child(9) {
 	width: 140px; /* 入庫小計 */
 }
 </style>
@@ -171,7 +175,9 @@
 									<table class="table table-bordered" id="po_detail_table">
 										<thead>
 											<tr>
-												<th>商品規格</th>
+												<th>明細編號</th>
+												<th>規格編號</th>
+												<th>商品名稱-規格</th>
 												<th>採購數量</th>
 												<th>進貨單價</th>
 												<th class="required">到貨數量</th>
@@ -187,8 +193,11 @@
 												<td>
 													<!-- 明細編號用來對應資料庫的那一筆 -->
 													<input type="hidden" th:field="*{poDetails[__${stat.index}__].poDetailId}" />
-													<span th:text="${poDetailVO.skuId.skuId + ' - ' + poDetailVO.skuId.displayName}"></span>
+													<span th:text="${poDetailVO.poDetailId}"></span>
 												</td>
+												<td th:text="${poDetailVO.skuId.skuId}"></td>
+												<!-- 商品名稱-規格名稱；查不到商品時只顯示規格名稱 -->
+												<td th:text="${poDetailVO.skuId.product?.productName != null ? poDetailVO.skuId.product.productName + '-' + poDetailVO.skuId.displayName : poDetailVO.skuId.displayName}"></td>
 												<td th:text="${poDetailVO.quantity}"></td>
 												<td th:text="${poDetailVO.unitPrice}"></td>
 												<td>

@@ -158,8 +158,8 @@
 												<table class="table table-bordered table-sm mb-0" width="100%" cellspacing="0">
 													<thead>
 														<tr>
-															<th>商品規格編號</th>
-															<th>規格名稱</th>
+															<th>規格編號</th>
+															<th>商品名稱-規格</th>
 															<th>缺口數量</th>
 															<th>待審核數量</th>
 														</tr>
@@ -167,7 +167,8 @@
 													<tbody>
 														<tr th:each="productSku : ${vendorEntry.value}">
 															<td th:text="${productSku.skuId}"></td>
-															<td th:text="${productSku.skuName}"></td>
+															<!-- 商品名稱-規格名稱；查不到商品時只顯示規格名稱 -->
+															<td th:text="${productSku.product?.productName != null ? productSku.product.productName + '-' + productSku.skuName : productSku.skuName}"></td>
 															<td th:text="${productSku.shortageQty != null ? productSku.shortageQty : '良率為0，請人工確認'}"></td>
 															<!-- pendingQuantityBySkuId 由 PoController、PoNoController 放入 model；沒有待審核明細的規格顯示 0 -->
 															<td th:text="${pendingQuantityBySkuId?.get(productSku.skuId) ?: 0}"></td>

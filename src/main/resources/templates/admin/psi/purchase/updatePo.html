@@ -163,7 +163,7 @@
 								<table class="table table-bordered" id="po_detail_table">
 									<thead>
 										<tr>
-											<th class="required">商品規格</th>
+											<th class="required">規格編號-商品名稱-規格</th>
 											<th class="detail-suggested">建議採購量</th>
 											<th class="required">採購數量</th>
 											<th class="required">進貨單價</th>
@@ -181,10 +181,10 @@
 													<!-- 這筆明細原本的規格若已永久停產，清單裡不會有，補一個選項讓它維持選中 -->
 													<option th:if="${poDetailVO.skuId.status == T(com.fruitude.product.model.ProductSku).STATUS_DISCONTINUED}"
 														th:value="${poDetailVO.skuId.skuId}"
-														th:text="${poDetailVO.skuId.skuId + ' - ' + poDetailVO.skuId.displayName + '（已停產）'}"></option>
+														th:text="${poDetailVO.skuId.skuId + ' - ' + (poDetailVO.skuId.product?.productName != null ? poDetailVO.skuId.product.productName + '-' : '') + poDetailVO.skuId.displayName + '（已停產）'}"></option>
 													<option th:each="productSku : ${skuListData}"
 														th:value="${productSku.skuId}"
-														th:text="${productSku.skuId + ' - ' + productSku.displayName}"></option>
+														th:text="${productSku.skuId + ' - ' + (productSku.product?.productName != null ? productSku.product.productName + '-' : '') + productSku.displayName}"></option>
 												</select>
 											</td>
 											<!-- 建議採購量：只是提示，不會送出；由 script 的 updateSuggested 依這一列選的規格填入 -->
@@ -219,7 +219,7 @@
 											<option value="">請選擇商品規格</option>
 											<option th:each="productSku : ${skuListData}"
 												th:value="${productSku.skuId}"
-												th:text="${productSku.skuId + ' - ' + productSku.displayName}"></option>
+												th:text="${productSku.skuId + ' - ' + (productSku.product?.productName != null ? productSku.product.productName + '-' : '') + productSku.displayName}"></option>
 										</select>
 									</td>
 									<td class="detail-suggested"></td>

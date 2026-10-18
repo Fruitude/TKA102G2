@@ -32,15 +32,18 @@ public class StockService {
 
 	// 複合條件查詢的其中一頁，條件之間是「而且」；page 的規則和 getSkus 相同
 	// 條件都可以不填（null 或空字串）：skuId、status 完全相同，productName、skuName 找部分文字
-	public Page<ProductSku> searchSkus(Integer skuId, Byte status, String productName, String skuName, int page) {
+	// belowSafetyStock 為 true 時只查低於安全庫存的規格（和 ProductSku 的 isBelowSafetyStock 相同），false 時不篩選
+	public Page<ProductSku> searchSkus(Integer skuId, Byte status, String productName, String skuName,
+			boolean belowSafetyStock, int page) {
 		// 沒填的條件換成「不篩選」的值，對應 StockSkuRepository 的 searchSkus
 		int skuIdFilter = skuId == null ? 0 : skuId;
 		int statusFilter = status == null ? 0 : 1;
 		Byte statusValue = status == null ? Byte.valueOf((byte) 0) : status; // 不篩選時不會用到，給個值避免傳 null
 		String productNamePattern = productName == null || productName.isEmpty() ? "" : toLikePattern(productName);
 		String skuNamePattern = skuName == null || skuName.isEmpty() ? "" : toLikePattern(skuName);
+		int belowSafetyStockFilter = belowSafetyStock ? 1 : 0;
 		return getSkuPage(page, pageable -> skuRepository.searchSkus(skuIdFilter, statusFilter, statusValue,
-				productNamePattern, skuNamePattern, pageable));
+				productNamePattern, skuNamePattern, belowSafetyStockFilter, pageable));
 	}
 
 	// 單筆規格，查不到回傳 null

@@ -24,22 +24,27 @@ public interface StockSkuRepository extends JpaRepository<ProductSku,Integer>
 	// 條件沒填就用「不篩選」的值讓那一項條件恆成立，寫法和 OrdersRepository 的 search 相同：
 	// skuId 0、statusFilter 0（有選狀態時是 1，status 才有作用）、名稱的 pattern 空字串
 	// 名稱的 pattern 是 LIKE 的樣式（例如 %芒果%），裡面的 %、_、! 要先用 ! 跳脫（StockService 的 toLikePattern）
+	// belowSafetyStock 1 時只查預期庫存（庫存 + 待進貨 - 待出貨）低於安全庫存的規格，0 時不篩選；
+	// 算法和 ProductSku 的 isBelowSafetyStock 相同（null 當成 0、用小於），在資料庫篩選，分頁的筆數才會正確
 	// 商品沒有資料的規格在沒查商品名稱時照樣列出（left join）
 	@Query(value = "select s from ProductSku s left join fetch s.product p "
 			+ "where (:skuId = 0 or s.skuId = :skuId) "
 			+ "and (:statusFilter = 0 or s.status = :status) "
 			+ "and (:productNamePattern = '' or p.productName like :productNamePattern escape '!') "
-			+ "and (:skuNamePattern = '' or s.skuName like :skuNamePattern escape '!')",
+			+ "and (:skuNamePattern = '' or s.skuName like :skuNamePattern escape '!') "
+			+ "and (:belowSafetyStock = 0 or coalesce(s.stock, 0) + coalesce(s.inboundQty, 0) - coalesce(s.outboundQty, 0) < coalesce(s.safetyStock, 0))",
 			countQuery = "select count(s) from ProductSku s left join s.product p "
 			+ "where (:skuId = 0 or s.skuId = :skuId) "
 			+ "and (:statusFilter = 0 or s.status = :status) "
 			+ "and (:productNamePattern = '' or p.productName like :productNamePattern escape '!') "
-			+ "and (:skuNamePattern = '' or s.skuName like :skuNamePattern escape '!')")
+			+ "and (:skuNamePattern = '' or s.skuName like :skuNamePattern escape '!') "
+			+ "and (:belowSafetyStock = 0 or coalesce(s.stock, 0) + coalesce(s.inboundQty, 0) - coalesce(s.outboundQty, 0) < coalesce(s.safetyStock, 0))")
 	Page<ProductSku> searchSkus(@Param("skuId") int skuId,
 			@Param("statusFilter") int statusFilter,
 			@Param("status") Byte status,
 			@Param("productNamePattern") String productNamePattern,
 			@Param("skuNamePattern") String skuNamePattern,
+			@Param("belowSafetyStock") int belowSafetyStock,
 			Pageable pageable);
 
 	// 調整頁可以改的四個數字組成的內容字串：庫存;安全庫存;允許超賣量;採購溢額量（例如 50;10;10;20）

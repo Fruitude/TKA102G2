@@ -10,6 +10,15 @@
 .update_form label {
 	font-weight: bold;
 }
+
+/* 六個數字欄位等寬，不隨輸入的內容或錯誤訊息變動 */
+.stock_table {
+	table-layout: fixed;
+}
+
+.stock_table th {
+	width: calc(100% / 6);
+}
 </style>
 </head>
 <body id="page-top">
@@ -80,16 +89,16 @@
 								<input type="hidden" name="stockContent" th:value="${stockContent}" />
 
 								<div class="table-responsive">
-									<table class="table table-bordered" width="100%" cellspacing="0">
+									<table class="table table-bordered stock_table" width="100%" cellspacing="0">
 										<!-- 六個數字橫向排成一列 -->
 										<thead>
 											<tr>
 												<th class="bg-light">庫存數量</th>
 												<th class="bg-light">安全庫存</th>
-												<th class="bg-light">待進貨</th>
-												<th class="bg-light">待出貨</th>
 												<th class="bg-light">允許超賣量</th>
 												<th class="bg-light">採購溢額量</th>
+												<th class="bg-light">待進貨</th>
+												<th class="bg-light">待出貨</th>
 											</tr>
 										</thead>
 										<tbody>
@@ -109,9 +118,6 @@
 													<div class="text-danger small mt-1" th:if="${fieldErrors != null and fieldErrors['safetyStock'] != null}"
 														th:text="${fieldErrors['safetyStock']}"></div>
 												</td>
-												<!-- 待進貨、待出貨由採購與訂單流程維護，這一頁只顯示、不能修改 -->
-												<td class="align-middle" th:text="${productSku.inboundQty}"></td>
-												<td class="align-middle" th:text="${productSku.outboundQty}"></td>
 												<td>
 													<input type="text" name="maxBackorderQty" class="form-control"
 														th:classappend="${fieldErrors != null and fieldErrors['maxBackorderQty'] != null} ? 'is-invalid'"
@@ -126,6 +132,9 @@
 													<div class="text-danger small mt-1" th:if="${fieldErrors != null and fieldErrors['purchaseAddOnQty'] != null}"
 														th:text="${fieldErrors['purchaseAddOnQty']}"></div>
 												</td>
+												<!-- 待進貨、待出貨由採購與訂單流程維護，這一頁只顯示、不能修改 -->
+												<td class="align-middle" th:text="${productSku.inboundQty}"></td>
+												<td class="align-middle" th:text="${productSku.outboundQty}"></td>
 											</tr>
 										</tbody>
 									</table>

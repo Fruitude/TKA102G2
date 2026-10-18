@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fruitude.employee.model.Employee;
 import com.fruitude.employee.model.EmployeeRepository;
 import com.fruitude.podetail.model.PoDetailVO;
+import com.fruitude.utils.PsiUtils;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -212,10 +214,10 @@ public class ReceivingService {
 	// 驗收數量的檢查，回傳錯誤訊息（沒有錯誤時是空的），由 ReceivingController 的 update 顯示在驗收頁「採購明細」的旁邊
 	// 要在 prepareReceiving 之後呼叫：採購數量、規格、驗收失敗與已取消時的數量都已經填好
 	// 每一筆明細：到貨數量不可空白、不可為負數、不可大於採購數量；不良品數量不可空白、不可為負數、不可大於到貨數量
-	// （輸入的不是整數時在綁定階段就會被擋下，不會進到這裡）
+	// 綁定失敗的欄位（輸入的不是整數）由 typeMismatchFields 指出，例如 poDetails[0].arrivedPcs，錯誤已由 ReceivingController 回報，這裡不再檢查
 	// 驗收失敗時不良品數量等於到貨數量，不是使用者填的，不檢查；已取消時到貨、不良品都是 0，全部不檢查
-	// 驗收成功、驗收失敗：整張採購單至少要有一筆到貨數量大於 0，個別明細可以是 0
-	public List<String> checkReceiving(PoVO formPo) {
+	// 驗收成功、驗收失敗：整張採購單至少要有一筆到貨數量大於 0，個別明細可以是 0；有綁定失敗的欄位時算不出來，不檢查
+	public List<String> checkReceiving(PoVO formPo, Set<String> typeMismatchFields) {
 		List<String> errorMessages = new ArrayList<>();
 		Byte inboundStatus = formPo.getInboundStatus();
 		if (isInboundCancelled(inboundStatus)) {
@@ -226,11 +228,13 @@ public class ReceivingService {
 		boolean anyArrived = false;
 		for (int index = 0; index < formPo.getPoDetails().size(); index++) {
 			PoDetailVO poDetailVO = formPo.getPoDetails().get(index);
-			String rowLabel = "第 " + (index + 1) + " 筆（" + poDetailVO.getSkuId().getDisplayName() + "）：";
+			String rowLabel = "第 " + (index + 1) + " 筆（" + PsiUtils.skuLabel(poDetailVO.getSkuId()) + "）：";
 			Integer arrivedPcs = poDetailVO.getArrivedPcs();
 			Integer defectPcs = poDetailVO.getDefectPcs();
 
-			if (arrivedPcs == null) {
+			if (typeMismatchFields.contains("poDetails[" + index + "].arrivedPcs")) {
+				// 綁定失敗，錯誤已經回報過
+			} else if (arrivedPcs == null) {
 				errorMessages.add(rowLabel + "到貨數量，請勿空白");
 			} else if (arrivedPcs < 0) {
 				errorMessages.add(rowLabel + "到貨數量不可為負數");
@@ -240,7 +244,7 @@ public class ReceivingService {
 				anyArrived = true;
 			}
 
-			if (!inboundFailed) {
+			if (!inboundFailed && !typeMismatchFields.contains("poDetails[" + index + "].defectPcs")) {
 				if (defectPcs == null) {
 					errorMessages.add(rowLabel + "不良品數量，請勿空白");
 				} else if (defectPcs < 0) {
@@ -252,7 +256,7 @@ public class ReceivingService {
 		}
 
 		// 每一筆的數量都合規定之後才檢查整張單，避免同時出現兩種訊息
-		if (errorMessages.isEmpty() && !anyArrived) {
+		if (errorMessages.isEmpty() && typeMismatchFields.isEmpty() && !anyArrived) {
 			errorMessages.add("整張採購單至少要有一筆到貨數量大於 0；廠商的貨沒有來請改選「已取消」");
 		}
 		return errorMessages;
@@ -403,7 +407,7 @@ public class ReceivingService {
 			}
 			int stockChange = dbDetail.getInboundPcs() - oldInboundPcsBySkuId.get(skuId);
 			if (stockChange != 0 && poSkuStockRepository.adjustStock(skuId, stockChange) != 1) {
-				throw new IllegalArgumentException("商品規格「" + dbDetail.getSkuId().getDisplayName()
+				throw new IllegalArgumentException("商品規格「" + PsiUtils.skuLabel(dbDetail.getSkuId())
 						+ "」的庫存不足以扣回原本的入庫數量（可能已經出貨），無法修改驗收紀錄");
 			}
 		}

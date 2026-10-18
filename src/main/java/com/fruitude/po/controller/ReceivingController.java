@@ -3,7 +3,9 @@ package com.fruitude.po.controller;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -236,12 +238,11 @@ public class ReceivingController {
 			inboundStatusInvalid = true;
 		}
 
-		// 3. 檢查每筆明細的數量：輸入的不是整數時，Spring 在綁定階段就已經記下錯誤，先顯示這些；
-		//    都是整數才交給 ReceivingService 的 checkReceiving 檢查空白、範圍、整張單至少一筆到貨
-		List<String> detailErrors = getDetailBindingErrors(result);
-		if (detailErrors.isEmpty()) {
-			detailErrors = receivingSvc.checkReceiving(poVO);
-		}
+		// 3. 檢查每筆明細的數量：輸入的不是整數時，Spring 在綁定階段就已經記下錯誤；
+		//    其餘欄位照樣交給 ReceivingService 的 checkReceiving 檢查空白、範圍，兩邊的錯誤一起顯示
+		//    綁定失敗的欄位值是 null，交給 checkReceiving 時跳過，同一格才不會同時出現兩種訊息
+		List<String> detailErrors = getDetailBindingErrors(result, poVO);
+		detailErrors.addAll(receivingSvc.checkReceiving(poVO, getTypeMismatchFields(result)));
 
 		if (inboundStatusInvalid || !detailErrors.isEmpty()) {
 			if (!detailErrors.isEmpty()) {
@@ -266,19 +267,36 @@ public class ReceivingController {
 		return redirectToListOneReceiving(poVO.getPoId());
 	}
 
-	// 到貨數量、不良品數量在綁定階段的錯誤（輸入的不是整數），整理成「第幾筆：訊息」的文字
+	// 到貨數量、不良品數量在綁定階段的錯誤（輸入的不是整數），整理成「第幾筆（商品名稱-規格名稱）：訊息」的文字
 	// 訊息取自 messages.properties 的 typeMismatch.poVO.poDetails.arrivedPcs、defectPcs
-	private List<String> getDetailBindingErrors(BindingResult result) {
+	// 要在 prepareReceiving 之後呼叫，明細的規格才已經填好；查不到規格時只寫「第幾筆：」
+	private List<String> getDetailBindingErrors(BindingResult result, PoVO poVO) {
 		List<String> errorMessages = new ArrayList<>();
 		for (FieldError fieldError : result.getFieldErrors()) {
 			Matcher matcher = DETAIL_QUANTITY_FIELD.matcher(fieldError.getField());
 			if (matcher.matches()) {
-				int rowNumber = Integer.parseInt(matcher.group(1)) + 1;
-				errorMessages.add("第 " + rowNumber + " 筆："
+				int index = Integer.parseInt(matcher.group(1));
+				String skuLabel = null;
+				if (poVO.getPoDetails() != null && index < poVO.getPoDetails().size()) {
+					skuLabel = PsiUtils.skuLabel(poVO.getPoDetails().get(index).getSkuId());
+				}
+				errorMessages.add("第 " + (index + 1) + " 筆" + (skuLabel == null ? "" : "（" + skuLabel + "）") + "："
 						+ messageSource.getMessage(fieldError, LocaleContextHolder.getLocale()));
 			}
 		}
 		return errorMessages;
+	}
+
+	// 綁定階段出錯（輸入的不是整數）的到貨數量、不良品數量欄位名，例如 poDetails[0].arrivedPcs
+	// 交給 ReceivingService 的 checkReceiving 跳過這些欄位，避免同一格再出現「請勿空白」
+	private Set<String> getTypeMismatchFields(BindingResult result) {
+		Set<String> typeMismatchFields = new HashSet<>();
+		for (FieldError fieldError : result.getFieldErrors()) {
+			if (DETAIL_QUANTITY_FIELD.matcher(fieldError.getField()).matches()) {
+				typeMismatchFields.add(fieldError.getField());
+			}
+		}
+		return typeMismatchFields;
 	}
 
 	// 驗收頁只顯示不送出的資料：驗收員工（登入的員工）、驗收日期（現在）
