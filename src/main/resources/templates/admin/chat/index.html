@@ -122,8 +122,8 @@
     <!-- Page Wrapper -->
     <div id="wrapper">
 
-        <!-- 引入側邊欄 -->
-        <ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+        <!-- 引入側邊欄，activeMenu='chat' 讓左邊選單的「客服聊天室」反白 -->
+        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='chat')}"></ul>
 
         <!-- Content Wrapper -->
         <div id="content-wrapper" class="d-flex flex-column">
