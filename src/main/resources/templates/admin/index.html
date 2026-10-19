@@ -136,7 +136,8 @@
             </li>
 
             <!-- Nav Item - 客服聊天室 -->
-            <li class="nav-item" th:if="${adminPermissionCodes.contains('CHAT_VIEW')}">
+            <li class="nav-item" th:if="${adminPermissionCodes.contains('CHAT_VIEW')}"
+                th:classappend="${activeMenu == 'chat'} ? 'active'">
                 <a th:href="@{/admin/chat}" class="nav-link">
                     <i class="fas fa-fw fa-headset"></i>
                     <span>客服聊天室</span></a>
@@ -410,7 +411,7 @@
 
     <!-- Dashboard 首頁專屬的圖表套件，保留在原本位置，不放進共用片段 -->
     <script th:src="@{/vendor/chart.js/Chart.min.js}"></script>
-    <script th:src="@{/js/dashboard-chart-admin.js?v=2}"></script>
+    <script th:src="@{/js/dashboard-chart-admin.js?v=5}"></script>
     <script th:src="@{/js/dashboard-weather-admin.js?v=2}"></script>
 
 </body>
