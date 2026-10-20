@@ -163,6 +163,16 @@
                 </a>
             </li>
 
+            <!-- Nav Item - 物流系統 -->
+            <li class="nav-item"
+                th:if="${adminPermissionCodes.contains('LOGISTICS_VIEW') or adminPermissionCodes.contains('LOGISTICS_MANAGE')}"
+                th:classappend="${activeMenu == 'logistics'} ? 'active'">
+                <a th:href="@{/admin/logistics}" class="nav-link">
+                    <i class="fas fa-fw fa-truck"></i>
+                    <span>物流系統</span>
+                </a>
+            </li>
+
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
 

@@ -47,6 +47,12 @@ public class AdminIndexController {
     @GetMapping({"/psi/", "/psi/index", "/psi/index.html"})
     public String oldPsi() { return "redirect:/admin/psi"; }
 
+    @GetMapping("/logistics")
+	public String logistics(Model model) {
+
+		return "admin/logistics/index"; //view
+	}
+
     @GetMapping("/account")
 	public String account(Model model) {
 		
