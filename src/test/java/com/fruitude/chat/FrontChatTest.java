@@ -95,9 +95,9 @@ public class FrontChatTest {
         }
         public Message add(int member,int sender,int status){var m=new Message();m.setMessageId(data.size()+1);m.setMemberId(member);m.setSenderType(sender);m.setStatus(status);m.setIsRead(0);m.setMessageType(0);m.setCreatedAt(LocalDateTime.now());m.setMessageContent("測試訊息");data.add(m);return m;}
     }
-    @Test public void apiRequiresLoginAndRejectsFormCsrfAndIgnoresForeignMemberId()throws Exception {
-        var f=new Fixture();var mvc=MockMvcBuilders.standaloneSetup(new FrontChatController(f.service)).build();
-        assertEquals(401,mvc.perform(get("/api/front/chat/messages")).andReturn().getResponse().getStatus());
+    @Test public void apiSupportsGuestsAndRejectsFormCsrfAndIgnoresForeignMemberId()throws Exception {
+        var f=new Fixture();var mvc=MockMvcBuilders.standaloneSetup(GuestChatTest.inject(new FrontChatController(f.service),new GuestChatTest.Fixture().guests)).build();
+        assertEquals(200,mvc.perform(get("/api/front/chat/messages")).andReturn().getResponse().getStatus());
         var session=new MockHttpSession();session.setAttribute("loggedInMemberId",1);
         assertEquals(403,mvc.perform(post("/api/front/chat/messages").session(session).param("content","hi")).andReturn().getResponse().getStatus());
         var response=mvc.perform(post("/api/front/chat/messages").session(session).header("X-Requested-With","XMLHttpRequest").param("memberId","999").param("senderType","2").param("content","hello")).andReturn().getResponse();
@@ -105,12 +105,12 @@ public class FrontChatTest {
         assertEquals(403,mvc.perform(post("/api/front/chat/messages").session(session).header("X-Requested-With","XMLHttpRequest").header("Sec-Fetch-Site","cross-site").param("content","hi")).andReturn().getResponse().getStatus());
     }
     @Test public void welcomeTokenIsStableUntilMemberLogsInAgainWithoutChangingEmployeeSession()throws Exception {
-        var f=new Fixture();var mvc=MockMvcBuilders.standaloneSetup(new FrontChatController(f.service)).build();var session=new MockHttpSession();session.setAttribute("loggedInMemberId",1);session.setAttribute("loggedInEmployeeId",9);
+        var f=new Fixture();var mvc=MockMvcBuilders.standaloneSetup(GuestChatTest.inject(new FrontChatController(f.service),new GuestChatTest.Fixture().guests)).build();var session=new MockHttpSession();session.setAttribute("loggedInMemberId",1);session.setAttribute("loggedInEmployeeId",9);
         var json=tools.jackson.databind.json.JsonMapper.builder().build();
         var first=json.readValue(mvc.perform(get("/api/front/chat/unread").session(session)).andReturn().getResponse().getContentAsString(),Map.class);
         var second=json.readValue(mvc.perform(get("/api/front/chat/unread").session(session)).andReturn().getResponse().getContentAsString(),Map.class);assertEquals(first.get("welcomeToken"),second.get("welcomeToken"));
         var listener=new ChatWebSocketConfig().chatLoginListener();session.removeAttribute("loggedInMemberId");listener.attributeRemoved(new jakarta.servlet.http.HttpSessionBindingEvent(session,"loggedInMemberId",1));
-        assertEquals(401,mvc.perform(get("/api/front/chat/unread").session(session)).andReturn().getResponse().getStatus());
+        assertEquals(200,mvc.perform(get("/api/front/chat/unread").session(session)).andReturn().getResponse().getStatus());
         session.setAttribute("loggedInMemberId",1);listener.attributeAdded(new jakarta.servlet.http.HttpSessionBindingEvent(session,"loggedInMemberId",1));
         var again=json.readValue(mvc.perform(get("/api/front/chat/unread").session(session)).andReturn().getResponse().getContentAsString(),Map.class);assertNotEquals(first.get("welcomeToken"),again.get("welcomeToken"));assertEquals(9,session.getAttribute("loggedInEmployeeId"));assertTrue(f.data.isEmpty());
         var token=session.getAttribute("chat.welcome.token");listener.attributeReplaced(new jakarta.servlet.http.HttpSessionBindingEvent(session,"loggedInMemberId",1));assertNotEquals(token,session.getAttribute("chat.welcome.token"));
@@ -379,8 +379,8 @@ public class FrontChatTest {
         var result=f.service.history(1,null).results().get(0).result();assertTrue(result.headline().contains("西瓜"));assertTrue(result.description().contains("早期紀錄"));assertTrue(result.recommendations().isEmpty());
     }
     @Test public void quizResultHistoryIsPrivateAndNeverTouchesStaffMessages()throws Exception{
-        var f=new QuizFixture();f.service.finish(1,7,f.service.start(1,7),f.answers("A"));var chat=new Fixture();var controller=new QuizController(f.service);var mvc=MockMvcBuilders.standaloneSetup(controller).build();
-        assertEquals(401,mvc.perform(get("/api/front/chat/quizzes/results")).andReturn().getResponse().getStatus());var session=new MockHttpSession();session.setAttribute("loggedInMemberId",2);
+        var f=new QuizFixture();f.service.finish(1,7,f.service.start(1,7),f.answers("A"));var chat=new Fixture();var controller=GuestChatTest.inject(new QuizController(f.service),new GuestChatTest.Fixture().guests);var mvc=MockMvcBuilders.standaloneSetup(controller).build();
+        assertEquals(200,mvc.perform(get("/api/front/chat/quizzes/results")).andReturn().getResponse().getStatus());var session=new MockHttpSession();session.setAttribute("loggedInMemberId",2);
         var denied=mvc.perform(get("/api/front/chat/quizzes/results").param("memberId","1").session(session)).andReturn().getResponse();assertEquals(200,denied.getStatus());assertTrue(denied.getContentAsString().contains("\"results\":[]"));assertTrue(denied.getHeader("Cache-Control").contains("no-store"));
         session.setAttribute("loggedInMemberId",1);var own=mvc.perform(get("/api/front/chat/quizzes/results").session(session)).andReturn().getResponse();assertEquals(200,own.getStatus());assertTrue(own.getContentAsString(java.nio.charset.StandardCharsets.UTF_8).contains("西瓜"));
         assertTrue(chat.data.isEmpty());assertTrue(chat.destinations.isEmpty());assertEquals(0,chat.cacheTouches);
@@ -395,9 +395,9 @@ public class FrontChatTest {
         var f=new QuizFixture();f.products.removeIf(p->p.name().equals("西瓜"));var result=f.service.finish(1,7,f.service.start(1,7),f.answers("A"));
         assertEquals(5,result.recommendations().size());assertEquals("芒果",result.recommendations().get(0).fruitName());assertTrue(result.recommendations().stream().noneMatch(p->p.fruitName().equals("西瓜")));
     }
-    @Test public void quizApiRequiresMemberAndSessionRunAndRepeatedSubmitOnlySavesOnce()throws Exception {
+    @Test public void quizApiRequiresSessionRunAndRepeatedMemberSubmitOnlySavesOnce()throws Exception {
         var f=new QuizFixture();var controller=new QuizController(f.service);var mvc=MockMvcBuilders.standaloneSetup(controller).build();
-        assertEquals(401,mvc.perform(get("/api/front/chat/quizzes")).andReturn().getResponse().getStatus());var session=new MockHttpSession();session.setAttribute("loggedInMemberId",1);
+        assertEquals(200,mvc.perform(get("/api/front/chat/quizzes")).andReturn().getResponse().getStatus());var session=new MockHttpSession();session.setAttribute("loggedInMemberId",1);
         assertEquals(403,mvc.perform(post("/api/front/chat/quizzes/7/start").session(session)).andReturn().getResponse().getStatus());
         var response=mvc.perform(post("/api/front/chat/quizzes/7/start").session(session).header("X-Requested-With","XMLHttpRequest")).andReturn().getResponse();assertEquals(200,response.getStatus());
         var json=tools.jackson.databind.json.JsonMapper.builder().build();var start=json.readValue(response.getContentAsString(),Map.class);String body=json.writeValueAsString(Map.of("token",start.get("token"),"answers",f.answers("A")));
@@ -405,9 +405,9 @@ public class FrontChatTest {
         session.setAttribute("loggedInMemberId",2);assertEquals(400,mvc.perform(post("/api/front/chat/quizzes/7/submit").session(session).header("X-Requested-With","XMLHttpRequest").contentType("application/json").content(body)).andReturn().getResponse().getStatus());assertEquals(1,f.store.inserts);
     }
     @Test public void quizCommandsDoNotCreateChatSourceMessagesUnreadCacheOrStaffPush()throws Exception {
-        var f=new Fixture();var mvc=MockMvcBuilders.standaloneSetup(new FrontChatController(f.service)).build();var session=new MockHttpSession();session.setAttribute("loggedInMemberId",1);
+        var f=new Fixture();var mvc=MockMvcBuilders.standaloneSetup(GuestChatTest.inject(new FrontChatController(f.service),new GuestChatTest.Fixture().guests)).build();var session=new MockHttpSession();session.setAttribute("loggedInMemberId",1);
         var json=tools.jackson.databind.json.JsonMapper.builder().build();
-        assertEquals(401,mvc.perform(post("/api/front/chat/messages").header("X-Requested-With","XMLHttpRequest").param("content","推薦水果")).andReturn().getResponse().getStatus());
+        assertEquals(200,mvc.perform(post("/api/front/chat/messages").header("X-Requested-With","XMLHttpRequest").param("content","推薦水果")).andReturn().getResponse().getStatus());
         assertEquals(403,mvc.perform(post("/api/front/chat/messages").session(session).param("content","推薦水果")).andReturn().getResponse().getStatus());
         for(String command:List.of("想請你推薦適合的水果。","推薦水果","幫我推薦水果","水果推薦","心理測驗","水果測驗","小測驗")){
             var response=mvc.perform(post("/api/front/chat/messages").session(session).header("X-Requested-With","XMLHttpRequest").param("content",command).param("productSkuId","11")).andReturn().getResponse();

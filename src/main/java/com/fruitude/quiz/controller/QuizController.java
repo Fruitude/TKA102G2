@@ -11,6 +11,7 @@ import com.fruitude.quiz.model.ChatQuizService;
 @RestController
 @RequestMapping("/api/front/chat/quizzes")
 public class QuizController {
+    @org.springframework.beans.factory.annotation.Autowired private com.fruitude.chat.model.GuestChatService guests;
     private final ChatQuizService quizzes;
     public QuizController(ChatQuizService quizzes){this.quizzes=quizzes;}
     private int member(HttpServletRequest request){
@@ -32,19 +33,28 @@ public class QuizController {
         var runs=new java.util.LinkedHashMap<String,com.fruitude.quiz.model.ChatQuizService.Run>();session.setAttribute("chat.quiz.runs",runs);return runs;
     }
     @GetMapping
-    public ResponseEntity<?> quizzes(HttpServletRequest request){member(request);return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(quizzes.themes());}
+    public ResponseEntity<?> quizzes(HttpServletRequest request){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(quizzes.themes());}
     @GetMapping("/results")
     public ResponseEntity<?> quizHistory(@RequestParam(required=false) Integer beforeId,HttpServletRequest request){
+        if(com.fruitude.chat.controller.FrontChatController.isGuest(request))return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(guests.quizHistory(guests.visitor(request),beforeId));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(quizzes.history(member(request),beforeId));
     }
     @PostMapping("/{quizId}/start")
     public ResponseEntity<?> startQuiz(@PathVariable Integer quizId,HttpServletRequest request){
+        if(com.fruitude.chat.controller.FrontChatController.isGuest(request)){
+            mutation(request);String visitor=guests.visitor(request);guests.limit(visitor,request);
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(guests.start(visitor,quizId));
+        }
         int id=member(request);mutation(request);var session=request.getSession(false);
         synchronized(session){var run=quizzes.start(id,quizId);var runs=quizRuns(session);while(runs.size()>=5)runs.remove(runs.keySet().iterator().next());runs.put(run.token,run);
             return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(run.view());}
     }
     @PostMapping("/{quizId}/submit")
     public ResponseEntity<?> finishQuiz(@PathVariable Integer quizId,@RequestBody com.fruitude.quiz.model.ChatQuizService.Submission submission,HttpServletRequest request){
+        if(com.fruitude.chat.controller.FrontChatController.isGuest(request)){
+            mutation(request);String visitor=guests.visitor(request);guests.limit(visitor,request);
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(guests.finish(visitor,quizId,submission));
+        }
         int id=member(request);mutation(request);var session=request.getSession(false);
         synchronized(session){var run=submission==null?null:quizRuns(session).get(submission.token());
             if(run==null||!run.belongsTo(id,quizId))throw new IllegalArgumentException("測驗已過期，請重新開始。");
@@ -53,6 +63,10 @@ public class QuizController {
     }
     @ExceptionHandler(IllegalArgumentException.class) public ResponseEntity<?> invalid(IllegalArgumentException error){
         return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).body(Map.of("message",error.getMessage()));
+    }
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class) public ResponseEntity<?> unavailable(){
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).cacheControl(CacheControl.noStore()).header(HttpHeaders.RETRY_AFTER,"5")
+            .body(Map.of("message","智慧鮮果暫時忙碌，請稍後再試。"));
     }
     @ExceptionHandler(ResponseStatusException.class) public ResponseEntity<?> denied(ResponseStatusException error){
         return ResponseEntity.status(error.getStatusCode()).cacheControl(CacheControl.noStore()).body(Map.of("message",error.getReason()));

@@ -21,7 +21,7 @@
   <footer class="ff-chat-footer">
 
    <p class="ff-chat-demo-notice" role="status">正在確認登入狀態…</p>
-   <a class="ff-chat-login" th:href="@{/front/about/login/}" hidden>登入會員，開始與客服對話</a>
+   <a class="ff-chat-login" th:href="@{/front/about/login/}" hidden>登入會員，聯繫真人客服</a>
    <div class="ff-chat-attachments" hidden></div>
    <form class="ff-chat-compose"><label class="ff-chat-pick" title="附加圖片"><span aria-hidden="true">＋</span><span class="ff-chat-sr-only">選取聊天圖片</span><input class="ff-chat-files" type="file" accept="image/png,image/jpeg,image/gif" multiple></label><label class="ff-chat-sr-only" for="ff-chat-input">客服訊息</label><textarea id="ff-chat-input" rows="1" maxlength="1000" placeholder="請輸入訊息"></textarea><button class="ff-chat-send" type="submit" aria-label="傳送訊息" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14"/></svg></button></form>
   </footer>
@@ -49,7 +49,7 @@
  <link th:href="@{/front/css/customer-quiz.css(v=20261018-quiz-close-16)}" rel="stylesheet" type="text/css"/>
  <div th:replace="~{front/fragments/customer-chat :: widget}"></div>
  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js" defer></script>
- <script th:src="@{/front/js/customer-chat.js(v=20261020-merged-chat)}" defer></script>
+ <script th:src="@{/front/js/customer-chat.js(v=20261020-guest-chat)}" defer></script>
  <script th:src="@{/front/js/customer-quiz.js(v=20261020-merged-quiz)}" defer></script>
 </th:block>
 </body></html>
