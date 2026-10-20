@@ -25,6 +25,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fruitude.chat.model.CannedReplyService;
+import com.fruitude.chat.model.ChatProductService;
 import com.fruitude.chat.model.ChatService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,6 +42,9 @@ public class AdminChatController {
 
 	@Autowired
 	private CannedReplyService cannedReplySvc;
+
+	@Autowired
+	private ChatProductService chatProductSvc;
 
 	// 聊天室頁面：沒有 CHAT_VIEW 時導到沒有權限的頁面；canReply 決定頁面要不要顯示輸入框
 	@GetMapping("/admin/chat")
@@ -124,6 +128,16 @@ public class AdminChatController {
 			return forbidden();
 		}
 		return ResponseEntity.ok(cannedReplySvc.getSuggestions(memberId));
+	}
+
+	// 商品建議：輸入框打「#關鍵字」時列出上架中的商品與規格（不含價格），比對由頁面自己做；和送訊息一樣要 CHAT_REPLY
+	@GetMapping("/api/admin/chat/products")
+	@ResponseBody
+	public ResponseEntity<?> products(HttpServletRequest request) {
+		if (!hasPermission(request, "CHAT_REPLY")) {
+			return forbidden();
+		}
+		return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(chatProductSvc.getProductOptions());
 	}
 
 	// 客服送出訊息：multipart/form-data，content 是文字、images 是 0 ~ 5 張圖片
