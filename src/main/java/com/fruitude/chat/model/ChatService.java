@@ -92,7 +92,7 @@ public class ChatService {
 
     public void markReadByMember(Integer id,Integer through) {
         if(through==null || through<1)throw new IllegalArgumentException("無效的已讀訊息");
-        if(messageRepository.markStaffMessagesRead(id,through,LocalDateTime.now())>0)
+        if(messageRepository.markStaffMessagesRead(id,through,LocalDateTime.now(java.time.ZoneId.of("Asia/Taipei")))>0)
             publish(new ChatEvent(ChatEvent.MEMBER_READ,id,null,through));
     }
     public ChatImage getMemberImage(Integer id,Integer imageId,boolean thumbnail)throws IOException {
@@ -244,7 +244,7 @@ public class ChatService {
 	// 不記錄是哪位員工讀的；沒有未讀訊息時什麼都不做
 	public void markReadByStaff(Integer memberId) {
 		Integer through=messageRepository.lastMemberMessage(memberId);
-        if (through==null || messageRepository.markMemberMessagesReadThrough(memberId,through,LocalDateTime.now()) == 0) {
+        if (through==null || messageRepository.markMemberMessagesReadThrough(memberId,through,LocalDateTime.now(java.time.ZoneId.of("Asia/Taipei"))) == 0) {
 			return;
 		}
 		try {
@@ -355,7 +355,7 @@ public class ChatService {
             }
         }
         final String inquirySource=sourceNote;
-		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Taipei"));
 		Message message = new Message();
 		message.setSenderType(sender);
 		message.setMemberId(memberId);

@@ -402,7 +402,7 @@ public class ProductService {
         var renamedIds=new HashSet<Integer>();
         request.skus().stream().filter(s->s!=null && s.skuId()!=null && s.skuName()!=null).forEach(s->renamedIds.add(s.skuId()));
         var usedNames=new HashSet<String>();
-        p.getProductSkus().stream().filter(s->!renamedIds.contains(s.getSkuId())).forEach(s->usedNames.add(s.getSkuName().trim()));
+        p.getProductSkus().stream().filter(s->!renamedIds.contains(s.getSkuId())).forEach(s->usedNames.add(s.getSkuName().trim().toLowerCase(java.util.Locale.ROOT)));
         var newPrepared=new ArrayList<ProductSku>();
         var earliest=earliestListingTime();
         for(var input:request.skus()) {
@@ -420,7 +420,7 @@ public class ProductService {
             if(input.price()>MAX_PRICE) throw new IllegalArgumentException("規格價格不可超過10,000,000元");
             if(input.anotherName()!=null && input.anotherName().length()>50) throw new IllegalArgumentException("規格別名不可超過50字");
             String skuName = existing!=null && input.skuName()==null ? existing.getSkuName() : required(input.skuName(),50,"規格名稱");
-            if((existing==null || input.skuName()!=null) && !usedNames.add(skuName)) throw new IllegalArgumentException("同個商品的規格名稱不可重複");
+            if((existing==null || input.skuName()!=null) && !usedNames.add(skuName.toLowerCase(java.util.Locale.ROOT))) throw new IllegalArgumentException("同個商品的規格名稱不可重複");
             Byte previous=existing==null?null:existing.getStatus();
             Byte requested=input.status()==null ? (existing==null?ProductLifecycleService.SKU_PREPARED:previous) : input.status();
             if(existing==null || !Objects.equals(previous,requested)) {

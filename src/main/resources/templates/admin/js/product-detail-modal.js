@@ -15,10 +15,13 @@
     function validateTitleName() {
         const title=dialog.querySelector('h2');
         const empty=editing && !title.textContent.trim();
-        dialog.querySelector('.detail-name-error').hidden=!empty;
-        title.setAttribute('aria-invalid',String(empty));
-        dialog.querySelector('.detail-title-editor').classList.toggle('has-name-error',empty);
-        return !empty;
+        const validation=editing?editor()?.getNameValidation?.():null;
+        const message=editing?(empty?'請填寫商品名稱':validation?.message||''):'';
+        const invalid=empty||!!validation?.invalid;
+        const error=dialog.querySelector('.detail-name-error');error.textContent=message;error.hidden=!message;error.classList.toggle('is-pending',!!validation?.pending);
+        title.setAttribute('aria-invalid',String(invalid));
+        dialog.querySelector('.detail-title-editor').classList.toggle('has-name-error',invalid);
+        return !invalid;
     }
     function applyMode() {
         dialog.classList.toggle('is-editing',editing);
@@ -138,6 +141,8 @@
             .product-detail-modal .detail-save-error { flex-basis:100%;margin:0;color:#b42318;font-size:13px; }
             .product-detail-modal .detail-name-error { position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);padding:1px 4px;border-radius:3px;background:#fff;color:#b42318;font-size:12px;line-height:16px;white-space:nowrap; }
             .product-detail-modal .detail-title-editor.has-name-error { border-color:#b42318; }
+            .product-detail-modal .detail-name-error { width:max-content;max-width:none;white-space:nowrap; }
+            .product-detail-modal .detail-name-error.is-pending { color:#6b7280; }
             .product-detail-modal button:focus-visible { outline:2px solid #4e73df;outline-offset:2px; }
         `;document.head.appendChild(style);
         dialog=document.createElement('dialog');dialog.className='product-detail-modal';dialog.id='product-detail-modal';dialog.setAttribute('aria-labelledby','product-detail-title');
@@ -152,12 +157,13 @@
         const title=dialog.querySelector('h2');title.setAttribute('aria-describedby','detail-name-error');
         dialog.querySelector('.detail-title-pencil').addEventListener('click',()=>title.focus());
         title.addEventListener('input',()=>{if(editing){editor()?.setName(title.textContent);validateTitleName();}});
+        title.addEventListener('blur',()=>{if(editing)editor()?.checkName?.();});
         title.addEventListener('keydown',event=>{if(editing&&event.key==='Enter'){event.preventDefault();title.blur();}});
         dialog.querySelector('.detail-save').addEventListener('click',async()=>{
             const error=dialog.querySelector('.detail-save-error');error.hidden=true;saving=true;
             dialog.querySelector('.detail-save').disabled=true;
             try {
-                if(!validateTitleName()){title.focus();throw new Error("請填寫商品名稱");}
+                if(!validateTitleName()){title.focus();throw new Error(dialog.querySelector('.detail-name-error').textContent);}
                 editor().setName(title.textContent);
                 await editor().save();
                 refreshAfterClose=true;
@@ -190,6 +196,7 @@
             try {
                 if(!frame.contentDocument?.querySelector('.detail-layout'))throw new Error('商品資料載入失敗');
                 if(editing){if(!editor())throw new Error('修改功能未載入，請重新整理頁面');await editor().ready;}
+                frame.contentWindow.addEventListener('product:name-validation',validateTitleName);
                 const name=editing?editor().getName():frame.contentDocument.querySelector('h1')?.textContent.trim();
                 if(name){title.textContent=name;frame.title=name;}
                 validateTitleName();

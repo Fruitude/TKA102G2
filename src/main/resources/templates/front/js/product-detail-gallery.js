@@ -111,7 +111,8 @@
   var track = document.getElementById('pv-related');
   var viewport = document.getElementById('pv-related-viewport');
   if (!section || !track || !viewport) return;
-  var items = Array.from(track.children);
+  // Shared card fragments also include scripts; only cards have measurable carousel widths.
+  var items = Array.from(track.children).filter(function (item) { return item.classList.contains('w-dyn-item'); });
   if (!items.length) return;
   var controls = section.querySelector('.pv-related-controls');
   var previous = document.getElementById('pv-related-prev');
@@ -136,6 +137,7 @@
     var firstVisible = page * perPage;
     var gap = parseFloat(getComputedStyle(track).columnGap) || 0;
     var width = items[0].getBoundingClientRect().width;
+    if (width <= 0 || viewport.clientWidth <= 0) return;
     perPage = Math.max(1, Math.round((viewport.clientWidth + gap) / (width + gap)));
     pages = Math.max(1, Math.ceil(items.length / perPage));
     page = Math.min(pages - 1, Math.floor(firstVisible / perPage));

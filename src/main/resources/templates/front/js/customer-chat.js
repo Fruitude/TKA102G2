@@ -34,9 +34,24 @@
  // Saved quiz cards are private member history, separate from messages, read receipts and staff topics.
  const quizRows=new Map();let quizBefore=null,quizMore=false,quizLoading=false,quizDirty=false;
  const quizOlder=document.createElement('button');quizOlder.type='button';quizOlder.className='ff-chat-older';quizOlder.textContent='載入較早測驗結果';quizOlder.hidden=true;older.after(quizOlder);
- function placeInTimeline(row){const next=Array.from(messages.children).find(node=>node!==row&&node.dataset.timeline&&node.dataset.timeline>row.dataset.timeline);messages.insertBefore(row,next||null);}
+ function timelineTime(value){
+  if(Array.isArray(value)){
+   const [year,month,day,hour=0,minute=0,second=0,nano=0]=value;
+   return Date.UTC(year,month-1,day,hour-8,minute,second,Math.floor(nano/1000000));
+  }
+  if(typeof value!=='string'||!value.trim())return 0;
+  let text=value.trim().replace(' ','T').replace(/(\.\d{3})\d+/, '$1');
+  if(!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(text))text+='+08:00';
+  const time=Date.parse(text);return Number.isFinite(time)?time:0;
+ }
+ function timelineLabel(value){const time=timelineTime(value);return time?new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(time):'';}
+ function placeInTimeline(row){
+  const time=Number(row.dataset.timeline);
+  const next=Array.from(messages.children).find(node=>node!==row&&node.dataset.timeline!==undefined&&Number(node.dataset.timeline)>time);
+  messages.insertBefore(row,next||null);
+ }
  function appendQuiz(entry){
-  if(quizRows.has(entry.answerId))return;const row=document.createElement('div');row.className='ff-chat-message ff-chat-quiz-record';row.dataset.timeline=entry.createdAt||'';
+  if(quizRows.has(entry.answerId))return;const row=document.createElement('div');row.className='ff-chat-message ff-chat-quiz-record';row.dataset.timeline=String(timelineTime(entry.createdAt));
   const avatar=welcome.querySelector('.ff-chat-message-avatar');if(avatar)row.append(avatar.cloneNode(true));
   const body=document.createElement('div'),label=document.createElement('span'),bubble=document.createElement('div'),theme=document.createElement('small'),title=document.createElement('strong'),description=document.createElement('p'),list=document.createElement('div'),time=document.createElement('small');
   label.className='ff-chat-sender';label.textContent='智慧鮮果 · 測驗結果';bubble.className='ff-chat-bubble ff-chat-quiz-summary';theme.className='ff-chat-quiz-theme';theme.textContent=entry.theme;title.textContent=entry.result.headline;description.textContent=entry.result.description;list.className='ff-chat-quiz-products';
@@ -45,7 +60,7 @@
    link.href=prefix+'/front/product/view/?'+new URLSearchParams({productId:item.productId});image.src=prefix+'/front/api/product-image/'+Number(item.productId);image.alt=item.productName;image.width=48;image.height=48;image.loading='lazy';image.onerror=()=>{image.onerror=null;image.src=prefix+'/front/img/image-placeholder.svg';};
    name.textContent=item.productName;price.textContent='NT$ '+Number(item.price).toLocaleString('zh-TW')+' 起';copy.append(name,price);link.append(image,copy);list.append(link);
   });
-  time.className='ff-chat-unsent';time.textContent=(entry.createdAt||'').replace('T',' ').slice(0,16);bubble.append(theme,title,description,list);body.append(label,bubble,time);row.append(body);placeInTimeline(row);quizRows.set(entry.answerId,row);
+  time.className='ff-chat-unsent';time.textContent=timelineLabel(entry.createdAt);bubble.append(theme,title,description,list);body.append(label,bubble,time);row.append(body);placeInTimeline(row);quizRows.set(entry.answerId,row);
  }
  async function loadQuizHistory(earlier=false){
   if(member===null||quizLoading)return;quizLoading=true;quizOlder.disabled=true;const token=epoch,height=messages.scrollHeight,top=messages.scrollTop;
@@ -157,7 +172,7 @@
   const nearBottom=messages.scrollHeight-messages.scrollTop-messages.clientHeight<65;
   messageData.set(m.messageId,m);if(rows.has(m.messageId))return;
   const row=document.createElement('div'),body=document.createElement('div'),sender=document.createElement('span'),bubble=document.createElement('div'),meta=document.createElement('small');
-  row.className='ff-chat-message'+(m.senderType===1?' ff-chat-message--user':'');row.dataset.id=m.messageId;row.dataset.timeline=m.createdAt||'';row.dataset.sender=m.senderType;row.dataset.time=(m.createdAt||'').replace('T',' ').slice(0,16);row.tabIndex=0;
+  row.className='ff-chat-message'+(m.senderType===1?' ff-chat-message--user':'');row.dataset.id=m.messageId;row.dataset.timeline=String(timelineTime(m.createdAt));row.dataset.sender=m.senderType;row.dataset.time=timelineLabel(m.createdAt);row.tabIndex=0;
   sender.className='ff-chat-sender';sender.textContent=m.senderType===1?'您':m.senderType===2?'客服':'智慧鮮果';
   bubble.className='ff-chat-bubble';const quoted=quote(m);if(quoted)bubble.append(quoted);if(m.messageContent){const text=document.createElement('p');text.textContent=m.messageContent;bubble.append(text);}
   const imageIds=m.imageIds||[],imageGrid=document.createElement('div');imageGrid.className='ff-chat-image-grid'+(imageIds.length===1?' ff-chat-image-grid--single':'');
