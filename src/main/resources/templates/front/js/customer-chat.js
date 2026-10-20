@@ -84,7 +84,7 @@
  function showReplyMenu(event){
   const row=event.target.closest('.ff-chat-message[data-id]');if(!row||busy||member===null)return;
   event.preventDefault();menuTarget=messageData.get(Number(row.dataset.id));if(!menuTarget)return;
-  replyMenu.hidden=false;const rect=row.getBoundingClientRect();const x=event.clientX||rect.left+15,y=event.clientY||rect.top+15;
+  replyMenu.style.left='0px';replyMenu.style.top='0px';replyMenu.hidden=false;const rect=row.getBoundingClientRect();const x=event.clientX||rect.left+15,y=event.clientY||rect.top+15;
   replyMenu.style.left=Math.max(8,Math.min(x,innerWidth-replyMenu.offsetWidth-8))+'px';replyMenu.style.top=Math.max(8,Math.min(y,innerHeight-replyMenu.offsetHeight-8))+'px';replyAction.focus({preventScroll:true});
  }
  messages.addEventListener('contextmenu',showReplyMenu);

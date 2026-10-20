@@ -35,7 +35,7 @@
 
 .ff-chat-message:not(.ff-chat-message--user) .ff-chat-unsent{text-align:left}
 
-.ff-chat-reply-menu{position:fixed;z-index:1100;padding:4px;border:1px solid #d6dfc4;border-radius:10px;background:#fffef8;box-shadow:0 4px 20px #34452c30}.ff-chat-reply-menu button{padding:8px 16px;border:0;border-radius:7px;background:transparent;color:#497339;cursor:pointer}.ff-chat-reply-menu button:hover,.ff-chat-reply-menu button:focus{background:#edf3df}
+.ff-chat-reply-menu{position:fixed;width:max-content;max-width:calc(100vw - 16px);white-space:nowrap;z-index:1100;padding:4px;border:1px solid #d6dfc4;border-radius:10px;background:#fffef8;box-shadow:0 4px 20px #34452c30}.ff-chat-reply-menu button{display:block;width:100%;white-space:nowrap;padding:8px 16px;border:0;border-radius:7px;background:transparent;color:#497339;cursor:pointer}.ff-chat-reply-menu button:hover,.ff-chat-reply-menu button:focus{background:#edf3df}
 .ff-chat-reply-draft{position:relative;margin:0 0 8px;padding:7px 28px 7px 10px;border-left:3px solid #8ca66b;border-radius:5px;background:#eff3e5;color:#617052;font-size:11px}.ff-chat-reply-draft p{margin:2px 0 0;font-size:11px;line-height:1.5;max-height:34px;overflow:hidden;overflow-wrap:anywhere}.ff-chat-reply-draft button{position:absolute;right:5px;top:3px;padding:0;width:22px;height:22px;border:0;background:transparent;color:#71895b;cursor:pointer}
 .ff-chat-quoted{margin:0 0 7px;padding:5px 8px;border-left:3px solid #8ca66b;border-radius:4px;background:#eef2e2;color:#60714f;font-size:11px;line-height:1.5}.ff-chat-quoted p{margin:3px 0 0!important;font-size:11px!important;white-space:pre-wrap}.ff-chat-message:focus-visible{outline:2px solid #bdca9d;outline-offset:3px;border-radius:8px}
 

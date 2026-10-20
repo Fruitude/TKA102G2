@@ -16,6 +16,10 @@ import org.springframework.messaging.support.*;
 import org.springframework.transaction.support.*;
 import org.springframework.transaction.*;
 import com.fruitude.chat.model.*;
+import com.fruitude.quiz.model.*;
+import com.fruitude.quiz.controller.QuizController;
+import com.fruitude.faq.model.*;
+import com.fruitude.member.model.MemberVO;
 import com.fruitude.chat.model.Message;
 import com.fruitude.chat.controller.*;
 import com.fruitude.chat.config.*;
@@ -161,16 +165,10 @@ public class FrontChatTest {
 
     static CannedReplyService faqFixture(String[][] rows, List<com.fruitude.promo.model.PromoProject> promos)throws Exception {
         var service=new CannedReplyService();
-        field(service,"faqJdbc",new org.springframework.jdbc.core.JdbcTemplate(){
-            @Override public <T> List<T> query(String sql,org.springframework.jdbc.core.RowMapper<T> mapper){
-                assertTrue(sql.contains("WITH RECURSIVE active_categories"));assertTrue(sql.contains("parent_category_id IS NULL AND status=1"));assertTrue(sql.contains("WHERE c.status=1"));
-                var result=new ArrayList<T>();
-                for(var row:rows)try{result.add(mapper.mapRow(proxy(java.sql.ResultSet.class,(name,args)->{
-                    if(name.equals("getString"))return row[switch((String)args[0]){case "question"->0;case "answer"->1;default->2;}];throw new UnsupportedOperationException(name);
-                }),result.size()));}catch(java.sql.SQLException error){throw new RuntimeException(error);}return result;
-            }
-        });
-        field(service,"faqPromos",proxy(com.fruitude.promo.model.PromoRepository.class,(name,args)->promos));return service;
+        var entries=new ArrayList<Faq>();for(var row:rows){var faq=new Faq();faq.setQuestion(row[0]);faq.setAnswer(row[1]);faq.setKeyword(row[2]);entries.add(faq);}
+        var repository=proxy(FaqRepository.class,(name,args)->{if(name.equals("findAvailableForReply"))return entries;throw new UnsupportedOperationException(name);});
+        var promotionRepository=proxy(com.fruitude.promo.model.PromoRepository.class,(name,args)->promos);
+        field(service,"faqService",new FaqService(repository,promotionRepository));return service;
     }
     @Test public void faqChoosesSpecificCompoundKeywordsAndNormalizesSpaces()throws Exception {
         var faq=faqFixture(new String[][]{{"普通","一般生日說明","生日優惠"},{"無法使用","請確認生日月份與今年使用次數","生日&不能用,生日優惠&不能"}},List.of());
@@ -267,29 +265,45 @@ public class FrontChatTest {
         assertTrue(f.service.getStaffConversation(1).get(2).reply().messageContent().startsWith("客戶詢問來源"));
     }
 
-    static class QuizJdbc extends org.springframework.jdbc.core.JdbcTemplate {
-        int inserts;Object[] saved;boolean enabled=true;final List<Map<String,Object>> history=new ArrayList<>();final Map<Integer,String> themeOptions=new HashMap<>();final Map<Integer,String[]> themeFruits=new HashMap<>();
+    static class QuizStore {
+        int inserts;Object[] saved;boolean enabled=true;
+        final List<Map<String,Object>> history=new ArrayList<>();
+        final Map<Integer,String> themeOptions=new HashMap<>();final Map<Integer,String[]> themeFruits=new HashMap<>();
         final String options="{\"A\":{\"text\":\"安靜放空\",\"score\":{\"banana\":3,\"watermelon\":5,\"strawberry\":1,\"guava\":2,\"mango\":4,\"pineapple\":2}},\"B\":{\"text\":\"溫暖小聚\",\"score\":{\"banana\":1,\"watermelon\":1,\"strawberry\":5,\"guava\":1,\"mango\":1,\"pineapple\":1}}}";
-        @Override public <T> List<T> query(String sql,org.springframework.jdbc.core.RowMapper<T> mapper){return query(sql,mapper,new Object[0]);}
-        @Override public <T> List<T> query(String sql,org.springframework.jdbc.core.RowMapper<T> mapper,Object...args){
-            var rows=new ArrayList<Map<String,Object>>();
-            if(sql.startsWith("SELECT q.quiz_id")){if(enabled)for(int id=7;id<=9;id++)rows.add(Map.of("quiz_id",id,"quiz_name","測試心情","quiz_desc","五題測驗"));}
-            else if(sql.startsWith("SELECT question_id")){for(int i=1;i<=5;i++)rows.add(Map.of("question_id",i,"question_text","心情問題 "+i,"options",themeOptions.getOrDefault((Integer)args[0],options)));}
-            else if(sql.startsWith("SELECT result_id")){String[] names=themeFruits.getOrDefault((Integer)args[0],new String[]{"香蕉","西瓜","草莓","芭樂","芒果","鳳梨"});for(int i=0;i<names.length;i++)rows.add(Map.of("result_id",i+1,"result_name",names[i],"result_desc","果物靈感 "+names[i]));}
-            else if(sql.startsWith("SELECT a.answer_id")){history.stream().filter(r->r.get("member_id").equals(args[0])&&((Integer)r.get("answer_id"))<((Integer)args[1])).sorted(Comparator.comparingInt((Map<String,Object> r)->(Integer)r.get("answer_id")).reversed()).limit(21).forEach(rows::add);}
-            else throw new UnsupportedOperationException(sql);
-            var result=new ArrayList<T>();for(var row:rows)try{result.add(mapper.mapRow(proxy(java.sql.ResultSet.class,(name,a)->{
-                if(name.equals("getTimestamp"))return java.sql.Timestamp.valueOf((java.time.LocalDateTime)row.get((String)a[0]));if(name.equals("getInt"))return ((Number)row.get((String)a[0])).intValue();if(name.equals("getString"))return (String)row.get((String)a[0]);throw new UnsupportedOperationException(name);}),result.size()));}catch(java.sql.SQLException error){throw new RuntimeException(error);}return result;
+
+        Quiz quiz(int id){var quiz=new Quiz();quiz.setQuizId(id);quiz.setQuizName("測試心情");quiz.setQuizDesc("五題測驗");quiz.setStatus(1);return quiz;}
+        List<QuizResult> outcomes(int id){var values=new ArrayList<QuizResult>();String[] names=themeFruits.getOrDefault(id,new String[]{"香蕉","西瓜","草莓","芭樂","芒果","鳳梨"});for(int i=0;i<names.length;i++){var r=new QuizResult();r.setResultId(i+1);r.setQuiz(quiz(id));r.setResultName(names[i]);r.setResultDesc("果物靈感 "+names[i]);r.setStatus(1);values.add(r);}return values;}
+        final QuizRepository quizzes=proxy(QuizRepository.class,(name,args)->{
+            if(name.equals("findPlayableThemes"))return enabled?List.of(quiz(7),quiz(8),quiz(9)):List.of();
+            if(name.equals("existsByQuizIdAndStatus"))return enabled;
+            if(name.equals("getReferenceById"))return quiz((Integer)args[0]);throw new UnsupportedOperationException(name);
+        });
+        final QuizQuestionRepository questions=proxy(QuizQuestionRepository.class,(name,args)->{
+            if(!name.startsWith("findByQuiz_"))throw new UnsupportedOperationException(name);
+            var values=new ArrayList<QuizQuestion>();int id=(Integer)args[0];for(int i=1;i<=5;i++){var q=new QuizQuestion();q.setQuestionId(i);q.setQuiz(quiz(id));q.setQuestionText("心情問題 "+i);q.setOptions(themeOptions.getOrDefault(id,options));q.setSortOrder(i);q.setStatus(1);values.add(q);}return values;
+        });
+        final QuizResultRepository results=proxy(QuizResultRepository.class,(name,args)->{
+            if(name.startsWith("findByQuiz_"))return outcomes((Integer)args[0]);
+            if(name.equals("getReferenceById")){var r=new QuizResult();r.setResultId((Integer)args[0]);return r;}throw new UnsupportedOperationException(name);
+        });
+        final ChatQuizAnswerRepository answers=proxy(ChatQuizAnswerRepository.class,(name,args)->{
+            if(name.equals("save")){var a=(ChatQuizAnswer)args[0];a.setAnswerId(++inserts);saved=new Object[]{a.getMember().getMemberId(),a.getQuiz().getQuizId(),a.getAnswerData(),a.getScoreData(),a.getQuizResult().getResultId(),a.getCreatedAt()};
+                history.add(Map.of("answer_id",inserts,"member_id",saved[0],"quiz_id",saved[1],"quiz_name","測試心情","score_data",saved[3],"created_at",saved[5],"result_name","西瓜","result_desc","早期結果"));return a;}
+            if(name.equals("findMemberHistory")){int limit=((org.springframework.data.domain.Pageable)args[2]).getPageSize();return history.stream().filter(r->r.get("member_id").equals(args[0])&&((Integer)r.get("answer_id"))<((Integer)args[1])).sorted(Comparator.comparingInt((Map<String,Object> r)->(Integer)r.get("answer_id")).reversed()).limit(limit).map(row->{
+                var a=new ChatQuizAnswer();a.setAnswerId((Integer)row.get("answer_id"));var q=quiz((Integer)row.get("quiz_id"));q.setQuizName((String)row.get("quiz_name"));a.setQuiz(q);a.setScoreData((String)row.get("score_data"));a.setCreatedAt((LocalDateTime)row.get("created_at"));var r=new QuizResult();r.setResultName((String)row.get("result_name"));r.setResultDesc((String)row.get("result_desc"));a.setQuizResult(r);return a;
+            }).toList();}throw new UnsupportedOperationException(name);
+        });
+        ChatQuizService service(com.fruitude.product.model.FrontCatalogService catalog){
+            var service=new ChatQuizService(quizzes,questions,results,answers,new QuizScoringService(),new QuizRecommendationService(catalog));
+            try{field(service,"entityManager",proxy(jakarta.persistence.EntityManager.class,(name,args)->{if(name.equals("getReference")){var member=new MemberVO();member.setMemberId((Integer)args[1]);return member;}throw new UnsupportedOperationException(name);}));}catch(Exception e){throw new RuntimeException(e);}return service;
         }
-        @Override @SuppressWarnings("unchecked") public <T>T queryForObject(String sql,Class<T> type,Object...args){return (T)Integer.valueOf(enabled?1:0);}
-        @Override public int update(String sql,Object...args){assertTrue(sql.startsWith("INSERT INTO chat_quiz_answer"));inserts++;saved=args;history.add(Map.of("answer_id",inserts,"member_id",args[0],"quiz_id",args[1],"quiz_name","測試心情","score_data",args[3],"created_at",args[5],"result_name","西瓜","result_desc","早期結果"));return 1;}
     }
     static class QuizFixture {
-        final QuizJdbc jdbc=new QuizJdbc();final List<com.fruitude.product.model.FrontCatalogService.ProductView> products=new ArrayList<>();final ChatQuizService service;
+        final QuizStore store=new QuizStore();final List<com.fruitude.product.model.FrontCatalogService.ProductView> products=new ArrayList<>();final ChatQuizService service;
         QuizFixture(){String[] names={"香蕉","西瓜","草莓","芭樂","芒果","鳳梨"};for(int i=0;i<names.length;i++){
             var sku=new com.fruitude.product.model.FrontCatalogService.SkuView(i+1,"盒裝",100+i,null,20,null,List.of(),1);
             products.add(new com.fruitude.product.model.FrontCatalogService.ProductView(i+1,names[i],"果物",100+i,null,i+1,null,false,List.of(sku),20,4.5));}
-            service=new ChatQuizService(jdbc,new com.fruitude.product.model.FrontCatalogService((com.fruitude.product.model.ProductRepository)null){@Override public List<ProductView> getProducts(){return products;}});
+            service=store.service(new com.fruitude.product.model.FrontCatalogService((com.fruitude.product.model.ProductRepository)null){@Override public List<ProductView> getProducts(){return products;}});
         }
         Map<Integer,String> answers(String key){var result=new LinkedHashMap<Integer,String>();for(int i=1;i<=5;i++)result.put(i,key);return result;}
     }
@@ -298,7 +312,7 @@ public class FrontChatTest {
         assertEquals(5,run.view().questions().size());assertFalse(publicJson.contains("score"));assertFalse(publicJson.contains("banana"));
         var result=f.service.finish(1,7,run,f.answers("A"));assertEquals(5,result.recommendations().size());assertEquals("西瓜",result.recommendations().get(0).fruitName());
         assertEquals(5,result.recommendations().stream().map(ChatQuizService.Recommendation::fruitName).distinct().count());
-        var scores=json.readValue((String)f.jdbc.saved[3],Map.class);assertEquals(25,((Number)scores.get("watermelon")).intValue());assertEquals(15,((Number)scores.get("banana")).intValue());assertEquals(1,f.jdbc.inserts);
+        var scores=json.readValue((String)f.store.saved[3],Map.class);assertEquals(25,((Number)scores.get("watermelon")).intValue());assertEquals(15,((Number)scores.get("banana")).intValue());assertEquals(1,f.store.inserts);
         assertEquals("草莓",f.service.finish(1,7,f.service.start(1,7),f.answers("B")).recommendations().get(0).fruitName());
     }
     private static void addQuizProduct(QuizFixture f,int id,String name,int status,int stock,double rating){
@@ -323,14 +337,14 @@ public class FrontChatTest {
     @Test public void quizReturnsAvailableProductsWhenFewerThanFiveAndRejectsEmptyCatalog(){
         var f=new QuizFixture();f.products.removeIf(p->!p.name().equals("西瓜"));
         assertEquals(1,f.service.finish(1,7,f.service.start(1,7),f.answers("A")).recommendations().size());
-        f.products.clear();try{f.service.finish(1,7,f.service.start(1,7),f.answers("A"));fail();}catch(IllegalArgumentException expected){}assertEquals(1,f.jdbc.inserts);
+        f.products.clear();try{f.service.finish(1,7,f.service.start(1,7),f.answers("A"));fail();}catch(IllegalArgumentException expected){}assertEquals(1,f.store.inserts);
     }
     @Test public void fixedThemePoolsDoNotOverlapEvenForFirstTimeMembersAndIgnoreForeignScores(){
         var f=new QuizFixture();f.products.clear();String[][] pools={{"西瓜","哈密瓜"},{"芒果","鳳梨"},{"蘋果","芭樂"}};
         String[] keys={"watermelon","mango","apple"};var sets=new ArrayList<Set<String>>();
         for(int theme=7;theme<=9;theme++){
-            f.jdbc.themeFruits.put(theme,pools[theme-7]);
-            f.jdbc.themeOptions.put(theme,"{\"A\":{\"text\":\"安靜\",\"score\":{\""+keys[theme-7]+"\":5,\"strawberry\":5}},\"B\":{\"text\":\"活力\",\"score\":{\""+keys[theme-7]+"\":3}}}");
+            f.store.themeFruits.put(theme,pools[theme-7]);
+            f.store.themeOptions.put(theme,"{\"A\":{\"text\":\"安靜\",\"score\":{\""+keys[theme-7]+"\":5,\"strawberry\":5}},\"B\":{\"text\":\"活力\",\"score\":{\""+keys[theme-7]+"\":3}}}");
             for(int i=0;i<6;i++)addQuizProduct(f,theme*100+i,pools[theme-7][0]+"禮盒 "+i,1,20,4.9);
         }
         addQuizProduct(f,999,"草莓不屬於上述主題",1,20,5.0);
@@ -343,8 +357,8 @@ public class FrontChatTest {
         }
     }
     @Test public void extendedFruitNamesMatchCatalogWithoutConfusingPearAndPineapple(){
-        var f=new QuizFixture();f.products.clear();f.jdbc.themeFruits.put(7,new String[]{"梨","柿子","香蕉","蓮霧","火龍果","哈密瓜","百香果","荔枝","櫻桃","藍莓"});
-        f.jdbc.themeOptions.put(7,"{\"A\":{\"text\":\"安靜\",\"score\":{\"pear\":5,\"persimmon\":4,\"banana\":3,\"waxapple\":2,\"dragonfruit\":1}},\"B\":{\"text\":\"活力\",\"score\":{\"melon\":5,\"passionfruit\":4,\"lychee\":3,\"cherry\":2,\"blueberry\":1}}}");
+        var f=new QuizFixture();f.products.clear();f.store.themeFruits.put(7,new String[]{"梨","柿子","香蕉","蓮霧","火龍果","哈密瓜","百香果","荔枝","櫻桃","藍莓"});
+        f.store.themeOptions.put(7,"{\"A\":{\"text\":\"安靜\",\"score\":{\"pear\":5,\"persimmon\":4,\"banana\":3,\"waxapple\":2,\"dragonfruit\":1}},\"B\":{\"text\":\"活力\",\"score\":{\"melon\":5,\"passionfruit\":4,\"lychee\":3,\"cherry\":2,\"blueberry\":1}}}");
         String[] names={"高接梨","牛心柿","南投山蕉","黑珍珠蓮霧","紅肉火龍果","美濃哈密瓜","黃金百香果","玉荷包荔枝","深紅櫻桃","鮮採藍莓","金鑽鳳梨"};
         for(int i=0;i<names.length;i++)addQuizProduct(f,100+i,names[i],1,20,4.9);
         assertEquals(Arrays.asList(names).subList(0,5),f.service.finish(1,7,f.service.start(1,7),f.answers("A")).recommendations().stream().map(ChatQuizService.Recommendation::productName).toList());
@@ -360,11 +374,11 @@ public class FrontChatTest {
         try{f.service.history(1,0);fail();}catch(IllegalArgumentException expected){}
     }
     @Test public void legacyQuizAnswerIsRetainedWithoutInventingHistoricalProducts(){
-        var f=new QuizFixture();f.jdbc.history.add(Map.of("answer_id",1,"member_id",1,"quiz_id",7,"quiz_name","舊測驗","score_data","{\"watermelon\":25}","created_at",java.time.LocalDateTime.of(2026,10,17,12,0),"result_name","西瓜","result_desc","早期結果"));
+        var f=new QuizFixture();f.store.history.add(Map.of("answer_id",1,"member_id",1,"quiz_id",7,"quiz_name","舊測驗","score_data","{\"watermelon\":25}","created_at",java.time.LocalDateTime.of(2026,10,17,12,0),"result_name","西瓜","result_desc","早期結果"));
         var result=f.service.history(1,null).results().get(0).result();assertTrue(result.headline().contains("西瓜"));assertTrue(result.description().contains("早期紀錄"));assertTrue(result.recommendations().isEmpty());
     }
     @Test public void quizResultHistoryIsPrivateAndNeverTouchesStaffMessages()throws Exception{
-        var f=new QuizFixture();f.service.finish(1,7,f.service.start(1,7),f.answers("A"));var chat=new Fixture();var controller=new FrontChatController(chat.service);field(controller,"quizzes",f.service);var mvc=MockMvcBuilders.standaloneSetup(controller).build();
+        var f=new QuizFixture();f.service.finish(1,7,f.service.start(1,7),f.answers("A"));var chat=new Fixture();var controller=new QuizController(f.service);var mvc=MockMvcBuilders.standaloneSetup(controller).build();
         assertEquals(401,mvc.perform(get("/api/front/chat/quizzes/results")).andReturn().getResponse().getStatus());var session=new MockHttpSession();session.setAttribute("loggedInMemberId",2);
         var denied=mvc.perform(get("/api/front/chat/quizzes/results").param("memberId","1").session(session)).andReturn().getResponse();assertEquals(200,denied.getStatus());assertTrue(denied.getContentAsString().contains("\"results\":[]"));assertTrue(denied.getHeader("Cache-Control").contains("no-store"));
         session.setAttribute("loggedInMemberId",1);var own=mvc.perform(get("/api/front/chat/quizzes/results").session(session)).andReturn().getResponse();assertEquals(200,own.getStatus());assertTrue(own.getContentAsString(java.nio.charset.StandardCharsets.UTF_8).contains("西瓜"));
@@ -374,20 +388,20 @@ public class FrontChatTest {
         var f=new QuizFixture();var run=f.service.start(1,7);
         for(var answers:List.of(Map.of(1,"A"),Map.of(1,"A",2,"A",3,"A",4,"A",999,"A"),f.answers("Z")))try{f.service.finish(1,7,run,answers);fail();}catch(IllegalArgumentException expected){}
         try{f.service.finish(2,7,run,f.answers("A"));fail();}catch(IllegalArgumentException expected){}
-        f.jdbc.enabled=false;try{f.service.finish(1,7,run,f.answers("A"));fail();}catch(IllegalArgumentException expected){}assertEquals(0,f.jdbc.inserts);
+        f.store.enabled=false;try{f.service.finish(1,7,run,f.answers("A"));fail();}catch(IllegalArgumentException expected){}assertEquals(0,f.store.inserts);
     }
     @Test public void quizRecommendationsSkipUnavailableFruit(){
         var f=new QuizFixture();f.products.removeIf(p->p.name().equals("西瓜"));var result=f.service.finish(1,7,f.service.start(1,7),f.answers("A"));
         assertEquals(5,result.recommendations().size());assertEquals("芒果",result.recommendations().get(0).fruitName());assertTrue(result.recommendations().stream().noneMatch(p->p.fruitName().equals("西瓜")));
     }
     @Test public void quizApiRequiresMemberAndSessionRunAndRepeatedSubmitOnlySavesOnce()throws Exception {
-        var f=new QuizFixture();var controller=new FrontChatController(new Fixture().service);field(controller,"quizzes",f.service);var mvc=MockMvcBuilders.standaloneSetup(controller).build();
+        var f=new QuizFixture();var controller=new QuizController(f.service);var mvc=MockMvcBuilders.standaloneSetup(controller).build();
         assertEquals(401,mvc.perform(get("/api/front/chat/quizzes")).andReturn().getResponse().getStatus());var session=new MockHttpSession();session.setAttribute("loggedInMemberId",1);
         assertEquals(403,mvc.perform(post("/api/front/chat/quizzes/7/start").session(session)).andReturn().getResponse().getStatus());
         var response=mvc.perform(post("/api/front/chat/quizzes/7/start").session(session).header("X-Requested-With","XMLHttpRequest")).andReturn().getResponse();assertEquals(200,response.getStatus());
         var json=tools.jackson.databind.json.JsonMapper.builder().build();var start=json.readValue(response.getContentAsString(),Map.class);String body=json.writeValueAsString(Map.of("token",start.get("token"),"answers",f.answers("A")));
-        for(int i=0;i<2;i++)assertEquals(200,mvc.perform(post("/api/front/chat/quizzes/7/submit").session(session).header("X-Requested-With","XMLHttpRequest").contentType("application/json").content(body)).andReturn().getResponse().getStatus());assertEquals(1,f.jdbc.inserts);
-        session.setAttribute("loggedInMemberId",2);assertEquals(400,mvc.perform(post("/api/front/chat/quizzes/7/submit").session(session).header("X-Requested-With","XMLHttpRequest").contentType("application/json").content(body)).andReturn().getResponse().getStatus());assertEquals(1,f.jdbc.inserts);
+        for(int i=0;i<2;i++)assertEquals(200,mvc.perform(post("/api/front/chat/quizzes/7/submit").session(session).header("X-Requested-With","XMLHttpRequest").contentType("application/json").content(body)).andReturn().getResponse().getStatus());assertEquals(1,f.store.inserts);
+        session.setAttribute("loggedInMemberId",2);assertEquals(400,mvc.perform(post("/api/front/chat/quizzes/7/submit").session(session).header("X-Requested-With","XMLHttpRequest").contentType("application/json").content(body)).andReturn().getResponse().getStatus());assertEquals(1,f.store.inserts);
     }
     @Test public void quizCommandsDoNotCreateChatSourceMessagesUnreadCacheOrStaffPush()throws Exception {
         var f=new Fixture();var mvc=MockMvcBuilders.standaloneSetup(new FrontChatController(f.service)).build();var session=new MockHttpSession();session.setAttribute("loggedInMemberId",1);

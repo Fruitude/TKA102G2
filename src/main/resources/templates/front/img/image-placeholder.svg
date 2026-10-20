@@ -1,7 +1,16 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="140px" height="140px" viewBox="0 0 140 140" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-  <g>
-      <rect id="Rectangle" fill="#E0E0E0" x="0" y="0" width="140" height="140"></rect>
-      <path d="M92,88 L48,88 C46.9,88 46,87.1 46,86 L46,54 C46,52.9 46.9,52 48,52 L92,52 C93.1,52 94,52.9 94,54 L94,86 C94,87.1 93.1,88 92,88 Z M68.2805,73.5725 L64.8655,70.0515 L55.2295,80.9995 L85.3495,80.9995 L74.5645,64.6445 L68.2805,73.5725 Z M62.9185,64.5235 C62.9185,62.4295 61.2205,60.7325 59.1265,60.7325 C57.0355,60.7325 55.3365,62.4295 55.3365,64.5235 C55.3365,66.6165 57.0355,68.3135 59.1265,68.3135 C61.2205,68.3135 62.9185,66.6165 62.9185,64.5235 Z" id="Combined-Shape" fill="#C2C2C2"></path>
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 420 420" role="img" aria-labelledby="title desc">
+  <title id="title">橘子人提醒：圖片暫時迷路啦！請稍後重新整理看看～</title>
+  <desc id="desc">奶油色背景上的可愛橘子人，微笑揮手並提醒重新整理查看商品圖片。</desc>
+  <rect width="420" height="420" fill="#fffaf0"/>
+  <circle cx="68" cy="96" r="5" fill="#f3d996"/>
+  <circle cx="350" cy="183" r="7" fill="#f7dfab"/>
+  <path d="M337 62v16m-8-8h16M67 208v12m-6-6h12" stroke="#d6b777" stroke-width="3" stroke-linecap="round"/>
+  <g transform="translate(113 27) scale(.76)"><defs><radialGradient id="orange" cx="35%" cy="25%" r="80%"><stop stop-color="#ffb54d"/><stop offset="1" stop-color="#ee742e"/></radialGradient></defs><rect width="256" height="256" rx="128" fill="#fff3cf"/><circle cx="50" cy="65" r="6" fill="#f4d77b"/><circle cx="207" cy="170" r="7" fill="#f4d77b"/><path d="M204 54v16m-8-8h16M42 179v12m-6-6h12" stroke="#d5b96c" stroke-width="3" stroke-linecap="round"/><ellipse cx="128" cy="224" rx="64" ry="9" fill="#c8a36b" opacity=".17"/><path d="M76 157q-24 1-33-20m137 20q24-1 32-20M104 201l-9 17m56-17 10 17" fill="none" stroke="#6e512e" stroke-width="8" stroke-linecap="round"/><ellipse cx="91" cy="222" rx="13" ry="7" fill="#638244"/><ellipse cx="165" cy="222" rx="13" ry="7" fill="#638244"/><ellipse cx="128" cy="133" rx="75" ry="77" fill="url(#orange)"/><path d="M128 61q-5-20 4-33" fill="none" stroke="#64894b" stroke-width="8" stroke-linecap="round"/><path d="M130 43q17-30 46-13-4 29-46 13" fill="#7aa354"/><path d="M133 43l28-10" stroke="#52783a" stroke-width="2" fill="none"/><ellipse cx="91" cy="132" rx="7" ry="9" fill="#483b2b"/><ellipse cx="165" cy="132" rx="7" ry="9" fill="#483b2b"/><circle cx="93" cy="129" r="2" fill="#fff"/><circle cx="167" cy="129" r="2" fill="#fff"/><ellipse cx="79" cy="151" rx="13" ry="8" fill="#ea6665" opacity=".45"/><ellipse cx="177" cy="151" rx="13" ry="8" fill="#ea6665" opacity=".45"/><path d="M114 150q14 17 28 0" fill="none" stroke="#634126" stroke-width="5" stroke-linecap="round"/><path d="M78 96q9-17 23-22" stroke="#ffe0a2" stroke-width="8" stroke-linecap="round" fill="none" opacity=".7"/><circle cx="43" cy="136" r="7" fill="#f39b43"/><circle cx="212" cy="136" r="7" fill="#f39b43"/></g>
+  <path d="m194 250 16-22 16 22" fill="#fff" stroke="#edd7ae" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="28" y="246" width="364" height="119" rx="25" fill="#fff" stroke="#edd7ae" stroke-width="2"/>
+  <path d="M195 247h30" stroke="#fff" stroke-width="4"/>
+  <g text-anchor="middle" font-family="Microsoft JhengHei, PingFang TC, Noto Sans CJK TC, sans-serif">
+    <text x="210" y="294" font-size="26" font-weight="700" fill="#85532e">圖片暫時迷路啦！</text>
+    <text x="210" y="335" font-size="24" fill="#7a684b">請稍後重新整理看看～</text>
   </g>
 </svg>

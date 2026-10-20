@@ -24,33 +24,80 @@ public class ProductImageService {
     private long cacheTtlSeconds = 86400;
     @org.springframework.beans.factory.annotation.Value("${product.image-cache.max-bytes:268435456}")
     private long cacheMaxBytes = 268435456;
-    private final String browserEpoch = java.util.UUID.randomUUID().toString();
-    private final java.util.concurrent.ConcurrentHashMap<Integer,Long> imageVersions = new java.util.concurrent.ConcurrentHashMap<>();
-    private final java.util.concurrent.atomic.AtomicLong versionSequence = new java.util.concurrent.atomic.AtomicLong();
-    private final Object[] imageLocks = java.util.stream.IntStream.range(0,128).mapToObj(i->new Object()).toArray();
+    // Restart isolation is server-side only. Browser URLs must not change on deployment.
+    private final String cacheNamespace = java.util.UUID.randomUUID().toString();
+    private final java.util.concurrent.ConcurrentHashMap<Integer,String> imageVersions = new java.util.concurrent.ConcurrentHashMap<>();
+    @org.springframework.beans.factory.annotation.Value("${product.image-cache.max-concurrent-loads:4}")
+    private int maxConcurrentLoads = 4;
+    @org.springframework.beans.factory.annotation.Value("${product.image-cache.wait-ms:1500}")
+    private long loadWaitMillis = 1500;
+    @org.springframework.beans.factory.annotation.Value("${product.image-cache.warmup.enabled:true}")
+    private boolean warmupEnabled = true;
+    @org.springframework.beans.factory.annotation.Value("${product.image-cache.warmup.batch-size:20}")
+    private int warmupBatchSize = 20;
+    @org.springframework.beans.factory.annotation.Value("${product.image-cache.warmup.max-products:2000}")
+    private int warmupMaxProducts = 2000;
+    @org.springframework.beans.factory.annotation.Value("${product.image-cache.warmup.pause-ms:100}")
+    private long warmupPauseMillis = 100;
+    private volatile java.util.concurrent.Semaphore imageLoads = new java.util.concurrent.Semaphore(4,true);
+    private final java.util.concurrent.atomic.AtomicInteger activeRequests = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicBoolean warmupStarted = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean stopped = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.ExecutorService warmupWorker = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        var thread = new Thread(r,"product-image-warmup");thread.setDaemon(true);return thread;
+    });
+    private final java.util.concurrent.locks.ReentrantLock[] imageLocks = java.util.stream.IntStream.range(0,128)
+        .mapToObj(i->new java.util.concurrent.locks.ReentrantLock()).toArray(java.util.concurrent.locks.ReentrantLock[]::new);
     private ImageDiskCache diskCache;
 
     @jakarta.annotation.PostConstruct
     public void initializeImageCache() {
         if (cacheTtlSeconds <= 0 || cacheMaxBytes <= 0) throw new IllegalArgumentException("圖片快取期限與容量必須大於 0");
-        diskCache = new ImageDiskCache(java.nio.file.Path.of(cacheDirectory),browserEpoch,cacheTtlSeconds,cacheMaxBytes);
+        if(maxConcurrentLoads<1 || maxConcurrentLoads>32 || loadWaitMillis<0 || warmupBatchSize<1
+                || warmupBatchSize>100 || warmupMaxProducts<0 || warmupPauseMillis<0)
+            throw new IllegalArgumentException("圖片限流與預熱設定不正確");
+        imageLoads = new java.util.concurrent.Semaphore(maxConcurrentLoads,true);
+        diskCache = new ImageDiskCache(java.nio.file.Path.of(cacheDirectory),cacheNamespace,cacheTtlSeconds,cacheMaxBytes);
     }
 
-    public String imageVersion(Integer id) { return browserEpoch + "-" + imageVersions.getOrDefault(id,0L); }
-    // Resolve versions only for IDs actually rendered, without querying image BLOBs.
+    // Compute each content version once, then keep it until a committed image change.
+    // The same bytes yield the same URL after restart, even with second-precision timestamps.
+    public String imageVersion(Integer id) {
+        if(id==null || id<=0)return "unversioned";
+        String known=imageVersions.get(id);
+        if(known!=null)return known;
+        if(repository==null)return "unversioned";
+        return imageVersions.computeIfAbsent(id,key->repository.findImageFingerprint(key).orElse("missing"));
+    }
+    // Resolve versions only for IDs actually rendered; repeated pages reuse the version map.
     public java.util.Map<Integer,String> browserVersions() {
         return new java.util.AbstractMap<>() {
-            @Override public String get(Object key) { return key instanceof Integer id ? imageVersion(id) : browserEpoch; }
+            @Override public String get(Object key) { return key instanceof Integer id ? imageVersion(id) : "unversioned"; }
             @Override public java.util.Set<Entry<Integer,String>> entrySet() { return java.util.Set.of(); }
         };
     }
 
     public record CachedImage(byte[] data,String type,String etag) {}
     public CachedImage getCachedImage(Integer id,boolean thumbnail) throws IOException {
+        activeRequests.incrementAndGet();
+        try { return readImage(id,thumbnail); }
+        finally { activeRequests.decrementAndGet(); }
+    }
+    private CachedImage readImage(Integer id,boolean thumbnail) throws IOException {
         if(id == null || id <= 0) return null;
-        synchronized(imageLocks[id % imageLocks.length]) {
-            CachedImage hit = readCache(id,thumbnail);
-            if(hit != null) return hit;
+        // A disk-cache hit never takes a database/resize permit or queries MySQL.
+        CachedImage hit=readCache(id,thumbnail);
+        if(hit!=null)return hit;
+        boolean acquired=false,locked=false;
+        var lock=imageLocks[id % imageLocks.length];
+        try {
+            // Duplicate requests wait on their image before consuming a global database slot.
+            locked=lock.tryLock(loadWaitMillis,java.util.concurrent.TimeUnit.MILLISECONDS);
+            if(!locked)throw new ImageBusyException();
+            hit=readCache(id,thumbnail);
+            if(hit!=null)return hit;
+            acquired=imageLoads.tryAcquire(loadWaitMillis,java.util.concurrent.TimeUnit.MILLISECONDS);
+            if(!acquired)throw new ImageBusyException();
             CachedImage original = thumbnail ? readCache(id,false) : null;
             if(original == null) {
                 if(thumbnail) {
@@ -64,18 +111,61 @@ public class ProductImageService {
                 }
                 writeCache(id,false,original);
             }
+            imageVersions.put(id,original.etag().substring(1,original.etag().length()-1));
             if(!thumbnail) return original;
             byte[] resized=ProductThumbnailSupport.resize(original.data());
             if(resized == null) return null;
             CachedImage result=packed(resized,"image/jpeg",true);
             writeCache(id,true,result);
             return result;
+        } catch(InterruptedException interrupted) {
+            Thread.currentThread().interrupt();throw new ImageBusyException();
+        } finally {
+            if(acquired)imageLoads.release();
+            if(locked)lock.unlock();
         }
+    }
+    public static final class ImageBusyException extends IOException {
+        public ImageBusyException(){super("圖片載入忙碌中，請稍後重試");}
     }
     private static CachedImage packed(byte[] data,String type,boolean thumbnail) {
         if(!java.util.Set.of("image/png","image/jpeg","image/gif").contains(type == null ? "" : type)) type="application/octet-stream";
-        return new CachedImage(data,type,"\""+org.springframework.util.DigestUtils.md5DigestAsHex(data)+(thumbnail?"-thumb100":"")+"\"");
+        return new CachedImage(data,type,"\""+fingerprint(data)+(thumbnail?"-thumb100":"")+"\"");
     }
+    private static String fingerprint(byte[] data) {
+        try {return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(data));}
+        catch(java.security.NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}
+    }
+
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void warmupImages() {
+        if(!warmupEnabled || repository==null || stopped.get() || !warmupStarted.compareAndSet(false,true))return;
+        warmupWorker.submit(this::warmup);
+    }
+    private void warmup() {
+        int prepared=0;
+        try {
+            for(int offset=0;offset<warmupMaxProducts && !stopped.get();offset+=warmupBatchSize) {
+                int size=Math.min(warmupBatchSize,warmupMaxProducts-offset);
+                var ids=repository.findWarmupImageIds(offset,size);
+                if(ids.isEmpty())break;
+                for(var id:ids) {
+                    if(stopped.get())return;
+                    if(id==null)continue;
+                    while(activeRequests.get()>0 && !stopped.get())Thread.sleep(Math.max(10,warmupPauseMillis));
+                    if(stopped.get())return;
+                    try {if(readImage(id,true)!=null)prepared++;}
+                    catch(Exception failure){CACHE_LOG.warn("商品圖片 {} 預熱失敗，訪客仍可按需載入：{}",id,failure.getMessage());}
+                    Thread.sleep(warmupPauseMillis);
+                }
+                if(ids.size()<size)break;
+            }
+            CACHE_LOG.info("商品圖片預熱完成，共 {} 張代表圖片",prepared);
+        } catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
+        catch(Exception failure){CACHE_LOG.warn("商品圖片預熱中止，維持按需載入",failure);}
+    }
+    @jakarta.annotation.PreDestroy
+    public void stopImageWarmup(){stopped.set(true);warmupWorker.shutdownNow();}
     private static String detectImageType(byte[] data) {
         if(data.length>=8 && data[0]==(byte)0x89 && data[1]=='P' && data[2]=='N' && data[3]=='G') return "image/png";
         if(data.length>=3 && data[0]==(byte)0xff && data[1]==(byte)0xd8 && data[2]==(byte)0xff) return "image/jpeg";
@@ -101,11 +191,13 @@ public class ProductImageService {
         } else invalidateImage(id);
     }
     private void invalidateImage(Integer id) {
-        synchronized(imageLocks[Math.floorMod(id,imageLocks.length)]) {
-            imageVersions.put(id,versionSequence.incrementAndGet());
+        var lock=imageLocks[Math.floorMod(id,imageLocks.length)];lock.lock();
+        try {
             if(diskCache!=null) try { diskCache.remove(id); }
             catch(IOException failure) { CACHE_LOG.warn("商品圖片 {} 舊快取移除失敗：{}",id,failure.getMessage()); }
-        }
+            // Make old bytes unreadable before a new version can be published.
+            imageVersions.remove(id);
+        } finally {lock.unlock();}
     }
     @org.springframework.scheduling.annotation.Scheduled(fixedDelayString="${product.image-cache.cleanup-ms:3600000}",initialDelayString="${product.image-cache.cleanup-ms:3600000}")
     public void cleanupImageCache() {
@@ -126,6 +218,7 @@ public class ProductImageService {
         private final java.nio.file.Path root;
         private final java.nio.file.Path directory;
         private final long ttlMillis,maxBytes;
+        private long accountedBytes=-1;
         private final java.util.Set<Integer> invalidated=java.util.concurrent.ConcurrentHashMap.newKeySet();
         ImageDiskCache(java.nio.file.Path base,String namespace,long ttlSeconds,long maxBytes) {
             root=base.toAbsolutePath().normalize().resolve("product-images-cache-v1");
@@ -148,8 +241,10 @@ public class ProductImageService {
         synchronized void write(int id,boolean thumbnail,CachedImage image) throws IOException {
             if(image.data().length>16*1024*1024 || image.data().length+1024>maxBytes) return;
             if(invalidated.contains(id)) remove(id);
+            if(accountedBytes<0)cleanup();
             java.nio.file.Files.createDirectories(directory);
             var target=file(id,thumbnail);var temp=java.nio.file.Files.createTempFile(directory,"writing-",".tmp");
+            long replaced=java.nio.file.Files.isRegularFile(target)?java.nio.file.Files.size(target):0;
             try {
                 try(var output=new java.io.DataOutputStream(java.nio.file.Files.newOutputStream(temp))) {
                     output.writeInt(0x46525549);output.writeLong(System.currentTimeMillis()+ttlMillis);
@@ -158,7 +253,9 @@ public class ProductImageService {
                 try { java.nio.file.Files.move(temp,target,java.nio.file.StandardCopyOption.ATOMIC_MOVE,java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
                 catch(java.nio.file.AtomicMoveNotSupportedException ignored) { java.nio.file.Files.move(temp,target,java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
                 invalidated.remove(id);
-                cleanup();
+                accountedBytes+=java.nio.file.Files.size(target)-replaced;
+                // Warmup should not scan the whole directory for every image written.
+                if(accountedBytes>maxBytes)cleanup();
             } finally { java.nio.file.Files.deleteIfExists(temp); }
         }
         void remove(int id) throws IOException {
@@ -167,7 +264,7 @@ public class ProductImageService {
             java.nio.file.Files.deleteIfExists(file(id,false));java.nio.file.Files.deleteIfExists(file(id,true));
         }
         synchronized void cleanup() throws IOException {
-            if(!java.nio.file.Files.isDirectory(root)) return;
+            if(!java.nio.file.Files.isDirectory(root)) {accountedBytes=0;return;}
             java.util.List<java.nio.file.Path> files;
             try(var paths=java.nio.file.Files.walk(root,2)) {
                 files=paths.filter(p->java.nio.file.Files.isRegularFile(p,java.nio.file.LinkOption.NOFOLLOW_LINKS))
@@ -184,6 +281,7 @@ public class ProductImageService {
             }
             retained.sort(java.util.Comparator.comparingLong(times::get));
             for(var p:retained) { if(total<=maxBytes) break;try {long size=java.nio.file.Files.size(p);java.nio.file.Files.deleteIfExists(p);total-=size;}catch(java.nio.file.NoSuchFileException ignored){} }
+            accountedBytes=total;
         }
     }
 

@@ -34,7 +34,7 @@
   <audio class="ff-quiz-card-open-sound" th:src="@{/front/audio/quiz-card-return.mp3}" preload="none" hidden></audio>
   <audio class="ff-quiz-card-return-sound" th:src="@{/front/audio/quiz-card-open.mp3}" preload="none" hidden></audio>
   <audio class="ff-quiz-music" loop preload="none" th:data-track-one="@{/front/audio/quiz-mood-relax.mp3}" th:data-track-two="@{/front/audio/quiz-weekend-spa.mp3}" th:data-track-three="@{/front/audio/quiz-rhythm-relax.mp3}" hidden></audio>
-  <header class="ff-quiz-head"><span class="ff-quiz-seal" aria-hidden="true">F</span><span class="ff-quiz-brand">智慧鮮果 · 果物心情研究所</span><button type="button" class="ff-quiz-music-toggle" aria-label="播放背景音樂" aria-pressed="false" hidden>播放音樂</button><button type="button" class="ff-quiz-close" aria-label="關閉水果小測驗">×</button></header>
+  <header class="ff-quiz-head"><span class="ff-quiz-seal" aria-hidden="true">F</span><span class="ff-quiz-brand">智慧鮮果 · 果物心情研究所</span><button type="button" class="ff-quiz-music-toggle" aria-label="播放背景音樂" aria-pressed="false" hidden>播放音樂</button><button type="button" class="ff-quiz-close" aria-label="關閉水果小測驗"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 5 14 14M19 5 5 19"/></svg></button></header>
   <div class="ff-quiz-content">
    <p class="ff-quiz-error" role="alert" hidden></p><p class="ff-quiz-loading" role="status" hidden>正在準備你的果物靈感…</p>
    <section class="ff-quiz-home"><p class="ff-quiz-kicker">FRUIT ORACLE · 果物心語</p><h2 id="ff-quiz-title" tabindex="-1">今天，哪種果物最懂你？</h2><p class="ff-quiz-intro">選一段此刻的心情，翻開 5 道直覺之選，遇見屬於你的果物靈感。</p><div class="ff-quiz-themes"></div></section>
@@ -45,11 +45,11 @@
  </dialog>
 </aside>
 <th:block th:fragment="site-chat">
- <link th:href="@{/front/css/customer-chat.css(v=20261017-quiz-history-7)}" rel="stylesheet" type="text/css"/>
- <link th:href="@{/front/css/customer-quiz.css(v=20261017-quiz-lines-15)}" rel="stylesheet" type="text/css"/>
+ <link th:href="@{/front/css/customer-chat.css(v=20261018-reply-menu-8)}" rel="stylesheet" type="text/css"/>
+ <link th:href="@{/front/css/customer-quiz.css(v=20261018-quiz-close-16)}" rel="stylesheet" type="text/css"/>
  <div th:replace="~{front/fragments/customer-chat :: widget}"></div>
  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js" defer></script>
- <script th:src="@{/front/js/customer-chat.js(v=20261017-quiz-history-7)}" defer></script>
- <script th:src="@{/front/js/customer-quiz.js(v=20261017-quiz-lines-15)}" defer></script>
+ <script th:src="@{/front/js/customer-chat.js(v=20261018-reply-menu-8)}" defer></script>
+ <script th:src="@{/front/js/customer-quiz.js(v=20261018-quiz-close-16)}" defer></script>
 </th:block>
 </body></html>

@@ -10,63 +10,13 @@ import org.springframework.stereotype.Service;
 
 // 罐頭訊息的建議回覆：用關鍵字比對會員的訊息（不用 AI）
 // 每筆罐頭訊息的 keyword 以逗號拆開，會員訊息裡出現幾個就得幾分；分數高的排前面，同分依罐頭訊息的顯示順序
-// 之後做會員端的自動回覆時，比對規則沿用 suggest
+// 會員端 FAQ 自動回覆委派給 FaqService，客服罐頭建議維持原有規則
 @Service
 public class CannedReplyService {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate faqJdbc;
-    @Autowired private com.fruitude.promo.model.PromoRepository faqPromos;
-    private record FaqRow(String question,String answer,String keyword) {}
+    @Autowired private com.fruitude.faq.model.FaqService faqService;
 
-    // FAQ keywords: commas separate alternatives; & means all words in that alternative must match.
-    // Only enabled categories with an enabled ancestor path can answer. More specific matches win.
-    public String faqReply(String text) {
-        if(text==null || text.isBlank())return null;
-        String normalized=normalizeFaq(text);
-        var rows=faqJdbc.query("WITH RECURSIVE active_categories AS ("
-            +"SELECT faq_category_id FROM faq_category WHERE parent_category_id IS NULL AND status=1 "
-            +"UNION ALL SELECT c.faq_category_id FROM faq_category c JOIN active_categories p "
-            +"ON c.parent_category_id=p.faq_category_id WHERE c.status=1) "
-            +"SELECT f.question,f.answer,f.keyword FROM faq f JOIN active_categories c "
-            +"ON c.faq_category_id=f.faq_category_id ORDER BY f.sort_order,f.faq_id",
-            (rs,n)->new FaqRow(rs.getString("question"),rs.getString("answer"),rs.getString("keyword")));
-        FaqRow best=null;int bestScore=0;
-        for(var row:rows){int longest=0,count=0;
-            for(String alternative:splitKeywords(row.keyword())){
-                int length=0;boolean matches=true;
-                for(String part:alternative.split("&",-1)){
-                    String term=normalizeFaq(part);if(term.isEmpty()||!normalized.contains(term)){matches=false;break;}length+=term.length();
-                }
-                if(matches){longest=Math.max(longest,length);count++;}
-            }
-            int score=longest*100+Math.min(count,99);
-            if(score>bestScore && row.answer()!=null && !row.answer().isBlank()){best=row;bestScore=score;}
-        }
-        if(best==null)return null;
-        String answer=liveFaqAnswer(best.question(),best.answer());
-        return answer.length()>1000?answer.substring(0,997)+"…":answer;
-    }
-    private static String normalizeFaq(String text){return java.text.Normalizer.normalize(text,java.text.Normalizer.Form.NFKC)
-        .toLowerCase(Locale.ROOT).replaceAll("[\\s\\p{Z}]+","");}
-    private String liveFaqAnswer(String question,String fallback){
-        String type=switch(question){case "最近有哪些活動？" -> "ALL";case "生日優惠是幾折？" -> "BIRTHDAY_MONTH";
-            case "新會員有優惠嗎？" -> "NEW_MEMBER_FIRST_ORDER";case "運費多少？多少免運？" -> "FREE_SHIPPING";default -> null;};
-        if(type==null)return fallback;
-        var now=java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Taipei"));
-        var promos=type.equals("ALL")?faqPromos.findActive(now):faqPromos.findActiveByType(type,now);
-        if(promos.isEmpty())return type.equals("ALL")?"目前沒有進行中的優惠活動，歡迎留意商城的限時優惠頁面。":"目前沒有進行中的這類優惠，實際金額請以結帳畫面為準。";
-        var lines=new ArrayList<String>();
-        for(var promo:promos){
-            String benefit=com.fruitude.promo.model.BenefitType.describe(promo.getBenefitType(),promo.getBenefitValue());
-            String line=promo.getPromoProjectTitle()+"："+benefit;
-            if(promo.getMinOrderAmount()!=null && promo.getMinOrderAmount()>0)line+="，訂單滿 "+promo.getMinOrderAmount()+" 元適用";
-            if("BIRTHDAY_MONTH".equals(promo.getPromoType()))line+="，生日當月每年限用一次，結帳時需勾選使用";
-            if("NEW_MEMBER_FIRST_ORDER".equals(promo.getPromoType()))line+="，首次下單適用，限用一次";
-            if(promo.getPromoProjectEnd()!=null && promo.getPromoProjectEnd().getYear()<2100)line+="，至 "+promo.getPromoProjectEnd().format(java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm"));
-            lines.add(line);
-        }
-        return String.join("\n",lines)+"。實際資格、運費與優惠金額，以結帳畫面為準。";
-    }
-
+    // Keep the existing chat entry point; FAQ rules and persistence live in the faq module.
+    public String faqReply(String text){return faqService.reply(text);}
 
 	// 至少命中幾個關鍵字才列入建議
 	private static final int MIN_MATCHED_KEYWORDS = 1;

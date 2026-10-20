@@ -56,7 +56,7 @@
 		#image-viewer .modal-content { cursor: zoom-out; }
 		#image-viewer .viewer-image { cursor: default; }
 		#image-viewer .viewer-nav, #image-viewer .viewer-close { cursor: pointer; }
-        .chat-reply-menu{position:fixed;z-index:2100;padding:4px;border:1px solid #d1d3e2;border-radius:7px;background:white;box-shadow:0 4px 18px #0002}.chat-reply-menu button{padding:8px 18px;background:white;border:0;border-radius:5px;color:#4e73df;cursor:pointer}.chat-reply-menu button:hover,.chat-reply-menu button:focus{background:#eef1fc}
+        .chat-reply-menu{position:fixed;width:max-content;max-width:calc(100vw - 16px);white-space:nowrap;z-index:2100;padding:4px;border:1px solid #d1d3e2;border-radius:7px;background:white;box-shadow:0 4px 18px #0002}.chat-reply-menu button{display:block;width:100%;white-space:nowrap;padding:8px 18px;background:white;border:0;border-radius:5px;color:#4e73df;cursor:pointer}.chat-reply-menu button:hover,.chat-reply-menu button:focus{background:#eef1fc}
         .chat-reply-draft{position:relative;margin-bottom:10px;padding:8px 30px 8px 12px;border-left:3px solid #4e73df;border-radius:5px;background:#edf1fc;font-size:.8rem}.chat-reply-draft p{margin:3px 0 0;max-height:40px;overflow:hidden;overflow-wrap:anywhere}.chat-reply-draft button{position:absolute;right:5px;top:3px;border:0;background:transparent;color:#858796;cursor:pointer}
         .chat-quoted{align-self:stretch;margin-bottom:5px;padding:6px 10px;border-left:3px solid #9bade8;border-radius:4px;background:#edf1fc;color:#58668b;font-size:.78rem;white-space:pre-wrap;overflow-wrap:anywhere}.chat-quoted p{margin:3px 0 0}.chat-reply-menu[hidden],.chat-reply-draft[hidden]{display:none!important}.chat-row:focus-visible{outline:2px solid #b4c1eb;outline-offset:3px;border-radius:5px}
         /* 會員訊息右邊的回覆箭頭：平常隱藏，滑鼠移到該則訊息（或鍵盤聚焦）才出現；滑到箭頭上方顯示「回覆」提示氣泡 */
@@ -260,7 +260,7 @@
         function showReplyMenu(event){
             const row=event.target.closest('.chat-row[data-message-id]');if(!row||!sendForm||sendButton.disabled)return;
             event.preventDefault();const target=messageData.get(Number(row.dataset.messageId));if(!target||target.memberId!==currentMemberId)return;
-            menuTarget=target;replyMenu.hidden=false;const rect=row.getBoundingClientRect(),x=event.clientX||rect.left+15,y=event.clientY||rect.top+15;
+            menuTarget=target;replyMenu.style.left='0px';replyMenu.style.top='0px';replyMenu.hidden=false;const rect=row.getBoundingClientRect(),x=event.clientX||rect.left+15,y=event.clientY||rect.top+15;
             replyMenu.style.left=Math.max(8,Math.min(x,innerWidth-replyMenu.offsetWidth-8))+'px';replyMenu.style.top=Math.max(8,Math.min(y,innerHeight-replyMenu.offsetHeight-8))+'px';replyAction.focus({preventScroll:true});
         }
         messageList.addEventListener('contextmenu',showReplyMenu);
