@@ -5,7 +5,7 @@
 (function () {
 	const page = document.getElementById('faq-page');
 	const basePath = page.dataset.basePath;
-	// 即時回覆的題目（FaqLiveAnswer.LIVE_QUESTIONS，AdminFaqController 用 | 串接）：不能刪除、不能改問題文字
+	// 即時回覆的題目（FaqService.liveQuestions()，AdminFaqController 用 | 串接）：不能刪除、不能改問題文字
 	const liveQuestions = new Set((page.dataset.liveQuestions || '').split('|').filter(question => question));
 	const pageError = document.getElementById('faq-page-error');
 	const categoryTree = document.getElementById('category-tree');

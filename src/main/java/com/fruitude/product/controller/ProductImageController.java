@@ -39,9 +39,16 @@ public class ProductImageController {
     }
     private ResponseEntity<byte[]> imageResponse(Integer id,boolean thumbnail,String version,
             org.springframework.web.context.request.WebRequest request) throws IOException {
-        var image=productImageService.getCachedImage(id,thumbnail);
+        com.fruitude.product.model.ProductImageService.CachedImage image;
+        try { image=productImageService.getCachedImage(id,thumbnail); }
+        catch(com.fruitude.product.model.ProductImageService.ImageBusyException busy) {
+            return ResponseEntity.status(503).header(HttpHeaders.RETRY_AFTER,"1")
+                .cacheControl(org.springframework.http.CacheControl.noStore()).build();
+        }
         if(image==null) return ResponseEntity.notFound().cacheControl(org.springframework.http.CacheControl.noStore()).build();
-        var cache=productImageService.imageVersion(id).equals(version)
+        // Only a URL carrying the current content version may skip browser revalidation.
+        // Unversioned and old links remain compatible, but must validate before reuse.
+        var cache=version!=null && version.matches("[0-9a-f]{64}") && version.equals(productImageService.imageVersion(id))
             ? org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(30)).cachePrivate()
             : org.springframework.http.CacheControl.noCache().cachePrivate();
         if(request.checkNotModified(image.etag())) return ResponseEntity.status(304).eTag(image.etag()).cacheControl(cache).build();

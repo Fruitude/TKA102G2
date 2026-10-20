@@ -1,4 +1,4 @@
-package com.fruitude.chat.controller;
+package com.fruitude.faq.controller;
 
 import java.util.List;
 import java.util.Map;
@@ -18,8 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.fruitude.chat.model.FaqLiveAnswer;
-import com.fruitude.chat.model.FaqService;
+import com.fruitude.faq.model.FaqService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -39,7 +38,7 @@ public class AdminFaqController {
 		if (!hasPermission(request, "CHAT_REPLY")) {
 			return "redirect:/admin/access-denied";
 		}
-		model.addAttribute("liveQuestions", String.join("|", FaqLiveAnswer.LIVE_QUESTIONS));
+		model.addAttribute("liveQuestions", String.join("|", FaqService.liveQuestions()));
 		return "admin/chat/faq"; //view
 	}
 

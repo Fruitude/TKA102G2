@@ -376,7 +376,7 @@ public class ChatService {
 		List<Integer> imageIds = new ArrayList<>();
         Message[] replyTarget={null},automatic={null},sourceMessage={null};
         String faqAnswer=null;
-        if(sender==Message.SENDER_MEMBER && !trimmedContent.isBlank() && !ChatQuizService.isQuizRequest(trimmedContent))try{faqAnswer=cannedReplyService.faqReply(trimmedContent);}
+        if(sender==Message.SENDER_MEMBER && !trimmedContent.isBlank() && !com.fruitude.quiz.model.ChatQuizService.isQuizRequest(trimmedContent))try{faqAnswer=cannedReplyService.faqReply(trimmedContent);}
         catch(RuntimeException unavailable){org.slf4j.LoggerFactory.getLogger(getClass()).warn("FAQ 自動回覆暫時無法使用，保留會員訊息供客服處理",unavailable);}
         final String automaticAnswer=faqAnswer;
 		Message savedMessage = transactionTemplate.execute(status -> {
