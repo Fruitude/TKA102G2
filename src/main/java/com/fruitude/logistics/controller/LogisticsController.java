@@ -24,9 +24,28 @@ public class LogisticsController {
 	LogisticsService logisticsSvc;
 
 	// 配送系統：列出配送中的訂單，每頁 10 筆；page 是頁碼，從 1 開始，網址沒帶就是第 1 頁
+	// ordersId 是選填的搜尋條件，用 String 接，輸入不正確時紅框顯示原因，列表改列出全部配送中的訂單
 	@GetMapping("")
-	public String delivery(@RequestParam(value = "page", defaultValue = "1") int page, Model model) {
-		Page<Orders> ordersPage = logisticsSvc.getDeliveringOrders(page);
+	public String delivery(@RequestParam(value = "page", defaultValue = "1") int page,
+			@RequestParam(value = "ordersId", required = false) String ordersId, Model model) {
+		String ordersIdText = ordersId == null ? "" : ordersId.trim();
+		Integer ordersIdValue = null;
+		String ordersIdError = PsiUtils.positiveIdError(ordersIdText, "訂單編號", null);
+		boolean ordersIdOverflow = false;
+		if (ordersIdError != null) {
+			model.addAttribute("errorMessage", ordersIdError);
+			ordersIdText = "";
+		} else if (!ordersIdText.isEmpty()) {
+			try {
+				ordersIdValue = Integer.valueOf(ordersIdText);
+			} catch (NumberFormatException e) {
+				// 數字太大，超過訂單編號的範圍，一定查不到
+				ordersIdOverflow = true;
+			}
+		}
+		Page<Orders> ordersPage = ordersIdOverflow ? Page.empty() : logisticsSvc.getDeliveringOrders(page, ordersIdValue);
+		// 搜尋條件回填到搜尋列，翻頁連結也帶著同樣的條件
+		model.addAttribute("ordersIdText", ordersIdText);
 		model.addAttribute("ordersPage", ordersPage);
 		// 頁碼清單，0 代表「…」；ordersPage.number 從 0 開始，buildPageNumbers 從 1 開始
 		model.addAttribute("pageNumbers", PsiUtils.buildPageNumbers(ordersPage.getNumber() + 1, ordersPage.getTotalPages()));

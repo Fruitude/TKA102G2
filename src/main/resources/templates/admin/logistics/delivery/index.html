@@ -46,12 +46,24 @@
 							<h6 class="m-0 font-weight-bold text-danger">配送中訂單</h6>
 						</div>
 						<div class="card-body">
+							<!-- 工具列：左邊「送達」按鈕（用 form 屬性送出下方表格的勾選），右邊依訂單編號搜尋配送中的訂單，GET 送到 LogisticsController 的 delivery；沒填就列出全部 -->
+							<div class="d-flex flex-wrap align-items-center mb-3">
+								<button type="submit" id="deliver-button" form="deliver-form" class="btn btn-primary btn-icon-split mr-3" disabled>
+									<span class="icon text-white-50"><i class="fas fa-route"></i></span>
+									<span class="text">送達</span>
+								</button>
+								<form class="form-inline" th:action="@{/admin/logistics/delivery}" method="get">
+									<label class="mr-2" for="search-orders-id">訂單編號</label>
+									<input type="text" class="form-control mr-2" id="search-orders-id" name="ordersId"
+										inputmode="numeric" placeholder="輸入訂單編號" th:value="${ordersIdText}">
+									<button type="submit" class="btn btn-info mr-2">
+										<i class="fas fa-search"></i> 搜尋
+									</button>
+									<a th:if="${!ordersIdText.isEmpty()}" th:href="@{/admin/logistics/delivery}" class="btn btn-secondary">清除</a>
+								</form>
+							</div>
 							<!-- 勾選的訂單編號以 ordersIds 送到 LogisticsController 的 deliver，狀態由配送中（1）改成已配送（7） -->
 							<form id="deliver-form" th:action="@{/admin/logistics/delivery/deliver}" method="post">
-								<button type="submit" id="deliver-button" class="btn btn-primary btn-icon-split mb-3" disabled>
-									<span class="icon text-white-50"><i class="fas fa-route"></i></span>
-									<span class="text">配送</span>
-								</button>
 								<div class="table-responsive">
 									<!-- 配送中訂單（ordersStatus = 1），ordersPage 由 LogisticsController 的 delivery 放入 model，訂單日期由舊到新，每頁 10 筆 -->
 									<table class="table table-bordered" id="delivery_list_all" width="100%" cellspacing="0">
@@ -78,7 +90,8 @@
 												<td th:text="${orders.ordersNote}"></td>
 											</tr>
 											<tr th:if="${ordersPage.empty}">
-												<td colspan="5" class="text-center text-muted">目前沒有配送中的訂單</td>
+												<td colspan="5" class="text-center text-muted"
+													th:text="${ordersIdText.isEmpty() ? '目前沒有配送中的訂單' : '查無符合條件的配送中訂單'}">目前沒有配送中的訂單</td>
 											</tr>
 										</tbody>
 									</table>
@@ -91,7 +104,7 @@
 								<!-- 只有一頁時不顯示頁碼 -->
 								<ul class="pagination mb-0" th:if="${ordersPage.totalPages > 1}">
 									<li class="page-item" th:classappend="${ordersPage.first} ? 'disabled'">
-										<a class="page-link" th:href="@{/admin/logistics/delivery(page=${ordersPage.number})}">上一頁</a>
+										<a class="page-link" th:href="@{/admin/logistics/delivery(page=${ordersPage.number}, ordersId=${ordersIdText})}">上一頁</a>
 									</li>
 									<!-- 頁碼取自 pageNumbers（PsiUtils 的 buildPageNumbers）：0 顯示成「…」 -->
 									<th:block th:each="pageNumber : ${pageNumbers}">
@@ -100,11 +113,11 @@
 										</li>
 										<li class="page-item" th:unless="${pageNumber == 0}"
 											th:classappend="${pageNumber == ordersPage.number + 1} ? 'active'">
-											<a class="page-link" th:href="@{/admin/logistics/delivery(page=${pageNumber})}" th:text="${pageNumber}"></a>
+											<a class="page-link" th:href="@{/admin/logistics/delivery(page=${pageNumber}, ordersId=${ordersIdText})}" th:text="${pageNumber}"></a>
 										</li>
 									</th:block>
 									<li class="page-item" th:classappend="${ordersPage.last} ? 'disabled'">
-										<a class="page-link" th:href="@{/admin/logistics/delivery(page=${ordersPage.number + 2})}">下一頁</a>
+										<a class="page-link" th:href="@{/admin/logistics/delivery(page=${ordersPage.number + 2}, ordersId=${ordersIdText})}">下一頁</a>
 									</li>
 								</ul>
 							</div>
@@ -133,7 +146,7 @@
             var checkAll = $('#check-all');
             var button = $('#deliver-button');
 
-            // 有勾選才能按「配送」；全選框跟著各列的勾選狀態
+            // 有勾選才能按「送達」；全選框跟著各列的勾選狀態
             function refresh() {
                 var checked = checks.filter(':checked').length;
                 button.prop('disabled', checked === 0);
@@ -148,7 +161,7 @@
 
             $('#deliver-form').on('submit', function(e) {
                 var count = checks.filter(':checked').length;
-                if (count === 0 || !confirm('確定要將 ' + count + ' 筆訂單改為已配送嗎？')) {
+                if (count === 0 || !confirm('確定要將 ' + count + ' 筆訂單改為已送達嗎？')) {
                     e.preventDefault();
                 }
             });
