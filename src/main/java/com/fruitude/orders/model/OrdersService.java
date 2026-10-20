@@ -320,10 +320,23 @@ public class OrdersService {
 		}
 	}
 
-	// 可以評論的訂單：客戶已收件（7）、客戶驗收成功（8）
+	// 可以評論的訂單：客戶驗收成功（8）；已配送（7）要等會員按「收貨」之後才能評論
 	public static boolean isCommentableStatus(Integer ordersStatus) {
-		return ordersStatus != null && (ordersStatus == Utils.OrderStatus.DELIVERED.getCode()
-				|| ordersStatus == Utils.OrderStatus.ACCEPTED.getCode());
+		return ordersStatus != null && ordersStatus == Utils.OrderStatus.ACCEPTED.getCode();
+	}
+
+	// 可以按「收貨」的訂單：已配送（7）
+	public static boolean isReceivableStatus(Integer ordersStatus) {
+		return ordersStatus != null && ordersStatus == Utils.OrderStatus.DELIVERED.getCode();
+	}
+
+	// 會員按「收貨」：自己的訂單由已配送（7）改成客戶驗收成功（8）。訂單不存在、不是他的、或已經不是已配送時回傳 false
+	@Transactional
+	public boolean receiveOrders(Integer memberId, Integer ordersId) {
+		if (memberId == null || ordersId == null) {
+			return false;
+		}
+		return ordersRepository.updateStatusToAccepted(ordersId, memberId) > 0;
 	}
 
 	// 會員「購買清單」頁：查出會員的訂單與商品明細。
@@ -379,7 +392,8 @@ public class OrdersService {
 			String status = Utils.getOrderStatus(orderStatus, orderStatus.getExpectedPaymentStatus());
 			List<MemberOrderView.Item> items = itemsByOrders.getOrDefault(o.getOrdersId(), List.of());
 			result.add(new MemberOrderView(o.getOrdersId(), o.getOrdersDate(), orderStatus.getMemberTab().getKey(),
-					status, o.getActualPaymentAmount(), isCommentableStatus(o.getOrdersStatus()), items));
+					status, o.getActualPaymentAmount(), isCommentableStatus(o.getOrdersStatus()),
+					isReceivableStatus(o.getOrdersStatus()), items));
 		}
 		return result;
 	}
