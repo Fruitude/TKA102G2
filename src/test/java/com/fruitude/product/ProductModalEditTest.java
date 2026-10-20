@@ -92,6 +92,13 @@ public class ProductModalEditTest {
         try {save(new ProductService.SkuForm(1," Other ","Alias",199,null,null,null,null,null,null,20,0,0,(Integer)null));fail();}
         catch(IllegalArgumentException expected){assertTrue(expected.getMessage().contains("不可重複"));}
     }
+    @Test public void rejectsCaseOnlySkuDuplicatesButAllowsKeepingOwnName(){
+        var unchanged=new ProductModalEditTest();
+        unchanged.save(new ProductService.SkuForm(1,"Canonical",null,199,null,null,null,null,null,null,20,0,0,(Integer)null));
+        var other=new ProductSku();other.setSkuId(2);other.setSkuName("Gift Box");other.setProduct(p);p.getProductSkus().add(other);
+        var error=assertThrows(IllegalArgumentException.class,()->save(new ProductService.SkuForm(1," gift BOX ",null,199,null,null,null,null,null,null,20,0,0,(Integer)null)));
+        assertTrue(error.getMessage().contains("不可重複"));assertEquals("Canonical",s.getSkuName());
+    }
 
     @Test public void newPreparedSkuDoesNotListProduct() {
         s.setStatus((byte)0); save(sku(null,(byte)5,0)); assertEquals(2,p.getProductSkus().size()); assertEquals(Byte.valueOf((byte)5),p.getProductSkus().get(1).getStatus()); assertEquals(Byte.valueOf((byte)0),p.getStatus());

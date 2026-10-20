@@ -122,6 +122,16 @@ public class FrontChatTest {
         try{f.service.sendMemberMessage(1,"",List.of(new MockMultipartFile("images","fake.png","image/png","<script>bad</script>".getBytes())));fail();}catch(IllegalArgumentException expected){}
         assertEquals(1,f.data.size());assertEquals(2,f.events.size());
     }
+    @Test public void chatCreationUsesTaipeiTimeEvenWhenDeploymentDefaultIsUtc()throws Exception {
+        var previous=TimeZone.getDefault();
+        try{
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            var before=LocalDateTime.now(java.time.ZoneId.of("Asia/Taipei"));
+            var fixture=new Fixture();var sent=fixture.service.sendMemberMessage(1,"時間排序測試",null);
+            var after=LocalDateTime.now(java.time.ZoneId.of("Asia/Taipei"));
+            assertFalse(sent.createdAt().isBefore(before));assertFalse(sent.createdAt().isAfter(after));
+        }finally{TimeZone.setDefault(previous);}
+    }
     @Test public void serverDetectsImageBytesUsingProductRulesAndRejectsForeignImages()throws Exception {
         var f=new Fixture();var bytes=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=");
         var upload=new MockMultipartFile("images","wrong.txt","text/plain",bytes);

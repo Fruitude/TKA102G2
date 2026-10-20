@@ -345,7 +345,8 @@ public class ProductImageService {
 
 
     public static void apply(ProductImage image, MultipartFile file) throws IOException {
-        if (file == null || file.isEmpty()) throw new IllegalArgumentException("請選擇圖片檔案");
+        if (file == null) throw new IllegalArgumentException("請選擇圖片檔案");
+        if (file.isEmpty()) throw new IllegalArgumentException("圖片檔案是空的（0 bytes），請重新選取圖片");
         if (file.getSize() > MAX_SIZE) throw new IllegalArgumentException("圖片不可超過 5 MB");
         byte[] data = file.getBytes();
         String type;

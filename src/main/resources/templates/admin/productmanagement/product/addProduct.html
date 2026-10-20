@@ -278,6 +278,9 @@
         @media(max-width:760px) { .product-create-columns { grid-template-columns:minmax(0,1fr); gap:24px; } }
         .product-name-feedback { margin:6px 0 0; font-size:13px; color:#6b7280; }
         .product-name-feedback.is-error { color:#b42318; }
+        .create-name-inline { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+        .create-name-inline>input { flex:1 1 160px;min-width:0;width:auto; }
+        .create-name-inline>.create-field-error,.create-name-inline>.product-name-feedback { flex:0 0 auto;margin:0;max-width:100%;font-size:12px;width:max-content;white-space:nowrap; }
         #productName:disabled { background:#f1f3f1; cursor:not-allowed; }
         .form-actions #create-next-submit[hidden] { display:none; }
         #carry-product-dialog { width:min(420px,calc(100% - 32px)); padding:24px; border:1px solid #cbd5cb; border-radius:12px; }
@@ -307,6 +310,7 @@
         .create-image-tile button { position:absolute; top:0; right:0; margin:0; padding:0; width:20px; height:20px; background:#a83c35; font-size:14px; }
         .image-upload-hint { display:block; font-size:11px; line-height:1.5; color:#888; }
         .create-field-error, .create-image-error { display:block; margin-top:5px; color:#b42318; font-size:12px; }
+        .create-image-error { white-space:pre-line;overflow-wrap:anywhere; }
         .create-field-error[hidden], .create-image-error[hidden] { display:none; }
         .sku-table input[aria-invalid="true"] { border-color:#b42318; }
         .product-create-basic .create-preview-button { display:block; margin:18px auto 0; padding:8px 24px; border:1px solid #497339; border-radius:6px; background:#497339; color:#fff; font:inherit; cursor:pointer; }
@@ -457,6 +461,7 @@
 </dialog>
 <script th:src="@{/admin/js/product-edit-choices.js(v=20261015-create-choices)}"></script>
 <script th:src="@{/admin/js/product-edit-preview.js(v=20261016-listing-time)}"></script>
+<script th:src="@{/admin/js/product-edit-images.js(v=20261020-upload-feedback)}"></script>
 <script>
     function enhanceCreateSelect(select) {
         if (select.dataset.choiceBound) return;
@@ -483,6 +488,8 @@
     const addSkuButton = document.getElementById("addSkuButton");
 
     let skuCount = skuContainer.querySelectorAll(".sku-card").length;
+    let skuNameFeedbackSequence=0;
+    function validateCreateSkuNames(){skuContainer.querySelectorAll('input[name$=".skuName"]').forEach(control=>control.validateSkuName?.());}
 
     function createSkuCard(index) {
         const card = document.getElementById('create-sku-template').content.firstElementChild.cloneNode(true);
@@ -517,6 +524,7 @@
         if (skuContainer.querySelectorAll(".sku-card").length <= 1) { alert("至少保留一個規格"); return; }
         const removedCard=event.target.closest(".sku-card");
         releaseCreateImages(removedCard);removedCard.remove();
+        validateCreateSkuNames();
 
         const cards = skuContainer.querySelectorAll(".sku-card");
         cards.forEach((card, index) => {
@@ -551,7 +559,12 @@
         skuCount = cards.length;
     });
 
-    const createImages=new Map();
+    const createImages=new Map();let createImagePending=0;
+    document.querySelector('form[data-product-status-form]').addEventListener('submit',event=>{
+        if(!createImagePending)return;
+        event.preventDefault();
+        const error=skuContainer.querySelector('.create-image-error');error.textContent='圖片正在檢查中，請稍候再新增商品。';error.hidden=false;
+    });
     function releaseCreateImages(card){
         const input=card.querySelector('.image-input');
         (createImages.get(input)||[]).forEach(image=>URL.revokeObjectURL(image.url));createImages.delete(input);
@@ -592,10 +605,18 @@
             if(control.dataset.validationBound)return;control.dataset.validationBound='true';
             const error=document.createElement('small');error.className='create-field-error';error.hidden=true;error.setAttribute('role','alert');
             control.after(error);
+            if(control.name.endsWith('.skuName')){
+                const inline=document.createElement('div');inline.className='create-name-inline';control.before(inline);inline.append(control,error);
+                error.id='create-sku-name-feedback-'+(++skuNameFeedbackSequence);control.setAttribute('aria-describedby',error.id);
+            }
             function validate(){
                 control.setCustomValidity('');let message='';
                 const isName=control.name.endsWith('.skuName'),isPrice=control.name.endsWith('.price');
-                if(isName){if(!control.value.trim())message='規格名稱不能空白';}
+                if(isName){
+                    const name=control.value.trim().toLowerCase();
+                    if(!name)message='規格名稱不能空白';
+                    else if(Array.from(skuContainer.querySelectorAll('input[name$=".skuName"]')).some(other=>other!==control&&other.value.trim().toLowerCase()===name))message='同個商品的規格名稱不可重複';
+                }
                 else if(control.validity.badInput)message='請輸入有效的數字。';
                 else if(control.validity.valueMissing)message=isPrice?'請填寫價格。':'請填寫數量。';
                 else if(control.validity.rangeUnderflow)message=isPrice?'不可低於 1 元。':'不可小於 0。';
@@ -603,7 +624,10 @@
                 else if(control.validity.stepMismatch)message=isPrice?'須為正整數。':'須為 0 或正整數。';
                 control.setCustomValidity(message);control.setAttribute('aria-invalid',String(!!message));error.textContent=message;error.hidden=!message;
             }
-            control.addEventListener('input',validate);control.addEventListener('blur',validate);
+            if(control.name.endsWith('.skuName')){
+                control.validateSkuName=validate;
+                control.addEventListener('input',validateCreateSkuNames);control.addEventListener('blur',validateCreateSkuNames);
+            }else{control.addEventListener('input',validate);control.addEventListener('blur',validate);}
             control.addEventListener('invalid',event=>{event.preventDefault();validate();if(!card.closest('form').querySelector(':invalid:focus'))control.focus();});
         });
         const input=card.querySelector('.image-input'),list=card.querySelector('.create-image-list'),error=card.querySelector('.create-image-error');
@@ -632,10 +656,20 @@
                 list.appendChild(tile);
             });
         }
-        input.addEventListener('change',()=>{
-            const files=Array.from(input.files);const invalid=files.find(file=>!['image/png','image/jpeg','image/gif'].includes(file.type)||file.size>5*1024*1024);
-            if(invalid){error.textContent=invalid.size>5*1024*1024?'圖片不可超過 5 MB':'只接受 PNG、JPEG 或 GIF 圖片';error.hidden=false;syncFiles();return;}
-            error.hidden=true;files.forEach(file=>images.push({file,url:URL.createObjectURL(file)}));syncFiles();render();
+        input.addEventListener('change',async()=>{
+            const files=Array.from(input.files),errors=[];if(!files.length)return;input.disabled=true;createImagePending++;
+            error.textContent='正在檢查圖片…';error.hidden=false;
+            try{
+                for(const file of files){
+                    try{
+                        await window.ProductEditImages.validateFile(file);
+                        if(!createImages.has(input))return;
+                        images.push({file,url:URL.createObjectURL(file)});
+                    }catch(e){errors.push('「'+file.name+'」：'+e.message+'。已排除此檔案，請重新選擇。');}
+                }
+                error.textContent=errors.join('\n');error.hidden=!errors.length;
+                syncFiles();render();
+            }finally{createImagePending--;input.disabled=false;}
         });
     }
 
@@ -654,11 +688,13 @@
             skus,selected:skus[0]?.key},event.currentTarget);
     });
     skuContainer.querySelectorAll('.sku-card').forEach(initializeCreateCard);
+    validateCreateSkuNames();
     document.querySelectorAll('form select').forEach(enhanceCreateSelect);
     (function initProductNameCheck(){
         const form=document.querySelector('form[data-product-status-form]');
         const vendor=document.getElementById('vendor'),category=document.getElementById('category'),name=document.getElementById('productName');
         const message=document.getElementById('product-name-feedback');
+        const inline=document.createElement('div');inline.className='create-name-inline';name.before(inline);inline.append(name,message);
         let timer,request,version=0;
         function feedback(text,error=false){message.textContent=text;message.hidden=!text;message.classList.toggle('is-error',error);name.setAttribute('aria-invalid',String(error));}
         function cancel(){clearTimeout(timer);if(request)request.abort();request=null;version++;}

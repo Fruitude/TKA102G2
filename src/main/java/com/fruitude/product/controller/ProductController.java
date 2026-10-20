@@ -92,12 +92,13 @@ public class ProductController {
     @org.springframework.web.bind.annotation.ResponseBody
     @GetMapping("/product/name-availability")
     public org.springframework.http.ResponseEntity<java.util.Map<String,Boolean>> productNameAvailability(
-            @RequestParam Integer vendorId, @RequestParam(defaultValue="") String name) {
+            @RequestParam Integer vendorId, @RequestParam(defaultValue="") String name,
+            @RequestParam(required=false) Integer productId) {
         name=name.trim();
-        if(vendorId<=0 || name.isEmpty() || name.length()>100)
+        if(vendorId<=0 || name.isEmpty() || name.length()>100 || (productId!=null && productId<=0))
             return org.springframework.http.ResponseEntity.badRequest().cacheControl(org.springframework.http.CacheControl.noStore()).build();
         return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
-            .body(java.util.Map.of("exists",productSvc.isNameUsed(vendorId,name,null)));
+            .body(java.util.Map.of("exists",productSvc.isNameUsed(vendorId,name,productId)));
     }
 
     private record NextSkuDraft(String name,String alias) implements java.io.Serializable {}
@@ -271,13 +272,14 @@ public class ProductController {
 
                 int imageOrder=0;
                 for(MultipartFile file:multipartRequest.getFiles("skuImages["+i+"]")) {
-                    if(file.isEmpty())continue;
+                    if(file.isEmpty() && (file.getOriginalFilename()==null || file.getOriginalFilename().isBlank()))continue;
                     try {
                         ProductImage image=new ProductImage();image.setProductSku(sku);
                         com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(image,file);
                         image.setSortOrder(imageOrder++);sku.getProductImages().add(image);
                     } catch(IOException | IllegalArgumentException error) {
-                        model.addAttribute("errorMessage",error instanceof IOException ? "圖片上傳失敗" : error.getMessage());
+                        model.addAttribute("errorMessage","規格「"+sku.getSkuName()+"」的圖片「"+uploadName(file)+"」："
+                            +(error instanceof IOException ? "圖片內容無法讀取" : error.getMessage())+"。商品尚未新增，請重新選擇圖片。");
                         return "admin/productmanagement/product/addProduct";
                     }
                 }
@@ -661,10 +663,33 @@ public class ProductController {
             @RequestParam(required=false) List<org.springframework.web.multipart.MultipartFile> files) throws java.io.IOException {
         var request=tools.jackson.databind.json.JsonMapper.builder().build().readValue(payload,ProductService.ImageRequest.class);
         var uploads=new ArrayList<ProductImage>();
-        for(var file:files==null?List.<org.springframework.web.multipart.MultipartFile>of():files) {
-            var image=new ProductImage();com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(image,file);uploads.add(image);
+        var invalid=new ArrayList<InvalidImage>();
+        var selected=files==null?List.<org.springframework.web.multipart.MultipartFile>of():files;
+        for(int index=0;index<selected.size();index++) {
+            var file=selected.get(index);
+            try{
+                var image=new ProductImage();com.fruitude.product.model.ProductImageService.ImageUploadSupport.apply(image,file);uploads.add(image);
+            }catch(IOException|IllegalArgumentException error){
+                invalid.add(new InvalidImage(index,uploadName(file),error instanceof IOException?"圖片內容無法讀取":error.getMessage()));
+            }
         }
+        if(!invalid.isEmpty())throw new ImageValidationException(invalid);
         return productSvc.saveWithImages(request,uploads);
+    }
+    private static String uploadName(MultipartFile file){
+        String name=file==null?null:file.getOriginalFilename();
+        if(name==null||name.isBlank())return "未命名圖片";
+        name=name.replace('\\','/');return name.substring(name.lastIndexOf('/')+1).replaceAll("[\\p{Cntrl}]","_");
+    }
+    private record InvalidImage(int fileIndex,String filename,String message) {}
+    private static final class ImageValidationException extends IllegalArgumentException {
+        private final List<InvalidImage> images;
+        private ImageValidationException(List<InvalidImage> images){super("圖片驗證未通過");this.images=List.copyOf(images);}
+    }
+    @ExceptionHandler(ImageValidationException.class) public ResponseEntity<?> invalidImages(ImageValidationException error){
+        String message=error.images.stream().map(image->"「"+image.filename()+"」："+image.message()).collect(java.util.stream.Collectors.joining("；"));
+        return ResponseEntity.badRequest().cacheControl(org.springframework.http.CacheControl.noStore())
+            .body(Map.of("kind","invalidImages","message",message+"。不合格的新增圖已移除，換圖已恢復原圖，請重新選擇後再儲存。","invalidImages",error.images));
     }
     @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,tools.jackson.core.JacksonException.class})
     public ResponseEntity<?> invalidPayload(Exception e) { return error(400,"invalid","輸入格式不正確：價格須為1～10,000,000的整數，數量須為0～2,147,483,647的整數"); }

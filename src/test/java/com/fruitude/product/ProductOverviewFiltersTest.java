@@ -80,7 +80,10 @@ public class ProductOverviewFiltersTest {
         var invalidImage=mvc.perform(nextProductRequest(false).file(new org.springframework.mock.web.MockMultipartFile("skuImages[0]","bad.png","image/png",new byte[]{1,2,3}))).andReturn();
         assertNull(invalidImage.getResponse().getRedirectedUrl());assertNotNull(invalidImage.getModelAndView().getModel().get("errorMessage"));
         var oversized=mvc.perform(nextProductRequest(false).file(new org.springframework.mock.web.MockMultipartFile("skuImages[0]","large.png","image/png",new byte[5*1024*1024+1]))).andReturn();
-        assertEquals("圖片不可超過 5 MB",oversized.getModelAndView().getModel().get("errorMessage"));
+        String oversizedMessage=oversized.getModelAndView().getModel().get("errorMessage").toString();
+        assertTrue(oversizedMessage.contains("large.png"));assertTrue(oversizedMessage.contains("圖片不可超過 5 MB"));
+        var empty=mvc.perform(nextProductRequest(false).file(new org.springframework.mock.web.MockMultipartFile("skuImages[0]","empty.png","image/png",new byte[0]))).andReturn();
+        String emptyMessage=empty.getModelAndView().getModel().get("errorMessage").toString();assertTrue(emptyMessage.contains("empty.png"));assertTrue(emptyMessage.contains("空的"));
         assertEquals(0,saves.get());
     }
     @Test public void createAcceptsMaximumPriceAndAllQuantityBoundaries() throws Exception {
@@ -133,6 +136,23 @@ public class ProductOverviewFiltersTest {
         assertEquals(400,mvc.perform(get("/product/name-availability").param("vendorId","9").param("name"," ")).andReturn().getResponse().getStatus());
         assertEquals(400,mvc.perform(get("/product/name-availability").param("vendorId","9").param("name","果".repeat(101))).andReturn().getResponse().getStatus());
         assertEquals(List.of("9:愛文芒果","10:愛文芒果"),calls);
+    }
+
+    @Test public void editingNameCheckExcludesCurrentProductWithoutExcludingAnotherVendor()throws Exception {
+        var controller=new ProductController();var calls=new ArrayList<String>();
+        ReflectionTestUtils.setField(controller,"productSvc",new ProductService(){
+            @Override public boolean isNameUsed(Integer vendorId,String name,Integer excludedId){
+                calls.add(vendorId+":"+name+":"+excludedId);
+                return vendorId==9&&name.equals("愛文芒果")&&!Integer.valueOf(12).equals(excludedId);
+            }
+        });
+        var mvc=MockMvcBuilders.standaloneSetup(controller).build();
+        var own=mvc.perform(get("/product/name-availability").param("vendorId","9").param("productId","12").param("name"," 愛文芒果 ")).andReturn().getResponse();
+        assertEquals(200,own.getStatus());assertTrue(own.getContentAsString().contains("\"exists\":false"));
+        var duplicate=mvc.perform(get("/product/name-availability").param("vendorId","9").param("productId","13").param("name","愛文芒果")).andReturn().getResponse();
+        assertTrue(duplicate.getContentAsString().contains("\"exists\":true"));
+        assertEquals(400,mvc.perform(get("/product/name-availability").param("vendorId","9").param("productId","0").param("name","愛文芒果")).andReturn().getResponse().getStatus());
+        assertEquals(List.of("9:愛文芒果:12","9:愛文芒果:13"),calls);
     }
 
     @Test public void childCategoriesFollowParentAndFiltersReachPagedQuery() throws Exception {

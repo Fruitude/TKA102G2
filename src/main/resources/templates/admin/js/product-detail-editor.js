@@ -9,6 +9,45 @@
     const productId = new URLSearchParams(location.search).get('productId');
     const base = location.pathname.replace(/getOne_For_Display$/, '');
     const labels = ['下架', '上架', '缺貨', '即將售完', '售完', '預備上架', '即將停產', '永久停產'];
+    let nameCheckTimer, nameCheckRequest, nameCheckVersion=0;
+    let productNameValidation={message:'',invalid:false,pending:false};
+    function nameFeedback(message='',invalid=false,pending=false){
+        productNameValidation={message,invalid,pending};
+        const h1=document.querySelector('h1'),error=document.getElementById('edit-product-name-error');
+        h1?.setAttribute('aria-invalid',String(invalid));
+        if(error){error.textContent=message;error.hidden=!message;}
+        window.dispatchEvent(new CustomEvent('product:name-validation'));
+    }
+    function cancelNameCheck(){clearTimeout(nameCheckTimer);nameCheckRequest?.abort();nameCheckRequest=null;nameCheckVersion++;}
+    async function checkProductName(){
+        cancelNameCheck();if(!data)return;
+        const name=data.product.productName?.trim()||'',vendorId=data.product.vendorId,version=nameCheckVersion;
+        if(!name){nameFeedback('請填寫商品名稱',true);return;}
+        if(name.length>100){nameFeedback('商品名稱不可超過100字',true);return;}
+        if(!vendorId){nameFeedback('請先選取供應廠商',true);return;}
+        nameFeedback('商品名稱檢查中…',false,true);
+        const url=new URL(base+'name-availability',location.href);
+        url.search=new URLSearchParams({vendorId,name,productId}).toString();
+        nameCheckRequest=new AbortController();
+        try{
+            const response=await fetch(url,{credentials:'same-origin',cache:'no-store',signal:nameCheckRequest.signal,headers:{Accept:'application/json'}});
+            if(!response.ok)throw new Error('name check unavailable');
+            const result=await response.json();
+            if(version!==nameCheckVersion)return;
+            nameFeedback(result.exists?'該供應商已有同名的商品名稱':'',!!result.exists);
+        }catch(error){
+            if(error.name==='AbortError'||version!==nameCheckVersion)return;
+            // Saving still performs authoritative server validation when this advisory request fails.
+            nameFeedback('系統忙碌中，請稍後再嘗試。');
+        }
+    }
+    function scheduleNameCheck(){
+        cancelNameCheck();if(!data)return;
+        if(!data.product.productName?.trim()){nameFeedback('請填寫商品名稱',true);return;}
+        nameFeedback('商品名稱檢查中…',false,true);nameCheckTimer=setTimeout(checkProductName,450);
+    }
+    function validateSkuNames(){nameFields.forEach(field=>field.validate());}
+    window.addEventListener('pagehide',cancelNameCheck);
     const statusHelp = '上架時，系統會依庫存、待進貨良率、待出貨、安全庫存及允許超賣量，自動判斷缺貨、即將售完或售完；即將停產在待進貨為0且庫存－待出貨不大於0時，自動轉為永久停產。';
     function node(tag, cls, text) {
         const element = document.createElement(tag);
@@ -77,12 +116,15 @@
                     error.id = 'sku-name-error-' + entry.key; error.setAttribute('role', 'alert');
                     control.setAttribute('aria-describedby', error.id);
                     function validate() {
-                        const empty = !control.value.trim();
-                        error.hidden = !empty; control.setAttribute('aria-invalid', String(empty));
-                        control.setCustomValidity(empty ? '請填寫規格名稱' : '');
-                        return empty;
+                        const name=control.value.trim().toLowerCase();
+                        const entries=[...data.skus.map(s=>changed.get(String(s.skuId))||{...s,key:String(s.skuId)}),...[...changed.values()].filter(s=>s.skuId==null)];
+                        const duplicate=name&&entries.some(other=>other.key!==entry.key&&other.skuName?.trim().toLowerCase()===name);
+                        const message=!name?'請填寫規格名稱':duplicate?'同個商品的規格名稱不可重複':'';
+                        error.textContent=message;error.hidden=!message;control.setAttribute('aria-invalid',String(!!message));
+                        control.setCustomValidity(message);
+                        return message;
                     }
-                    control.addEventListener('input', validate); control.addEventListener('blur', validate);
+                    control.addEventListener('input', validateSkuNames); control.addEventListener('blur', validateSkuNames);
                     caption.appendChild(error); nameFields.set(entry.key, {control, validate, panel}); validate();
                 }
                 else control.placeholder = '選填；顯示時優先使用別名';
@@ -180,7 +222,7 @@
             panel.appendChild(row);
         }
         const remove = node('button','edit-remove-sku','移除此新增規格'); remove.type='button';
-        remove.addEventListener('click',()=>{ changed.delete(key); for (const fieldKey of numericFields.keys()) if(fieldKey.startsWith(key + ':')) numericFields.delete(fieldKey); nameFields.delete(key); listingFields.delete(key); imageEditor?.removeSku(key); button.remove(); panel.remove(); dirty=true; const first=document.querySelector('.sku-option'); if(first)showSkuInfo(first); });
+        remove.addEventListener('click',()=>{ changed.delete(key); for (const fieldKey of numericFields.keys()) if(fieldKey.startsWith(key + ':')) numericFields.delete(fieldKey); nameFields.delete(key); validateSkuNames(); listingFields.delete(key); imageEditor?.removeSku(key); button.remove(); panel.remove(); dirty=true; const first=document.querySelector('.sku-option'); if(first)showSkuInfo(first); });
         panel.appendChild(remove); document.querySelector('.sku-section').appendChild(panel);
         const button = node('button','sku-option'); button.type='button'; button.dataset.panelId=panel.id;button.dataset.skuId=key;button.appendChild(node('span','new-sku-name',''));
         button.onclick=()=>showSkuInfo(button); document.querySelector('.sku-add').before(button);
@@ -192,11 +234,11 @@
         data = await response.json(); document.body.classList.add('product-edit-mode');
         const meta=document.querySelector('.product-meta');
         searchable(meta,'分類',data.categories,data.product.categoryId,id=>data.product.categoryId=id,true);
-        searchable(meta,'廠商',data.vendors,data.product.vendorId,id=>data.product.vendorId=id);
+        searchable(meta,'廠商',data.vendors,data.product.vendorId,id=>{data.product.vendorId=id;scheduleNameCheck();});
         const description=valueRow(meta,'描述');description.classList.add('edit-description-value');
         const area=node('textarea','edit-input');area.value=data.product.productDesc||'';area.rows=3;area.maxLength=255;area.setAttribute('aria-label','商品描述');
         area.addEventListener('input',()=>{data.product.productDesc=area.value;mark();});description.replaceChildren(area);
-        const h1=document.querySelector('h1');h1.contentEditable='true';h1.addEventListener('input',()=>window.detailEditor.setName(h1.textContent));
+        const h1=document.querySelector('h1');h1.contentEditable='true';h1.addEventListener('input',()=>window.detailEditor.setName(h1.textContent));h1.addEventListener('blur',checkProductName);
         if (!new URLSearchParams(location.search).has('modal')) {
             const box=node('div','edit-product-name');h1.before(box);box.appendChild(h1);
             const pencil=node('button','edit-pencil');pencil.type='button';pencil.setAttribute('aria-label','修改商品名稱');pencil.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5M4 15l5 5"/></svg>';
@@ -214,16 +256,16 @@
         if(!options){options=node('div','sku-options');document.querySelector('.sku-title').after(options);}
         const add=node('button','sku-add','+');add.type='button';add.setAttribute('aria-label','新增規格');add.title='新增規格';add.addEventListener('click',addSku);options.appendChild(add);
         imageEditor = window.ProductEditImages.create(data, base, () => mark());
+        validateSkuNames();scheduleNameCheck();
         return data;
     }
     window.detailEditor = {
         ready:null,
         isDirty:()=>dirty,
         getName:()=>data?.product.productName || '',
-        setName:name=>{if(data){data.product.productName=name;mark();
-            const empty=!name.trim();const h1=document.querySelector('h1');h1?.setAttribute('aria-invalid',String(empty));
-            const error=document.getElementById('edit-product-name-error');if(error)error.hidden=!empty;
-        }},
+        getNameValidation:()=>productNameValidation,
+        checkName:checkProductName,
+        setName:name=>{if(data&&data.product.productName!==name){data.product.productName=name;mark();scheduleNameCheck();}},
         preview(returnFocus) {
             const existing=data.skus.map(sku=>({...sku,key:String(sku.skuId),...(changed.get(String(sku.skuId)) || {})}));
             const skus=[...existing,...[...changed.values()].filter(sku=>sku.skuId==null)]
@@ -234,11 +276,13 @@
                 context:location.pathname.split('/product/')[0]},returnFocus);
         },
         async save() {
+            await checkProductName();
+            if(productNameValidation.invalid)throw new Error(productNameValidation.message);
             for (const field of nameFields.values()) {
                 if (field.validate()) {
                     const button = [...document.querySelectorAll('.sku-option')].find(item => item.dataset.panelId === field.panel.id);
                     if (button) showSkuInfo(button);
-                    field.control.focus(); throw new Error('請填寫規格名稱');
+                    field.control.focus(); throw new Error(field.control.validationMessage);
                 }
             }
             for (const [key, field] of numericFields) {
@@ -264,7 +308,7 @@
             const edited = new Map(skus.filter(s => s.skuId != null).map(s => [s.skuId, s]));
             const names = new Set();
             for (const sku of [...data.skus.map(s => edited.get(s.skuId) || s), ...skus.filter(s => s.skuId == null)]) {
-                const name = sku.skuName?.trim();
+                const name = sku.skuName?.trim().toLowerCase();
                 if (!name) throw new Error('請填寫規格名稱');
                 if (names.has(name)) throw new Error('同個商品的規格名稱不可重複：' + name);
                 names.add(name);
@@ -283,7 +327,10 @@
                 if(!window.confirm(result.message))throw new Error('已取消儲存，資料尚未變更。');
                 payload.activateSkus=true;response=await send();result=await read(response);
             }
-            if(!response.ok)throw new Error(result.message||'儲存失敗，請稍後再試。');
+            if(!response.ok){
+                if(result.kind==='invalidImages'&&Array.isArray(result.invalidImages))imageEditor.rejectUploads(result.invalidImages,imageChanges.files);
+                throw new Error(result.message||'儲存失敗，請稍後再試。');
+            }
             dirty=false;return result;
         }
     };
