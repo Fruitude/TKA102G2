@@ -260,8 +260,8 @@
           row.className = "order-item";
           row.appendChild(text("span", "", order.items[i].productName));
           row.appendChild(text("span", "", "× " + order.items[i].quantity));
-          // 已完成與不成立的訂單，每個商品有「再買一次」按鈕
-          if (order.tab === "completed" || order.tab === "canceled") {
+          // 已完成與不成立的訂單，每個商品有「再買一次」按鈕；已配送（還沒按收貨）的訂單要等收貨後才顯示
+          if ((order.tab === "completed" && !order.canReceive) || order.tab === "canceled") {
             var actions = document.createElement("span");
             actions.className = "order-item-actions";
             var button = text("button", "asset-row-button", "再買一次");
@@ -274,6 +274,17 @@
             row.appendChild(actions);
           }
           card.appendChild(row);
+        }
+        // 已配送的訂單顯示「收貨」按鈕：按下後狀態改成客戶驗收成功，才會出現再買一次與評論
+        if (order.canReceive) {
+          var receiveBar = document.createElement("div");
+          receiveBar.className = "order-item-actions order-card-comment";
+          var receiveButton = text("button", "asset-row-button", "收貨");
+          receiveButton.type = "button";
+          receiveButton.setAttribute("data-action", "receive");
+          receiveButton.setAttribute("data-orders-id", order.ordersId);
+          receiveBar.appendChild(receiveButton);
+          card.appendChild(receiveBar);
         }
         // 每張訂單只有一個「評論」按鈕：開新頁面評論這張訂單的商品；全部商品都評論過就顯示「已評論」
         if (order.tab === "completed" && order.canComment && order.items.length > 0) {
@@ -302,6 +313,27 @@
         }
         window.SSXCart.addProduct({ skuId: button.getAttribute("data-sku-id"), image: "" },
           Number(button.getAttribute("data-quantity")) || 1, button, null);
+      });
+
+      // 收貨：確認後呼叫 API 把訂單改成客戶驗收成功，成功就重新整理頁面，讓訂單移到正確狀態並出現再買一次與評論
+      document.addEventListener("click", function(event) {
+        var button = event.target.closest('button[data-action="receive"]');
+        if (!button || button.disabled) return;
+        if (!window.confirm("確認已收到商品嗎？")) return;
+        button.disabled = true;
+        fetch(contextPath + "/api/members/me/orders/" + encodeURIComponent(button.getAttribute("data-orders-id")) + "/receive",
+          { method: "POST", credentials: "same-origin", headers: { "Accept": "application/json" } })
+          .then(function(res) {
+            if (res.ok) { window.location.reload(); return; }
+            return res.json().catch(function() { return {}; }).then(function(body) {
+              window.alert(body.message || "收貨失敗，請稍後再試");
+              button.disabled = false;
+            });
+          })
+          .catch(function() {
+            window.alert("收貨失敗，請稍後再試");
+            button.disabled = false;
+          });
       });
 
       // 評論：開新頁面，列出這張訂單的商品讓會員評星與留言

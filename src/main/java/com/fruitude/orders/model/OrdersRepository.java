@@ -60,4 +60,10 @@ public interface OrdersRepository extends JpaRepository<Orders, Integer>{
 	@Modifying
 	@Query("UPDATE Orders o SET o.ordersStatus = :ordersStatus WHERE o.ordersId = :ordersId")
 	int updateStatus(@Param("ordersId") Integer ordersId, @Param("ordersStatus") Integer ordersStatus);
+
+	// 會員按「收貨」：只有這位會員自己、狀態還是已配送（7）的訂單才會改成客戶驗收成功（8），回傳更新的筆數
+	// 回傳 0 代表不是他的訂單、訂單不存在，或已經不是已配送（例如重複按）
+	@Modifying
+	@Query("UPDATE Orders o SET o.ordersStatus = 8 WHERE o.ordersId = :ordersId AND o.memberId = :memberId AND o.ordersStatus = 7")
+	int updateStatusToAccepted(@Param("ordersId") Integer ordersId, @Param("memberId") Integer memberId);
 }
