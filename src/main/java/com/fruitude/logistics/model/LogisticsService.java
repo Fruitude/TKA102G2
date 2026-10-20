@@ -27,12 +27,16 @@ public class LogisticsService {
 
 	// 配送中的訂單（orders_status = 1）的其中一頁，訂單日期由舊到新
 	// page 是畫面上的頁碼，從 1 開始；小於 1 當作第 1 頁，超過最後一頁就回傳最後一頁
-	public Page<Orders> getDeliveringOrders(int page) {
+	// ordersId 是搜尋用的訂單編號，null 代表不篩選
+	public Page<Orders> getDeliveringOrders(int page, Integer ordersId) {
 		int pageIndex = Math.max(page, 1) - 1; // PageRequest 的頁碼從 0 開始
-		Page<Orders> ordersPage = ordersRepository.findByOrdersStatus(1, PageRequest.of(pageIndex, PAGE_SIZE, DELIVERING_ORDERS_SORT));
+		int ordersIdFilter = ordersId == null ? 0 : ordersId; // 0 代表不篩選，對應 LogisticsOrderRepository 的 searchByOrdersStatus
+		Page<Orders> ordersPage = ordersRepository.searchByOrdersStatus(1, ordersIdFilter,
+				PageRequest.of(pageIndex, PAGE_SIZE, DELIVERING_ORDERS_SORT));
 		if (pageIndex > 0 && pageIndex >= ordersPage.getTotalPages()) {
 			int lastPageIndex = Math.max(ordersPage.getTotalPages() - 1, 0);
-			ordersPage = ordersRepository.findByOrdersStatus(1, PageRequest.of(lastPageIndex, PAGE_SIZE, DELIVERING_ORDERS_SORT));
+			ordersPage = ordersRepository.searchByOrdersStatus(1, ordersIdFilter,
+					PageRequest.of(lastPageIndex, PAGE_SIZE, DELIVERING_ORDERS_SORT));
 		}
 		return ordersPage;
 	}
