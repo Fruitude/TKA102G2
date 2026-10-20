@@ -107,7 +107,7 @@
         .chat-preview-status{padding:18px 14px;color:#858796;text-align:center;font-size:.85rem}
         .chat-preview-footer{flex:0 0 auto;padding:8px 10px;border-top:1px solid #e3e6f0;text-align:right}
         .chat-row.system.inquiry-source{justify-content:flex-start}.chat-row.system.inquiry-source>div{align-items:flex-start}.chat-row.system.inquiry-source .chat-bubble{background:#fffdf5;color:#43523a;border-color:#dce4ce}
-        .chat-inquiry-card{display:flex;align-items:center;gap:10px}.chat-inquiry-card img{flex:0 0 64px;width:64px;height:64px;object-fit:cover;border-radius:6px;background:white}.chat-inquiry-card span{min-width:0}
+        .chat-inquiry-card{display:flex;align-items:center;gap:10px;text-decoration:none}.chat-inquiry-card:focus-visible{outline:2px solid #658745;outline-offset:3px}.chat-inquiry-card:hover{box-shadow:0 0 0 1px #a2b48c}.chat-inquiry-card img{flex:0 0 64px;width:64px;height:64px;object-fit:cover;border-radius:6px;background:white}.chat-inquiry-card span{min-width:0}
         /* 對會員隱藏的客服訊息（status 0）：後台照常顯示，整則變淺；滑鼠移上去稍微加深，方便閱讀 */
         .chat-row.is-hidden>div{opacity:.45;transition:opacity .15s}.chat-row.is-hidden:hover>div,.chat-row.is-hidden:focus-within>div{opacity:.7}
         .chat-reply-menu button[hidden]{display:none}
@@ -571,9 +571,13 @@
 			// 圖片訊息可以沒有文字，沒有文字就不顯示泡泡
 			const contentBoxes = [];
 			if (message.messageContent) {
-				const bubble = document.createElement('div');
+				const bubble = document.createElement(message.inquiryProduct ? 'a' : 'div');
 				bubble.className = 'chat-bubble';
                 if(message.inquiryProduct){
+                    const params=new URLSearchParams({productId:message.inquiryProduct.productId});
+                    if(Number.isSafeInteger(Number(message.inquiryProduct.skuId))&&Number(message.inquiryProduct.skuId)>0)params.set('skuId',message.inquiryProduct.skuId);
+                    bubble.href=basePath+'front/product/view/?'+params.toString();
+                    bubble.target='_blank';bubble.rel='noopener noreferrer';bubble.title='在新分頁查看商品與規格';
                     const image=document.createElement('img'),text=document.createElement('span');
                     image.src=basePath+'front/api/product-image/'+Number(message.inquiryProduct.productId);image.alt=message.inquiryProduct.name;image.width=64;image.height=64;image.loading='lazy';
                     image.onerror=()=>{image.onerror=null;image.src=basePath+'front/img/image-placeholder.svg';};

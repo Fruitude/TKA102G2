@@ -303,6 +303,11 @@
 (function () {
   var select = document.getElementById("pv-sku");
   if (!select) return;
+  // Only select a requested SKU when it belongs to this product's visible options.
+  var requestedSku = new URLSearchParams(window.location.search).get("skuId");
+  if (requestedSku && Array.from(select.options).some(function (option) { return option.value === requestedSku; })) {
+    select.value = requestedSku;
+  }
   var form = document.getElementById("pv-form");
   function formatProductPrice(amount) {
     return "NT$ " + Number(amount).toLocaleString("zh-TW", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
