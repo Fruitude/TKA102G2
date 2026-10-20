@@ -39,8 +39,8 @@ public class MemberOrdersApiController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "請先登入會員"));
 		}
 		if (!ordersService.receiveOrders(memberId, ordersId)) {
-			return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "這張訂單目前不能收貨"));
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "這張訂單目前不能完成"));
 		}
-		return ResponseEntity.ok(Map.of("message", "已收貨"));
+		return ResponseEntity.ok(Map.of("message", "訂單已完成"));
 	}
 }

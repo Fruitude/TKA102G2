@@ -16,7 +16,7 @@ public class Utils {
 	    CANCELLED_BY_CUSTOMER(4, "客戶端主動取消訂單", "訂單取消", PaymentStatus.REFUND_PENDING, MemberTab.REFUND),
 	    DELIVERY_FAILED_CUSTOMER(5, "客戶端問題配送失敗", "訂單失效", PaymentStatus.PAID, MemberTab.CANCELED),
 	    REFUND_REJECTED_BY_ACCOUNTING(6, "退款申請會計審核不通過", "申訴未通過訂單已完成", PaymentStatus.PAID, MemberTab.COMPLETED),
-	    DELIVERED(7, "客戶已收件", "已配送", PaymentStatus.PAID, MemberTab.COMPLETED),
+	    DELIVERED(7, "客戶已收件", "已配送", PaymentStatus.PAID, MemberTab.PENDING_RECEIPT),
 	    ACCEPTED(8, "客戶驗收成功", "訂單已完成", PaymentStatus.PAID, MemberTab.COMPLETED),
 	    COMPLAINT_FILED(9, "客戶收件後提出申訴", "客服處理中", PaymentStatus.PAID, MemberTab.REFUND),
 	    REFUND_PENDING_ACCOUNTING(10, "可以退款送會計", "客服處理中", PaymentStatus.PAID, MemberTab.REFUND),
