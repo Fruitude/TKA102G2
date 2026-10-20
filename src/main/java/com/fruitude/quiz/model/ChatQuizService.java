@@ -37,14 +37,18 @@ public class ChatQuizService {
     public record Result(String headline,String description,List<Recommendation> recommendations) {}
     public record SavedResult(Integer answerId,Integer quizId,String theme,LocalDateTime createdAt,Result result) {}
     public record ResultPage(List<SavedResult> results,boolean hasMore) {}
+    public record RunSnapshot(String token,Integer memberId,Integer quizId,String name,String description,List<Question> questions,Instant expires) {}
+    public static Run restore(RunSnapshot snapshot){return new Run(snapshot);}
     public static final class Run {
-        public final String token=UUID.randomUUID().toString();
+        public final String token;
         private final Integer memberId,quizId;
         private final String name,description;
         private final List<Question> questions;
-        private final Instant expires=Instant.now().plusSeconds(1800);
+        private final Instant expires;
         public Result completed;
-        private Run(Integer memberId,Theme theme,List<Question> questions){this.memberId=memberId;quizId=theme.quizId();name=theme.name();description=theme.description();this.questions=questions;}
+        private Run(Integer memberId,Theme theme,List<Question> questions){this(new RunSnapshot(UUID.randomUUID().toString(),memberId,theme.quizId(),theme.name(),theme.description(),questions,Instant.now().plusSeconds(1800)));}
+        private Run(RunSnapshot snapshot){token=snapshot.token();memberId=snapshot.memberId();quizId=snapshot.quizId();name=snapshot.name();description=snapshot.description();questions=snapshot.questions();expires=snapshot.expires();}
+        public RunSnapshot snapshot(){return new RunSnapshot(token,memberId,quizId,name,description,questions,expires);}
         public StartView view(){return new StartView(token,quizId,name,description,questions.stream().map(q->new QuestionView(q.id(),q.text(),q.options().entrySet().stream().map(e->new Choice(e.getKey(),e.getValue().text())).toList())).toList());}
         public boolean belongsTo(Integer member,Integer quiz){return memberId.equals(member)&&quizId.equals(quiz)&&Instant.now().isBefore(expires);}
     }
@@ -83,6 +87,15 @@ public class ChatQuizService {
         answer.setAnswerData(json.writeValueAsString(submitted));answer.setScoreData(json.writeValueAsString(storedScores));
         answer.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Taipei")));answers.save(answer);
         return selected.result();
+    }
+
+    /** Same scoring and recommendation rules, with no member reference or SQL writes. */
+    @Transactional(readOnly=true)
+    public Result finishGuest(Integer quizId,Run run,Map<Integer,String> submitted){
+        if(run==null||!run.belongsTo(0,quizId))throw new IllegalArgumentException("測驗已過期，請重新開始。");
+        var scores=scoring.score(run.questions,submitted);
+        if(!quizzes.existsByQuizIdAndStatus(quizId,1))throw new IllegalArgumentException("這個測驗目前無法使用。");
+        return recommendations.recommend(scores,results.findByQuiz_QuizIdAndStatusOrderByResultIdAsc(quizId,1)).result();
     }
 
     /** Only this member's records are loaded; quiz history never enters the staff message stream. */

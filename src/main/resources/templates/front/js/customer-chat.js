@@ -102,7 +102,7 @@
   return body;
  }
  function updateInput(){send.disabled=busy||member===null||(!input.value.trim()&&!selected.length);input.disabled=busy;
-  files.disabled=busy||member===null;input.style.height='auto';input.style.height=Math.min(90,Math.max(30,input.scrollHeight))+'px';}
+  files.disabled=busy||member===null||member===0;files.closest('.ff-chat-pick').hidden=member===0;input.style.height='auto';input.style.height=Math.min(90,Math.max(30,input.scrollHeight))+'px';}
  function clearFiles(){selected.forEach(item=>URL.revokeObjectURL(item.url));selected=[];renderFiles();}
  function renderFiles(){previews.replaceChildren();selected.forEach((item,index)=>{
   const box=document.createElement('div'),img=document.createElement('img'),remove=document.createElement('button');
@@ -111,18 +111,18 @@
  });previews.hidden=!selected.length;}
  function resetAccount(id){root.dispatchEvent(new CustomEvent('ff-chat:account-reset'));setReply(null);closeReplyMenu();messageData.clear();welcomeToken=null;welcomeShown=false;welcome.hidden=id!==null;topics.hidden=id!==null;epoch++;member=id;client?.deactivate();client=null;rows.forEach(row=>row.remove());rows.clear();quizRows.forEach(row=>row.remove());quizRows.clear();quizBefore=null;quizMore=false;quizLoading=false;quizDirty=false;quizOlder.hidden=true;latest=0;syncedCursor=0;earliest=null;more=false;
   loading=false;catching=false;seenThrough=0;readThrough=0;clearTimeout(readTimer);input.value='';clearFiles();setBadge(0);older.hidden=true;
-  login.hidden=id!==null;status.textContent=id===null?'請先登入':'連線中';updateInput();}
+  login.hidden=id!==null&&id!==0;status.textContent=id===0?'訪客 · 自動回覆':id===null?'':'連線中';updateInput();}
  async function authenticate(){
   if(checking)return checking;
   checking=(async()=>{try{
-   const data=await call('/unread');if(member!==data.memberId)resetAccount(data.memberId);
-   setWelcomeToken(data.welcomeToken||String(data.memberId));setBadge(data.unreadCount);login.hidden=true;updateInput();connect();if(open)await loadInitial();
+   const data=await call('/unread');if(member!==data.memberId||(data.guest&&welcomeToken&&welcomeToken!==data.welcomeToken))resetAccount(data.memberId);
+   setWelcomeToken(data.welcomeToken||String(data.memberId));setBadge(data.unreadCount);login.hidden=!data.guest;updateInput();connect();if(open)await loadInitial();
   }catch(error){if(error.status===401){resetAccount(null);setNotice('');}
    else setNotice('系統忙碌中，請稍後再嘗試。');}
   })().finally(()=>checking=null);return checking;
  }
  function connect(){
-  if(client||member===null)return;
+  if(client||member===null||member===0)return;
   if(!window.StompJs){status.textContent='連線失敗';setNotice('即時連線未載入，請重新整理頁面。');return;}
   const token=epoch;
   client=new StompJs.Client({brokerURL:(location.protocol==='https:'?'wss://':'ws://')+location.host+wsPath,reconnectDelay:5000,
@@ -207,11 +207,11 @@
   }catch(error){if(token===epoch)handleError(error);}finally{jumping=false;}
  }
  function checkVisible(){
-  if(!open||document.hidden||member===null)return;const bounds=messages.getBoundingClientRect();
+  if(!open||document.hidden||member===null||member===0)return;const bounds=messages.getBoundingClientRect();
   rows.forEach((row,id)=>{const rect=row.getBoundingClientRect();if(row.dataset.sender!=='1'&&rect.top<bounds.bottom&&rect.bottom>bounds.top)seenThrough=Math.max(seenThrough,id);});
   if(seenThrough<=readThrough)return;clearTimeout(readTimer);readTimer=setTimeout(markRead,200);
  }
- async function markRead(){if(!open||document.hidden||member===null)return;const through=seenThrough,token=epoch;
+ async function markRead(){if(!open||document.hidden||member===null||member===0)return;const through=seenThrough,token=epoch;
   try{const body=new URLSearchParams({throughId:String(through)});const data=await call('/read',{method:'POST',body});if(token!==epoch)return;readThrough=Math.max(readThrough,through);setBadge(data.unreadCount);
   }catch(error){if(token===epoch&&error.status===401)resetAccount(null);}}
  messages.addEventListener('scroll',checkVisible,{passive:true});
@@ -323,7 +323,7 @@
   const wantsQuiz=isQuizRequest(input.value.trim()),searchAction=wantsQuiz?null:chatSearchAction(input.value.trim());if(searchAction?.error){setNotice(searchAction.error);return;}
   const productSku=document.getElementById('pv-sku');
   const body=new FormData();body.append('content',input.value.trim());if(!wantsQuiz&&document.getElementById('pv-name')&&productSku?.value)body.append('productSkuId',productSku.value);if(replyTarget)body.append('replyMessageId',replyTarget.messageId);selected.forEach(item=>body.append('images',item.file));busy=true;updateInput();renderFiles();const token=epoch;
-  try{const message=await call('/messages',{method:'POST',body});if(token!==epoch)return;const quizAction=message.action==='FRUIT_QUIZ';if(!quizAction)append(message);input.value='';setReply(null);clearFiles();setNotice('');if(quizAction||wantsQuiz)root.dispatchEvent(new CustomEvent('ff-chat:quiz'));else if(searchAction)followChatSearch(searchAction);}
+  try{const message=await call('/messages',{method:'POST',body});if(token!==epoch)return;const quizAction=message.action==='FRUIT_QUIZ';if(!quizAction){if(message.guestMessages)message.guestMessages.forEach(append);else append(message);}input.value='';setReply(null);clearFiles();setNotice('');if(quizAction||wantsQuiz)root.dispatchEvent(new CustomEvent('ff-chat:quiz'));else if(searchAction)followChatSearch(searchAction);}
   catch(error){if(token===epoch)handleError(error);}finally{busy=false;updateInput();renderFiles();if(open&&member!==null&&!root.querySelector('.ff-quiz-dialog')?.open)input.focus({preventScroll:true});}
  });
  document.addEventListener('keydown',event=>{if(imageDialog.open||root.querySelector('.ff-quiz-dialog')?.open)return;if(event.key==='Escape'&&!replyMenu.hidden){event.preventDefault();event.stopPropagation();closeReplyMenu();return;}if(event.key==='Escape'&&open&&root.contains(document.activeElement)){event.preventDefault();event.stopPropagation();setOpen(false);}});
