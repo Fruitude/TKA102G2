@@ -135,6 +135,11 @@
                 <nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
 
                 <div class="container-fluid">
+					<!-- FAQ 管理入口：管理自動回覆用的 FAQ，和送訊息一樣要 CHAT_REPLY（canReply 由 AdminChatController 的 chat 放入） -->
+					<div class="d-flex justify-content-end mb-3" th:if="${canReply}">
+						<a th:href="@{/admin/chat/faq}" class="btn btn-sm btn-outline-primary">
+							<i class="fas fa-question-circle mr-1"></i>FAQ 管理</a>
+					</div>
 					<!-- 錯誤訊息：API 回傳的錯誤由下方 script 顯示在這裡 -->
 					<div class="alert alert-danger d-none" role="alert" id="chat-error"></div>
 
