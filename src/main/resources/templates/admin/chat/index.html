@@ -39,6 +39,16 @@
 		.send-preview button { position: absolute; top: -.5rem; right: -.5rem; width: 1.25rem; height: 1.25rem; padding: 0; line-height: 1; border-radius: 50%; }
 		.send-suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .5rem; }
 		.send-suggestions .suggestions-label { font-size: .8rem; color: #858796; }
+		/* 商品建議：輸入框打「#關鍵字」時浮在輸入區上方（static/js/chat/chat-product-suggest.js），不推動對話內容 */
+		.chat-send-footer { position: relative; }
+		.product-suggest { position: absolute; left: 1.25rem; right: 1.25rem; bottom: 100%; z-index: 5; max-height: 280px; overflow-y: auto;
+			background: #fff; border: 1px solid #d1d3e2; border-radius: .35rem; box-shadow: 0 -.25rem .75rem rgba(0, 0, 0, .1); }
+		.product-suggest-item { display: block; width: 100%; padding: .4rem .75rem; border: 0; background: none; text-align: left; color: #3a3b45; }
+		.product-suggest-item:hover, .product-suggest-item.active { background: #eaecf4; }
+		.product-suggest-item .product-suggest-skus { display: block; font-size: .78rem; color: #858796; }
+		/* 所有規格都售完的商品名稱顯示灰色，仍可點選帶入 */
+		.product-suggest-item.sold-out .product-suggest-name { color: #b7b9cc; }
+		.product-suggest-empty { padding: .5rem .75rem; font-size: .85rem; color: #858796; }
 		/* 看大圖的懸浮視窗：圖片最大是視窗的 90%，保持原比例 */
 		#image-viewer .modal-dialog { max-width: 90vw; }
 		#image-viewer .modal-content { background: transparent; border: 0; }
@@ -170,7 +180,9 @@
 								</div>
 								<div class="card-body chat-messages" id="message-list"></div>
 								<!-- 沒有 CHAT_REPLY 權限時不顯示輸入框（canReply 由 AdminChatController 的 chat 放入） -->
-								<div class="card-footer" th:if="${canReply}">
+								<div class="card-footer chat-send-footer" th:if="${canReply}">
+									<!-- 商品建議：打「#關鍵字」時列出上架中的商品與規格，點了把 #關鍵字 換成商品名稱（chat-product-suggest.js） -->
+									<div class="product-suggest" id="product-suggest" role="listbox" aria-label="商品建議" hidden></div>
 									<!-- 建議回覆：依會員最新一則訊息比對罐頭訊息的關鍵字（AdminChatController 的 suggestions），點了帶入輸入框，可修改後再送出；沒有建議時不顯示 -->
 									<div class="send-suggestions d-none" id="send-suggestions"></div>
 									<!-- 選好、還沒送出的圖片縮圖，可以按 × 移除 -->
@@ -180,8 +192,10 @@
 										<input type="file" id="send-images" accept="image/png,image/jpeg,image/gif" multiple hidden>
 										<button type="button" class="btn btn-outline-secondary mr-2" id="pick-images-button"
 											title="選擇圖片" aria-label="選擇圖片" disabled><i class="fas fa-image"></i></button>
+										<!-- th:data-products-api：商品建議的 API（AdminChatController 的 products） -->
 										<textarea class="form-control mr-2" id="send-content" rows="2" maxlength="1000"
-											placeholder="輸入訊息，Enter 送出、Shift+Enter 換行" disabled></textarea>
+											placeholder="輸入訊息，Enter 送出、Shift+Enter 換行，# 搜尋商品" disabled
+											th:data-products-api="@{/api/admin/chat/products}"></textarea>
 										<button type="submit" class="btn btn-primary" id="send-button" disabled>送出</button>
 									</form>
 								</div>
@@ -1086,6 +1100,8 @@
 		loadConversations();
 	})();
 	</script>
+	<!-- 輸入框打「#關鍵字」時的商品建議；沒有 CHAT_REPLY 權限（沒有輸入框）時不會啟動 -->
+	<script th:src="@{/js/chat/chat-product-suggest.js}"></script>
 
 </body>
 </html>
