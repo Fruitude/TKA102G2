@@ -8,7 +8,7 @@
 		th:data-sku-url="@{/api/admin/dashboard/top-selling-skus}"
 		th:data-vendor-url="@{/api/admin/dashboard/top-vendor-sales}">
 
-		<!-- 期間選單：切換後圖表與下方 Top 10 表格一起更新 -->
+		<!-- 期間選單：切換後三張圖表一起更新 -->
 		<div class="d-flex align-items-center justify-content-end mb-3">
 			<label for="dashboard-period" class="mb-0 mr-2 text-gray-700 small font-weight-bold">統計期間</label>
 			<select id="dashboard-period" class="form-control form-control-sm" style="width: auto;">
@@ -19,14 +19,14 @@
 			</select>
 		</div>
 
-		<!-- 第一列：每月銷售趨勢 + 供應商圓餅圖，高度 20rem -->
+		<!-- 三張圖同一列（5/5/2），卡片內容高度皆 20rem；小於 xl 時各自滿寬往下堆疊 -->
 		<div class="row">
 
-			<!-- 每月銷售趨勢（金額＋數量，雙 Y 軸） -->
-			<div class="col-xl-8 col-lg-7">
+			<!-- 累計銷售趨勢（金額＋數量逐月累加，雙 Y 軸） -->
+			<div class="col-xl-5 col-lg-12">
 				<div class="card shadow mb-4">
 					<div class="card-header py-3">
-						<h6 class="m-0 font-weight-bold text-primary">每月銷售趨勢</h6>
+						<h6 class="m-0 font-weight-bold text-primary">累計銷售趨勢</h6>
 					</div>
 					<div class="card-body">
 						<div class="chart-area" style="height: 20rem;">
@@ -37,38 +37,39 @@
 				</div>
 			</div>
 
-			<!-- 供應商銷售金額 Top 3（含其他）；.chart-pie 在 sb-admin-2 有 !important，覆蓋高度也要加 -->
-			<div class="col-xl-4 col-lg-5">
+			<!-- 商品（SKU）銷售數量 Top 3，柱子下方兩行：商品名稱／規格 -->
+			<div class="col-xl-5 col-lg-12">
 				<div class="card shadow mb-4">
 					<div class="card-header py-3">
-						<h6 class="m-0 font-weight-bold text-primary">供應商銷售金額 Top 3</h6>
+						<h6 class="m-0 font-weight-bold text-primary">商品銷售數量 Top 3</h6>
 					</div>
 					<div class="card-body">
-						<div class="chart-pie pt-4" style="height: 20rem !important;">
-							<canvas id="dashboard-vendor-chart"></canvas>
-						</div>
-						<p class="dashboard-chart-message small text-center mt-2 mb-0" data-chart="vendor" hidden></p>
-					</div>
-				</div>
-			</div>
-
-		</div>
-
-		<!-- 第二列：商品（SKU）銷售數量 Top 10，獨佔一行，高度 15rem -->
-		<div class="row">
-			<div class="col-12">
-				<div class="card shadow mb-4">
-					<div class="card-header py-3">
-						<h6 class="m-0 font-weight-bold text-primary">商品銷售數量 Top 10</h6>
-					</div>
-					<div class="card-body">
-						<div class="chart-bar" style="height: 15rem;">
+						<div class="chart-bar" style="height: 20rem;">
 							<canvas id="dashboard-sku-chart"></canvas>
 						</div>
 						<p class="dashboard-chart-message small text-center mt-2 mb-0" data-chart="sku" hidden></p>
 					</div>
 				</div>
 			</div>
+
+			<!-- 供應商銷售金額 Top 3（含其他）；外層維持 20rem 讓三張卡片等高，圓餅縮為約 2/3 並垂直置中 -->
+			<!-- .chart-pie 在 sb-admin-2 有 !important，覆蓋高度也要加 -->
+			<div class="col-xl-2 col-lg-12">
+				<div class="card shadow mb-4">
+					<div class="card-header py-3">
+						<h6 class="m-0 font-weight-bold text-primary">供應商 Top 3</h6>
+					</div>
+					<div class="card-body">
+						<div class="d-flex align-items-center" style="height: 20rem;">
+							<div class="chart-pie w-100" style="height: 13.5rem !important;">
+								<canvas id="dashboard-vendor-chart"></canvas>
+							</div>
+						</div>
+						<p class="dashboard-chart-message small text-center mt-2 mb-0" data-chart="vendor" hidden></p>
+					</div>
+				</div>
+			</div>
+
 		</div>
 	</div>
 

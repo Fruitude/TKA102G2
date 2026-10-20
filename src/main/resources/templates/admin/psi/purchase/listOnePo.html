@@ -99,8 +99,9 @@
 									<thead>
 										<tr>
 											<th>明細編號</th>
-											<th>商品規格編號</th>
-											<th>商品規格</th>
+											<th>規格編號</th>
+											<th>商品名稱</th>
+											<th>規格</th>
 											<th>採購數量</th>
 											<th>進貨單價</th>
 											<th>小計</th>
@@ -108,11 +109,13 @@
 									</thead>
 									<tbody>
 										<tr th:if="${#lists.isEmpty(poVO.poDetails)}">
-											<td colspan="6" class="text-center">此採購單尚無明細</td>
+											<td colspan="7" class="text-center">此採購單尚無明細</td>
 										</tr>
 										<tr th:each="poDetailVO : ${poVO.poDetails}">
 											<td th:text="${poDetailVO.poDetailId}"></td>
 											<td th:text="${poDetailVO.skuId.skuId}"></td>
+											<!-- 商品名稱：查不到商品時留空 -->
+											<td th:text="${poDetailVO.skuId.product?.productName}"></td>
 											<td th:text="${poDetailVO.skuId.displayName}"></td>
 											<td th:text="${poDetailVO.quantity}"></td>
 											<td th:text="${poDetailVO.unitPrice}"></td>

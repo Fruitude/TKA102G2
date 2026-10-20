@@ -17,4 +17,14 @@ public interface FaqRepository extends JpaRepository<Faq,Integer> {
         ORDER BY f.sort_order,f.faq_id
         """,nativeQuery=true)
     List<Faq> findAvailableForReply();
+
+    @Query("select f from Faq f order by f.faqCategory.faqCategoryId,f.sortOrder,f.faqId")
+    List<Faq> findForAdministration();
+    @Query("select f from Faq f where f.faqCategory.faqCategoryId=:id order by f.sortOrder,f.faqId")
+    List<Faq> findByCategoryForAdministration(@org.springframework.data.repository.query.Param("id") Integer id);
+    boolean existsByFaqCategory_FaqCategoryId(Integer id);
+    boolean existsByFaqCategory_FaqCategoryIdAndQuestion(Integer id,String question);
+    boolean existsByFaqCategory_FaqCategoryIdAndQuestionAndFaqIdNot(Integer id,String question,Integer excludedId);
+    @Query("select coalesce(max(f.sortOrder),0) from Faq f where f.faqCategory.faqCategoryId=:id")
+    int findMaxSortOrder(@org.springframework.data.repository.query.Param("id") Integer id);
 }

@@ -90,7 +90,7 @@ public class VendorNoController {
 			errorMessage = "聯絡人姓名，請勿空白";
 		} else if (!contactPerson.trim().matches("^[\\u4e00-\\u9fa5a-zA-Z]+( [\\u4e00-\\u9fa5a-zA-Z]+)*$")) {
 			// 只接受中、英文字母，字元間可以有一個空白
-			errorMessage = "聯絡人姓名: 只能是中、英文字母，字元間可以有一個空白";
+			errorMessage = "聯絡人姓名: 只能是中、英文字母";
 		} else {
 			vendors = vendorSvc.getVendorsByContactPerson(contactPerson.trim());
 			if (vendors.isEmpty()) {

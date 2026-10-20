@@ -119,6 +119,8 @@ public class AdminAccessInterceptor implements HandlerInterceptor {
 				&& "GET".equalsIgnoreCase(method)) return true;
 		if (path.equals("/api/admin/employees/password/reset")
 				&& "POST".equalsIgnoreCase(method)) return true;
+		if (path.equals("/api/admin/employees/password/forgot")
+				&& "POST".equalsIgnoreCase(method)) return true;
 		return path.equals("/api/admin/session/login")
 				|| path.equals("/api/admin/session/applications") && "POST".equalsIgnoreCase(method);
 	}
@@ -189,9 +191,6 @@ public class AdminAccessInterceptor implements HandlerInterceptor {
 		}
 		if (path.startsWith("/admin/psi")) {
 			return permissions("PRODUCT_VIEW", "PURCHASE_VIEW", "PURCHASE_RECEIVE", "SUPPLIER_MANAGE", "ORDER_EDIT");
-		}
-		if (path.startsWith("/admin/account/refundreview")) {
-			return write ? permissions("REFUND_PROCESS") : permissions("REFUND_VIEW");
 		}
 		if (path.startsWith("/admin/account/purchasereview")) {
 			return write ? permissions("PURCHASE_EDIT") : permissions("PURCHASE_VIEW");

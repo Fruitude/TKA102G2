@@ -120,6 +120,7 @@
         state.members.forEach((member) => {
             const row = document.createElement('tr');
 
+            const memberIdCell = createElement('td', 'member-id', String(member.memberId));
             const personCell = document.createElement('td');
             const person = createElement('div', 'member-person');
             person.appendChild(createElement('span', 'member-avatar', memberInitial(member.memberName)));
@@ -150,7 +151,7 @@
                 active ? '停權會員' : '恢復會員', 'status', member.memberId, active));
             actionCell.appendChild(actions);
 
-            [personCell, emailCell, birthdayCell, createdCell, creditCell, statusCell, actionCell]
+            [memberIdCell, personCell, emailCell, birthdayCell, createdCell, creditCell, statusCell, actionCell]
                 .forEach((cell) => row.appendChild(cell));
             body.appendChild(row);
         });

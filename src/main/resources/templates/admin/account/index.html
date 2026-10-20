@@ -2,7 +2,7 @@
 <html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
-<title>Account Index</title>
+<title>會計作業系統</title>
 
 	<!-- 引入css資源 -->
 	 <th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
@@ -41,16 +41,11 @@
                     <div class="card shadow mb-4 psi-scroll-viewport">
                         <div class="psi-scroll-content">
                         <div class="card-header bg-white p-0 psi-tabs-header">
-                            <div class="nav nav-tabs psi-tabs management-tabs" role="tablist" aria-label="採購單審核與訂單退款審核">
+                            <div class="nav nav-tabs psi-tabs management-tabs" role="tablist" aria-label="採購單審核">
                                 <button class="nav-link active" type="button" role="tab" 
                                 id="tab-purchasereview" aria-selected="true" aria-controls="psi-panel" 
                                 data-psi-tab data-key="purchasereview" th:attr="data-url=@{/admin/account/purchasereview}">
                                     <i class="fas fa-clipboard-check" aria-hidden="true"></i>採購單審核
-                                </button>
-                                <button class="nav-link" type="button" role="tab" id="tab-refundreview"
-                                aria-selected="false" aria-controls="psi-panel" tabindex="-1" 
-                                data-psi-tab data-key="refundreview" th:attr="data-url=@{/admin/account/refundreview}">
-                                    <i class="fas fa-hand-holding-usd" aria-hidden="true"></i>訂單退款審核
                                 </button>
                             </div>
                         </div>
@@ -183,8 +178,6 @@
             selectTab(initialTab.length ? initialTab : tabs.first());
         });
     </script>
-
-</body>
 
 </body>
 </html>

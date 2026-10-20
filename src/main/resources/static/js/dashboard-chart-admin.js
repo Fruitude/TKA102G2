@@ -40,6 +40,11 @@
         return '$' + numberFormat.format(value);
     }
 
+    // Y 軸刻度用：一萬以上顯示成「$12萬」，提示框仍用 formatMoney 顯示完整金額
+    function formatMoneyShort(value) {
+        return value >= 10000 ? '$' + numberFormat.format(Math.round(value / 1000) / 10) + '萬' : formatMoney(value);
+    }
+
     function shorten(text, maxLength) {
         return text.length > maxLength ? text.slice(0, maxLength) + '…' : text;
     }
@@ -77,6 +82,15 @@
         charts[name] = new Chart(document.getElementById(canvasId), config);
     }
 
+    // 由期間第一個月開始逐月累加，回傳每個月的累計值
+    function runningTotal(items, field) {
+        let sum = 0;
+        return items.map(function (item) {
+            sum += item[field] || 0;
+            return sum;
+        });
+    }
+
     function renderMonthly(items) {
         const hasSales = items.some(function (item) { return item.totalQuantity > 0; });
         showMessage('monthly', hasSales ? '' : '此期間尚無銷售資料');
@@ -85,7 +99,7 @@
             data: {
                 labels: items.map(function (item) { return item.month; }),
                 datasets: [{
-                    label: '銷售金額',
+                    label: '累計銷售金額',
                     yAxisID: 'amount',
                     lineTension: 0.3,
                     backgroundColor: 'rgba(78, 115, 223, 0.05)',
@@ -94,9 +108,9 @@
                     pointBackgroundColor: 'rgba(78, 115, 223, 1)',
                     pointBorderColor: 'rgba(78, 115, 223, 1)',
                     pointHoverRadius: 4,
-                    data: items.map(function (item) { return item.totalAmount; })
+                    data: runningTotal(items, 'totalAmount')
                 }, {
-                    label: '銷售數量',
+                    label: '累計銷售數量',
                     yAxisID: 'quantity',
                     lineTension: 0.3,
                     fill: false,
@@ -105,27 +119,40 @@
                     pointBackgroundColor: 'rgba(28, 200, 138, 1)',
                     pointBorderColor: 'rgba(28, 200, 138, 1)',
                     pointHoverRadius: 4,
-                    data: items.map(function (item) { return item.totalQuantity; })
+                    data: runningTotal(items, 'totalQuantity')
                 }]
             },
             options: {
                 maintainAspectRatio: false,
-                layout: { padding: { left: 10, right: 10, top: 25, bottom: 0 } },
+                // 卡片只有 col-xl-5 寬，左右留白和 Y 軸間距縮小，金額刻度改用「萬」縮短，讓折線區更寬
+                layout: { padding: { left: 0, right: 0, top: 25, bottom: 0 } },
                 scales: {
                     xAxes: [{ gridLines: { display: false, drawBorder: false } }],
                     yAxes: [{
                         id: 'amount',
                         position: 'left',
-                        ticks: { beginAtZero: true, maxTicksLimit: 5, padding: 10, callback: formatMoney },
+                        ticks: { beginAtZero: true, maxTicksLimit: 5, padding: 4, callback: formatMoneyShort },
                         gridLines: gridStyle
                     }, {
                         id: 'quantity',
                         position: 'right',
-                        ticks: { beginAtZero: true, maxTicksLimit: 5, padding: 10, precision: 0 },
+                        ticks: { beginAtZero: true, maxTicksLimit: 5, padding: 4, precision: 0 },
                         gridLines: { drawOnChartArea: false, drawBorder: false }
                     }]
                 },
-                legend: { display: true, position: 'bottom' },
+                // 圖例改成 12px 正方形；色塊預設用 backgroundColor（藍線近乎透明），改用線的顏色填滿
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        generateLabels: function (chart) {
+                            const labels = Chart.defaults.global.legend.labels.generateLabels(chart);
+                            labels.forEach(function (label) { label.fillStyle = label.strokeStyle; });
+                            return labels;
+                        }
+                    }
+                },
                 tooltips: Object.assign({}, tooltipStyle, {
                     intersect: false,
                     mode: 'index',
@@ -144,10 +171,11 @@
 
     function renderSku(items) {
         showMessage('sku', items.length ? '' : '此期間尚無銷售資料');
-        // X 軸只顯示商品名稱；提示框標題保留「商品 / SKU」，同商品的不同規格才分得出來
+        // X 軸標籤用陣列，Chart.js 2.x 會分兩行顯示：第一行商品名稱、第二行規格（無規格留空）
         const productLabels = items.map(function (item) {
-            return item.productName || '--';
+            return [item.productName || '--', item.skuName || ''];
         });
+        // 提示框標題保留完整「商品 / SKU」，不受 X 軸截斷影響
         const fullLabels = items.map(function (item) {
             return (item.productName || '--') + (item.skuName ? ' / ' + item.skuName : '');
         });
@@ -169,12 +197,16 @@
                 scales: {
                     xAxes: [{
                         gridLines: { display: false, drawBorder: false },
-                        maxBarThickness: 60,
+                        maxBarThickness: 80,
+                        barPercentage: 0.7,
                         ticks: {
                             autoSkip: false,
                             minRotation: 0,
                             maxRotation: 0,
-                            callback: function (label) { return shorten(label, 12); }
+                            fontSize: 10,
+                            callback: function (label) {
+                                return label.map(function (line) { return shorten(line, 10); });
+                            }
                         }
                     }],
                     yAxes: [{
@@ -214,7 +246,8 @@
             },
             options: {
                 maintainAspectRatio: false,
-                legend: { display: true, position: 'bottom' },
+                // 圖例色塊預設 40px 寬會擠壓供應商名稱，寬度設成跟字級 12px 一樣變成正方形
+                legend: { display: true, position: 'bottom', labels: { boxWidth: 12 } },
                 tooltips: Object.assign({}, tooltipStyle, {
                     callbacks: {
                         label: function (tooltipItem, data) {
@@ -247,10 +280,9 @@
         const requestId = ++latestRequestId;
         const months = Number(periodSelect.value) || 3;
 
-        // Top 10 表格（dashboard-admin.js）自己監聽同一個期間選單
         return Promise.all([
             loadPart(requestId, 'monthly', function () { return fetchJson(root.dataset.monthlyUrl, { months: months }); }, renderMonthly),
-            loadPart(requestId, 'sku', function () { return fetchJson(root.dataset.skuUrl, { months: months, limit: 10 }); }, renderSku),
+            loadPart(requestId, 'sku', function () { return fetchJson(root.dataset.skuUrl, { months: months, limit: 3 }); }, renderSku),
             loadPart(requestId, 'vendor', function () { return fetchJson(root.dataset.vendorUrl, { months: months, limit: 3 }); }, renderVendor)
         ]);
     }

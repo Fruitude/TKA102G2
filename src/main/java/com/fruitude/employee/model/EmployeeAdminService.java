@@ -13,6 +13,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -84,6 +85,18 @@ public class EmployeeAdminService {
 	public Employee findEmployee(Integer employeeId) {
 		return employeeRepository.findById(employeeId)
 				.orElseThrow(() -> new NoSuchElementException("找不到這位員工"));
+	}
+
+	/** 忘記密碼可用員工帳號或登記 Email 找到正常且已核准的員工。 */
+	public Optional<Employee> findActiveApprovedEmployee(String identifier) {
+		if (identifier == null || identifier.trim().isEmpty()) return Optional.empty();
+		String value = identifier.trim();
+		Optional<Employee> result = employeeRepository.findByEmployeeAccountIgnoreCase(value);
+		if (result.isEmpty()) result = employeeRepository.findByEmployeeEmailIgnoreCase(value);
+		return result.filter(employee -> employee.getEmployeeStatus() != null
+				&& employee.getEmployeeStatus() == STATUS_ACTIVE
+				&& employee.getEmployeeReviewStatus() != null
+				&& employee.getEmployeeReviewStatus() == REVIEW_APPROVED);
 	}
 
 	/** 使用員工帳號與密碼登入，停用中的帳號不可進入後台。 */

@@ -37,7 +37,7 @@ public class VendorVO implements java.io.Serializable{
 	@NotBlank(message = "聯絡人姓名，請勿空白")
 	@Size(max = 10, message = "聯絡人姓名字數過多")
 	@Pattern(regexp = "^[\\u4e00-\\u9fa5a-zA-Z]+( [\\u4e00-\\u9fa5a-zA-Z]+)*$",
-	message = "聯絡人姓名，只能是中、英文字母，字元間可以有一個空白")
+	message = "聯絡人姓名，只能是中、英文字母")
 	@Column(name = "contact_person", nullable = false, length = 10)
 	private String contactPerson;
 

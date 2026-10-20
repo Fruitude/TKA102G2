@@ -103,6 +103,19 @@ public class AdminChatController {
 		return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of());
 	}
 
+	// 客服訊息對會員隱藏（hidden=true，status 改 0）或取消隱藏（hidden=false，status 改回 1）；後台仍看得到
+	// 和送訊息一樣要 CHAT_REPLY；不是這位會員的客服訊息由 ChatService 丟錯，badRequest 回 400
+	@PostMapping("/api/admin/chat/{memberId}/messages/{messageId}/visibility")
+	@ResponseBody
+	public ResponseEntity<?> visibility(@PathVariable Integer memberId, @PathVariable Integer messageId,
+			@RequestParam("hidden") boolean hidden, HttpServletRequest request) {
+		if (!hasPermission(request, "CHAT_REPLY")) {
+			return forbidden();
+		}
+		chatSvc.setStaffMessageHidden(memberId, messageId, hidden);
+		return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of());
+	}
+
 	// 建議回覆：拿這位會員最新一則訊息比對罐頭訊息的關鍵字，最多 3 筆；只有能回覆的員工用得到
 	@GetMapping("/api/admin/chat/{memberId}/suggestions")
 	@ResponseBody

@@ -108,6 +108,12 @@
         .chat-preview-footer{flex:0 0 auto;padding:8px 10px;border-top:1px solid #e3e6f0;text-align:right}
         .chat-row.system.inquiry-source{justify-content:flex-start}.chat-row.system.inquiry-source>div{align-items:flex-start}.chat-row.system.inquiry-source .chat-bubble{background:#fffdf5;color:#43523a;border-color:#dce4ce}
         .chat-inquiry-card{display:flex;align-items:center;gap:10px}.chat-inquiry-card img{flex:0 0 64px;width:64px;height:64px;object-fit:cover;border-radius:6px;background:white}.chat-inquiry-card span{min-width:0}
+        /* 對會員隱藏的客服訊息（status 0）：後台照常顯示，整則變淺；滑鼠移上去稍微加深，方便閱讀 */
+        .chat-row.is-hidden>div{opacity:.45;transition:opacity .15s}.chat-row.is-hidden:hover>div,.chat-row.is-hidden:focus-within>div{opacity:.7}
+        .chat-reply-menu button[hidden]{display:none}
+        /* 右鍵選單有「回覆」和「隱藏／取消隱藏」兩個選項時上下排列，文字靠左；收起時仍由 [hidden] 規則隱藏 */
+        .chat-reply-menu:not([hidden]){display:flex;flex-direction:column}
+        .chat-reply-menu button{text-align:left;white-space:nowrap}
         .chat-quoted[role=button]{cursor:pointer}.chat-quoted[role=button]:hover{background:#e1e8fa}.chat-quoted[role=button]:focus-visible{outline:2px solid #9bade8;outline-offset:2px}.chat-row.chat-reply-located>div{outline:2px solid #d9a343;outline-offset:4px;border-radius:6px;background:#fff2c24d}
 	</style>
 </head>
@@ -116,8 +122,8 @@
     <!-- Page Wrapper -->
     <div id="wrapper">
 
-        <!-- 引入側邊欄 -->
-        <ul th:replace="~{admin/index :: adminIndex-sidebar}"></ul>
+        <!-- 引入側邊欄，activeMenu='chat' 讓左邊選單的「客服聊天室」反白 -->
+        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='chat')}"></ul>
 
         <!-- Content Wrapper -->
         <div id="content-wrapper" class="d-flex flex-column">
@@ -129,6 +135,11 @@
                 <nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
 
                 <div class="container-fluid">
+					<!-- FAQ 管理入口：管理自動回覆用的 FAQ，和送訊息一樣要 CHAT_REPLY（canReply 由 AdminChatController 的 chat 放入） -->
+					<div class="d-flex justify-content-end mb-3" th:if="${canReply}">
+						<a th:href="@{/admin/chat/faq}" class="btn btn-sm btn-outline-primary">
+							<i class="fas fa-question-circle mr-1"></i>FAQ 管理</a>
+					</div>
 					<!-- 錯誤訊息：API 回傳的錯誤由下方 script 顯示在這裡 -->
 					<div class="alert alert-danger d-none" role="alert" id="chat-error"></div>
 
@@ -248,6 +259,8 @@
         replyDraft.className='chat-reply-draft';replyDraft.hidden=true;if(sendForm)sendForm.before(replyDraft);
         replyMenu.className='chat-reply-menu';replyMenu.hidden=true;replyMenu.setAttribute('role','menu');
         replyAction.type='button';replyAction.textContent='回覆';replyAction.setAttribute('role','menuitem');replyMenu.append(replyAction);document.body.append(replyMenu);
+        // 右鍵選單第二個選項：客服訊息才出現，依目前狀態顯示「隱藏」或「取消隱藏」（只對會員隱藏，後台仍看得到）
+        const hideAction=document.createElement('button');hideAction.type='button';hideAction.setAttribute('role','menuitem');hideAction.hidden=true;replyMenu.append(hideAction);
         function senderLabel(m){return m.senderType===2?(m.employeeName||(m.employeeId?'員工 #'+m.employeeId:'客服')):m.senderType===1?'會員':'系統';}
         function replyText(m){const text=m.messageContent?.trim()||'[圖片訊息]';return Array.from(text).slice(0,100).join('')+(Array.from(text).length>100?'…':'');}
         function closeReplyMenu(){replyMenu.hidden=true;menuTarget=null;}
@@ -260,18 +273,40 @@
         function showReplyMenu(event){
             const row=event.target.closest('.chat-row[data-message-id]');if(!row||!sendForm||sendButton.disabled)return;
             event.preventDefault();const target=messageData.get(Number(row.dataset.messageId));if(!target||target.memberId!==currentMemberId)return;
-            menuTarget=target;replyMenu.style.left='0px';replyMenu.style.top='0px';replyMenu.hidden=false;const rect=row.getBoundingClientRect(),x=event.clientX||rect.left+15,y=event.clientY||rect.top+15;
-            replyMenu.style.left=Math.max(8,Math.min(x,innerWidth-replyMenu.offsetWidth-8))+'px';replyMenu.style.top=Math.max(8,Math.min(y,innerHeight-replyMenu.offsetHeight-8))+'px';replyAction.focus({preventScroll:true});
+            menuTarget=target;hideAction.hidden=target.senderType!==2;hideAction.textContent=target.status===0?'取消隱藏':'隱藏';
+            // 先移到左上角再量寬度，避免停在上次靠右的位置時被擠窄、量到的寬度偏小
+            replyMenu.style.left='0px';replyMenu.style.top='0px';
+            replyMenu.hidden=false;const rect=row.getBoundingClientRect(),y=event.clientY||rect.top+15,width=replyMenu.offsetWidth;
+            // 客服訊息在右側：選單右緣對齊游標往左展開；會員訊息在左側：從游標往右展開
+            const x=event.clientX||(target.senderType===2?rect.right-15:rect.left+15),left=target.senderType===2?x-width:x;
+            replyMenu.style.left=Math.max(8,Math.min(left,innerWidth-width-8))+'px';replyMenu.style.top=Math.max(8,Math.min(y,innerHeight-replyMenu.offsetHeight-8))+'px';replyAction.focus({preventScroll:true});
         }
         messageList.addEventListener('contextmenu',showReplyMenu);
         messageList.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10'))showReplyMenu(event);});
         replyAction.addEventListener('click',()=>{if(menuTarget&&menuTarget.memberId===currentMemberId){setReply(menuTarget);sendContent.focus({preventScroll:true});}closeReplyMenu();});
+        hideAction.addEventListener('click',async()=>{
+            const target=menuTarget;closeReplyMenu();if(!target||target.memberId!==currentMemberId||target.senderType!==2)return;
+            const hidden=target.status!==0;
+            try{
+                const body=new URLSearchParams({hidden:String(hidden)});
+                await callApi('api/admin/chat/'+target.memberId+'/messages/'+Number(target.messageId)+'/visibility',{method:'POST',body});
+                setMessageStatus(target.messageId,hidden?0:1);
+                // 正在回覆的訊息被隱藏後無法回覆（後端只接受顯示中的原訊息），先取消回覆草稿
+                if(hidden&&replyTarget&&replyTarget.messageId===target.messageId)setReply(null);
+            }catch(error){showError(error.message);}
+        });
+        // 更新一則訊息的顯示狀態（自己操作、或收到其他客服的 HIDDEN / SHOWN 推播）
+        function setMessageStatus(messageId,status){
+            const message=messageData.get(Number(messageId));if(!message)return;message.status=status;
+            const row=messageList.querySelector('[data-message-id="'+Number(messageId)+'"]');if(row)updateMessageMeta(row,message);
+        }
         document.addEventListener('pointerdown',event=>{if(!replyMenu.contains(event.target))closeReplyMenu();});
         document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!replyMenu.hidden){event.preventDefault();closeReplyMenu();}});
         window.addEventListener('resize',closeReplyMenu);messageList.addEventListener('scroll',closeReplyMenu,{passive:true});
         function updateMessageMeta(row,message){
             if(message.senderType===2&&message.isRead===1)row.dataset.read='1';
-            row.querySelector('.chat-meta').textContent=senderLabel(message)+'・'+formatTime(message.createdAt)+(message.senderType===2&&row.dataset.read==='1'?' · 客戶已讀':'');
+            const hidden=message.status===0;row.classList.toggle('is-hidden',hidden);
+            row.querySelector('.chat-meta').textContent=senderLabel(message)+'・'+formatTime(message.createdAt)+(message.senderType===2&&row.dataset.read==='1'?' · 客戶已讀':'')+(hidden?' · 已對客戶隱藏':'');
         }
 
 
@@ -993,6 +1028,11 @@
                 if((event.type==='MESSAGE'||event.type==='READ')&&event.memberId===previewMemberId)loadPreview();
                 // 其他客服把對話標回未讀：通知 topbar 信封更新數字，預覽開著的話也重新載入（清單在下面統一重新載入）
                 if(event.type==='UNREAD'){document.dispatchEvent(new CustomEvent('fruitude:admin-chat-update'));if(event.memberId===previewMemberId)loadPreview();}
+                // 其他客服隱藏／取消隱藏訊息：readThroughId 放的是訊息編號
+                if((event.type==='HIDDEN'||event.type==='SHOWN')&&event.memberId===currentMemberId){
+                    setMessageStatus(event.readThroughId,event.type==='HIDDEN'?0:1);
+                    if(event.type==='HIDDEN'&&replyTarget&&replyTarget.messageId===event.readThroughId)setReply(null);
+                }
                 if(event.type==='MEMBER_READ'&&event.memberId===currentMemberId){
                     for(const [id,message] of messageData)if(message.senderType===2&&id<=event.readThroughId){message.isRead=1;const row=messageList.querySelector('[data-message-id="'+id+'"]');if(row)updateMessageMeta(row,message);}
                 }

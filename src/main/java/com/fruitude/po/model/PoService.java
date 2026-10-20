@@ -23,6 +23,7 @@ import com.fruitude.employee.model.EmployeeRepository;
 import com.fruitude.podetail.model.PoDetailRepository;
 import com.fruitude.podetail.model.PoDetailVO;
 import com.fruitude.product.model.ProductSku;
+import com.fruitude.utils.PsiUtils;
 import com.fruitude.vendor.model.VendorVO;
 
 import jakarta.persistence.EntityManager;
@@ -129,7 +130,7 @@ public class PoService {
 			if (!formSkuIds.contains(dbDetail.getSkuId().getSkuId())) {
 				if (hasInboundRecord(dbDetail)) {
 					throw new IllegalArgumentException(
-							"「" + dbDetail.getSkuId().getDisplayName() + "」已有到貨或入庫數量，不可刪除或更換規格");
+							"「" + PsiUtils.skuLabel(dbDetail.getSkuId()) + "」已有到貨或入庫數量，不可刪除或更換規格");
 				}
 				removedDbDetails.add(dbDetail);
 			}

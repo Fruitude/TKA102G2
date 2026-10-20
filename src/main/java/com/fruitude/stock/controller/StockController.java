@@ -36,7 +36,8 @@ public class StockController {
 	StockService stockSvc;
 
 	// 庫存管理系統首頁：列出規格的庫存數字，每頁 20 筆；page 是頁碼，從 1 開始，網址沒帶就是第 1 頁
-	// 上方的查詢表單可以同時填 skuId、productName、skuName、status 多個條件，條件之間是「而且」；沒填的條件不使用，都沒填就是列出全部規格
+	// 上方的查詢表單可以同時填 skuId、productName、skuName、status、belowSafetyStock 多個條件，條件之間是「而且」；沒填的條件不使用，都沒填就是列出全部規格
+	// belowSafetyStock：「低於安全庫存」打勾時送 true，只查預期庫存低於安全庫存的規格；其他值都當成沒打勾
 	// 輸入不正確：所有錯誤一行一個顯示在紅框，列表改列出全部規格的第 1 頁
 	// 條件正確但查無資料：紅框顯示「查無資料」，表格顯示查無符合條件的規格
 	@GetMapping("")
@@ -44,14 +45,16 @@ public class StockController {
 			@RequestParam(value = "status", required = false) String status,
 			@RequestParam(value = "skuId", required = false) String skuId,
 			@RequestParam(value = "productName", required = false) String productName,
-			@RequestParam(value = "skuName", required = false) String skuName, Model model) {
+			@RequestParam(value = "skuName", required = false) String skuName,
+			@RequestParam(value = "belowSafetyStock", required = false) String belowSafetyStock, Model model) {
 
 		String skuIdText = skuId == null ? "" : skuId.trim();
 		String statusText = status == null ? "" : status.trim();
 		String productNameText = productName == null ? "" : productName.trim();
 		String skuNameText = skuName == null ? "" : skuName.trim();
+		boolean belowSafetyStockChecked = "true".equals(belowSafetyStock);
 		boolean searching = !skuIdText.isEmpty() || !statusText.isEmpty() || !productNameText.isEmpty()
-				|| !skuNameText.isEmpty();
+				|| !skuNameText.isEmpty() || belowSafetyStockChecked;
 
 		Page<ProductSku> skuPage;
 		// 頁碼連結要接在 page 後面的查詢條件（例如 &status=1&productName=...），換頁時才會留在同一個查詢結果
@@ -78,7 +81,7 @@ public class StockController {
 			}
 			skuPage = skuIdOverflow ? Page.empty()
 					: stockSvc.searchSkus(skuIdValue, statusText.isEmpty() ? null : Byte.valueOf(statusText),
-							productNameText, skuNameText, page);
+							productNameText, skuNameText, belowSafetyStockChecked, page);
 			if (skuPage.getTotalElements() == 0) {
 				model.addAttribute("errorMessage", "查無資料");
 			}
@@ -94,6 +97,9 @@ public class StockController {
 			}
 			if (!skuNameText.isEmpty()) {
 				queryString += "&skuName=" + URLEncoder.encode(skuNameText, StandardCharsets.UTF_8);
+			}
+			if (belowSafetyStockChecked) {
+				queryString += "&belowSafetyStock=true";
 			}
 		}
 

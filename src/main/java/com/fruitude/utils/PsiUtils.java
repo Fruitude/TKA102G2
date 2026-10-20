@@ -6,10 +6,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
 
+import com.fruitude.product.model.ProductSku;
+
 import jakarta.servlet.http.HttpSession;
 
 // 進銷存（psi）共用的小工具，全部是 static 方法：
-// 查詢條件的格式檢查（positiveIdError、parseDate）、省略號頁碼（buildPageNumbers）、登入員工編號（getLoggedInEmployeeId）
+// 查詢條件的格式檢查（positiveIdError、parseDate）、省略號頁碼（buildPageNumbers）、登入員工編號（getLoggedInEmployeeId）、
+// 商品規格顯示用的名稱（skuLabel）
 public class PsiUtils {
 
 	// 分頁頁碼：頭尾各顯示幾頁、目前這頁的前後各顯示幾頁（buildPageNumbers）
@@ -84,5 +87,17 @@ public class PsiUtils {
 	public static Integer getLoggedInEmployeeId(HttpSession session) {
 		Object employeeId = session.getAttribute("loggedInEmployeeId");
 		return employeeId instanceof Number ? ((Number) employeeId).intValue() : null;
+	}
+
+	// 商品規格顯示用的名稱：「商品名稱-規格名稱」，例如「蘋果-5斤裝」；規格名稱取 ProductSku 的 displayName（有別名時用別名）
+	// 查不到商品時只回傳規格名稱；規格本身是 null 或沒有規格名稱（例如表單送了不存在的規格編號）時回傳 null
+	public static String skuLabel(ProductSku productSku) {
+		if (productSku == null || productSku.getDisplayName() == null) {
+			return null;
+		}
+		if (productSku.getProduct() == null || productSku.getProduct().getProductName() == null) {
+			return productSku.getDisplayName();
+		}
+		return productSku.getProduct().getProductName() + "-" + productSku.getDisplayName();
 	}
 }

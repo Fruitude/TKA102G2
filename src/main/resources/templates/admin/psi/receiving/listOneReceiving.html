@@ -47,7 +47,7 @@
 					</div>
 
 					<!-- 驗收完成、修改完成或被擋下的提示：由 ReceivingController 的 update redirect 回來時顯示 -->
-					<div class="alert alert-success" th:if="${success != null}" th:text="${success}"></div>
+					<div class="alert alert-success d-inline-block" th:if="${success != null}" th:text="${success}"></div>
 					<div class="alert alert-danger" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
 
 					<!-- 採購單與驗收資料：poVO 由 ReceivingController 的 listOneReceiving 放入 model，是申請通過或已結案的採購單 -->
@@ -118,14 +118,14 @@
 									<thead>
 										<tr>
 											<th>明細編號</th>
-											<th>商品規格編號</th>
-											<th>商品規格</th>
+											<th>規格編號</th>
+											<th>商品名稱-規格</th>
 											<th>採購數量</th>
-											<th>進貨單價</th>
+											<th>單價</th>
 											<th>小計</th>
 											<th>到貨數量</th>
 											<th>不良品數量</th>
-											<th>入庫數量</th>
+											<th>入庫</th>
 											<th>入庫小計</th>
 										</tr>
 									</thead>
@@ -136,7 +136,8 @@
 										<tr th:each="poDetailVO : ${poVO.poDetails}">
 											<td th:text="${poDetailVO.poDetailId}"></td>
 											<td th:text="${poDetailVO.skuId.skuId}"></td>
-											<td th:text="${poDetailVO.skuId.displayName}"></td>
+											<!-- 商品名稱-規格名稱；查不到商品時只顯示規格名稱 -->
+											<td th:text="${poDetailVO.skuId.product?.productName != null ? poDetailVO.skuId.product.productName + '-' + poDetailVO.skuId.displayName : poDetailVO.skuId.displayName}"></td>
 											<td th:text="${poDetailVO.quantity}"></td>
 											<td th:text="${poDetailVO.unitPrice}"></td>
 											<td th:text="${poDetailVO.subtotal}"></td>
