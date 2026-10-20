@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>FAQ 管理</title>
+
+	<!-- 引入css資源 -->
+	<th:block th:replace="~{admin/index :: adminIndex-css}"></th:block>
+	<style>
+		/* FAQ 管理畫面的文字比後台預設小 1px：只套用在內容區和兩個彈出視窗（faq-screen），側邊欄與上方列不變
+		   Bootstrap 的按鈕、輸入框、標題用 rem（跟著網頁基準字級），不會跟著外層縮小，所以逐一指定；
+		   small、badge、code 是照外層比例，會自動跟著變小 */
+		.faq-screen { font-size: 15px; }
+		.faq-screen .h3 { font-size: 27px; }
+		.faq-screen h5, .faq-screen .modal-title { font-size: 19px; }
+		.faq-screen h6 { font-size: 15px; }
+		.faq-screen .btn, .faq-screen .form-control { font-size: 15px; }
+		.faq-screen .btn-sm, .faq-screen .form-control-sm { font-size: 13px; }
+		.faq-screen .close { font-size: 23px; }
+
+		/* 類別樹：像資料夾一樣一層一層展開，子層往右縮排 */
+		.faq-tree { max-height: 70vh; overflow-y: auto; padding: .5rem; }
+		.faq-tree ul { list-style: none; margin: 0; padding-left: 18px; }
+		.faq-tree > ul { padding-left: 0; }
+		.faq-tree-node { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 4px; cursor: pointer; }
+		.faq-tree-node:hover { background: #eaecf4; }
+		.faq-tree-node.active { background: #4e73df; color: #fff; }
+		.faq-tree-toggle { width: 18px; flex: none; padding: 0; border: 0; background: none; color: inherit; text-align: center; }
+		.faq-tree-folder { color: #f6c23e; }
+		/* 自己或上層停用的類別不會自動回覆，顯示成灰色 */
+		.faq-tree-node.inactive .faq-tree-name { color: #b7b9cc; }
+		.faq-tree-node.active.inactive .faq-tree-name { color: #e3e6f0; }
+
+		/* 右邊標題列：路徑、搜尋框、新增 FAQ 同一行，螢幕太窄時才換行 */
+		.faq-header-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+		.faq-header-row input { width: 240px; max-width: 100%; }
+		/* lg 以上左右並排時，FAQ 表格區的高度由 faq-admin.js 的 fitFaqPanel 填滿到視窗底部，捲軸在表格區內 */
+		.faq-table-area { overflow-y: auto; }
+		.faq-category-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+		/* 類別操作按鈕不能按時變灰色（選「全部類別」時四個都是；刪除類別在有子類別或 FAQ 時也是）；Bootstrap 預設只會變淡 */
+		.faq-category-actions .btn:disabled { color: #858796; border-color: #d1d3e2; background-color: transparent; cursor: not-allowed; }
+		.faq-drag-handle { width: 40px; text-align: center; }
+		/* FAQ 列表的最後修改時間（td 的 class 由 faq-admin.js 的 renderFaqs 加上）；加 .faq-screen 才會蓋過外層的 15px */
+		.faq-screen .faq-time { font-size: 12px; }
+		/* FAQ 列表的操作欄（td 的 class 由 faq-admin.js 的 renderFaqs 加上）：垂直置中，按鈕字縮小、內距變小 */
+		.faq-screen .faq-action { vertical-align: middle; text-align: center; white-space: nowrap; }
+		/* 修改、刪除上下排列：每顆按鈕各佔一行、寬度一樣 */
+		.faq-screen .faq-action .btn { display: block;  width:40px; margin: 0 auto; font-size: 13px; padding: 1px; }
+		/* 第二顆按鈕（刪除）跟上面的修改按鈕留一點間距 */
+		.faq-screen .faq-action .btn + .btn { margin-top: 4px; }
+		/* 即時回覆的題目不能刪除，刪除鈕變灰色；Bootstrap 預設只會變淡 */
+		.faq-action .btn:disabled { color: #858796; border-color: #d1d3e2; background-color: transparent; cursor: not-allowed; }
+		/* 可以拖拉時才顯示抓取游標，搜尋中、全部類別時暫停拖拉是一般游標 */
+		.faq-sortable .faq-drag-handle { cursor: grab; }
+		.faq-drag-ghost { opacity: .4; }
+		.faq-time-column { width: 60px; white-space: nowrap; }
+	</style>
+</head>
+<body id="page-top">
+
+    <!-- Page Wrapper -->
+    <div id="wrapper">
+
+        <!-- 引入側邊欄：FAQ 管理屬於客服聊天室，activeMenu='chat' 讓「客服聊天室」反白 -->
+        <ul th:replace="~{admin/index :: adminIndex-sidebar(activeMenu='chat')}"></ul>
+
+        <!-- Content Wrapper -->
+        <div id="content-wrapper" class="d-flex flex-column">
+
+            <!-- Main Content -->
+            <div id="content">
+
+                <!-- 引入Topbar -->
+                <nav th:replace="~{admin/index :: adminIndex-topbar}"></nav>
+
+                <!-- th:data-base-path 給 js/faq/faq-admin.js 組 API 網址（有設定 context path 時也正確）
+                     th:data-live-questions 是即時回覆的題目（AdminFaqController 用 | 串接），這幾題不能刪除、不能改問題文字 -->
+                <div class="container-fluid faq-screen" id="faq-page" th:data-base-path="@{/}" th:data-live-questions="${liveQuestions}">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h1 class="h3 mb-0 text-gray-800">FAQ 管理</h1>
+                        <a th:href="@{/admin/chat}" class="btn btn-sm btn-secondary"><i class="fas fa-arrow-left mr-1"></i>回客服聊天室</a>
+                    </div>
+                    <p class="text-muted small mb-3">這裡的 FAQ 用在客服聊天室的自動回覆：會員訊息符合 keyword 時自動回覆答案。類別停用後，這個類別和底下子類別的 FAQ 都不會自動回覆。</p>
+
+                    <!-- 列表載入、啟用／停用、拖拉排序的錯誤顯示在這裡；彈出視窗的錯誤顯示在視窗裡 -->
+                    <div class="alert alert-danger d-none" role="alert" id="faq-page-error"></div>
+
+                    <div class="row">
+                        <!-- 左邊：類別樹，一開始只顯示最上層，點 ▸ 展開子類別；點類別名稱選取，右邊列出它的 FAQ -->
+                        <div class="col-lg-3">
+                            <div class="card shadow">
+                                <div class="card-header py-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="m-0 font-weight-bold text-primary">FAQ 類別</h6>
+                                        <button type="button" class="btn btn-sm btn-primary" id="add-category-button"><i class="fas fa-plus mr-1"></i>父類別</button>
+                                    </div>
+                                    <!-- 目前類別的操作：選「全部類別」時仍顯示，但全部變灰不能按；寬度不夠時自動換行 -->
+                                    <div class="faq-category-actions mt-2" id="faq-category-actions">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="edit-category-button">編輯</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="add-child-category-button"><i class="fas fa-plus mr-1"></i>子類別</button>
+                                        <button type="button" class="btn btn-sm" id="toggle-category-button"></button>
+                                        <!-- 只能刪除空的類別：有子類別或 FAQ 時由 faq-admin.js 變灰不能按，後端 FaqService.deleteCategory 也會再檢查 -->
+                                        <button type="button" class="btn btn-sm btn-outline-danger" id="delete-category-button">刪除</button>
+                                    </div>
+                                </div>
+                                <div class="faq-tree" id="category-tree" role="tree" aria-label="FAQ 類別">
+                                    <div class="text-muted">載入中…</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 右邊：選取類別的 FAQ；選了單一類別且沒有搜尋時可以拖拉排序 -->
+                        <div class="col-lg-9">
+                            <div class="card shadow">
+                                <div class="card-header py-3">
+                                    <div class="faq-header-row">
+                                        <h6 class="m-0 font-weight-bold text-primary">
+                                            <span id="faq-current-path">全部類別</span>
+                                            <span class="badge ml-1" id="faq-current-status" hidden></span>
+                                        </h6>
+                                        <!-- ml-auto 把搜尋框和新增 FAQ 推到最右邊（h6 的 m-0 是 !important，不能在 h6 上設 margin） -->
+                                        <input type="search" class="form-control form-control-sm ml-auto" id="faq-search" placeholder="搜尋問題或 keyword" aria-label="搜尋問題或 keyword">
+                                        <button type="button" class="btn btn-sm btn-primary text-nowrap" id="add-faq-button"><i class="fas fa-plus mr-1"></i>新增 FAQ</button>
+                                    </div>
+                                    <small class="text-muted d-block mt-1" id="faq-current-desc" hidden></small>
+                                    <small class="text-muted d-block mt-2" id="faq-drag-hint"></small>
+                                </div>
+                                <div class="card-body table-responsive faq-table-area" id="faq-table-area">
+                                    <table class="table table-bordered table-sm mb-0">
+                                        <thead>
+                                            <tr>
+	                                            <th class="faq-drag-handle"></th>
+	                                            <th id="faq-category-column" hidden>類別</th>
+	                                            <th>問題</th>
+	                                            <th>keyword</th>
+	                                            <th class="faq-time-column">最後修改</th>
+	                                            <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="faq-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 引入Footer -->
+            <footer th:replace="~{admin/index :: adminIndex-footer}"></footer>
+
+        </div>
+    </div>
+
+    <!-- 類別的新增／
+視窗：儲存失敗時錯誤顯示在 category-error，視窗不關閉 -->
+    <div class="modal fade faq-screen" id="category-modal" tabindex="-1" role="dialog" aria-labelledby="category-modal-title" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <form class="modal-content" id="category-form" autocomplete="off">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="category-modal-title">新增類別</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="關閉">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" id="category-error"></div>
+                    <div class="form-group">
+                        <label for="category-name">類別名稱 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="category-name" maxlength="50">
+                    </div>
+                    <div class="form-group">
+                        <label for="category-parent">上層類別</label>
+                        <select class="form-control" id="category-parent"></select>
+                        <small class="form-text text-muted">不會列出自己和自己的子類別，避免設成迴圈</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="category-desc">類別描述</label>
+                        <textarea class="form-control" id="category-desc" rows="3" maxlength="255"></textarea>
+                    </div>
+                    <small class="text-muted" id="category-status-hint">新增的類別預設為停用，請選取類別後按「啟用」才會開始自動回覆</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FAQ 的新增／修改視窗：儲存失敗時錯誤顯示在 faq-error，視窗不關閉 -->
+    <div class="modal fade faq-screen" id="faq-modal" tabindex="-1" role="dialog" aria-labelledby="faq-modal-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <form class="modal-content" id="faq-form" autocomplete="off">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="faq-modal-title">新增 FAQ</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="關閉">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" id="faq-error"></div>
+                    <div class="form-group">
+                        <label for="faq-category">類別 <span class="text-danger">*</span></label>
+                        <select class="form-control" id="faq-category"></select>
+                        <small class="form-text text-muted">可以選停用的類別先準備內容，類別啟用後才會自動回覆</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="faq-question">問題 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="faq-question" maxlength="255">
+                        <!-- 修改即時回覆的題目時由 faq-admin.js 顯示，問題欄位同時設成唯讀；後端 FaqService.updateFaq 也會檢查 -->
+                        <small class="form-text text-warning" id="faq-question-locked" hidden>這題會自動回覆即時活動資料，問題文字不能修改</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="faq-answer">答案 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="faq-answer" rows="5" maxlength="1000"></textarea>
+                        <small class="form-text text-muted">自動回覆最多 1000 字</small>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label for="faq-keyword">keyword</label>
+                        <input type="text" class="form-control" id="faq-keyword" maxlength="255">
+                        <small class="form-text text-muted">
+                            用逗號分隔不同說法，會員訊息符合其中一個就會回覆；用 &amp; 連接的字必須同時出現。<br>
+                            例：<code>運費,免運&amp;多少</code> → 訊息有「運費」，或同時有「免運」和「多少」時回覆
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 刪除 FAQ 的確認視窗：顯示要刪除的問題與類別；刪除失敗時錯誤顯示在 faq-delete-error，視窗不關閉 -->
+    <div class="modal fade faq-screen" id="faq-delete-modal" tabindex="-1" role="dialog" aria-labelledby="faq-delete-modal-title" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="faq-delete-modal-title">刪除 FAQ</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="關閉">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" id="faq-delete-error"></div>
+                    <p>確定要刪除這則 FAQ 嗎？刪除後無法復原</p>
+                    <div>問題：<span id="faq-delete-question"></span></div>
+                    <div>類別：<span id="faq-delete-category"></span></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="faq-delete-confirm">刪除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scroll to Top Button-->
+    <span class="scroll-to-top rounded">
+        <i class="fas fa-angle-up"></i>
+    </span>
+	<!-- 引入js資源 -->
+    <th:block th:replace="~{admin/index :: adminIndex-scripts}"></th:block>
+	<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+	<script th:src="@{/js/faq/faq-admin.js}"></script>
+</body>
+</html>
