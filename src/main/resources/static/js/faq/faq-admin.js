@@ -47,6 +47,33 @@
 	// 刪除確認視窗目前要刪除的 FAQ 編號
 	let deletingFaqId = null;
 
+	const faqMoveModal = $('#faq-move-modal');
+	const faqMoveError = document.getElementById('faq-move-error');
+	const faqMoveQuestion = document.getElementById('faq-move-question');
+	const faqMoveFrom = document.getElementById('faq-move-from');
+	const faqMoveTo = document.getElementById('faq-move-to');
+	const faqMoveInactive = document.getElementById('faq-move-inactive');
+	const faqMoveConfirm = document.getElementById('faq-move-confirm');
+	// 移動確認視窗目前要移動的 FAQ 與目標類別編號
+	let movingFaq = null;
+	let movingTargetId = null;
+
+	// 拖曳 FAQ 到左邊類別樹換類別：拖曳中的 FAQ、游標位置、反白中的類別節點、等待自動展開的節點
+	let draggingFaq = null;
+	let dragPoint = null;
+	let dropTargetNode = null;
+	let hoverExpandKey = null;
+	let hoverExpandTimer = null;
+
+	// 拖曳小圖示：樣板在 faq.html；pointerDownPoint 是按下拖拉圖示的位置，讓小圖示一抓起來就出現在游標旁邊
+	const chipTemplate = document.getElementById('faq-drag-chip-template');
+	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+	let dragChip = null;
+	let pointerDownPoint = null;
+	faqBody.addEventListener('pointerdown', event => {
+		pointerDownPoint = { x: event.clientX, y: event.clientY };
+	}, true);
+
 	let categories = [];
 	let faqs = [];
 	// 目前選取的類別編號；null 代表「全部類別」
@@ -59,12 +86,17 @@
 	let editingCategoryId = null;
 	let editingFaqId = null;
 
-	// 拖拉排序：只能拖左邊的圖示；放開後由 saveOrder 送出新順序
+	// 拖拉 FAQ：只能拖左邊的圖示。放在表格裡是排序（saveOrder），放在左邊沒有子類別的類別上是換類別（openFaqMoveModal）
+	// forceFallback 用滑鼠／觸控事件模擬拖曳，放開時才拿得到準確的游標位置（原生拖曳在部分瀏覽器拿不到）
+	// 不能排序時用 sort:false（仍可拖去換類別），由 renderFaqs 切換
 	const sortable = Sortable.create(faqBody, {
 		handle: '.faq-drag-handle',
 		animation: 150,
 		ghostClass: 'faq-drag-ghost',
-		onEnd: saveOrder
+		fallbackClass: 'faq-drag-fallback',
+		forceFallback: true,
+		onStart: startFaqDrag,
+		onEnd: endFaqDrag
 	});
 
 	async function callApi(path, options) {
@@ -231,6 +263,8 @@
 		item.setAttribute('aria-selected', selectedCategoryId === null);
 		const node = document.createElement('div');
 		node.className = 'faq-tree-node' + (selectedCategoryId === null ? ' active' : '');
+		// 拖曳 FAQ 停在收合的「全部類別」上時用來自動展開（不能放 FAQ）
+		node.dataset.treeAll = 'true';
 
 		let toggle;
 		if (topCategories.length) {
@@ -277,6 +311,8 @@
 		item.setAttribute('aria-selected', selected);
 		const node = document.createElement('div');
 		node.className = 'faq-tree-node' + (selected ? ' active' : '') + (isEffectivelyShown(category) ? '' : ' inactive');
+		// 拖曳 FAQ 放開時用來找出落在哪個類別
+		node.dataset.categoryId = category.faqCategoryId;
 
 		// 有子類別的才有展開箭頭，沒有的放一樣寬的空白讓名稱對齊
 		let toggle;
@@ -408,23 +444,170 @@
 			faqBody.append(row);
 		});
 
-		// 只有選了單一類別、列表全是這個類別自己的 FAQ、而且沒有搜尋時才能拖拉：
+		// 只有選了單一類別、列表全是這個類別自己的 FAQ、而且沒有搜尋時才能在表格裡排序：
 		// sort_order 是同一類別內的順序，混著不同類別或搜尋時只列出部分 FAQ，拖拉後的順序都沒有意義
-		const canDrag = !showAll && !mixed && !searchText && rows.length > 1;
-		sortable.option('disabled', !canDrag);
-		faqBody.classList.toggle('faq-sortable', canDrag);
-		dragHint.textContent = showAll
+		// 不能排序時仍然可以拖，用來把 FAQ 拖到左邊的類別換類別
+		const canSort = !showAll && !mixed && !searchText && rows.length > 1;
+		sortable.option('sort', canSort);
+		faqBody.classList.toggle('faq-sortable', rows.length > 0);
+		dragHint.textContent = (showAll
 			? '在左邊選擇單一類別後才能拖拉排序'
 			: mixed
 				? '列表包含子類別的 FAQ，無法拖拉排序'
 				: searchText
 					? '搜尋中無法拖拉排序，清除搜尋文字後即可拖拉'
-					: '拖拉左側圖示調整順序；兩題的 keyword 符合程度相同時，排在前面的優先回覆';
+					: '拖拉左側圖示調整順序；兩題的 keyword 符合程度相同時，排在前面的優先回覆')
+			+ '。把 FAQ 拖到左邊沒有子類別的類別可以更換類別';
+	}
+
+	// 開始拖曳：記下拖的是哪一則 FAQ，開始追蹤游標位置
+	// forceFallback 是用按住滑鼠移動模擬拖曳，瀏覽器會順便選取經過的文字，所以拖曳期間禁止選取並清掉已選的文字
+	function startFaqDrag(event) {
+		draggingFaq = faqs.find(faq => faq.faqId === Number(event.item.dataset.faqId)) || null;
+		dragPoint = null;
+		document.body.classList.add('faq-dragging');
+		window.getSelection().removeAllRanges();
+		dragChip = createDragChip(event.item, draggingFaq);
+		document.addEventListener('pointermove', trackDragPoint);
+		document.addEventListener('touchmove', trackDragPoint, { passive: true });
+	}
+
+	// 建立拖曳小圖示：出現在按下的位置（游標右下方由 CSS 偏移），沒有記到按下位置時放在那一列的左上角
+	function createDragChip(row, faq) {
+		const rect = row.getBoundingClientRect();
+		const chip = chipTemplate.content.firstElementChild.cloneNode(true);
+		chip.querySelector('.faq-drag-chip-text').textContent = faq ? faq.question : '';
+		moveChip(chip, pointerDownPoint || { x: rect.left, y: rect.top });
+		document.body.append(chip);
+		return chip;
+	}
+
+	function moveChip(chip, point) {
+		chip.style.left = point.x + 'px';
+		chip.style.top = point.y + 'px';
+	}
+
+	// 放開時收掉小圖示：淡出 0.3 秒後移除；減少動態效果時直接移除
+	function releaseDragChip() {
+		const chip = dragChip;
+		dragChip = null;
+		if (!chip) {
+			return;
+		}
+		if (reducedMotion.matches) {
+			chip.remove();
+			return;
+		}
+		chip.classList.add('is-leaving');
+		setTimeout(() => chip.remove(), 300);
+	}
+
+	// 拖曳中游標的位置；觸控事件從 touches 取。小圖示跟著游標移動
+	function trackDragPoint(event) {
+		const point = event.touches ? event.touches[0] : event;
+		if (!point) {
+			return;
+		}
+		dragPoint = { x: point.clientX, y: point.clientY };
+		if (dragChip) {
+			moveChip(dragChip, dragPoint);
+		}
+		updateDropTarget();
+	}
+
+	// 游標底下的類別樹節點；拖曳小圖示和 Sortable 的跟隨列都不會擋住（pointer-events: none）
+	function treeNodeAtPoint() {
+		if (!dragPoint) {
+			return null;
+		}
+		const element = document.elementFromPoint(dragPoint.x, dragPoint.y);
+		const node = element ? element.closest('.faq-tree-node') : null;
+		return node && categoryTree.contains(node) ? node : null;
+	}
+
+	// 可以放 FAQ 的類別：沒有子類別、而且不是這則 FAQ 目前的類別；回傳類別編號，不能放時回傳 null
+	function dropCategoryId(node) {
+		if (!node || !node.dataset.categoryId || !draggingFaq) {
+			return null;
+		}
+		const faqCategoryId = Number(node.dataset.categoryId);
+		return childrenOf(faqCategoryId).length === 0 && faqCategoryId !== draggingFaq.faqCategoryId
+			? faqCategoryId : null;
+	}
+
+	// 停在這個節點上可以自動展開的話回傳它的代號（全部類別是 'all'、其他是類別編號），已經展開或沒有子類別回傳 null
+	function collapsedKey(node) {
+		if (node.dataset.treeAll) {
+			return !allExpanded && categories.length ? 'all' : null;
+		}
+		const faqCategoryId = Number(node.dataset.categoryId);
+		return childrenOf(faqCategoryId).length && !expandedIds.has(faqCategoryId) ? faqCategoryId : null;
+	}
+
+	// 反白游標底下可以放的類別；停在收合的節點上 0.8 秒自動展開，移開就取消
+	function updateDropTarget() {
+		const node = treeNodeAtPoint();
+		const target = dropCategoryId(node) !== null ? node : null;
+		if (target !== dropTargetNode) {
+			if (dropTargetNode) {
+				dropTargetNode.classList.remove('faq-drop-target');
+			}
+			if (target) {
+				target.classList.add('faq-drop-target');
+			}
+			dropTargetNode = target;
+		}
+
+		const expandKey = node ? collapsedKey(node) : null;
+		if (expandKey === hoverExpandKey) {
+			return;
+		}
+		clearTimeout(hoverExpandTimer);
+		hoverExpandKey = expandKey;
+		if (expandKey !== null) {
+			hoverExpandTimer = setTimeout(() => {
+				if (expandKey === 'all') {
+					allExpanded = true;
+				} else {
+					expandedIds.add(expandKey);
+				}
+				// 重畫後節點都換新了，反白要依目前游標位置重新判斷
+				hoverExpandKey = null;
+				dropTargetNode = null;
+				renderTree();
+				updateDropTarget();
+			}, 800);
+		}
+	}
+
+	// 放開：落在可以放的類別上就打開移動確認視窗（表格畫回原本的順序），否則照原本的排序處理
+	function endFaqDrag(event) {
+		document.body.classList.remove('faq-dragging');
+		document.removeEventListener('pointermove', trackDragPoint);
+		document.removeEventListener('touchmove', trackDragPoint);
+		clearTimeout(hoverExpandTimer);
+		hoverExpandKey = null;
+		if (dropTargetNode) {
+			dropTargetNode.classList.remove('faq-drop-target');
+			dropTargetNode = null;
+		}
+		const targetNode = treeNodeAtPoint();
+		const targetId = dropCategoryId(targetNode);
+		const faq = draggingFaq;
+		draggingFaq = null;
+		// 小圖示一律淡出；放到類別上時同時打開確認視窗，不等淡出結束
+		releaseDragChip();
+		if (targetId !== null && faq) {
+			renderFaqs();
+			openFaqMoveModal(faq, targetId);
+			return;
+		}
+		saveOrder(event);
 	}
 
 	// 放開後把這個類別的新順序整批送出；之後重新載入，失敗時畫面回到資料庫裡的順序
 	async function saveOrder(event) {
-		if (event.oldIndex === event.newIndex) {
+		if (!sortable.option('sort') || event.oldIndex === event.newIndex) {
 			return;
 		}
 		const faqIds = Array.from(faqBody.querySelectorAll('tr[data-faq-id]'), row => Number(row.dataset.faqId));
@@ -575,6 +758,42 @@
 			showError(faqDeleteError, error.message);
 		} finally {
 			faqDeleteConfirm.disabled = false;
+		}
+	});
+
+	// 拖到類別後的確認視窗：顯示問題、原類別 → 新類別；新類別停用（含上層停用）時提醒不會自動回覆
+	function openFaqMoveModal(faq, targetId) {
+		movingFaq = faq;
+		movingTargetId = targetId;
+		const fromCategory = findCategory(faq.faqCategoryId);
+		const toCategory = findCategory(targetId);
+		faqMoveQuestion.textContent = faq.question;
+		faqMoveFrom.textContent = fromCategory ? categoryPath(fromCategory) : '';
+		faqMoveTo.textContent = toCategory ? categoryPath(toCategory) : '';
+		faqMoveInactive.hidden = !toCategory || isEffectivelyShown(toCategory);
+		showError(faqMoveError, '');
+		faqMoveModal.modal('show');
+	}
+
+	// 確認移動：用修改 FAQ 的 API 只換類別（排到新類別最後面）；成功後跳到新類別，失敗時錯誤顯示在視窗裡
+	faqMoveConfirm.addEventListener('click', async () => {
+		faqMoveConfirm.disabled = true;
+		try {
+			await postJson('api/admin/chat/faq/items/' + movingFaq.faqId, {
+				faqCategoryId: movingTargetId,
+				question: movingFaq.question,
+				answer: movingFaq.answer,
+				keyword: movingFaq.keyword
+			});
+			faqMoveModal.modal('hide');
+			showError(pageError, '');
+			selectedCategoryId = movingTargetId;
+			expandFrom(movingTargetId);
+			await loadAll();
+		} catch (error) {
+			showError(faqMoveError, error.message);
+		} finally {
+			faqMoveConfirm.disabled = false;
 		}
 	});
 

@@ -37,6 +37,8 @@
 		/* lg 以上左右並排時，FAQ 表格區的高度由 faq-admin.js 的 fitFaqPanel 填滿到視窗底部，捲軸在表格區內 */
 		.faq-table-area { overflow-y: auto; }
 		.faq-category-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+		/* 左邊 FAQ 類別標題列的按鈕（＋父類別、編輯、＋子類別、停用、刪除）比其他按鈕小一號 */
+		.faq-screen .faq-category-header .btn { font-size: 12px; padding: .15rem .45rem; }
 		/* 類別操作按鈕不能按時變灰色（選「全部類別」時四個都是；刪除類別在有子類別或 FAQ 時也是）；Bootstrap 預設只會變淡 */
 		.faq-category-actions .btn:disabled { color: #858796; border-color: #d1d3e2; background-color: transparent; cursor: not-allowed; }
 		.faq-drag-handle { width: 40px; text-align: center; }
@@ -50,9 +52,42 @@
 		.faq-screen .faq-action .btn + .btn { margin-top: 4px; }
 		/* 即時回覆的題目不能刪除，刪除鈕變灰色；Bootstrap 預設只會變淡 */
 		.faq-action .btn:disabled { color: #858796; border-color: #d1d3e2; background-color: transparent; cursor: not-allowed; }
-		/* 可以拖拉時才顯示抓取游標，搜尋中、全部類別時暫停拖拉是一般游標 */
+		/* 列表有 FAQ 時拖拉圖示顯示抓取游標（可以排序，或拖到左邊的類別換類別） */
 		.faq-sortable .faq-drag-handle { cursor: grab; }
 		.faq-drag-ghost { opacity: .4; }
+		/* 拖曳中跟著游標的那一列（SortableJS forceFallback 產生） */
+		/* 改由 faq-admin.js 自建的拖曳小圖示（.faq-drag-chip）顯示，所以隱藏它；Sortable 會在行內設 opacity，要用 !important */
+		.faq-drag-fallback { opacity: 0 !important; }
+		/* 拖曳小圖示：抓起來就是小標籤，游標對齊在 Q 圖示中心（外框 1px + 左內距 12px + 圖示寬一半 8px = 21px；高度一半 15px）
+		   出現時用 faq-chip-pop 以 Q 圖示為中心稍微彈出；放開時加 is-leaving 淡出 0.3 秒
+		   位置用 left/top 直接跟著游標（不加過渡，移動才不會延遲） */
+		.faq-drag-chip {
+			position: fixed; z-index: 2000; pointer-events: none;
+			display: flex; align-items: center; gap: 8px;
+			width: 170px; height: 30px; padding: 0 12px;
+			background: #fff; border: 1px solid #d1d3e2; border-radius: 15px; box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .15);
+			color: #5a5c69; font-size: 12px; white-space: nowrap; overflow: hidden;
+			transform: translate(-21px, -15px); transform-origin: 21px 15px;
+			animation: faq-chip-pop .15s ease-out;
+		}
+		@keyframes faq-chip-pop {
+			from { transform: translate(-21px, -15px) scale(.6); opacity: .4; }
+			to { transform: translate(-21px, -15px) scale(1); opacity: 1; }
+		}
+		.faq-drag-chip-icon { flex: none; }
+		.faq-drag-chip-text { overflow: hidden; text-overflow: ellipsis; }
+		.faq-drag-chip.is-leaving { opacity: 0; transition: opacity .3s ease; }
+		/* 系統設定減少動態效果時不播放動畫 */
+		@media (prefers-reduced-motion: reduce) {
+			.faq-drag-chip { animation: none; }
+			.faq-drag-chip.is-leaving { transition: none; }
+		}
+		/* 拖曳 FAQ 時不要選取到經過的文字（faq-dragging 由 faq-admin.js 在拖曳期間加在 body 上） */
+		body.faq-dragging { user-select: none; }
+		/* 拖拉圖示本身也不能被選取，按下去時不會開始選字 */
+		.faq-drag-handle { user-select: none; }
+		/* 拖曳 FAQ 經過可以放的類別（沒有子類別）時反白 */
+		.faq-tree-node.faq-drop-target { background: #dde6fb; outline: 2px dashed #4e73df; outline-offset: -2px; }
 		.faq-time-column { width: 60px; white-space: nowrap; }
 	</style>
 </head>
@@ -89,7 +124,8 @@
                         <!-- 左邊：類別樹，一開始只顯示最上層，點 ▸ 展開子類別；點類別名稱選取，右邊列出它的 FAQ -->
                         <div class="col-lg-3">
                             <div class="card shadow">
-                                <div class="card-header py-3">
+                                <!-- faq-category-header：這裡的按鈕比其他按鈕小一號 -->
+                                <div class="card-header py-3 faq-category-header">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <h6 class="m-0 font-weight-bold text-primary">FAQ 類別</h6>
                                         <button type="button" class="btn btn-sm btn-primary" id="add-category-button"><i class="fas fa-plus mr-1"></i>父類別</button>
@@ -251,6 +287,43 @@
             </div>
         </div>
     </div>
+
+    <!-- 把 FAQ 拖到左邊類別後的確認視窗：顯示原類別 → 新類別；移動失敗時錯誤顯示在 faq-move-error，視窗不關閉 -->
+    <div class="modal fade faq-screen" id="faq-move-modal" tabindex="-1" role="dialog" aria-labelledby="faq-move-modal-title" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="faq-move-modal-title">移動 FAQ</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="關閉">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" id="faq-move-error"></div>
+                    <p>確定要把這則 FAQ 移到新的類別嗎？</p>
+                    <div>問題：<span id="faq-move-question"></span></div>
+                    <div>原類別：<span id="faq-move-from"></span></div>
+                    <div>新類別：<span id="faq-move-to"></span></div>
+                    <small class="form-text text-warning" id="faq-move-inactive" hidden>這個類別停用中，移過去後不會自動回覆</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="faq-move-confirm">移動</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 拖曳 FAQ 時跟著游標的小圖示：faq-admin.js 的 createDragChip 複製這個樣板，填入問題文字
+         圖示是右上折角的文件加一個 Q，要換樣子直接改這裡的 SVG -->
+    <template id="faq-drag-chip-template">
+        <div class="faq-drag-chip" aria-hidden="true">
+            <svg class="faq-drag-chip-icon" viewBox="0 0 16 20" width="16" height="20">
+                <path d="M2 1h8l5 5v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" fill="#fff" stroke="#4e73df" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M10 1v5h5" fill="none" stroke="#4e73df" stroke-width="1.5" stroke-linejoin="round"/>
+                <text x="8" y="15.5" text-anchor="middle" font-size="8" font-weight="700" fill="#4e73df">Q</text>
+            </svg>
+            <span class="faq-drag-chip-text"></span>
+        </div>
+    </template>
 
     <!-- Scroll to Top Button-->
     <span class="scroll-to-top rounded">
