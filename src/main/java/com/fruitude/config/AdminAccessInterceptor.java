@@ -192,6 +192,9 @@ public class AdminAccessInterceptor implements HandlerInterceptor {
 		if (path.startsWith("/admin/psi")) {
 			return permissions("PRODUCT_VIEW", "PURCHASE_VIEW", "PURCHASE_RECEIVE", "SUPPLIER_MANAGE", "ORDER_EDIT");
 		}
+		if (path.startsWith("/admin/logistics") || path.startsWith("/api/admin/logistics")) {
+			return write ? permissions("LOGISTICS_MANAGE") : permissions("LOGISTICS_VIEW", "LOGISTICS_MANAGE");
+		}
 		if (path.startsWith("/admin/account/purchasereview")) {
 			return write ? permissions("PURCHASE_EDIT") : permissions("PURCHASE_VIEW");
 		}

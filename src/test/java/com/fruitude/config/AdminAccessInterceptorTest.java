@@ -132,4 +132,12 @@ public class AdminAccessInterceptorTest {
 		assertEquals(Set.of("SHIPPING_PROCESS"), AdminAccessInterceptor.requiredPermissions(
 				"/admin/psi/shipping/ship", "POST"));
 	}
+
+	@Test
+	public void logisticsRoutesSeparateViewAndManagementPermissions() {
+		assertEquals(Set.of("LOGISTICS_VIEW", "LOGISTICS_MANAGE"), AdminAccessInterceptor.requiredPermissions(
+				"/admin/logistics", "GET"));
+		assertEquals(Set.of("LOGISTICS_MANAGE"), AdminAccessInterceptor.requiredPermissions(
+				"/api/admin/logistics/shipments", "POST"));
+	}
 }
