@@ -48,6 +48,19 @@ public class CheckoutController {
     		return "redirect:/front/checkout/?error=zip";
     	}
     	form.setShippingZip(form.getShippingZip().trim());
+    	String address = form.getShippingAddress() == null ? "" : form.getShippingAddress().trim();
+    	// 中文：含路/街等與「號」；英文：含門牌數字與 Rd/St/Ave 等道路詞（不分大小寫）
+    	boolean addressOk = address.matches("^(?=.*(路|街|大道|巷|弄|段|村|里))(?=.*號).{6,200}$")
+    			|| address.matches("(?i)^(?=.*\\d)(?=.*\\b(Rd|Road|St|Street|Ave|Avenue|Blvd|Boulevard|Ln|Lane|Alley|Sec|Section|Village)\\b).{6,200}$");
+    	if (!addressOk) {
+    		return "redirect:/front/checkout/?error=address";
+    	}
+    	form.setShippingAddress(address);
+    	String carrier =form.getInvoiceCarrier() == null ? "" : form.getInvoiceCarrier().trim();
+    	if (!carrier.isEmpty() && !carrier.matches("^/[0-9A-Z]{7}$")) {
+    		return "redirect:/front/checkout/?error=carrier";
+    	}
+    	form.setInvoiceCarrier(carrier.isEmpty() ? null : carrier);
     	form.setItems(parseItems(form.getCartItemsJson()));
     	if (form.getItems().isEmpty()) {
     		// 購物車是空的，或 JS 沒能把資料塞進 cartItemsJson，擋回 checkout 頁重填

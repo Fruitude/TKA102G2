@@ -493,7 +493,7 @@
 						<label class="w-commerce-commercecheckoutlabel field-label"
 							for="checkout-invoice-carrier">載具</label><input
 							class="text-field order-input" id="checkout-invoice-carrier"
-							name="invoiceCarrier" form="checkout-form" maxlength="64" type="text" />
+							name="invoiceCarrier" form="checkout-form" maxlength="8" placeholder="/AB12345" type="text" />
 					</fieldset>
 				</div>
 				<div class="w-commerce-commercecheckoutcustomerinfowrapper">
@@ -947,6 +947,12 @@
 			var PHONE_PATTERN = /^(09\d{8}|0[2-8]\d{7,8})(#\d{1,6})?$/;
 			// 帳號@網域.頂級網域，頂級網域至少 2 碼（瀏覽器內建的 type="email" 連 a@b 都會放行）
 			var EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+			// 手機條碼載具：/ 開頭 + 7 碼大寫英文字母或數字
+			var CARRIER_PATTERN = /^\/[0-9A-Z]{7}$/;
+			// 地址：6~200 字，需含 路/街/大道/巷/弄/段/村/里 其中之一，且含「號」
+			var ADDRESS_PATTERN = /^(?=.*(路|街|大道|巷|弄|段|村|里))(?=.*號).{6,200}$/;
+			// 英文地址：需含門牌數字，以及 Rd/Road/St/Street/Ave/Avenue/Blvd/Boulevard/Ln/Lane/Alley/Sec/Section/Village 其中之一（不分大小寫）
+			var ADDRESS_PATTERN_EN = /^(?=.*\d)(?=.*\b(Rd|Road|St|Street|Ave|Avenue|Blvd|Boulevard|Ln|Lane|Alley|Sec|Section|Village)\b).{6,200}$/i;
 			var CARRIER_COOKIE = "invoiceCarrier";
 			var CARRIER_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -1008,8 +1014,20 @@
 			if (new URLSearchParams(location.search).get("error") === "zip") {
 				alert("郵遞區號不正確，請重新確認後再送出");
 			}
+			if (new URLSearchParams(location.search).get("error") === "carrier") {
+				alert("載具格式不正確，請重新確認後再送出");
+			}
+			if (new URLSearchParams(location.search).get("error") === "address") {
+				alert("地址格式不正確，請重新確認後再送出");
+			}
 			var formatChecks = [
 					zipCheck,
+						attachFormatCheck(
+								document.getElementById("checkout-shipping-address"),
+								function(value) {
+									return ADDRESS_PATTERN.test(value)
+											|| ADDRESS_PATTERN_EN.test(value);
+								}, "地址格式不正確，請輸入完整地址，需含路／街與號，例：台北市中山區南京東路一段100號；英文例：No. 100, Sec. 1, Nanjing E. Rd., Taipei City"),
 					attachFormatCheck(document.getElementById("wf-ecom-email"),
 							function(value) {
 								return EMAIL_PATTERN.test(value);
@@ -1019,7 +1037,10 @@
 							function(value) {
 								return PHONE_PATTERN.test(value.replace(
 										/[\s\-()]/g, ""));
-							}, "請輸入台灣手機（09 開頭 10 碼）或含區碼的市話號碼") ];
+							}, "請輸入台灣手機（09 開頭 10 碼）或含區碼的市話號碼"),
+						attachFormatCheck(carrierInput, function(value) {
+							return CARRIER_PATTERN.test(value);
+						}, "載具格式不正確，請輸入手機條碼：/ 開頭加 7 碼大寫英文字母或數字，例：/AB12345") ];
 
 			function readCookie(name) {
 				var match = document.cookie.match(new RegExp("(?:^|; )" + name
