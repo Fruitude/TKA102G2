@@ -38,7 +38,7 @@ public class FrontCatalogService {
         var ratings=new HashMap<Integer,Double>();
         reviewJdbc.query("SELECT s.product_id,ROUND(AVG(d.comment_star),1) AS rating FROM orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id "
             +"WHERE s.product_id IN (:ids) AND d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5 "
-            +"AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' GROUP BY s.product_id",
+            +"GROUP BY s.product_id",
             Map.of("ids",products.stream().map(ProductView::productId).toList()),rs->{ratings.put(rs.getInt("product_id"),rs.getDouble("rating"));});
         return products.stream().map(p->new ProductView(p.productId(),p.name(),p.description(),p.price(),p.originalPrice(),p.skuId(),p.imageId(),
             p.giftBox(),p.skus(),p.stock(),ratings.getOrDefault(p.productId(),0.0))).toList();
@@ -311,7 +311,7 @@ public class FrontCatalogService {
             FROM product p LEFT JOIN vendor v ON v.vendor_id=p.vendor_id
             LEFT JOIN (SELECT s.product_id,AVG(d.comment_star) rating FROM orders_detail d
               JOIN product_sku s ON s.sku_id=d.sku_id WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5
-              AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' GROUP BY s.product_id) r ON r.product_id=p.product_id
+              GROUP BY s.product_id) r ON r.product_id=p.product_id
             WHERE p.product_id IN (:ids)
             """,params,(r,n)->new SearchMeta(r.getInt("product_id"),r.getObject("product_category_id",Integer.class),r.getObject("vendor_id",Integer.class),r.getString("vendor_name"),r.getString("origin").strip(),r.getDouble("rating")));
         params.put("searchSkuIds",products.stream().flatMap(p->p.skus().stream()).filter(s->s.stock()>0 && Set.of(1,2,3,6).contains(s.skuStatus())).map(SkuView::skuId).distinct().toList());
@@ -481,7 +481,6 @@ public class FrontCatalogService {
     private static final String FROM = " FROM orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id "
         +"JOIN orders o ON o.orders_id=d.orders_id LEFT JOIN member m ON m.member_id=o.member_id "
         +"WHERE s.product_id=:id AND d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5 "
-        +"AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>'' "
         +"AND EXISTS (SELECT 1 FROM product p JOIN product_sku sale ON sale.product_id=p.product_id "
         +"WHERE p.product_id=s.product_id AND sale.price>0 AND ((p.status=1 AND sale.status IN (1,2,3,6)) OR (p.status=2 AND sale.status=6))) ";
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)

@@ -206,7 +206,7 @@
         head.appendChild(stars);
         card.appendChild(head);
         card.appendChild(text("div", "order-card-date", (review.commentDate || "").replace("T", " ").substring(0, 16)));
-        card.appendChild(text("p", "review-card-text", review.commentText));
+        if (review.commentText) card.appendChild(text("p", "review-card-text", review.commentText));
 
         var foot = document.createElement("div");
         foot.className = "review-card-foot";

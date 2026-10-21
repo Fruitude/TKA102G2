@@ -374,7 +374,7 @@ public class OrdersService {
 		Map<Integer, List<MemberOrderView.Item>> itemsByOrders = new HashMap<>();
 		for (OrdersDetail d : details) {
 			// 每張訂單的每個商品各可評論一次：這筆明細已有評論內容就算已評論
-			boolean reviewed = d.getCommentText() != null && !d.getCommentText().isBlank();
+			boolean reviewed = d.getCommentStar() != null;
 			String itemName = skuNames.get(d.getSkuId());
 			if (itemName == null || itemName.isBlank()) {
 				itemName = d.getProductName();

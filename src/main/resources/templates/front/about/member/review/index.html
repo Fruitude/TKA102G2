@@ -161,12 +161,8 @@
         head.appendChild(meta);
         card.appendChild(head);
 
-        if (item.commentText) {
-          renderDone(card, item.commentStar, item.commentText, "已評論");
-          return card;
-        }
         if (item.reviewed) {
-          card.appendChild(el("div", "review-done", "您已評論過這個商品"));
+          renderDone(card, item.commentStar, item.commentText, "已評論");
           return card;
         }
 
@@ -191,7 +187,7 @@
 
         var area = el("textarea", "review-text");
         area.maxLength = MAX_LENGTH;
-        area.placeholder = "說說您對這個商品的感受（最多 " + MAX_LENGTH + " 字）";
+        area.placeholder = "說說您對這個商品的感受（選填，最多 " + MAX_LENGTH + " 字）";
         form.appendChild(area);
 
         var foot = el("div", "review-foot");
@@ -210,7 +206,6 @@
           var content = area.value.trim();
           message.className = "review-message";
           if (star < 1) { message.textContent = "請先選擇星數"; return; }
-          if (!content) { message.textContent = "請輸入評論內容"; return; }
           if (content.length > MAX_LENGTH) { message.textContent = "評論內容最多 " + MAX_LENGTH + " 字"; return; }
           submit.disabled = true;
           fetch(apiUrl, {

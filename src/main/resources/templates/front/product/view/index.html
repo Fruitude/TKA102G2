@@ -232,7 +232,7 @@
   <div class="pv-review-body"><div class="pv-review-member"><span th:text="${review.account}"></span><time th:if="${review.date != null}" th:text="${#temporals.format(review.date,'yyyy-MM-dd')}"></time></div>
     <span class="pv-rating pv-review-stars" role="img" th:attr="aria-label=${review.stars + ' 顆星'}"><span class="pv-rating-empty" aria-hidden="true">★★★★★</span><span class="pv-rating-filled" aria-hidden="true" th:style="${'width:' + (review.stars * 20) + '%'}">★★★★★</span></span>
     <div class="pv-review-sku" th:text="${'購買規格：' + review.skuName}"></div>
-    <p class="pv-review-text" th:text="${review.text}"></p><button type="button" class="pv-review-report" th:if="${review.reviewId!=null}" th:attr="data-review-report=${review.reviewId}" aria-haspopup="dialog">檢舉</button>
+    <p class="pv-review-text" th:if="${!#strings.isEmpty(review.text)}" th:text="${review.text}"></p><button type="button" class="pv-review-report" th:if="${review.reviewId!=null}" th:attr="data-review-report=${review.reviewId}" aria-haspopup="dialog">檢舉</button>
   </div>
 </article>
 </div>
