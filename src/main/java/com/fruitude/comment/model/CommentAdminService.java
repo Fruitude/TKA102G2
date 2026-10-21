@@ -124,8 +124,8 @@ public class CommentAdminService {
 
 	private String buildWhere(String keyword, Integer status, Boolean handled, Integer rating,
 			LocalDate startDate, LocalDate endDate, MapSqlParameterSource parameters) {
-		StringBuilder where = new StringBuilder(" WHERE detail.comment_text IS NOT NULL "
-				+ "AND TRIM(detail.comment_text) <> '' AND detail.comment_status IN (1, 2, 3) ");
+		StringBuilder where = new StringBuilder(" WHERE detail.comment_star IS NOT NULL "
+				+ "AND detail.comment_status IN (1, 2, 3) ");
 		String cleanKeyword = keyword == null ? "" : keyword.trim();
 		if (!cleanKeyword.isEmpty()) {
 			where.append("AND (LOWER(detail.product_name) LIKE LOWER(CONCAT('%', :keyword, '%')) ")
@@ -166,7 +166,7 @@ public class CommentAdminService {
 				+ "COALESCE(SUM(detail.comment_status = 3), 0) AS hidden_count, "
 				+ "COALESCE(SUM(moderation_log.audit_id IS NOT NULL), 0) AS handled_count "
 				+ COMMENT_FROM
-				+ "WHERE detail.comment_text IS NOT NULL AND TRIM(detail.comment_text) <> '' "
+				+ "WHERE detail.comment_star IS NOT NULL "
 				+ "AND detail.comment_status IN (1, 2, 3)", new MapSqlParameterSource());
 		Map<String, Object> summary = new LinkedHashMap<>();
 		summary.put("total", number(values.get("total_count")));

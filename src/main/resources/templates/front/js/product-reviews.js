@@ -35,7 +35,7 @@
     filled.style.width = Math.max(0, Math.min(5, review.stars)) * 20 + '%';
     stars.append(empty, filled); body.append(stars);
     body.append(element('div', 'pv-review-sku', '購買規格：' + (review.skuName || '')));
-    body.append(element('p', 'pv-review-text', review.text));if(review.reviewId){var report=element('button','pv-review-report','檢舉');report.type='button';report.dataset.reviewReport=review.reviewId;report.setAttribute('aria-haspopup','dialog');body.append(report);}row.append(body); list.append(row);
+    if(review.text)body.append(element('p', 'pv-review-text', review.text));if(review.reviewId){var report=element('button','pv-review-report','檢舉');report.type='button';report.dataset.reviewReport=review.reviewId;report.setAttribute('aria-haspopup','dialog');body.append(report);}row.append(body); list.append(row);
   }
   function renderSummary(data) {
     document.getElementById('pv-reviews-dialog-average').textContent = Number(data.average).toFixed(1);

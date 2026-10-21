@@ -44,7 +44,6 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = """
         SELECT s.product_id FROM orders_detail d JOIN product_sku s ON s.sku_id=d.sku_id
         WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5
-          AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>''
         GROUP BY s.product_id
         ORDER BY AVG(d.comment_star) DESC, COUNT(*) DESC, s.product_id ASC
         """, nativeQuery = true)
@@ -93,7 +92,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
                s.max_backorder_qty AS maxBackorderQty
         FROM product p JOIN product_sku s ON s.product_id = p.product_id
         LEFT JOIN (SELECT rs.product_id,AVG(d.comment_star) AS average FROM orders_detail d JOIN product_sku rs ON rs.sku_id=d.sku_id
-          WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5 AND d.comment_text IS NOT NULL AND TRIM(d.comment_text)<>''
+          WHERE d.comment_status IN(1,2) AND d.comment_star BETWEEN 1 AND 5
           GROUP BY rs.product_id) rating ON rating.product_id=p.product_id
         WHERE ((p.status = 1 AND s.status IN (1,2,3,4,6)) OR (p.status = 2 AND s.status = 6)) AND s.price > 0
           AND EXISTS (SELECT 1 FROM product_sku sale WHERE sale.product_id = p.product_id AND sale.price > 0

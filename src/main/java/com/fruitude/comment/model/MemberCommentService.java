@@ -65,10 +65,11 @@ public class MemberCommentService {
 		// 顯示規格名稱（例如「香水草莓250g一般盒」）；查不到規格才退回訂單明細上的品名
 		Map<Integer, String> skuNames = new HashMap<>();
 		for (ProductSku sku : productSkuRepository.findAllById(skuIds)) {
-			skuNames.put(sku.getSkuId(), ProductSku.resolveDisplayName(sku.getSkuName(), sku.getAnotherName()));
+			skuNames.put(sku.getSkuId(), displayName(sku));
 		}
 		for (OrdersDetail d : details) {
-			boolean reviewed = hasText(d.getCommentText());
+			// 評論內容可以留空，所以以有沒有星數判斷是否已評論
+			boolean reviewed = d.getCommentStar() != null;
 			String itemName = skuNames.get(d.getSkuId());
 			if (!hasText(itemName)) {
 				itemName = d.getProductName();
@@ -100,7 +101,7 @@ public class MemberCommentService {
 		List<OrdersDetail> reviewed = new ArrayList<>();
 		if (!ordersIds.isEmpty()) {
 			for (OrdersDetail d : ordersDetailRepository.findByOrdersIdIn(ordersIds)) {
-				if (hasText(d.getCommentText())) {
+				if (d.getCommentStar() != null) {
 					reviewed.add(d);
 				}
 			}
@@ -125,7 +126,7 @@ public class MemberCommentService {
 		}
 		Map<Integer, String> skuNames = new HashMap<>();
 		for (ProductSku sku : productSkuRepository.findAllById(skuIds)) {
-			skuNames.put(sku.getSkuId(), ProductSku.resolveDisplayName(sku.getSkuName(), sku.getAnotherName()));
+			skuNames.put(sku.getSkuId(), displayName(sku));
 		}
 		List<MyReview> result = new ArrayList<>();
 		for (OrdersDetail d : pageRows) {
@@ -150,14 +151,12 @@ public class MemberCommentService {
 		if (star == null || star < 1 || star > 5) {
 			throw new IllegalArgumentException("請選擇 1 到 5 顆星");
 		}
+		// 評論內容可以留空，空白就照樣記錄成空字串
 		String content = text == null ? "" : text.trim();
-		if (content.isEmpty()) {
-			throw new IllegalArgumentException("請輸入評論內容");
-		}
 		if (content.length() > MAX_TEXT_LENGTH) {
 			throw new IllegalArgumentException("評論內容最多 " + MAX_TEXT_LENGTH + " 字");
 		}
-		if (hasText(detail.getCommentText())) {
+		if (detail.getCommentStar() != null) {
 			throw new DuplicateReviewException("這張訂單的這個商品您已經評論過了");
 		}
 		detail.setCommentStar(star);
@@ -196,6 +195,16 @@ public class MemberCommentService {
 			throw new IllegalArgumentException("這張訂單目前還不能評論");
 		}
 		return orders;
+	}
+
+	// 規格名稱前面補上商品名稱（例如「香水草莓 500g精選禮盒」）；規格名稱已含商品名稱就不重複
+	private static String displayName(ProductSku sku) {
+		String skuName = ProductSku.resolveDisplayName(sku.getSkuName(), sku.getAnotherName());
+		String productName = sku.getProduct() == null ? null : sku.getProduct().getProductName();
+		if (hasText(productName) && hasText(skuName) && !skuName.contains(productName)) {
+			return productName + " " + skuName;
+		}
+		return skuName;
 	}
 
 	private static boolean hasText(String s) {
