@@ -124,6 +124,7 @@
 
 .admin-review-menu {
     width: min(350px, calc(100vw - 24px));
+    min-width: min(300px, calc(100vw - 16px));
     padding: 0;
     overflow: hidden;
 }
@@ -140,11 +141,13 @@
 
 .admin-review-heading strong {
     font-size: .78rem;
+    white-space: nowrap;
 }
 
 .admin-review-heading span {
     color: rgba(255, 255, 255, .82);
     font-size: .7rem;
+    white-space: nowrap;
 }
 
 .admin-review-row {
@@ -190,11 +193,14 @@
 .admin-review-copy strong,
 .admin-review-copy span {
     display: block;
+    overflow-wrap: normal;
+    word-break: keep-all;
 }
 
 .admin-review-copy strong {
     color: #343846;
     font-size: .82rem;
+    white-space: nowrap;
 }
 
 .admin-review-copy span {
@@ -205,6 +211,7 @@
 
 .admin-review-count {
     min-width: 28px;
+    flex: 0 0 auto;
     color: #c34554;
     font-size: .95rem;
     font-weight: 800;

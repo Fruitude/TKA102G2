@@ -656,9 +656,143 @@
     border: 1px solid var(--employee-line);
 }
 
+.employee-application-table-wrap {
+    overflow-x: hidden;
+}
+
 .employee-table {
     min-width: 1080px;
     color: var(--employee-ink);
+}
+
+/* 員工帳號列表在目前視窗內完整顯示操作欄；只限員工帳號分頁。 */
+.employee-account-table {
+    min-width: 0;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.employee-account-table th:nth-child(1),
+.employee-account-table td:nth-child(1) { width: 17%; }
+.employee-account-table th:nth-child(2),
+.employee-account-table td:nth-child(2) { width: 21%; }
+.employee-account-table th:nth-child(3),
+.employee-account-table td:nth-child(3) { width: 14%; }
+.employee-account-table th:nth-child(4),
+.employee-account-table td:nth-child(4) { width: 10%; }
+.employee-account-table th:nth-child(5),
+.employee-account-table td:nth-child(5) { width: 9%; }
+.employee-account-table th:nth-child(6),
+.employee-account-table td:nth-child(6) { width: 17%; }
+.employee-account-table th:nth-child(7),
+.employee-account-table td:nth-child(7) { width: 12%; }
+
+.employee-account-table .employee-person,
+.employee-account-table .employee-contact {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.employee-account-table .employee-person > div,
+.employee-account-table .employee-primary,
+.employee-account-table .employee-secondary {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.employee-account-table .employee-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+/* 員工申請只有五欄，依容器寬度分配欄位，避免為了固定最小寬度產生左右捲軸。 */
+.employee-application-table {
+    min-width: 0;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.employee-application-table th:nth-child(1),
+.employee-application-table td:nth-child(1) {
+    width: 17%;
+}
+
+.employee-application-table th:nth-child(2),
+.employee-application-table td:nth-child(2) {
+    width: 24%;
+}
+
+.employee-application-table th:nth-child(3),
+.employee-application-table td:nth-child(3) {
+    width: 27%;
+}
+
+.employee-application-table th:nth-child(4),
+.employee-application-table td:nth-child(4) {
+    width: 18%;
+}
+
+.employee-application-table th:nth-child(5),
+.employee-application-table td:nth-child(5) {
+    width: 14%;
+}
+
+.employee-application-table .employee-person,
+.employee-application-table .employee-contact {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.employee-application-table .employee-person > div {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.employee-application-table .employee-primary,
+.employee-application-table .employee-secondary {
+    overflow-wrap: anywhere;
+}
+
+.employee-application-table .employee-application-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.employee-application-table td {
+    overflow-wrap: anywhere;
+}
+
+.employee-application-table .employee-application-position {
+    width: 100%;
+    min-width: 0;
+}
+
+.employee-application-table .employee-application-original-position {
+    white-space: normal;
+}
+
+@media (max-width: 900px) {
+    .employee-application-table {
+        table-layout: auto;
+    }
+
+    .employee-application-table th,
+    .employee-application-table td {
+        padding: .75rem .6rem;
+    }
+
+    .employee-application-table th:nth-child(1),
+    .employee-application-table td:nth-child(1),
+    .employee-application-table th:nth-child(2),
+    .employee-application-table td:nth-child(2),
+    .employee-application-table th:nth-child(3),
+    .employee-application-table td:nth-child(3),
+    .employee-application-table th:nth-child(4),
+    .employee-application-table td:nth-child(4),
+    .employee-application-table th:nth-child(5),
+    .employee-application-table td:nth-child(5) {
+        width: auto;
+    }
 }
 
 .employee-table thead th {

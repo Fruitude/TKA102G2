@@ -109,10 +109,16 @@
 		}
 
 		.auth-panel-copy {
-			margin: 0 0 20px;
+			max-width: 28em;
+			margin: 0 auto 20px;
 			color: #676767;
 			line-height: 1.7;
 			text-align: center;
+			text-wrap: balance;
+		}
+
+		.auth-panel-copy span {
+			display: block;
 		}
 
 		.auth-back-button {
@@ -516,7 +522,7 @@
 				</form>
 				<form class="login-form auth-panel" id="forgot-password-form" hidden>
 					<h1 class="heading-h3 margin-bottom-16 centered-text">忘記密碼</h1>
-					<p class="auth-panel-copy">輸入註冊時使用的電子郵件，我們會寄送一次性密碼重設連結。</p>
+					<p class="auth-panel-copy"><span>輸入註冊時使用的電子郵件，</span><span>我們會寄送一次性密碼重設連結。</span></p>
 					<div class="sign-up-elements-grid">
 						<div class="_100-width">
 							<label class="field-label" for="forgot-email">電子郵件 *</label>
@@ -532,7 +538,7 @@
 				</form>
 				<form class="login-form auth-panel" id="reset-password-form" hidden>
 					<h1 class="heading-h3 margin-bottom-16 centered-text">設定新密碼</h1>
-					<p class="auth-panel-copy">新密碼需為 8～72 個字，完成後原本的重設連結會立即失效。</p>
+					<p class="auth-panel-copy"><span>新密碼需為 8～72 個字，</span><span>完成後原本的重設連結會立即失效。</span></p>
 					<div class="sign-up-elements-grid">
 						<div class="_100-width">
 							<label class="field-label" for="new-password">新密碼 *</label>
